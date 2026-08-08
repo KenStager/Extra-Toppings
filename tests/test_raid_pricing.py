@@ -313,6 +313,11 @@ class TestNoiseTimeout(unittest.TestCase):
                 self.assertEqual(v.alertness, 1.0,
                                  "a timeout hardens like an abort (+1), "
                                  "not a success (+2)")
+                home = data.RIVALS["vinnie"]["home"]
+                self.assertEqual(state.heat(home), 18.0,
+                                 "abort heat (+8) is part of the promise")
+                self.assertEqual(v.relation, -20.0,
+                                 "abort relation (-10) is part of the promise")
                 self.assertIn("nothing but your skins", text)
             elif state.raids_led == 1:
                 successes += 1
@@ -320,6 +325,30 @@ class TestNoiseTimeout(unittest.TestCase):
                            "no early timeout reproduced in 150 seeds")
         self.assertGreater(successes, 0,
                            "the fix must not kill successful jobs")
+
+    def test_final_room_crossing_is_a_loud_success(self):
+        """The deliberate exception: crossing the noise threshold in the
+        FINAL room completes the job — loudly. The objective is awarded,
+        the job is counted, witnesses feed the Case (+5), and the target
+        hardens at success grade (+2), not abort grade."""
+        found = 0
+        for seed in range(150):
+            state, text = self._noisy_run(seed)
+            v = state.rivals["vinnie"]
+            loud = any("witnesses describe" in f for f in state.case_flags)
+            if "Time's up" not in text and state.raids_led == 1 and loud:
+                found += 1
+                self.assertEqual(v.strength,
+                                 data.RIVALS["vinnie"]["strength"] - 12,
+                                 "the objective must be awarded")
+                self.assertEqual(v.alertness, 2.0,
+                                 "a loud completion hardens like a success "
+                                 "(+2), not an abort (+1)")
+                self.assertEqual(state.case, 5.0,
+                                 "the loud exit is priced: witness Case +5, "
+                                 "and nothing else on a first job")
+        self.assertGreater(found, 0,
+                           "no final-room crossing reproduced in 150 seeds")
 
 
 class TestPatternDisplayHonesty(unittest.TestCase):
