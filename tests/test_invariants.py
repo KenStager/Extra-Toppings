@@ -69,11 +69,12 @@ class TestDeterminism(unittest.TestCase):
         def world_trace(bot):
             trace = []
             orig_night = phases.night
-            def spy_night(state, plans, report, con, streams):
+            def spy_night(state, plans, report, con, streams, *args, **kwargs):
                 trace.append((state.day,
                               tuple(sorted(e.spec["id"] for e in state.events)),
                               tuple(state.demand_today for _ in (1,))))
-                return orig_night(state, plans, report, con, streams)
+                return orig_night(state, plans, report, con, streams,
+                                  *args, **kwargs)
             phases.night = spy_night
             try:
                 run(77, bot, max_days=8)

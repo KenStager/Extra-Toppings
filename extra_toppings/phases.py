@@ -8,7 +8,8 @@ by anything the player does. Player-facing dice use persistent streams.
 import random
 
 from . import data, market, raids, rivals, routes, shop
-from .models import State
+from .config import GameConfig
+from .models import SitdownSnapshot, State
 from .rng import Streams
 from .ui import Console, money
 
@@ -428,7 +429,7 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
 # ══ NIGHT ═════════════════════════════════════════════════════════
 
 def night(state: State, plans: dict, service_report: dict, con: Console,
-          streams: Streams) -> None:
+          streams: Streams, config: GameConfig | None = None) -> None:
     con.header(f"DAY {state.day} — AFTER CLOSE")
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
@@ -494,6 +495,19 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             rivals.negotiate(state, con, streams.rivals)
         else:
             break
+
+    # §2.1 rev. 4: chair eligibility freezes at lock-up on payoff night —
+    # after every discretionary account action, before the world's dice.
+    # The flag gates ENTRY only (rev. 5): capture happens while it's on;
+    # a snapshot already in a save stays authoritative regardless.
+    if config is not None and config.fork_enabled \
+            and state.debt_paid_day == state.day \
+            and state.sitdown_snapshot is None and state.branch is None \
+            and not state.game_over:
+        state.sitdown_snapshot = SitdownSnapshot(
+            payoff_day=state.day,
+            case_at_lockup=state.case,
+            evidence_count_at_lockup=len(state.evidence))
 
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))

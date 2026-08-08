@@ -1,0 +1,472 @@
+"""P1a foundation: the fork's skeleton, proven inert until entered.
+
+GameConfig (flag gates entry, never continuation), the SitdownSnapshot
+frozen at lock-up, the pure chair evaluator, the deterministic sit-down
+scene with stand-pat as the only actionable chair, BranchState
+constructors and validation, and the save-layer round trips — per
+design §8 revisions 4 and 5. The behavioral gates are the equivalence
+harness's two modes (`check` flag-off against the untouched goldens,
+`standpat` paired flag-on); these tests pin the semantics themselves.
+"""
+
+import random
+import unittest
+from dataclasses import FrozenInstanceError
+
+from extra_toppings import data, game, phases, save, sitdown
+from extra_toppings.bot import GreedyBot
+from extra_toppings.config import GameConfig
+from extra_toppings.models import (BranchState, Evidence, SitdownSnapshot,
+                                   new_state, validate_branch_state)
+from extra_toppings.rng import Streams
+from extra_toppings.ui import BotConsole, ScriptedConsole
+
+FORK_ON = GameConfig(fork_enabled=True)
+
+
+class CaptureConsole(ScriptedConsole):
+    """Scripted answers plus everything shown, in order; menu prompts are
+    tagged so ordering against prose lines can be asserted."""
+
+    def __init__(self, script=None):
+        super().__init__(script)
+        self.lines: list = []
+
+    def say(self, text=""):
+        self.lines.append(text)
+
+    def bullet(self, text):
+        self.lines.append(f"• {text}")
+
+    def menu(self, prompt, options):
+        self.lines.append(f"[menu] {prompt}")
+        return super().menu(prompt, options)
+
+    def find(self, fragment):
+        for i, line in enumerate(self.lines):
+            if fragment in line:
+                return i
+        return None
+
+    def menu_count(self):
+        return sum(1 for line in self.lines if line.startswith("[menu]"))
+
+
+class SceneAbort(Exception):
+    pass
+
+
+class AbortingConsole(CaptureConsole):
+    """Answers `allowed` scene menus, then bails — a stand-in for the
+    player quitting mid-scene before any selection commits."""
+
+    def __init__(self, script=None, allowed=1):
+        super().__init__(script)
+        self.allowed = allowed
+
+    def scene_menu(self, namespace, prompt, options):
+        if self.allowed <= 0:
+            raise SceneAbort()
+        self.allowed -= 1
+        return super().scene_menu(namespace, prompt, options)
+
+
+def run_night(state, script, seed=1, config=None):
+    con = CaptureConsole(list(script))
+    phases.night(state, {}, {}, con, Streams(seed), config)
+    return con
+
+
+def scene_state(payoff_day=13, case=20.0, evidence=None):
+    """A state standing at the sit-down morning with a pending snapshot."""
+    state = new_state()
+    state.debt = 0
+    state.debt_paid_day = payoff_day
+    state.day = payoff_day + 1
+    for day, magnitude, why in (evidence or []):
+        state.evidence.append(Evidence(day=day, magnitude=magnitude,
+                                       kind="physical", why=why))
+    state.sitdown_snapshot = SitdownSnapshot(
+        payoff_day=payoff_day, case_at_lockup=case,
+        evidence_count_at_lockup=len(state.evidence))
+    return state
+
+
+# ══ GameConfig ════════════════════════════════════════════════════
+
+class TestGameConfig(unittest.TestCase):
+    def test_defaults_are_fork_off_no_branches(self):
+        cfg = GameConfig()
+        self.assertFalse(cfg.fork_enabled)
+        self.assertEqual(cfg.enabled_branches, frozenset())
+
+    def test_config_is_immutable(self):
+        with self.assertRaises(FrozenInstanceError):
+            GameConfig().fork_enabled = True  # type: ignore[misc]
+
+
+# ══ The lock-up snapshot ══════════════════════════════════════════
+
+class TestSnapshotCapture(unittest.TestCase):
+    """§2.1 rev. 4 through the real night phase: frozen when the player
+    locks up, after every discretionary account action, before the
+    world's dice."""
+
+    def payoff_night(self, script, case=55.0, dirty=0, clean=1500,
+                     debt=1000, seed=1, config=FORK_ON):
+        state = new_state()
+        state.day = 12
+        state.debt = debt
+        state.clean = clean
+        state.dirty = dirty
+        if case:
+            state.add_case(case, "prior seizures", kind="physical")
+        run_night(state, script, seed=seed, config=config)
+        return state
+
+    def test_snapshot_freezes_at_lockup_on_payoff_night(self):
+        state = self.payoff_night([1, 1000, 4])
+        snap = state.sitdown_snapshot
+        self.assertIsNotNone(snap)
+        self.assertEqual(snap.payoff_day, 12)
+        self.assertEqual(snap.case_at_lockup, 55.0)
+        self.assertEqual(snap.evidence_count_at_lockup, 1)
+
+    def test_paying_then_overwashing_cannot_dodge_the_snapshot(self):
+        # The rev. 4 exploit, replayed: pay the final dollar at Case 65,
+        # over-launder to 85 afterward, then lock up. The snapshot reads
+        # 85 and both Case-gated chairs close — ordering buys nothing.
+        state = self.payoff_night([1, 1000, 0, 12000, 4],
+                                  case=65.0, dirty=12000)
+        snap = state.sitdown_snapshot
+        self.assertEqual(snap.case_at_lockup, 85.0)
+        verdicts = {v.chair: v for v in
+                    sitdown.evaluate_chairs(snap, state.evidence)}
+        self.assertFalse(verdicts["partner"].available)
+        self.assertFalse(verdicts["quiet_sale"].available)
+        self.assertIn("register", verdicts["quiet_sale"].closed_by)
+
+    def test_world_dice_after_lockup_do_not_reach_the_snapshot(self):
+        # Pay and lock up at 65; the rival/law phases may accrue after.
+        # Wherever they do, the snapshot keeps 65 and the offers stand.
+        for seed in range(80):
+            state = new_state()
+            state.day = 12
+            state.debt = 1000
+            state.clean = 1500
+            state.districts[data.HOME_DISTRICT].heat = 100
+            state.shop_stash = {"mushrooms": 5}
+            state.add_case(65.0, "prior seizures", kind="physical")
+            run_night(state, [1, 1000, 4], seed=seed, config=FORK_ON)
+            if state.case > 65.0:
+                snap = state.sitdown_snapshot
+                self.assertEqual(snap.case_at_lockup, 65.0)
+                verdicts = {v.chair: v for v in
+                            sitdown.evaluate_chairs(snap, state.evidence)}
+                self.assertTrue(verdicts["partner"].available)
+                return
+        self.fail("no seed accrued world evidence after lock-up")
+
+    def test_flag_off_captures_nothing(self):
+        state = self.payoff_night([1, 1000, 4], config=None)
+        self.assertIsNone(state.sitdown_snapshot)
+        state = self.payoff_night([1, 1000, 4], config=GameConfig())
+        self.assertIsNone(state.sitdown_snapshot)
+
+    def test_no_capture_without_a_payoff_tonight(self):
+        state = self.payoff_night([0, 0, 4], debt=50000)
+        self.assertIsNone(state.sitdown_snapshot)
+
+
+# ══ The pure chair evaluator ══════════════════════════════════════
+
+class TestChairEvaluator(unittest.TestCase):
+    def verdicts(self, payoff_day, case=0.0, evidence=(), count=None):
+        records = [Evidence(day=d, magnitude=m, kind="physical", why=w)
+                   for d, m, w in evidence]
+        snap = SitdownSnapshot(
+            payoff_day=payoff_day, case_at_lockup=case,
+            evidence_count_at_lockup=count if count is not None
+            else len(records))
+        return {v.chair: v for v in sitdown.evaluate_chairs(snap, records)}
+
+    def test_early_payoff_seats_every_chair(self):
+        v = self.verdicts(13)
+        for chair in ("straight", "partner", "war", "quiet_sale", "stand_pat"):
+            self.assertTrue(v[chair].available, chair)
+
+    def test_payoff_21_withholds_only_the_partner(self):
+        v = self.verdicts(21)                      # R = 9
+        self.assertFalse(v["partner"].available)
+        self.assertIn("no time to build", v["partner"].reason)
+        for chair in ("straight", "war", "quiet_sale"):
+            self.assertTrue(v[chair].available, chair)
+
+    def test_payoff_23_withholds_the_war_too(self):
+        v = self.verdicts(23)                      # R = 7
+        self.assertFalse(v["war"].available)
+        self.assertIn("wars outlive months", v["war"].reason)
+
+    def test_payoff_25_leaves_straight_sale_and_standing(self):
+        v = self.verdicts(25)                      # R = 5 — design edge case
+        self.assertTrue(v["straight"].available)
+        self.assertTrue(v["quiet_sale"].available)
+        self.assertTrue(v["stand_pat"].available)
+        self.assertFalse(v["partner"].available)
+        self.assertFalse(v["war"].available)
+
+    def test_case_gates_close_at_their_exact_thresholds(self):
+        self.assertTrue(self.verdicts(13, case=69.9)["partner"].available)
+        self.assertFalse(self.verdicts(13, case=70.0)["partner"].available)
+        self.assertTrue(self.verdicts(13, case=84.9)["quiet_sale"].available)
+        self.assertFalse(self.verdicts(13, case=85.0)["quiet_sale"].available)
+
+    def test_the_closing_record_is_named_by_prefix_sum(self):
+        v = self.verdicts(13, case=75.0,
+                          evidence=[(3, 40.0, "a seized shipment"),
+                                    (5, 35.0, "the second seizure")])
+        self.assertFalse(v["partner"].available)
+        self.assertEqual(v["partner"].closed_by, "the second seizure")
+
+    def test_records_after_lockup_are_outside_the_snapshot(self):
+        # Third record would cross 85, but it postdates the lock-up count.
+        v = self.verdicts(13, case=75.0,
+                          evidence=[(3, 40.0, "a seized shipment"),
+                                    (5, 35.0, "the second seizure"),
+                                    (12, 30.0, "last night's raid")],
+                          count=2)
+        self.assertTrue(v["quiet_sale"].available)
+
+
+# ══ The scene ═════════════════════════════════════════════════════
+
+class TestSitdownScene(unittest.TestCase):
+    def test_stand_pat_commits_branch_and_act(self):
+        state = scene_state()
+        con = CaptureConsole([4, 1])           # stand pat, confirm
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertEqual(state.branch, "stand_pat")
+        self.assertEqual(state.act, 2)
+        self.assertIsNone(state.branch_state)
+        self.assertIsNotNone(con.find("Nobody mentions the table again"))
+
+    def test_all_four_chairs_render_with_dev_markers(self):
+        state = scene_state()
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        for label in ("The Straight Path", "Carmine's Partner",
+                      "The Harbor War", "The Quiet Sale"):
+            self.assertIsNotNone(con.find(label), label)
+        self.assertIsNotNone(con.find("[not in this build]"))
+
+    def test_a_withheld_chair_refuses_and_names_its_reason(self):
+        state = scene_state(payoff_day=21)     # partner withheld
+        con = CaptureConsole([1, 4, 1])        # try partner, then stand pat
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNotNone(con.find("That chair is empty"))
+        self.assertEqual(state.branch, "stand_pat")
+
+    def test_an_unimplemented_chair_never_becomes_stand_pat_silently(self):
+        state = scene_state()
+        con = CaptureConsole([0, 4, 1])        # try straight, then stand pat
+        sitdown.run_scene(state, con, FORK_ON)
+        dev = con.find("development build")
+        commit = con.find("Nobody mentions the table again")
+        self.assertIsNotNone(dev)
+        self.assertIsNotNone(commit)
+        self.assertLess(dev, commit)
+
+    def test_aborting_before_selection_mutates_nothing_and_replays(self):
+        state = scene_state()
+        snap_before = state.sitdown_snapshot
+        con = AbortingConsole([0], allowed=1)  # one refused pick, then bail
+        with self.assertRaises(SceneAbort):
+            sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNone(state.branch)
+        self.assertEqual(state.act, 1)
+        self.assertIs(state.sitdown_snapshot, snap_before)
+        # The reload simply replays the scene, which can now conclude.
+        sitdown.run_scene(state, CaptureConsole([4, 1]), FORK_ON)
+        self.assertEqual(state.branch, "stand_pat")
+
+    def test_reconsider_loops_back_to_the_table(self):
+        state = scene_state()
+        con = CaptureConsole([4, 0, 4, 1])     # stand pat, reconsider, again
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertEqual(state.branch, "stand_pat")
+
+    def test_late_payoff_gets_respect_and_no_table(self):
+        state = scene_state(payoff_day=26)     # R = 4: no sit-down
+        con = CaptureConsole([])
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNotNone(con.find("Respect"))
+        self.assertEqual(con.menu_count(), 0)
+        self.assertIsNone(state.branch)
+        self.assertEqual(state.act, 1)
+
+    def test_due_fires_only_on_the_morning_after_with_no_ending(self):
+        state = scene_state()
+        self.assertTrue(sitdown.due(state))
+        state.game_over = "arrested"           # arrest suppresses the scene
+        self.assertFalse(sitdown.due(state))
+        state.game_over = None
+        state.day += 1                          # a missed morning stays missed
+        self.assertFalse(sitdown.due(state))
+        state.day -= 1
+        state.branch = "stand_pat"              # once, ever
+        self.assertFalse(sitdown.due(state))
+        state.branch = None
+        state.sitdown_snapshot = None
+        self.assertFalse(sitdown.due(state))
+
+    def test_post_lockup_evidence_shows_the_offers_stand(self):
+        state = scene_state(case=65.0, evidence=[(12, 65.0, "seizures")])
+        state.evidence.append(Evidence(day=12, magnitude=25.0,
+                                       kind="witness", why="an informant"))
+        con = CaptureConsole([1, 4, 1])        # partner: still offered
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNotNone(con.find("the offers stand"))
+        # The pick is refused for build reasons, not as an empty chair.
+        self.assertIsNotNone(con.find("development build"))
+        self.assertIsNone(con.find("That chair is empty"))
+
+    def test_rivals_at_war_do_not_delay_the_table(self):
+        state = scene_state()
+        state.rivals["vinnie"].raid_warning = 2
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNotNone(con.find("idle across the street"))
+        self.assertEqual(state.branch, "stand_pat")
+
+    def test_an_enabled_branch_without_a_commit_path_fails_loudly(self):
+        state = scene_state()
+        cfg = GameConfig(fork_enabled=True,
+                         enabled_branches=frozenset({"straight"}))
+        with self.assertRaises(NotImplementedError):
+            sitdown.run_scene(state, CaptureConsole([0]), cfg)
+
+
+# ══ Bots and the scene: zero decision RNG ═════════════════════════
+
+class TestBotSceneDeterminism(unittest.TestCase):
+    def test_scene_menu_is_rng_free_for_both_bot_families(self):
+        for bot in (BotConsole(random.Random(3)),
+                    GreedyBot(random.Random(3))):
+            before = bot.rng.getstate()
+            ans = bot.scene_menu("sitdown", "Your chair:", ["a", "b", "c"])
+            self.assertEqual(ans, 2)
+            self.assertEqual(bot.rng.getstate(), before)
+
+    def test_a_real_scene_leaves_bot_rng_untouched(self):
+        state = scene_state()
+        bot = BotConsole(random.Random(7))
+        before = bot.rng.getstate()
+        sitdown.run_scene(state, bot, FORK_ON)
+        self.assertEqual(bot.rng.getstate(), before)
+        self.assertEqual(state.branch, "stand_pat")
+
+
+# ══ BranchState constructors and validation ═══════════════════════
+
+class TestBranchStateValidation(unittest.TestCase):
+    def test_constructors_produce_valid_states(self):
+        validate_branch_state("straight", BranchState.straight())
+        validate_branch_state("partner",
+                              BranchState.partner(points_due_day=19))
+        validate_branch_state("war", BranchState.war(war_target="vinnie",
+                                                     declared_day=14))
+        validate_branch_state("quiet_sale", BranchState.quiet_sale())
+
+    def test_stand_pat_and_prefork_require_no_branch_state(self):
+        validate_branch_state(None, None)
+        validate_branch_state("stand_pat", None)
+        with self.assertRaises(ValueError):
+            validate_branch_state("stand_pat", BranchState())
+        with self.assertRaises(ValueError):
+            validate_branch_state(None, BranchState())
+
+    def test_active_branches_require_their_state_and_fields(self):
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale", None)
+        with self.assertRaises(ValueError):
+            validate_branch_state("partner", BranchState())   # no due day
+        with self.assertRaises(ValueError):
+            validate_branch_state("war", BranchState(war_target="vinnie"))
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale",
+                                  BranchState(diligence_day=0))
+
+    def test_mixed_branch_payloads_are_rejected(self):
+        mixed = BranchState(diligence_day=1, war_target="vinnie")
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale", mixed)
+        with self.assertRaises(ValueError):
+            validate_branch_state("straight",
+                                  BranchState(disposal_runs_left=3,
+                                              points_missed=1))
+
+    def test_unknown_branches_are_rejected(self):
+        with self.assertRaises(ValueError):
+            validate_branch_state("golf_course", BranchState())
+
+
+# ══ Save round trips ══════════════════════════════════════════════
+
+class TestSaveRoundTrips(unittest.TestCase):
+    def test_pending_snapshot_round_trips(self):
+        state = scene_state(payoff_day=12, case=65.0)
+        restored = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(restored.sitdown_snapshot, state.sitdown_snapshot)
+        self.assertTrue(sitdown.due(restored))
+
+    def test_post_selection_round_trips(self):
+        state = scene_state()
+        sitdown.run_scene(state, CaptureConsole([4, 1]), FORK_ON)
+        restored = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(restored.branch, "stand_pat")
+        self.assertEqual(restored.act, 2)
+        self.assertIsNone(restored.branch_state)
+        self.assertFalse(sitdown.due(restored))
+
+    def test_older_v3_payloads_load_the_snapshot_as_none(self):
+        d = save.state_to_dict(new_state())
+        del d["sitdown_snapshot"]
+        self.assertIsNone(save.state_from_dict(d).sitdown_snapshot)
+
+    def test_exact_round_trip_guard_still_holds(self):
+        state = scene_state(payoff_day=12, case=65.0)
+        d = save.state_to_dict(state)
+        self.assertEqual(save.state_to_dict(save.state_from_dict(d)), d)
+
+    def test_mixed_branch_payloads_are_refused_on_load(self):
+        state = new_state()
+        d = save.state_to_dict(state)
+        d["branch"] = "quiet_sale"
+        d["branch_state"] = save.asdict(
+            BranchState(diligence_day=1, war_target="vinnie"))
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+        d["branch"] = "stand_pat"
+        d["branch_state"] = save.asdict(BranchState())
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+
+
+# ══ Whole-run behavior under the flag ═════════════════════════════
+
+class TestFlagAtRunLevel(unittest.TestCase):
+    def test_truncated_runs_are_identical_under_the_flag(self):
+        # --max-days shorter than any payoff: the fork never fires and
+        # the run is byte-identical (the full-length version of this is
+        # the paired standpat harness).
+        for seed in range(4):
+            off = game.run(seed, BotConsole(random.Random(seed)), max_days=6)
+            on = game.run(seed, BotConsole(random.Random(seed)), max_days=6,
+                          config=FORK_ON)
+            d_off, d_on = save.state_to_dict(off), save.state_to_dict(on)
+            self.assertEqual(d_off, d_on, f"seed {seed}")
+            self.assertIsNone(on.sitdown_snapshot)
+
+
+if __name__ == "__main__":
+    unittest.main()

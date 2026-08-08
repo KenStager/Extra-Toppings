@@ -1,6 +1,7 @@
 """Game orchestration: the 30-day run and its endings."""
 
-from . import data, phases
+from . import data, phases, sitdown
+from .config import GameConfig
 from .models import State, new_state
 from .rng import Streams
 from .ui import Console, money
@@ -22,9 +23,12 @@ Keep the food good. Keep the books believable. Keep the rivals afraid.
 
 
 def run(seed: int | None, con: Console, max_days: int | None = None,
-        on_night=None) -> State:
+        on_night=None, config: GameConfig | None = None) -> State:
     """`on_night(state, streams)` is an observation hook for the analysis
-    harness — called after each completed day, it must not mutate."""
+    harness — called after each completed day, it must not mutate.
+    `config` is the immutable engine configuration; None means the
+    defaults (fork off)."""
+    config = config if config is not None else GameConfig()
     streams = Streams(seed)
     state = new_state()
     con.say(INTRO)
@@ -32,9 +36,14 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
 
     last_day = min(max_days or data.DEBT_DUE_DAY, data.DEBT_DUE_DAY)
     while state.day <= last_day and not state.game_over:
+        # The sit-down fires on state alone (a pending snapshot resumes
+        # whatever the launch flags say); config only shapes which chairs
+        # are actionable inside the scene.
+        if sitdown.due(state):
+            sitdown.run_scene(state, con, config)
         plans = phases.morning(state, con, streams)
         report = phases.service(state, plans, con, streams)
-        phases.night(state, plans, report, con, streams)
+        phases.night(state, plans, report, con, streams, config)
 
         if state.debt > 0:
             state.debt = int(state.debt * (1 + data.DEBT_RATE))

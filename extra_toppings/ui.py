@@ -70,6 +70,13 @@ class Console:
     def confirm(self, prompt: str) -> bool:
         return self.menu(prompt, ["Yes", "No"]) == 0
 
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        """Fork-scene decisions ride a channel separate from menu() so
+        replay tooling can trace them apart from the gameplay decision
+        log (§2.7 rev. 5). Interactive play just delegates; bot consoles
+        override with a deterministic handler that consumes no RNG."""
+        return self.menu(prompt, options)
+
 
 class BotConsole(Console):
     """Plays by itself: random-but-sane choices. Used by --auto and the tests."""
@@ -100,6 +107,14 @@ class BotConsole(Console):
 
     def confirm(self, prompt: str) -> bool:
         return self.rng.random() < 0.5
+
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        # Deterministic and RNG-free (§2.7 rev. 5): scene choices must
+        # not perturb the bot's decision stream — the extra menus would
+        # otherwise shift every later gameplay choice. The scene
+        # guarantees its last option always progresses (stand pat / the
+        # confirming answer), so last-option is a complete policy.
+        return len(options) - 1
 
 
 class ScriptedConsole(Console):

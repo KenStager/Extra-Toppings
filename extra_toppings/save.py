@@ -16,7 +16,8 @@ from dataclasses import asdict
 
 from . import data
 from .models import (ActiveEvent, BranchState, District, Employee, Evidence,
-                     Rival, Shop, State)
+                     Rival, Shop, SitdownSnapshot, State,
+                     validate_branch_state)
 from .rng import Streams
 
 SAVE_VERSION = 3
@@ -53,6 +54,10 @@ def state_to_dict(state: State) -> dict:
         "branch": state.branch,
         "branch_state": asdict(state.branch_state)
         if state.branch_state is not None else None,
+        # Added post-v3 without a version bump: primitives only, and
+        # older v3 payloads load it as None (state_from_dict uses .get).
+        "sitdown_snapshot": asdict(state.sitdown_snapshot)
+        if state.sitdown_snapshot is not None else None,
     }
 
 
@@ -117,7 +122,12 @@ def state_from_dict(d: dict) -> State:
         act=d["act"], branch=d["branch"],
         branch_state=BranchState(**d["branch_state"])
         if d["branch_state"] is not None else None,
+        sitdown_snapshot=SitdownSnapshot(**d["sitdown_snapshot"])
+        if d.get("sitdown_snapshot") is not None else None,
     )
+    # A payload naming a branch must carry a coherent BranchState — a
+    # mixed or impossible combination is refused, not repaired.
+    validate_branch_state(state.branch, state.branch_state)
     return state
 
 
