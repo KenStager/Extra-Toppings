@@ -13,6 +13,8 @@ after the player has actually taken the chair — a stand-pat run leaves
 the stream provably fresh (§2.7).
 """
 
+from dataclasses import dataclass
+
 from . import data
 from .models import BranchState, State, validate_branch_state
 from .rng import Streams
@@ -62,39 +64,92 @@ def upgrade_spend(state: State) -> int:
     return sum(data.UPGRADES[k]["cost"] for k in state.shop.upgrades)
 
 
+@dataclass(frozen=True)
+class MarkBreakdown:
+    """THE valuation card (rev. 7): one immutable view holding every
+    priced term and the final mark. The renderer consumes this and
+    nothing else, and the displayed dollar terms sum exactly to the
+    displayed mark. Rounding policy, applied once per term: each term
+    is the raw input times its rate, rounded to the nearest whole
+    dollar (Python round); the war clause and incident repricing round
+    the same way against the running subtotal; the final mark clamps at
+    zero. No int() truncation anywhere — the card's arithmetic IS the
+    mark's arithmetic."""
+    reputation: float
+    case: float
+    upgrade_spend: int
+    rep_term: int
+    upgrade_term: int
+    case_term: int
+    war_armed: bool
+    war_term: int
+    incident_discount: float
+    incident_term: int
+    final: int
+
+
+def build_mark(state: State) -> MarkBreakdown:
+    rep = state.shop.reputation
+    case = state.case
+    spend = upgrade_spend(state)
+    rep_term = round(rep * REP_PRICE)
+    upgrade_term = round(spend * UPGRADE_RECOVERY)
+    case_term = round(case * CASE_DISCOUNT)
+    subtotal = BASE_PRICE + rep_term + upgrade_term - case_term
+    war_armed = war_clause_armed(state)
+    war_term = round(subtotal * WAR_CLAUSE) if war_armed else 0
+    after_war = subtotal - war_term
+    discount = _bs(state).escrow_discount
+    incident_term = round(after_war * discount) if discount else 0
+    final = max(0, after_war - incident_term)
+    return MarkBreakdown(
+        reputation=rep, case=case, upgrade_spend=spend,
+        rep_term=rep_term, upgrade_term=upgrade_term, case_term=case_term,
+        war_armed=war_armed, war_term=war_term,
+        incident_discount=discount, incident_term=incident_term,
+        final=final)
+
+
 def compute_mark(state: State) -> int:
-    """The buyer's marked price, every term visible (invariant 8)."""
-    gross = (BASE_PRICE + int(state.shop.reputation) * REP_PRICE
-             + int(upgrade_spend(state) * UPGRADE_RECOVERY))
-    marked = gross - int(state.case) * CASE_DISCOUNT
-    if war_clause_armed(state):
-        marked = int(marked * (1 - WAR_CLAUSE))
-    marked = int(marked * (1 - _bs(state).escrow_discount))
-    return max(0, marked)
+    return build_mark(state).final
 
 
 def _show_card(state: State, con: Console) -> None:
-    bs = _bs(state)
-    gross = (BASE_PRICE + int(state.shop.reputation) * REP_PRICE
-             + int(upgrade_spend(state) * UPGRADE_RECOVERY))
+    """Renders the MarkBreakdown and nothing else — every displayed
+    dollar figure comes from the view, and they sum to the mark."""
+    card = build_mark(state)
     con.say(f"  The broker's card, itemized: base {money(BASE_PRICE)} + "
-            f"rep {state.shop.reputation:.0f} x {money(REP_PRICE)} + "
-            f"upgrades {money(upgrade_spend(state))} x 50% = "
-            f"{money(gross)} gross; less Case {state.case:.0f} x "
-            f"{money(CASE_DISCOUNT)}.")
-    if war_clause_armed(state):
-        con.say("  The war clause is ARMED: -20% while a rival sits at "
-                "vendetta or circles the block.")
+            f"rep {card.reputation:.1f} x {money(REP_PRICE)} = "
+            f"{money(card.rep_term)} + upgrades "
+            f"{money(card.upgrade_spend)} x 50% = "
+            f"{money(card.upgrade_term)}; less Case {card.case:.1f} x "
+            f"{money(CASE_DISCOUNT)} = {money(card.case_term)}.")
+    if card.war_armed:
+        con.say(f"  The war clause is ARMED: -20% = -{money(card.war_term)} "
+                f"while a rival sits at vendetta or circles the block.")
     else:
         con.say("  One clause sits dormant and visible: -20% if any rival "
                 "reaches vendetta or a raid telegraph goes live.")
-    if bs.escrow_discount:
+    if card.incident_discount:
         con.say(f"  Incident repricing to date: "
-                f"-{bs.escrow_discount * 100:.0f}%.")
-    con.say(f"  MARK: {money(bs.escrow_mark)}. Terms: re-marked each "
+                f"-{card.incident_discount * 100:.0f}% = "
+                f"-{money(card.incident_term)}.")
+    con.say(f"  MARK: {money(card.final)}. Terms: re-marked each "
             f"morning; incidents reprice -10 to -25%; a second incident "
             f"ends it; closing on the morning of day "
             f"{sitdown_day(state) + DILIGENCE_DAYS}.")
+    # The classification, projected before anyone signs anything: the
+    # exact tolerance and where the close lands as things stand.
+    held = state.dirty + state.warehouse_cash
+    stock = state.stash_bulk(state.shop_stash) + (
+        state.stash_bulk(state.warehouse) if state.warehouse else 0)
+    verdict = ("Sold the shop, kept the trade — capped at the modest tier"
+               if stock > 0 or held > DIRTY_TOLERANCE
+               else "a clean close")
+    con.say(f"  The buyer's ledger test: unlaundered cash anywhere "
+            f"{money(held)} against a {money(DIRTY_TOLERANCE)} tolerance; "
+            f"product anywhere {stock} bulk. As it stands this closes as: "
+            f"{verdict}.")
 
 
 def diligence_morning(state: State, con: Console, streams: Streams) -> None:
@@ -127,14 +182,10 @@ def diligence_morning(state: State, con: Console, streams: Streams) -> None:
         # incinerator, which explains nothing to anybody.
         pick = con.menu(
             "The walk-in holds product, and his man walks every afternoon:",
-            ["Keep it — sell what the wagon carries, chance the rest",
-             "Burn it — ashes explain nothing"])
-        if pick == 1:
-            units = sum(u for u in state.shop_stash.values() if u > 0)
-            state.shop_stash = {}
-            con.say(f"  {units} units go into the incinerator behind the "
-                    f"bakery before ten. It smells like money for an hour, "
-                    f"and then it smells like a clean close.")
+            ["Burn it — ashes explain nothing",
+             "Keep it — sell what the wagon carries, chance the rest"])
+        if pick == 0:
+            incinerate(state, con, stock=True)
         else:
             con.bullet("The walk-in still holds product. Anything his man "
                        "finds this afternoon is an incident.")
@@ -185,6 +236,46 @@ def record_incident(state: State, con: Console, streams: Streams,
                f"{money(bs.escrow_mark)}. One more and the deal dies.")
 
 
+def incinerate(state: State, con: Console, stock: bool = False,
+               cash: int = 0) -> None:
+    """THE escrow disposal primitive (rev. 7): destruction, never
+    conversion. Nothing comes back — no clean cash, no Case relief, no
+    value; the week's one rule is that the two ledgers cannot touch, so
+    what cannot be shown gets burned. Cash burns only from the till in
+    hand: warehouse cash is physical and must be trucked back before it
+    can meet the incinerator."""
+    if stock and state.stash_bulk(state.shop_stash) > 0:
+        units = sum(u for u in state.shop_stash.values() if u > 0)
+        state.shop_stash = {}
+        con.say(f"  {units} units go into the incinerator behind the "
+                f"bakery before ten. It smells like money for an hour, "
+                f"and then it smells like a clean close.")
+    if cash > 0:
+        burned = min(cash, state.dirty)
+        state.dirty -= burned
+        con.say(f"  {money(burned)} in unwashable bills goes into the same "
+                f"fire, a brick at a time. It buys nothing, launders "
+                f"nothing, and answers no subpoena — which is the point.")
+
+
+def burn_cash_action(state: State, con: Console) -> None:
+    """The settle-menu surface during escrow: laundering is replaced by
+    disposal — the menu never advertises an allowance it will refuse."""
+    if state.dirty <= 0:
+        con.say("  No dirty cash on hand. (Warehouse cash must be trucked "
+                "back before it can burn.)")
+        return
+    amt = con.ask_int(
+        f"Burn how much? (dirty {money(state.dirty)}; the buyer's ledger "
+        f"test tolerates {money(DIRTY_TOLERANCE)})",
+        0, state.dirty, 0)
+    if amt <= 0:
+        con.say("  The bills go back in the bag. The tolerance is "
+                f"{money(DIRTY_TOLERANCE)}, and the card remembers.")
+        return
+    incinerate(state, con, cash=amt)
+
+
 def offsite_move_risk(state: State, con: Console, streams: Streams) -> None:
     """Moving stock to the warehouse mid-diligence: a truck at a rolling
     door while the buyer's man watches the neighborhood — 20% per move."""
@@ -214,22 +305,30 @@ def revert_to_standpat(state: State, con: Console, collapsed: bool) -> None:
 
 
 def _closing(state: State, con: Console) -> None:
-    """The closing morning — sign or walk. Signing is the only success
-    that ends a run before day 30 (§2.5 precedence 3)."""
+    """The closing morning — sign or walk. Transactional (rev. 7): the
+    whole transaction is computed and validated BEFORE anything
+    mutates; humane severance is selectable only when settlement plus
+    clean cash can fund it; cash and settlement never go negative;
+    escrow_mark stays the buyer's price, never overwritten. Signing is
+    the only success that ends a run before day 30 (§2.5 precedence 3)."""
     bs = _bs(state)
     bs.escrow_mark = compute_mark(state)
     con.header("CLOSING MORNING — the buyer's counsel spreads the papers")
     _show_card(state, con)
     crew = state.hired()
+    severance_total = SEVERANCE_PER_HEAD * len(crew)
+    affordable = state.clean + bs.escrow_mark >= severance_total
     if crew:
         con.say(f"  Severance line-items on the closing sheet: "
-                f"{money(SEVERANCE_PER_HEAD)} a name, {len(crew)} names — "
-                f"or nothing, and they hear it from the buyer.")
-    kept = _kept_the_trade(state)
-    if kept:
-        con.say("  What you keep decides what you sold: product or serious "
-                "unlaundered cash still sits somewhere with your name on "
-                "it. Close like this and the file stays open on YOU.")
+                f"{money(SEVERANCE_PER_HEAD)} a name, {len(crew)} names "
+                f"({money(severance_total)}) — or nothing, and they hear "
+                f"it from the buyer.")
+        if not affordable:
+            con.say(f"  The envelopes would take {money(severance_total)}; "
+                    f"settlement plus the till holds "
+                    f"{money(state.clean + bs.escrow_mark)}. There is no "
+                    f"humane option on this sheet — only the honest "
+                    f"admission that you can't afford one.")
     pick = con.scene_menu(
         SCENE_NAMESPACE,
         "Closing morning. The pen is on the table.",
@@ -238,20 +337,21 @@ def _closing(state: State, con: Console) -> None:
     if pick == 0:
         revert_to_standpat(state, con, collapsed=False)
         return
+    # Decide the full transaction before mutating anything.
     severance = 0
-    if crew:
+    if crew and affordable:
         sev = con.scene_menu(
             SCENE_NAMESPACE,
             "The crew's severance:",
             ["Nothing — they'll land somewhere",
-         f"{money(SEVERANCE_PER_HEAD)} a name — they hear it from you"])
+             f"{money(SEVERANCE_PER_HEAD)} a name — they hear it from you"])
         if sev == 1:
-            severance = SEVERANCE_PER_HEAD * len(crew)
-        else:
-            for e in crew:
-                e.morale -= 2       # they hear it from the buyer
-    state.clean += bs.escrow_mark - severance
-    bs.escrow_mark = bs.escrow_mark - severance
+            severance = severance_total
+    # Commit: one atomic application, invariants checked first.
+    if severance > state.clean + bs.escrow_mark:
+        raise ValueError("closing transaction would overdraw")   # unreachable
+    state.clean = state.clean + bs.escrow_mark - severance
+    bs.severance_paid = severance
     if severance:
         con.say(f"  {money(severance)} in envelopes, handed over by you, "
                 f"before the ink. They hear it from you. It matters.")

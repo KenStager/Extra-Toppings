@@ -488,17 +488,30 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
                 f"Debt {money(state.debt)}")
         remaining = max(0, ceiling - laundered_tonight)
-        con.say(f"  Books can absorb about {money(remaining)} more tonight "
-                f"without raising eyebrows.")
+        if state.branch == "quiet_sale":
+            con.say("  The register is being read line by line this week — "
+                    "nothing washes until the papers are signed or torn.")
+        else:
+            con.say(f"  Books can absorb about {money(remaining)} more tonight "
+                    f"without raising eyebrows.")
+        # Branch-aware (rev. 7): during escrow the register is being
+        # read, so the menu offers disposal instead of advertising a
+        # laundering allowance it would refuse after selection.
+        first_action = ("Burn dirty cash (the buyer's ledger test is coming)"
+                        if state.branch == "quiet_sale"
+                        else "Launder dirty cash through the register")
         c = con.menu("Settle accounts:", [
-            "Launder dirty cash through the register",
+            first_action,
             "Pay Carmine (he prefers unmarked bills)",
             "Move stash / cash (shop ↔ warehouse)",
             "Talk to a rival",
             "Lock up →",
         ])
         if c == 0:
-            laundered_tonight += _launder(state, remaining, con)
+            if state.branch == "quiet_sale":
+                escrow.burn_cash_action(state, con)
+            else:
+                laundered_tonight += _launder(state, remaining, con)
         elif c == 1:
             _pay_debt(state, con)
         elif c == 2:

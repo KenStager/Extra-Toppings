@@ -717,6 +717,63 @@ golden 300/300 AND paired stand-pat 300/300 (expected 82 / held 82,
 schema v1) on 3.11, 3.12 and 3.13 with all P1b code in the tree — the
 fork stays provably inert unless entered.
 
+### Round 8 correction 3 (review of P1b — design rev. 7)
+
+Review ruled the tier-flip miss a **missing player verb**, not a
+denominator problem, and found four further defects; all corrected,
+with the flip bar itself still open — for a new, fully isolated reason.
+
+- **The disposal verb exists now.** One primitive
+  (`escrow.incinerate`) burns cash and contraband alike — destruction,
+  never conversion. The night account menu is branch-aware (disposal
+  replaces laundering during escrow instead of refusing after
+  selection); warehouse cash must be trucked back before it can burn;
+  the card shows the $200 tolerance and projected classification every
+  morning. Effect measured: cash-locked matched pairs went **31 → 0**,
+  kept-the-trade all but vanished from careful closes, and a clean
+  close is reachable by burning (tested).
+- **One valuation view.** `MarkBreakdown` replaced the card's two
+  arithmetics (displayed rounded inputs vs computed truncated ones —
+  the rep-24.9/Case-61.5 repro). Explicit rounding policy, renderer
+  consumes the view only, displayed dollars sum exactly to the mark.
+- **The closing is transactional.** The reviewer's Case-84.9/rep-5/
+  $0-clean repro (−$600 cash, negative recorded mark) is a regression:
+  humane severance appears on the sheet only when settlement plus
+  clean funds it; nothing goes negative; `escrow_mark` stays the
+  buyer's price; `severance_paid` persists and the epilogue
+  acknowledges paid and unpaid. The transcript-only deviation is
+  withdrawn.
+- **Safe fallbacks restored.** The walk-in question's burn option
+  moved off the last position (an exhausted script had burned seven
+  oregano); every new escrow prompt is regression-pinned under an
+  exhausted script with no assets destroyed.
+- **Reachability measured completely, criterion revised on paper.**
+  Full tables 74/85 = 87% of open sit-downs (reviewer: 88.2% at
+  1,000 seeds), every absence calendar-gated, none case-gated; median
+  payoff day 11 and 75th-percentile day 16 both seat full tables;
+  boundary chair sets match the §2.1 table exactly (day 21 `+-++`,
+  day 23 `+--+`, day 26 `----`). The flat 90% bar is recorded as
+  falsified and criterion 2 now tests its thesis (§2.7 rev. 7).
+
+**The flip bar, after the verb (150 seeds, market-bot-based escrow
+bots — the "smart bot" the criterion names):** careful closes 93%,
+ablation drop 85 points, valuation median mark delta $1,396 ≥ $1,000 —
+and tier flips **17/60 = 28%** against the unconditioned 40% bar.
+The cash-lock explanation is exhausted (0 locked pairs); the tier
+population now straddles the boundary (careful: 40 fire / 39 modest);
+what remains is arithmetic: a ~$1,400 escrow-week lever flips a
+$10,000-wide tier boundary only for runs within a lever's width of it.
+Supplying the verb moved flips 19% → 28% (18% → 28% after the
+smart-bot rebase); the residual gap is a property of §2.4.4's declared
+numbers — incident repricing depth (−10..−25%), the illustrative mark
+formula's scale, and the $10k/$25k tier spacing — not of bot policy.
+Raising any of the three is a design-constant decision recorded for
+review, not taken unilaterally.
+
+After correction 3: 223 tests green on 3.11 and 3.12 (14 new);
+ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11, 3.12 and 3.13.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

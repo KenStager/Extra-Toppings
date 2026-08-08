@@ -29,6 +29,11 @@ class CaptureConsole(ScriptedConsole):
     def bullet(self, text):
         self.lines.append(f"• {text}")
 
+    def menu(self, prompt, options):
+        self.lines.append(f"[menu] {prompt}")
+        self.lines.extend(f"    {o}" for o in options)
+        return super().menu(prompt, options)
+
     def find(self, fragment):
         for i, line in enumerate(self.lines):
             if fragment in line:
@@ -162,14 +167,21 @@ class TestTheMark(unittest.TestCase):
 
 class TestDiligenceRules(unittest.TestCase):
     def test_laundering_is_off_all_week(self):
+        # The menu never offers laundering in escrow (rev. 7 — the
+        # option is replaced, not refused-after-selection)…
         state = in_escrow()
         state.dirty = 5000
         evidence_before = len(state.evidence)
-        con = CaptureConsole([0, 4])           # Launder → Lock up
+        con = CaptureConsole([0, 0, 4])        # Burn → nothing → Lock up
         phases.night(state, {}, {}, con, Streams(3))
-        self.assertIsNotNone(con.find("books are being read"))
+        self.assertIsNotNone(con.find("nothing washes"))
         self.assertEqual(state.dirty, 5000)
         self.assertEqual(len(state.evidence), evidence_before)
+        # …and the launder path itself still refuses, as a belt.
+        direct = CaptureConsole([])
+        self.assertEqual(phases._launder(state, 9999, direct), 0)
+        self.assertIsNotNone(direct.find("books are being read"))
+        self.assertEqual(state.dirty, 5000)
 
     def test_contraband_at_the_day_one_walkthrough_is_an_incident(self):
         state = in_escrow(rep=40.0)
@@ -253,7 +265,33 @@ class TestTheClosing(unittest.TestCase):
         self.assertEqual(state.game_over, "sold")
         self.assertEqual(state.clean, clean_before + mark
                          - heads * escrow.SEVERANCE_PER_HEAD)
+        # The buyer's price is never overwritten; the outcome persists.
+        self.assertEqual(state.branch_state.escrow_mark, mark)
+        self.assertEqual(state.branch_state.severance_paid,
+                         heads * escrow.SEVERANCE_PER_HEAD)
         self.assertIsNotNone(con.find("hear it from you"))
+
+    def test_unaffordable_severance_is_not_on_the_sheet(self):
+        # The review's repro: Case 84.9, rep 5, clean $0, two employees —
+        # the mark clamps at zero and the envelopes cannot be funded.
+        state = at_closing(case=84.9, rep=5.0)
+        state.clean = 0
+        state.dirty = 0
+        state.shop_stash = {}
+        con = CaptureConsole([1])              # sign; no severance menu
+        escrow.diligence_morning(state, con, Streams(3))
+        self.assertEqual(state.game_over, "sold")
+        self.assertGreaterEqual(state.clean, 0)
+        self.assertGreaterEqual(state.branch_state.escrow_mark, 0)
+        self.assertEqual(state.branch_state.severance_paid, 0)
+        self.assertIsNotNone(con.find("can't afford"))
+
+    def test_the_closing_outcome_round_trips(self):
+        state = at_closing(rep=40.0)
+        escrow.diligence_morning(state, CaptureConsole([1, 1]), Streams(3))
+        restored = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(restored.branch_state.severance_paid,
+                         state.branch_state.severance_paid)
 
     def test_walking_away_reverts_and_the_run_continues(self):
         state = at_closing()
@@ -264,13 +302,22 @@ class TestTheClosing(unittest.TestCase):
         self.assertEqual(state.branch, "stand_pat")
         self.assertEqual(state.shop.reputation, rep_before)  # no collapse tax
 
-    def test_cheap_severance_costs_morale_and_is_remembered(self):
+    def test_cheap_severance_persists_and_the_epilogue_remembers(self):
         state = at_closing()
         con = CaptureConsole([1, 0])           # sign; nothing
         escrow.diligence_morning(state, con, Streams(3))
         self.assertIsNotNone(con.find("envelope that never came"))
-        for e in state.hired():
-            self.assertLessEqual(e.morale, 4)
+        self.assertEqual(state.branch_state.severance_paid, 0)
+        epi = CaptureConsole([])
+        game.epilogue(state, epi)
+        self.assertIsNotNone(epi.find("No envelopes"))
+
+    def test_paid_severance_reaches_the_epilogue_too(self):
+        state = at_closing(rep=40.0)
+        escrow.diligence_morning(state, CaptureConsole([1, 1]), Streams(3))
+        epi = CaptureConsole([])
+        game.epilogue(state, epi)
+        self.assertIsNotNone(epi.find("handed over before the ink"))
 
     def test_a_clean_close_reaches_the_sold_well_tier(self):
         state = at_closing(rep=60.0)
@@ -380,6 +427,146 @@ class TestWholeRuns(unittest.TestCase):
                     + escrow.DILIGENCE_DAYS)
                 return
         self.fail("no seed closed a sale in the scan")
+
+
+# ══ The disposal verb (rev. 7) ════════════════════════════════════
+
+class TestDisposal(unittest.TestCase):
+    def test_burning_cash_destroys_and_converts_nothing(self):
+        # Two identical nights on one seed; the only difference is the
+        # burn amount — clean must come out identical (no conversion),
+        # dirty lighter by exactly the burn, the Case untouched.
+        def run_burn(amount):
+            state = in_escrow()
+            state.dirty = 5000
+            state.clean = 1000
+            con = CaptureConsole([0, amount, 4])
+            phases.night(state, {}, {}, con, Streams(3))
+            return state, con
+        burned, con = run_burn(4800)
+        control, _ = run_burn(0)
+        self.assertEqual(burned.dirty, 200)
+        self.assertEqual(control.dirty, 5000)
+        self.assertEqual(burned.clean, control.clean)      # no conversion
+        self.assertEqual(len(burned.evidence), len(control.evidence))
+        self.assertIsNotNone(con.find("buys nothing, launders nothing"))
+
+    def test_warehouse_cash_must_be_trucked_back_first(self):
+        state = in_escrow()
+        state.dirty = 300
+        state.warehouse = {}
+        state.warehouse_cash = 5000
+        con = CaptureConsole([0, 5300, 4])     # try to burn more than held
+        phases.night(state, {}, {}, con, Streams(3))
+        self.assertEqual(state.dirty, 0)       # capped at the till in hand
+        self.assertEqual(state.warehouse_cash, 5000)
+
+    def test_the_settle_menu_is_branch_aware(self):
+        state = in_escrow()
+        state.dirty = 500
+        con = CaptureConsole([4])
+        phases.night(state, {}, {}, con, Streams(3))
+        self.assertIsNotNone(con.find("Burn dirty cash"))
+        self.assertIsNone(con.find("Launder dirty cash"))
+        self.assertIsNotNone(con.find("nothing washes"))
+        plain = new_state()
+        plain.dirty = 500
+        con2 = CaptureConsole([4])
+        phases.night(plain, {}, {}, con2, Streams(3))
+        self.assertIsNotNone(con2.find("Launder dirty cash"))
+        self.assertIsNone(con2.find("Burn dirty cash"))
+
+    def test_a_clean_close_is_now_reachable_by_burning(self):
+        state = at_closing(rep=60.0)
+        state.clean = 30000
+        state.dirty = 900
+        state.shop_stash = {}
+        state.day -= 1                          # one diligence night left
+        con = CaptureConsole([0, 900, 4])
+        phases.night(state, {}, {}, con, Streams(3))
+        state.day += 1
+        escrow.diligence_morning(state, CaptureConsole([1, 1]), Streams(3))
+        self.assertEqual(escrow.sale_tier(state), "well")
+
+
+# ══ The card is one source of truth (rev. 7) ══════════════════════
+
+class TestMarkBreakdown(unittest.TestCase):
+    def test_fractional_inputs_display_what_they_compute(self):
+        # The review's repro: rep 24.9, Case 61.5 — the old card printed
+        # rounded inputs but computed truncated ones.
+        state = in_escrow(rep=24.9)
+        state.evidence.clear()
+        state.add_case(61.5, "seizures", kind="physical")
+        card = escrow.build_mark(state)
+        self.assertEqual(card.rep_term, 3486)      # round(24.9 * 140)
+        self.assertEqual(card.case_term, 2768)     # round(61.5 * 45)
+        self.assertEqual(card.final, escrow.BASE_PRICE + card.rep_term
+                         + card.upgrade_term - card.case_term
+                         - card.war_term - card.incident_term)
+
+    def test_the_rendered_card_shows_the_terms_that_sum(self):
+        state = in_escrow(rep=24.9)
+        state.evidence.clear()
+        state.add_case(61.5, "seizures", kind="physical")
+        card = escrow.build_mark(state)
+        con = CaptureConsole([1])              # keep the default stash
+        escrow.diligence_morning(state, con, Streams(3))
+        i = con.find("The broker's card")
+        self.assertIsNotNone(i)
+        self.assertIn("$3,486", con.lines[i])
+        self.assertIn("$2,768", con.lines[i])
+        self.assertIn("24.9", con.lines[i])
+        self.assertIn("61.5", con.lines[i])
+        mark_line = con.find("MARK:")
+        self.assertIn(f"${card.final:,}", con.lines[mark_line])
+
+    def test_every_display_path_uses_the_same_view(self):
+        state = in_escrow(rep=33.3, case=17.7)
+        self.assertEqual(escrow.compute_mark(state),
+                         escrow.build_mark(state).final)
+
+    def test_the_card_projects_the_closing_classification(self):
+        state = in_escrow()
+        state.dirty = 900
+        con = CaptureConsole([1])
+        escrow.diligence_morning(state, con, Streams(3))
+        i = con.find("ledger test")
+        self.assertIsNotNone(i)
+        self.assertIn("$200 tolerance", con.lines[i])
+        self.assertIn("kept the trade", con.lines[i])
+        state2 = in_escrow()
+        state2.dirty = 0
+        state2.shop_stash = {}
+        con2 = CaptureConsole([])
+        escrow.diligence_morning(state2, con2, Streams(3))
+        j = con2.find("ledger test")
+        self.assertIn("a clean close", con2.lines[j])
+
+
+# ══ Safe fallbacks on every ordinary escrow prompt (rev. 7) ═══════
+
+class TestEscrowSafeFallbacks(unittest.TestCase):
+    """An exhausted script must never destroy assets through an
+    ordinary (non-scene) escrow prompt."""
+
+    def test_exhausted_morning_keeps_the_stash(self):
+        state = in_escrow()
+        state.shop_stash = {"oregano": 7}
+        escrow.diligence_morning(state, CaptureConsole([]), Streams(3))
+        self.assertEqual(state.shop_stash, {"oregano": 7})
+
+    def test_exhausted_night_keeps_the_cash(self):
+        state = in_escrow()
+        state.dirty = 5000
+        phases.night(state, {}, {}, CaptureConsole([]), Streams(3))
+        self.assertEqual(state.dirty, 5000)
+
+    def test_a_selected_burn_with_no_amount_answer_burns_nothing(self):
+        state = in_escrow()
+        state.dirty = 5000
+        phases.night(state, {}, {}, CaptureConsole([0]), Streams(3))
+        self.assertEqual(state.dirty, 5000)    # ask_int default is zero
 
 
 # ══ Persistence ═══════════════════════════════════════════════════

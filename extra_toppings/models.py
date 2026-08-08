@@ -144,6 +144,7 @@ class BranchState:
     escrow_mark: int = 0
     escrow_incidents: int = 0
     escrow_discount: float = 0.0    # cumulative incident repricing (0..1)
+    severance_paid: int | None = None   # closing outcome: None until signed
 
     @classmethod
     def straight(cls, *, disposal_runs_left: int = 3,
@@ -178,7 +179,7 @@ _BRANCH_FIELDS = {
     "partner": {"points_due_day", "points_missed", "vig_owed"},
     "war": {"war_target", "declared_day"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
-                   "escrow_discount"},
+                   "escrow_discount", "severance_paid"},
 }
 if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")

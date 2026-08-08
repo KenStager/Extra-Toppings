@@ -255,14 +255,46 @@ def fork(seeds: int) -> None:
                          enabled_branches=frozenset({"quiet_sale"}))
     fork_only = GameConfig(fork_enabled=True)
 
-    # ── criterion 2: reachability, unmodified market bot ─────────
+    # ── criterion 2 (rev. 7): reachability, measured completely ──
+    from extra_toppings import sitdown as sd
     opened = 0
+    full_tables = 0
+    absent_calendar = 0
+    absent_case = 0
+    payoff_days = []
     for seed in range(seeds):
         s = run(seed, MarketBot(random.Random(seed)), config=fork_only)
-        if s.act == 2:                       # a table was reached and held
-            opened += 1
+        if s.act != 2 or s.sitdown_snapshot is None:
+            continue
+        opened += 1
+        payoff_days.append(s.sitdown_snapshot.payoff_day)
+        verdicts = sd.evaluate_chairs(s.sitdown_snapshot, s.evidence)
+        missing = [v for v in verdicts if not v.available]
+        if not missing:
+            full_tables += 1
+        else:
+            absent_calendar += sum(1 for v in missing
+                                   if v.blocker == "calendar")
+            absent_case += sum(1 for v in missing if v.blocker == "case")
     print(f"reachability: market bot reaches an open sit-down in "
           f"{opened}/{seeds} seeds ({opened / seeds:.0%}; bar ≥ 55%)")
+    if opened:
+        payoff_days.sort()
+        med = payoff_days[len(payoff_days) // 2]
+        q3 = payoff_days[(3 * len(payoff_days)) // 4]
+        print(f"  full tables: {full_tables}/{opened} of open sit-downs "
+              f"({full_tables / opened:.0%}); absent chairs: "
+              f"{absent_calendar} calendar-gated, {absent_case} case-gated")
+
+        def chairs_at(payoff_day):
+            from extra_toppings.models import SitdownSnapshot
+            vs = sd.evaluate_chairs(SitdownSnapshot(payoff_day, 0.0, 0), [])
+            return "".join("+" if v.available else "-"
+                           for v in vs if v.chair != "stand_pat")
+        print(f"  payoff days: median {med} (chairs {chairs_at(med)}), "
+              f"75th pct {q3} (chairs {chairs_at(q3)}); boundaries: "
+              + ", ".join(f"day {d}:{chairs_at(d)}"
+                          for d in (20, 21, 22, 23, 25, 26)))
 
     # ── criterion 3: forced-branch chaos completes ───────────────
     class ChaosSale(BotConsole):
@@ -293,7 +325,10 @@ def fork(seeds: int) -> None:
             s.day == s.sitdown_snapshot.payoff_day + 1 + escrow.DILIGENCE_DAYS)
         return {"entered": entered, "sold": sold,
                 "on_schedule": on_schedule,
-                "walkaway": escrow.walkaway_total(s) if sold else None,
+                # The dollar comparison uses the final broker mark before
+                # severance (rev. 7 ruling): walking money rewards
+                # retaining illicit assets and punishes burning cash.
+                "mark": s.branch_state.escrow_mark if sold else None,
                 "tier": escrow.sale_tier(s) if sold else None,
                 "dirty_locked": sold and (s.dirty + s.warehouse_cash)
                 > escrow.DIRTY_TOLERANCE}
@@ -332,26 +367,19 @@ def fork(seeds: int) -> None:
     matched = [s for s in range(seeds)
                if rows["careful"][s]["sold"] and rows["sloppy"][s]["sold"]]
     if matched:
-        diffs = [rows["careful"][s]["walkaway"]
-                 - rows["sloppy"][s]["walkaway"] for s in matched]
+        diffs = [rows["careful"][s]["mark"]
+                 - rows["sloppy"][s]["mark"] for s in matched]
         flips = sum(1 for s in matched
                     if rows["careful"][s]["tier"] != rows["sloppy"][s]["tier"])
         print(f"valuation: {len(matched)} matched closes; careful-minus-"
-              f"sloppy median ${statistics.median(diffs):,.0f} "
+              f"sloppy median mark ${statistics.median(diffs):,.0f} "
               f"(bar ≥ $1,000); tier flips {flips}/{len(matched)} "
-              f"({flips / len(matched):.0%}; bar ≥ 40%)")
-        # Diagnosis for the flip rate: seeds where BOTH closes carried
-        # > $200 unlaundered cash are tier-locked at kept-the-trade by
-        # cash hygiene alone — no escrow-week policy can flip those.
+              f"({flips / len(matched):.0%}; bar ≥ 40%, unconditioned)")
         locked = [s for s in matched if rows["careful"][s]["dirty_locked"]
                   and rows["sloppy"][s]["dirty_locked"]]
-        free = [s for s in matched if s not in locked]
-        free_flips = sum(1 for s in free if rows["careful"][s]["tier"]
-                         != rows["sloppy"][s]["tier"])
-        print(f"  of which cash-locked at kept-the-trade (both runs): "
-              f"{len(locked)}; flips among the {len(free)} unlocked: "
-              f"{free_flips}"
-              + (f" ({free_flips / len(free):.0%})" if free else ""))
+        print(f"  cash-locked at kept-the-trade in both runs: "
+              f"{len(locked)} (diagnostic only — the bar stays "
+              f"unconditioned)")
     else:
         print("valuation: no matched closes — study inconclusive")
 

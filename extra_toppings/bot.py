@@ -347,8 +347,9 @@ class MarketBot(StrategyBot):
         return super().ask_int(prompt, lo, hi, default)
 
 
-class EscrowBot(GreedyBot):
-    """Minimal per-branch policy over the smart bot (§2.7 criterion 4):
+class EscrowBot(MarketBot):
+    """Minimal per-branch policy over the smart bot (§2.7 criterion 4 —
+    the smart bot is the market speculator, the design's named baseline):
     takes the Quiet Sale when the table opens, then plays a CAREFUL
     diligence week — dump the stash through routes before it can be
     walked in on, pay tribute rather than let a raid land, no night
@@ -382,6 +383,19 @@ class EscrowBot(GreedyBot):
             return 3
         return len(options) - 1
 
+    def menu(self, prompt: str, options: list[str]) -> int:
+        pick = super().menu(prompt, options)
+        if "Burn dirty cash" in options[pick]:
+            self._done_today.add("Burn dirty cash")   # once a night
+        return pick
+
+    def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
+        if prompt.startswith("Burn how much"):
+            # Careful: the ledger test tolerates $200, so everything
+            # burns. Careless: the bag stays shut.
+            return hi if self.careful else default
+        return super().ask_int(prompt, lo, hi, default)
+
     def _score(self, label: str) -> float:
         if self._in_escrow:
             if "Burn it" in label:
@@ -390,6 +404,10 @@ class EscrowBot(GreedyBot):
                 return 60 if self.careful else -10
             if "Keep it" in label:
                 return 60 if not self.careful else -10
+            if "Burn dirty cash" in label:
+                if not self.careful or "Burn dirty cash" in self._done_today:
+                    return -8
+                return 45
             if "Pay tribute" in label:
                 return 50                     # never let a raid land
             if "Plan a night job" in label:
