@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "extra-toppings"
+version = "0.1.0"
+description = "Build a pizza empire. Run the city's underground market. Keep the books believable."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[project.scripts]
+extra-toppings = "extra_toppings.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["extra_toppings*"]
