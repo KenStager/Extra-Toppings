@@ -7,13 +7,13 @@ with the world state.
 """
 
 import json
-import random
 from dataclasses import asdict
 
 from . import data
 from .models import ActiveEvent, District, Employee, Rival, Shop, State
+from .rng import Streams
 
-SAVE_VERSION = 1
+SAVE_VERSION = 2
 
 _EVENTS_BY_ID = {e["id"]: e for e in data.EVENTS}
 
@@ -43,6 +43,10 @@ def state_to_dict(state: State) -> dict:
         "total_laundered": state.total_laundered,
         "raids_led": state.raids_led,
         "kills": state.kills,
+        "demand_shock": state.demand_shock,
+        "demand_today": state.demand_today,
+        "delivery_pool": state.delivery_pool,
+        "legit_revenue_today": state.legit_revenue_today,
     }
 
 
@@ -66,31 +70,21 @@ def state_from_dict(d: dict) -> State:
         case=d["case"], case_flags=list(d["case_flags"]), news=list(d["news"]),
         game_over=d["game_over"], debt_paid_day=d["debt_paid_day"],
         total_laundered=d["total_laundered"], raids_led=d["raids_led"],
-        kills=d["kills"],
+        kills=d["kills"], demand_shock=d["demand_shock"],
+        demand_today=d["demand_today"],
+        delivery_pool=d["delivery_pool"],
+        legit_revenue_today=d["legit_revenue_today"],
     )
     return state
 
 
-def _rng_state_to_json(rng: random.Random) -> list:
-    version, internal, gauss = rng.getstate()
-    return [version, list(internal), gauss]
-
-
-def _rng_state_from_json(blob: list) -> tuple:
-    version, internal, gauss = blob
-    return (version, tuple(internal), gauss)
-
-
-def save_game(state: State, rng: random.Random, path: str) -> None:
-    payload = {"state": state_to_dict(state), "rng": _rng_state_to_json(rng)}
+def save_game(state: State, streams: Streams, path: str) -> None:
+    payload = {"state": state_to_dict(state), "streams": streams.to_dict()}
     with open(path, "w") as f:
         json.dump(payload, f)
 
 
-def load_game(path: str) -> tuple[State, random.Random]:
+def load_game(path: str) -> tuple[State, Streams]:
     with open(path) as f:
         payload = json.load(f)
-    state = state_from_dict(payload["state"])
-    rng = random.Random()
-    rng.setstate(_rng_state_from_json(payload["rng"]))
-    return state, rng
+    return state_from_dict(payload["state"]), Streams.from_dict(payload["streams"])

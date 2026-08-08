@@ -40,8 +40,12 @@ Other ways to run it:
 python3 -m extra_toppings                        # unseeded (random) run
 python3 -m extra_toppings --auto --smart --verbose   # watch a bot play
 python3 -m extra_toppings.bench --seeds 60       # strategy benchmark
+python3 -m analysis.experiments all              # deep-analysis studies
 python3 -m unittest discover -s tests            # test suite
 ```
+
+Deep-simulation results and their history live in `docs/FINDINGS.md`;
+every table there is reproducible with `analysis/experiments.py`.
 
 ## The setup
 

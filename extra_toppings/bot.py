@@ -114,7 +114,7 @@ class StrategyBot(Console):
             return int(hi * self.cargo_frac) if self.do_crime else lo
         if prompt.startswith("Buy how many units"):
             return hi if self.do_crime else lo
-        if prompt.startswith("Legit pizza stops"):
+        if prompt.startswith("Delivery orders to run"):
             return min(hi, self.cover_stops)
         if prompt.startswith("Pay Carmine"):
             m = re.search(r"debt \$([\d,]+)", prompt)
@@ -123,9 +123,8 @@ class StrategyBot(Console):
                 return hi               # close it out — don't tip the interest
             return max(lo, hi - self.debt_float)
         if prompt.startswith("Run how much"):
-            if self.launder_all:
-                return hi
-            return default if default > 0 else hi
+            # default is tonight's remaining believable allowance
+            return hi if self.launder_all else default
         return default
 
     def confirm(self, prompt: str) -> bool:
@@ -212,9 +211,141 @@ class CrimeHeavyBot(StrategyBot):
              "Give a raise", "Let someone go", "Hire"]
 
 
+
+
+
+class MarketBot(StrategyBot):
+    """A speculator. Reads rumors, news and price boards from the same text a
+    human sees, tracks last-known prices per district, and routes toward
+    expected margin instead of away from heat. Holds inventory when the
+    numbers are poor."""
+
+    cargo_frac = 1.0
+    cover_stops = 8
+    MENU_PREFS: ClassVar[list[tuple[str, float]]] = [
+        ("Market board", 6.5),
+        *StrategyBot.MENU_PREFS,
+    ]
+    AVOID: ClassVar[list[str]] = \
+        [a for a in StrategyBot.AVOID if a != "Market board"]
+
+    # News headlines mapped to expected price pressure (good -> multiplier).
+    NEWS_SIGNALS: ClassVar[dict[str, dict[str, float]]] = {
+        "PORT SEIZURE": {"truffle": 1.9, "hot_honey": 1.4},
+        "STADIUM SELLS OUT": {"hot_honey": 1.5, "truffle": 1.3},
+        "EMPTIES WAREHOUSE": {"oregano": 0.6, "mushrooms": 0.6},
+    }
+
+    def __init__(self, rng: random.Random, verbose: bool = False) -> None:
+        super().__init__(rng, verbose)
+        from . import data as _data
+        self._data = _data
+        self._label_to_good = {v["label"]: k for k, v in _data.GOODS.items()}
+        self._dlabel_to_key = {v["label"]: k for k, v in _data.DISTRICTS.items()}
+        # (district, good) -> (price, day_heard)
+        self.known: dict[tuple[str, str], tuple[float, int]] = {}
+        self.day = 0
+        self.signal: dict[str, float] = {}       # good -> price multiplier belief
+        self.signal_days = 0
+        self._board_district: str | None = None
+
+    # ── perception: everything comes in through say() ────────────
+    def say(self, text: str = "") -> None:
+        if "— MORNING" in text:
+            self.day += 1
+            self._done_today = set()
+            if self.signal_days > 0:
+                self.signal_days -= 1
+                if self.signal_days == 0:
+                    self.signal = {}
+        s = text.strip()
+        m = re.match(r"(?:• )?RUMOR: .*says (.+) moves around \$(\d+) in (.+)", s)
+        if m and m.group(1) in self._label_to_good:
+            dk = self._dlabel_to_key.get(m.group(3))
+            if dk:
+                self.known[(dk, self._label_to_good[m.group(1)])] = \
+                    (float(m.group(2)), self.day)
+        if s.startswith(("• NEWS:", "NEWS:")):
+            for key, mults in self.NEWS_SIGNALS.items():
+                if key in s:
+                    self.signal = dict(mults)
+                    self.signal_days = 3
+        dm = re.match(r"(.+) — heat \d+", s)
+        if dm and dm.group(1) in self._dlabel_to_key:
+            self._board_district = self._dlabel_to_key[dm.group(1)]
+        pm = re.match(r"(.+?)\s{2,}\$([\d,]+)/unit", s)
+        if pm and self._board_district and pm.group(1) in self._label_to_good:
+            self.known[(self._board_district, self._label_to_good[pm.group(1)])] = \
+                (float(pm.group(2).replace(",", "")), self.day)
+        sm = re.match(r"(?:• )?SUPPLIER: (\d+)x (.+?) at \$([\d,]+)/unit", s)
+        if sm and sm.group(2) in self._label_to_good:
+            self._supplier = (self._label_to_good[sm.group(2)],
+                              int(sm.group(3).replace(",", "")))
+        super().say(text)
+
+    # ── beliefs ──────────────────────────────────────────────────
+    def _expected(self, dk: str, good: str) -> float:
+        """Expected street price, decaying stale intel toward the base."""
+        base = self._data.GOODS[good]["base"] \
+            * self._data.DISTRICTS[dk].get("good_bias", {}).get(good, 1.0)
+        base *= self.signal.get(good, 1.0)
+        if (dk, good) in self.known:
+            price, when = self.known[(dk, good)]
+            trust = max(0.0, 1.0 - 0.25 * (self.day - when))
+            return trust * price + (1 - trust) * base
+        return base
+
+    def _best_district(self) -> tuple[str, float]:
+        best, best_v = None, -1.0
+        for dk in self._data.DISTRICTS:
+            v = sum(self._expected(dk, g) / self._data.GOODS[g]["bulk"]
+                    for g in self._data.GOODS)
+            if v > best_v:
+                best, best_v = dk, v
+        return best or "university", best_v
+
+    # ── decisions ────────────────────────────────────────────────
+    def _special_menu(self, prompt: str, options: list[str]) -> int | None:
+        if prompt.startswith("Run today's route where?"):
+            target, _ = self._best_district()
+            label = self._data.DISTRICTS[target]["label"]
+            for i, o in enumerate(options[:-1]):
+                if o.startswith(label):
+                    return i
+            return 0
+        return super()._special_menu(prompt, options)
+
+    def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
+        if lo >= hi:
+            return lo
+        if prompt.startswith("Load"):
+            m = re.match(r"Load (.+?)\?", prompt)
+            good = self._label_to_good.get(m.group(1)) if m else None
+            if good:
+                target, _ = self._best_district()
+                hm = re.search(r"~\$([\d,]+)/u here", prompt)
+                here = float(hm.group(1).replace(",", "")) if hm else None
+                exp = self._expected(target, good)
+                floor = here if here is not None \
+                    else self._data.GOODS[good]["base"]
+                # Load only when the destination beats holding at home.
+                return hi if exp > floor * 1.1 else lo
+            return hi
+        if prompt.startswith("Buy how many units"):
+            sup = getattr(self, "_supplier", None)
+            if sup:
+                good, price = sup
+                best = max(self._expected(dk, good)
+                           for dk in self._data.DISTRICTS)
+                return hi if price < best * 0.55 else lo
+            return lo
+        return super().ask_int(prompt, lo, hi, default)
+
+
 BOTS = {
     "greedy": GreedyBot,
     "cautious": CautiousBot,
     "pizza": PizzaFirstBot,
     "crime": CrimeHeavyBot,
+    "market": MarketBot,
 }

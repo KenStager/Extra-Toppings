@@ -1,9 +1,8 @@
 """Game orchestration: the 30-day run and its endings."""
 
-import random
-
 from . import data, phases
 from .models import State, new_state
+from .rng import Streams
 from .ui import Console, money
 
 INTRO = """
@@ -23,16 +22,16 @@ Keep the food good. Keep the books believable. Keep the rivals afraid.
 
 
 def run(seed: int | None, con: Console, max_days: int | None = None) -> State:
-    rng = random.Random(seed)
+    streams = Streams(seed)
     state = new_state()
     con.say(INTRO)
     con.pause()
 
     last_day = min(max_days or data.DEBT_DUE_DAY, data.DEBT_DUE_DAY)
     while state.day <= last_day and not state.game_over:
-        plans = phases.morning(state, con, rng)
-        report = phases.service(state, plans, con, rng)
-        phases.night(state, plans, report, con, rng)
+        plans = phases.morning(state, con, streams)
+        report = phases.service(state, plans, con, streams)
+        phases.night(state, plans, report, con, streams)
 
         if state.debt > 0:
             state.debt = int(state.debt * (1 + data.DEBT_RATE))
