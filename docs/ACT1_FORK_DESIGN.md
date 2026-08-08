@@ -1770,10 +1770,13 @@ tuned away.
    retention dormancy (a current aware employee at morale ≥ 5 keeps
    their own records dormant) is reversible — it lapses when morale
    slips or the person leaves — so it spends no permanent budget and
-   is not counted against the cap. The floor: remediation verbs
-   refuse to fire at or below Case 10 (the file is as cold as they
-   will let it get, and the verbs say that rather than silently
-   no-op); when an event lands the sum below 10, the permanent
+   is not counted against the cap. The floor: evidence-only verbs
+   (contests, new dormancy) refuse to fire at or below Case 10 (the
+   file is as cold as they will let it get, and the verbs say that
+   rather than silently no-op); a settlement below the floor still
+   signs — it buys the goal term and the witness's peace — but
+   relieves no evidence, out loud. When an event lands the sum below
+   10, the permanent
    institutional-suspicion record ("they remember your name") is
    written, or topped up in place, by exactly the difference — its
    own evidence kind (`suspicion`), permanently immune to every verb,

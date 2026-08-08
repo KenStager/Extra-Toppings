@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 from .config import GameConfig
 from .models import (BRANCH_ORDER, BranchState, SitdownSnapshot, State,
-                     fold_case, validate_branch_state)
+                     case_prefix, fold_case, validate_branch_state)
 from .ui import Console
 
 NAMESPACE = "sitdown"
@@ -120,13 +120,12 @@ def case_band(case: float) -> str:
 
 def gate_crossing_record(evidence: list, count: int, gate: float) -> str:
     """The why-text of the record whose prefix sum first reached `gate`,
-    scanning only the first `count` records (the lock-up ledger). Same
-    left-to-right fold as State.case, so 'crossed' agrees with the
-    meter. Routine flagless ticks fall back to a generic description."""
-    total = 0.0
-    for record in evidence[:count]:
-        total += record.magnitude
-        if total >= gate:
+    scanning only the first `count` records (the lock-up ledger).
+    Consumes the shared prefix iterator (rev. 9 item 15) — the same
+    arithmetic as State.case, so 'crossed' agrees with the meter.
+    Routine flagless ticks fall back to a generic description."""
+    for record, running in case_prefix(evidence[:count]):
+        if running >= gate:
             return record.why or "the register's quiet accumulation"
     return ""
 

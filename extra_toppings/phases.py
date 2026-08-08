@@ -9,7 +9,7 @@ import random
 
 from . import data, escrow, market, raids, rivals, routes, shop
 from .config import GameConfig
-from .models import SitdownSnapshot, State
+from .models import SitdownSnapshot, State, case_prefix
 from .rng import Streams
 from .ui import Console, money
 
@@ -130,13 +130,11 @@ def _act1_telegraphs(state: State, con: Console) -> None:
 
 
 def _case_first_crossed_60_day(state: State) -> int | None:
-    """Day the Case first reached 60, or None. Derived from the evidence
-    records with the same left-to-right fold as State.case, so 'crossed'
-    here agrees bit-for-bit with what the meter showed."""
-    total = 0.0
-    for record in state.evidence:
-        total += record.magnitude
-        if total >= 60.0:
+    """Day the Case first reached 60, or None. Consumes the shared
+    prefix iterator (rev. 9 item 15) — the same arithmetic as
+    State.case, so 'crossed' here agrees bit-for-bit with the meter."""
+    for record, running in case_prefix(state.evidence):
+        if running >= 60.0:
             return record.day
     return None
 

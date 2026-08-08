@@ -72,22 +72,51 @@ class ActiveEvent:
     days_left: int
 
 
-def fold_case(evidence: list) -> float:
-    """THE full-ledger Case-total fold (rev. 6 completion). An explicit
-    left-to-right addition, clamped to 0..100: NOT sum(), which Python
-    3.12 moved to compensated summation, breaking bit-identity with the
-    sequential running total (found as 15/300 golden failures in
-    review). State.case and the sit-down's live ledger both call this.
-    Two purpose-specific PREFIX scans exist elsewhere (locating the day
-    or record where a running total first crosses a threshold — the
-    Case-60 telegraph and the sit-down's gate-crossing record); they
-    are sequential by the same rule and correct, but they answer a
-    different question than a ledger total. If evidence remediation
-    (the Straight Path) multiplies these scans, fold them into one
-    shared prefix iterator before copies drift."""
+# A dormant witness record counts at half weight (§2.3) — the one
+# factor shared by the fold, the ledger view, and the settlement
+# arithmetic. The floor and cap are the §2.3 bounds: remediation never
+# displays the sum below CASE_FLOOR, and the paid verbs never remove
+# more than REMEDIATION_CAP points across a run.
+DORMANT_FACTOR = 0.5
+CASE_FLOOR = 10.0
+REMEDIATION_CAP = 25.0
+
+EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
+                  "suspicion")
+
+
+def effective_magnitude(record) -> float:
+    """What a record contributes to the meter: dormant witness records
+    count at half weight; everything else returns the stored magnitude
+    untouched (no arithmetic — bit-identity with the pre-dormancy fold
+    is by construction, not by luck)."""
+    if record.dormant:
+        return record.magnitude * DORMANT_FACTOR
+    return record.magnitude
+
+
+def case_prefix(evidence: list):
+    """THE shared prefix iterator (rev. 9 item 15): yields (record,
+    running_total) with the same explicit left-to-right addition as
+    fold_case — NOT sum(), which Python 3.12 moved to compensated
+    summation, breaking bit-identity with the sequential running total
+    (found as 15/300 golden failures in review). The full-ledger fold,
+    the Case-60 telegraph and the sit-down's gate-crossing record all
+    consume this one arithmetic; the running total is unclamped (a
+    prefix question is about crossing, not display)."""
     total = 0.0
     for record in evidence:
-        total += record.magnitude
+        total += effective_magnitude(record)
+        yield record, total
+
+
+def fold_case(evidence: list) -> float:
+    """THE full-ledger Case-total fold (rev. 6 completion): the last
+    running total of the shared prefix iterator, clamped to 0..100.
+    State.case and the sit-down's live ledger both call this."""
+    total = 0.0
+    for _record, running in case_prefix(evidence):
+        total = running
     return max(0.0, min(100.0, total))
 
 
@@ -99,14 +128,24 @@ class Evidence:
 
     kind: "witness" (a person who knows), "paper" (financial trail),
     "physical" (seizures and scenes), "pattern" (the raid handwriting),
-    "legacy" (migrated from a pre-v3 save; renders its text verbatim).
+    "legacy" (migrated from a pre-v3 save; renders its text verbatim),
+    "suspicion" (the institutional-suspicion floor record, §2.3 —
+    permanent, immune to every remediation verb, topped up in place).
     Routine paper ticks carry why="" and render nowhere, exactly like the
-    flagless accruals they replace."""
+    flagless accruals they replace.
+
+    dormant: the reversible retention halving (§2.3 rev. 9 item 4) — a
+    current aware employee at morale ≥ 5 keeps their own records at
+    half weight; reconciled nightly in-branch, never set outside one.
+    contested: counsel argued this paper record down already — each
+    record contests at most once."""
     day: int
     magnitude: float
     kind: str
     why: str
     source: str = ""          # Employee.key when a witness is attached
+    dormant: bool = False
+    contested: bool = False
 
 
 @dataclass(frozen=True)
@@ -132,6 +171,12 @@ class BranchState:
     # The Straight Path
     disposal_runs_left: int = 0
     last_crime_day: int | None = None
+    counsel_retained: bool = False
+    counsel_days: int = 0                # retained days served, ever
+    remediation_used: float = 0.0        # paid points removed, of the cap
+    settled_witnesses: list = field(default_factory=list)  # Employee.key
+    ad_days_left: int = 0                # advertising campaign days
+    insolvent_days: int = 0              # consecutive clean-insolvent nights
     # Carmine's Partner
     points_due_day: int | None = None
     points_missed: int = 0
@@ -185,7 +230,9 @@ ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
 # Which BranchState fields are live per active branch; everything else
 # must sit at its dataclass default or the payload is a cross-branch mix.
 _BRANCH_FIELDS = {
-    "straight": {"disposal_runs_left", "last_crime_day"},
+    "straight": {"disposal_runs_left", "last_crime_day", "counsel_retained",
+                 "counsel_days", "remediation_used", "settled_witnesses",
+                 "ad_days_left", "insolvent_days"},
     "partner": {"points_due_day", "points_missed", "vig_owed"},
     "war": {"war_target", "declared_day"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
@@ -245,6 +292,50 @@ def validate_branch_state(branch: str | None,
             raise ValueError("quiet_sale: the sit-down is diligence day 1")
         _validate_escrow_pricing(branch_state)
         _validate_severance(branch_state, game_over)
+    elif branch == "straight":
+        _validate_straight(branch_state, game_over)
+
+
+def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
+    """The Straight Path's field contracts (rev. 9): counted disposal
+    runs, the paid-remediation budget, the settled-witness roster and
+    the insolvency counter all bind at transition and load — a doctored
+    payload is refused, not repaired."""
+    runs = bs.disposal_runs_left
+    if type(runs) is not int or not 0 <= runs <= 3:
+        raise ValueError(f"straight: disposal_runs_left must be an integer "
+                         f"in 0..3, got {runs!r}")
+    if bs.last_crime_day is not None and (
+            type(bs.last_crime_day) is not int or bs.last_crime_day < 1):
+        raise ValueError(f"straight: last_crime_day must be None or a "
+                         f"positive day, got {bs.last_crime_day!r}")
+    if not isinstance(bs.counsel_retained, bool):
+        raise ValueError(f"straight: counsel_retained must be a bool, "
+                         f"got {bs.counsel_retained!r}")
+    if type(bs.counsel_days) is not int or bs.counsel_days < 0:
+        raise ValueError(f"straight: counsel_days must be a non-negative "
+                         f"integer, got {bs.counsel_days!r}")
+    used = bs.remediation_used
+    if isinstance(used, bool) or not isinstance(used, (int, float)) \
+            or not 0 <= used <= REMEDIATION_CAP:
+        raise ValueError(f"straight: remediation_used must lie in "
+                         f"0..{REMEDIATION_CAP:.0f} points, got {used!r}")
+    names = bs.settled_witnesses
+    if not isinstance(names, list) \
+            or any(not isinstance(k, str) or not k for k in names) \
+            or len(set(names)) != len(names):
+        raise ValueError(f"straight: settled_witnesses must be a list of "
+                         f"unique employee keys, got {names!r}")
+    if type(bs.ad_days_left) is not int or bs.ad_days_left < 0:
+        raise ValueError(f"straight: ad_days_left must be a non-negative "
+                         f"integer, got {bs.ad_days_left!r}")
+    days = bs.insolvent_days
+    if type(days) is not int or days < 0:
+        raise ValueError(f"straight: insolvent_days must be a non-negative "
+                         f"integer, got {days!r}")
+    if days >= 2 and game_over != "broke":
+        raise ValueError("straight: two clean-insolvent nights end the run "
+                         "— a live run cannot carry them")
 
 
 def _validate_escrow_pricing(bs: "BranchState") -> None:
@@ -312,6 +403,41 @@ def _validate_severance(bs: "BranchState", game_over: str | None) -> None:
             raise ValueError(f"quiet_sale: not_applicable requires zero "
                              f"headcount and zero paid (got {paid} for "
                              f"{heads})")
+
+
+def validate_evidence(records: list) -> None:
+    """The evidence ledger's persistence contract (rev. 9): magnitudes
+    are never negative (a doctored −50 record would be a credit against
+    the Case), kinds come from the known taxonomy, dormancy is only the
+    retention halving (witness records with a named source), contests
+    only mark paper, and the institutional-suspicion record — permanent
+    and immune — exists at most once, topped up in place. Raises
+    ValueError; bound at save-load."""
+    suspicion_seen = False
+    for i, r in enumerate(records):
+        if r.kind not in EVIDENCE_KINDS:
+            raise ValueError(f"evidence[{i}]: unknown kind {r.kind!r}")
+        if isinstance(r.magnitude, bool) \
+                or not isinstance(r.magnitude, (int, float)) \
+                or r.magnitude < 0:
+            raise ValueError(f"evidence[{i}]: magnitude must be a "
+                             f"non-negative number, got {r.magnitude!r}")
+        if not isinstance(r.dormant, bool) or not isinstance(r.contested, bool):
+            raise ValueError(f"evidence[{i}]: dormant/contested must be "
+                             f"booleans")
+        if r.dormant and (r.kind != "witness" or not r.source):
+            raise ValueError(f"evidence[{i}]: dormancy is the retention "
+                             f"halving — witness records with a named "
+                             f"source only (kind {r.kind!r})")
+        if r.contested and r.kind != "paper":
+            raise ValueError(f"evidence[{i}]: only paper records are "
+                             f"contestable (kind {r.kind!r})")
+        if r.kind == "suspicion":
+            if suspicion_seen:
+                raise ValueError("evidence: the institutional-suspicion "
+                                 "record exists at most once, topped up "
+                                 "in place")
+            suspicion_seen = True
 
 
 @dataclass
