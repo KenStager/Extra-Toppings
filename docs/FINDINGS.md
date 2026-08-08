@@ -528,6 +528,61 @@ equivalence re-verified at **300/300 on 3.11, 3.12 and 3.13**. The raid
 plan dict gained a transient `table_warned` key — never saved, never
 digested; prompts, state and RNG surfaces are untouched.
 
+## Round 8 (opens with P1a) — the fork's skeleton, proven inert
+
+P1 is split into two reviewable PRs (design §7 rev. 5): P1a is the
+foundation — everything the Quiet Sale will stand on, landed and gated
+before any branch mechanics exist. This round's body (the escrow
+studies) arrives with P1b; what P1a contributes is the machinery and
+its two gates.
+
+- **The replay decision, made before the code.** The stand-pat identity
+  contradiction (the sit-down is made of prompts, so a stand-pat run
+  cannot both answer the scene and match a fork-off decision log
+  byte-for-byte) is resolved by the rev. 5 two-trace contract:
+  gameplay prompts keep their exact event shape in the game trace —
+  `golden_act1.json` untouched — while sit-down decisions ride a
+  namespaced `scene_menu` channel into a separate scene trace. The
+  paired gate (`analysis.equivalence standpat`) demands the flag-on
+  stand-pat game trace equal the flag-off trace **event for event, full
+  lists compared**, plus exact nightly projection, shared streams,
+  ending, undrawn fork streams, and a scene trace holding exactly one
+  stand-pat selection and one confirmation. A subsequence comparison
+  was rejected: it tolerates missing, duplicated or reordered gameplay
+  prompts.
+- **The flag is an argument, not an ambient.** Immutable
+  `GameConfig(fork_enabled, enabled_branches)` passed explicitly; only
+  the CLI reads the environment. It gates entry (the lock-up snapshot
+  is captured only while on) and never continuation — a save with a
+  pending snapshot or act 2 resumes correctly whatever the launch
+  flags say.
+- **The snapshot stores three primitives** (payoff day, Case at
+  lock-up, evidence count at lock-up); R, verdicts, withholding prose
+  and the gate-crossing record are derived by a pure evaluator — no
+  second source of truth. Save-layer: additive, no version bump, older
+  v3 payloads load None. The rev. 4 ordering exploit and the
+  world-dice exclusion are both regression-tested through the real
+  night phase.
+- **The scene draws zero RNG and consumes zero bot decision RNG** —
+  bots answer scene menus with a deterministic last-option handler
+  (every scene menu keeps its progressing choice last), asserted by
+  comparing bot RNG state before and after a real scene. All four
+  chairs render with their true gate verdicts; unimplemented chairs
+  carry a development-build marker outside the fiction and cannot be
+  selected — never silently converted to stand-pat. An enabled branch
+  without a commit path fails loudly.
+- **BranchState grew constructors and ValueError validation** (dead
+  fields at defaults, stand-pat means no BranchState, required fields
+  per branch, mixed payloads refused) — enforced at branch transition
+  and save-load, before any branch code exists to get it wrong.
+
+Verification: 164 tests green on 3.11 and 3.12 (38 new in
+`tests/test_p1_foundation.py`); ruff/mypy clean; flag-off golden gate
+**300/300 on 3.11, 3.12 and 3.13** against the untouched goldens; the
+new paired stand-pat gate **300/300 runs identical** (150 seeds × both
+bot profiles, flag-on vs flag-off), with the sit-downs that fired held
+to the exact scene contract.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered
