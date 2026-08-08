@@ -12,8 +12,12 @@ the pre-refactor engine:
 - **shared RNG streams** — the four persistent player streams that both
   engines have, hashed nightly. Streams added after v2 must end every
   run exactly as initialized: provably undrawn.
-- **action replay** — the bot's total prompt count (menus + amounts +
-  confirms) per run, plus the ending.
+- **action replay** — a digest of the bot's complete decision trace:
+  every menu (prompt, options, chosen index), every amount prompt
+  (prompt, bounds, default, answer) and every confirmation (prompt,
+  result), in order — two runs cannot pass by merely answering the same
+  NUMBER of prompts. The raw prompt count rides along as a diagnostic,
+  plus the ending.
 
 Usage:
     python3 -m analysis.equivalence generate   # write golden_act1.json
@@ -89,24 +93,29 @@ def _streams_digest(streams) -> str:
                     for name in SHARED_STREAMS})
 
 
-def _counting(bot_cls):
-    class Counting(bot_cls):
+def _tracing(bot_cls):
+    class Tracing(bot_cls):
+        """Records every interaction AND its answer, in order."""
+
         def __init__(self, *a, **k):
             super().__init__(*a, **k)
-            self.prompts = 0
+            self.trace: list = []
 
         def menu(self, prompt, options):
-            self.prompts += 1
-            return super().menu(prompt, options)
+            ans = super().menu(prompt, options)
+            self.trace.append(["menu", prompt, list(options), ans])
+            return ans
 
         def ask_int(self, prompt, lo, hi, default=0):
-            self.prompts += 1
-            return super().ask_int(prompt, lo, hi, default)
+            ans = super().ask_int(prompt, lo, hi, default)
+            self.trace.append(["int", prompt, lo, hi, default, ans])
+            return ans
 
         def confirm(self, prompt):
-            self.prompts += 1
-            return super().confirm(prompt)
-    return Counting
+            ans = super().confirm(prompt)
+            self.trace.append(["confirm", prompt, ans])
+            return ans
+    return Tracing
 
 
 def _new_streams_undrawn(streams, seed: int) -> list[str]:
@@ -131,10 +140,11 @@ def run_recorded(seed: int, bot_key: str) -> dict:
         drawn_new.extend(n for n in _new_streams_undrawn(streams, seed)
                          if n not in drawn_new)
 
-    con = _counting(BOTS[bot_key])(random.Random(seed), verbose=False)
+    con = _tracing(BOTS[bot_key])(random.Random(seed), verbose=False)
     state = game.run(seed, con, on_night=on_night)
     return {"nights": nights, "ending": state.game_over,
-            "prompts": con.prompts, "drawn_new_streams": drawn_new}
+            "prompts": len(con.trace), "trace": _digest(con.trace),
+            "drawn_new_streams": drawn_new}
 
 
 def generate(seeds: int) -> None:
@@ -145,7 +155,9 @@ def generate(seeds: int) -> None:
             rec.pop("drawn_new_streams")      # not part of the v2 baseline
             runs[f"{bot_key}/{seed}"] = rec
     payload = {
-        "meta": {"engine": "pre-P0 v2 baseline @ 3d79d17",
+        "meta": {"engine": "pre-P0 v2 baseline @ 3d79d17 "
+                           "(harness + on_night hook injected; "
+                           "engine files untouched)",
                  "seeds": seeds, "bots": sorted(BOTS)},
         "runs": runs,
     }
@@ -176,10 +188,11 @@ def check(seeds: int | None) -> int:
                 print(f"FAIL {key}: ending {got['ending']!r} != "
                       f"golden {want['ending']!r}")
                 continue
-            if got["prompts"] != want["prompts"]:
+            if got["trace"] != want["trace"]:
                 failures += 1
-                print(f"FAIL {key}: {got['prompts']} prompts != "
-                      f"golden {want['prompts']} (action replay diverged)")
+                print(f"FAIL {key}: decision trace diverged "
+                      f"({got['prompts']} prompts vs golden "
+                      f"{want['prompts']})")
                 continue
             for night, (g, w) in enumerate(zip(got["nights"], want["nights"]),
                                            start=1):
