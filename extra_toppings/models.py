@@ -73,13 +73,18 @@ class ActiveEvent:
 
 
 def fold_case(evidence: list) -> float:
-    """THE Case arithmetic — the only fold in the codebase (rev. 6
-    completion). An explicit left-to-right addition, clamped to 0..100:
-    NOT sum(), which Python 3.12 moved to compensated summation,
-    breaking bit-identity with the sequential running total (found as
-    15/300 golden failures in review). State.case and the sit-down's
-    live ledger both call this; a second copy of this arithmetic is a
-    recurrence waiting to happen."""
+    """THE full-ledger Case-total fold (rev. 6 completion). An explicit
+    left-to-right addition, clamped to 0..100: NOT sum(), which Python
+    3.12 moved to compensated summation, breaking bit-identity with the
+    sequential running total (found as 15/300 golden failures in
+    review). State.case and the sit-down's live ledger both call this.
+    Two purpose-specific PREFIX scans exist elsewhere (locating the day
+    or record where a running total first crosses a threshold — the
+    Case-60 telegraph and the sit-down's gate-crossing record); they
+    are sequential by the same rule and correct, but they answer a
+    different question than a ledger total. If evidence remediation
+    (the Straight Path) multiplies these scans, fold them into one
+    shared prefix iterator before copies drift."""
     total = 0.0
     for record in evidence:
         total += record.magnitude
@@ -138,6 +143,7 @@ class BranchState:
     diligence_day: int = 0
     escrow_mark: int = 0
     escrow_incidents: int = 0
+    escrow_discount: float = 0.0    # cumulative incident repricing (0..1)
 
     @classmethod
     def straight(cls, *, disposal_runs_left: int = 3,
@@ -171,7 +177,8 @@ _BRANCH_FIELDS = {
     "straight": {"disposal_runs_left", "last_crime_day"},
     "partner": {"points_due_day", "points_missed", "vig_owed"},
     "war": {"war_target", "declared_day"},
-    "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents"},
+    "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
+                   "escrow_discount"},
 }
 if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")

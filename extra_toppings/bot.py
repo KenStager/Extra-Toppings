@@ -347,6 +347,86 @@ class MarketBot(StrategyBot):
         return super().ask_int(prompt, lo, hi, default)
 
 
+class EscrowBot(GreedyBot):
+    """Minimal per-branch policy over the smart bot (§2.7 criterion 4):
+    takes the Quiet Sale when the table opens, then plays a CAREFUL
+    diligence week — dump the stash through routes before it can be
+    walked in on, pay tribute rather than let a raid land, no night
+    jobs. The bot reads the same transcript a human does: the ESCROW
+    header flips it into diligence mode; the buyer-gone lines flip it
+    back."""
+
+    careful = True
+
+    def __init__(self, rng: random.Random, verbose: bool = False) -> None:
+        super().__init__(rng, verbose)
+        self._tried_sale = False
+        self._in_escrow = False
+
+    def say(self, text: str = "") -> None:
+        stripped = text.strip()
+        if stripped.startswith(("ESCROW —", "CLOSING MORNING")):
+            self._in_escrow = True
+            self._entered_escrow = True     # latched for the harness: a
+            # day-one collapse reverts before the first night hook fires
+        if "buys elsewhere" in text or "doesn't slow down" in text:
+            self._in_escrow = False
+        super().say(text)
+
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        # Deterministic and RNG-free, like every scene handler: try the
+        # Quiet Sale once; if the chair refuses (withheld), fall back to
+        # progress-last. Closing menus progress-last too (sign, humane).
+        if prompt == "Your chair:" and not self._tried_sale:
+            self._tried_sale = True
+            return 3
+        return len(options) - 1
+
+    def _score(self, label: str) -> float:
+        if self._in_escrow:
+            if "Burn it" in label:
+                # The careful close: the stock is worth less than the
+                # incidents it invites. The careless one keeps it.
+                return 60 if self.careful else -10
+            if "Keep it" in label:
+                return 60 if not self.careful else -10
+            if "Pay tribute" in label:
+                return 50                     # never let a raid land
+            if "Plan a night job" in label:
+                return -10
+            if self.careful and "Buy from today's supplier" in label:
+                return -10                    # nothing new for his man to find
+            if "Plan tonight's route" in label:
+                # Careful: the stash leaves in the warmer bags before the
+                # buyer's man finds it. Careless: it sits where it is.
+                # Once per day, like every menu preference — otherwise
+                # the morning menu never ends.
+                if "Plan tonight's route" in self._done_today:
+                    return 0.5
+                return 40 if self.careful else -10
+        return super()._score(label)
+
+
+class SloppyEscrowBot(EscrowBot):
+    """The valuation study's control (§2.7 criterion 4): same chair,
+    but the lesson arrives by invoice — stock keeps sitting in the
+    walk-in until the first incident has already repriced the deal,
+    and only then does the diligence turn careful."""
+    careful = False
+
+    def say(self, text: str = "") -> None:
+        if "INCIDENT" in text:
+            self.careful = True          # instance shadow: lesson learned
+        super().say(text)
+
+
+class KeepsStashBot(EscrowBot):
+    """Criterion 5's ablation: the branch's stated counterplay removed
+    entirely — the stash stays on premises all week, every week. If
+    this bot's close rate doesn't crater, the pressure is decorative."""
+    careful = False
+
+
 BOTS = {
     "greedy": GreedyBot,
     "cautious": CautiousBot,

@@ -270,8 +270,10 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
 # ── defense ───────────────────────────────────────────────────────
 
 def incoming_raid(state: State, rival_key: str, con: Console,
-                  rng: random.Random) -> None:
-    """A telegraphed rival raid arrives at your shop tonight."""
+                  rng: random.Random) -> bool:
+    """A telegraphed rival raid arrives at your shop tonight. Returns
+    whether a raid actually LANDED (paid tribute averts it) — escrow
+    counts a landed raid as a repricing incident (§2.4.4)."""
     rival = state.rivals[rival_key]
     rspec = data.RIVALS[rival_key]
     con.header(f"THEY'RE COMING — {rspec['short']}'s crew hits your shop tonight")
@@ -293,7 +295,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         con.say("  Everyone on your payroll knows you paid.")
         for e in state.hired():
             e.morale -= 1
-        return
+        return False
 
     if choice == 1:
         # The wagon holds a wagonload. Anything past that stays — and is found.
@@ -317,7 +319,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
                     "Message received — both ways.")
         rival.relation -= 5
         rival.raid_warning = 0
-        return
+        return True
 
     # Fight.
     defenders = state.crew()
@@ -348,3 +350,4 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         state.add_heat(data.HOME_DISTRICT, 20)
         state.add_case(4, "an armed robbery at your address raised questions")
     rival.raid_warning = 0
+    return True

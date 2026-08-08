@@ -664,6 +664,59 @@ After correction 2: 183 tests green on 3.11 and 3.12; ruff/mypy clean;
 flag-off golden 300/300 and paired stand-pat 300/300 with sit-downs
 expected 82 / held 82 (schema v1) on Python 3.11, 3.12 and 3.13.
 
+### Round 8 body — P1b: the Quiet Sale, measured
+
+The escrow week is in (`extra_toppings/escrow.py` + the scene commit
+path), behind the same flag, drawing the `brokers` stream only after
+the chair is taken. All §2.7 numbers below reproduce via
+`python3 -m analysis.experiments fork` (150 seeds; three escrow bots —
+careful, sloppy-learner, and the keeps-stash ablation — built as
+minimal policies over the greedy bot).
+
+| Criterion | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Reachability (unmodified market bot, open sit-down) | ≥ 55% | 85/150 = 57% | pass |
+| Crash-freedom (forced-sale chaos) | 150/150 | 150/150 | pass |
+| Careful close rate (of entered) | ≥ 70% | 76/82 = 93% | pass |
+| Closes exactly at fork+4 or reverts | always | 0 off-schedule | pass |
+| Ablation drop (keeps-stash) | ≥ 20 pts | 93% → 10% (83 pts) | pass |
+| Valuation, careful−sloppy median | ≥ $1,000 | $2,179 | pass |
+| Valuation, tier flips | ≥ 40% | 10/52 = **19%** | **miss** |
+
+The miss is a finding, not a tuning failure. Of the 52 matched closes,
+31 are **cash-locked at kept-the-trade in both runs**: laundering is
+off all week by design, so more than $200 of unlaundered cash at close
+was decided before the fork — no escrow-week policy can flip those
+tiers. Among the 21 unlocked pairs, flips run 10/21 = 48%, over the
+bar. The criterion needs a review ruling (condition on
+tier-controllable seeds, extend "careful" into pre-fork cash hygiene,
+or give escrow a dirty-cash outlet); the design doc records the
+question (§8, P1b notes).
+
+Two mechanics findings from the same runs, reported in the deviation
+record:
+
+- **Without a burn action the branch was unplayable.** First contact:
+  0% closes — every entered run collapsed on walk-through incidents,
+  because a stash-heavy month cannot leave through a 24-bulk wagon
+  before two incidents land. §3.4's "burn it for the clean close"
+  became a real diligence-morning choice; careful closes went 0% →
+  93% while the keeps-stash ablation stayed at 10% — the pressure is
+  real, and now so is the counterplay.
+- **The clean close is genuinely rare for a criminal month** — the
+  careful bot's tiers split 49 kept-trade / 23 fire-sale / 4 modest,
+  and *sold well* was never reached by any bot. That is the branch's
+  thesis (the clean number must be EARNED by the month, not the week);
+  whether it is fun is a human-play question for seeds 24/39/8, noted
+  for the P4 pass.
+
+Verification: 209 tests green on 3.11 and 3.12 (26 new in
+`tests/test_quiet_sale.py`, driving the real scene, mornings, service
+walk-throughs, night rules and closing); ruff/mypy clean; flag-off
+golden 300/300 AND paired stand-pat 300/300 (expected 82 / held 82,
+schema v1) on 3.11, 3.12 and 3.13 with all P1b code in the tree — the
+fork stays provably inert unless entered.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

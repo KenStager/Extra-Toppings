@@ -24,8 +24,8 @@ with a schema version bump there.
 from dataclasses import dataclass
 
 from .config import GameConfig
-from .models import (BRANCH_ORDER, SitdownSnapshot, State, fold_case,
-                     validate_branch_state)
+from .models import (BRANCH_ORDER, BranchState, SitdownSnapshot, State,
+                     fold_case, validate_branch_state)
 from .ui import Console
 
 NAMESPACE = "sitdown"
@@ -304,8 +304,31 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
                     "like a door closing. 'The shop is yours. The city is "
                     "what it is.' Nobody mentions the table again.")
             return
-        # A branch both seated and enabled commits here — P1b and later.
-        # Reaching this in a P1a build is a configuration error, and it
-        # fails loudly rather than quietly becoming stand-pat.
+        if chair == "quiet_sale":
+            sal = state.rivals.get("sal")
+            buyer = ("Sal's man with the clean fingernails — a straw "
+                     "purchase, and everyone at this table knows it"
+                     if sal is not None and sal.alive and sal.relation >= 0
+                     else "an out-of-town operator who asks very few "
+                     "questions")
+            con.say(f"  The buyer at the table's edge: {buyer}.")
+            confirmed = con.scene_menu(
+                NAMESPACE,
+                "Take the Quiet Sale? His man walks the shop this afternoon.",
+                ["Reconsider", "Shake on it — the week starts now"])
+            if confirmed == 0:
+                continue
+            branch_state = BranchState.quiet_sale(diligence_day=1)
+            validate_branch_state("quiet_sale", branch_state)
+            state.branch_state = branch_state
+            state.branch = "quiet_sale"
+            state.act = 2
+            con.say("  A handshake, no papers yet. Today is diligence day "
+                    "one of four; closing is the morning after day four, "
+                    "and the register had better be boring all week.")
+            return
+        # A branch both seated and enabled commits above — anything else
+        # reaching here is a configuration error, and it fails loudly
+        # rather than quietly becoming stand-pat.
         raise NotImplementedError(
             f"branch {chair!r} is enabled but has no commit path yet")

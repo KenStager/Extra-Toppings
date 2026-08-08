@@ -1556,3 +1556,34 @@ Pinned: frozen 65 → live 90 (offers stand, both live-danger warnings
 present); the Case-72 Partner rejection naming 70, 72 and the record;
 the day-21 calendar rejection naming ten-needed/nine-remaining; the
 shared fold on the 3.12-sensitive sequence.
+
+**P1b implementation notes (pre-review).** The Quiet Sale landed with
+three recorded deviations-with-argument and one measured criterion
+miss, all awaiting review judgment:
+
+1. *The incinerator is now an action.* §3.4's oregano question ("burn
+   it for the clean close") had no mechanic — and without one the
+   branch was unplayable: a stash-heavy month cannot leave through a
+   24-bulk wagon before walk-throughs stack two incidents (measured:
+   0% closes before the mechanic, 93% after, with the ablation still
+   cratering at 10%). Each diligence morning with stock on premises
+   asks: keep it and chance the walk, or burn it. In-branch prompt
+   only; no identity surface moves.
+2. *Severance is remembered by the closing transcript and the crew's
+   morale* (the cheap choice costs −2 morale a head), not by a
+   variant epilogue paragraph — a simplification to either bless or
+   correct.
+3. *No bespoke escrow extortion event.* §3.4's D16 note-under-the-door
+   is carried by the existing machinery instead: rival extortion and
+   raids continue during escrow, a landed raid is an incident, and the
+   war clause visibly arms on a live telegraph or vendetta.
+4. *The tier-flip bar misses as written, and the miss is a finding.*
+   Careful-vs-sloppy tier flips run 19% (bar ≥ 40%) — but 31 of 52
+   matched closes are cash-locked at kept-the-trade in BOTH runs:
+   laundering is off all week by design, so > $200 of unlaundered cash
+   at close is decided before the fork, and no escrow-week policy can
+   flip those tiers. Among the 21 unlocked pairs, flips run 48% — over
+   the bar. The criterion needs a ruling: condition it on
+   tier-controllable seeds, extend "careful" to pre-fork cash hygiene,
+   or give escrow a dirty-cash outlet. The dollar bar passes unhelped
+   (careful-minus-sloppy median $2,179 ≥ $1,000).
