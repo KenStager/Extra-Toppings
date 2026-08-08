@@ -311,6 +311,39 @@ greedy 58%, crime-heavy 21%, cautious 33%, pizza-first 0%.
 dispatch statements; the dispatcher was reshaped with no behavior
 change.)
 
+## Round 6 — P0 foundation: the engine rebuilt under a proof of stillness
+
+The Act I fork's P0 phase (design: `docs/ACT1_FORK_DESIGN.md` §2.3, §5)
+rebuilt the engine's foundations with a standing proof that Act I did not
+move:
+
+- **Equivalence harness** (`python3 -m analysis.equivalence generate|check`):
+  before any refactor landed, 150 seeds × 2 bot profiles (random chaos
+  bot, greedy strategy bot) were recorded nightly from the untouched
+  engine into `analysis/golden_act1.json` — a legacy projection of state
+  in the save-v2 shape, digests of the four shared persistent RNG
+  streams, the bot's total prompt count, and the ending.
+- **The rebuild**: `case_flags` → typed `Evidence` records (witness /
+  paper / physical / pattern / legacy) with `state.case` derived as
+  their clamped sum; arrest latches inside `add_case` the moment the sum
+  reaches 100, irrevocably; `State.shop`/`shop_stash` → compat
+  properties over a `State.shops` collection (a list of one until the
+  Partner branch); save v3 with backward migration of v2 payloads
+  (annotation records + one carrier record reproduce the scalar Case
+  exactly); three fork-era RNG streams (`sitdown`/`brokers`/`war`)
+  reserved and provably undrawn.
+- **Result: 300/300 recorded runs identical** after the rebuild, on all
+  three surfaces, plus every schema-semantics test in
+  `tests/test_p0_foundation.py` (92 tests total, ruff/mypy clean).
+- One deliberate deviation from the design's letter: routine 0.5-Case
+  ticks are stored as individual records rather than one rolling record.
+  Storage-level aggregation would reorder floating-point addition and
+  break bit-exact identity with the old running total; the future
+  evidence-ledger UI aggregates them at display time instead.
+
+The gate holds for everything that follows: no fork content lands unless
+`analysis.equivalence check` stays at 300/300 for pre-fork play.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered
