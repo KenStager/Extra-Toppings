@@ -806,7 +806,11 @@ seeds 24/39/8 remains the test of fun.
 2. **Reachability.** The unmodified market bot reaches an open sit-down in
    ≥ 55% of seeds; at typical payoff states every chair is present in
    ≥ 90% of open sit-downs (the gates of §2.1 should bite on outliers, not
-   the median run).
+   the median run). Chair presence is measured on the **complete computed
+   offer set** — the pure evaluator's verdicts for all four chairs — not
+   on which menu entries happen to be actionable in a given build
+   (rev. 5): a development build with branches disabled still computes,
+   renders and is judged on the full table.
 3. **Crash-freedom.** Chaos-monkey (`--auto`) forced down each branch × 150
    seeds completes every run; full unittest/ruff/mypy suite green.
 4. **Divergence.** Four branch bots (minimal per-branch policies over the
@@ -868,12 +872,38 @@ seeds 24/39/8 remains the test of fun.
    pays points from pizza margins only; an Escrow bot that keeps stash on
    premises. If an ablation *doesn't* hurt, the pressure is decorative and
    the branch fails review.
-6. **The control stands — exactly, per seed.** For every seed, a stand-pat
-   run and a current-main run must match on the same three surfaces as
-   criterion 1 — nightly legacy projection, shared RNG streams, action
-   replay, ending — 150/150; not a matching distribution, the same runs.
-   (The sit-down scene and its declined offers may add transcript lines
-   only.)
+6. **The control stands — exactly, per seed (two-trace contract,
+   rev. 5).** For every seed, a flag-on stand-pat run and a flag-off run
+   must match — not a matching distribution, the same runs. The earlier
+   wording left a contradiction unresolved: the sit-down scene is made
+   of prompts, so a stand-pat run cannot produce a byte-identical
+   decision log while also answering the scene. The contract is
+   **normalized exact equality over two channels**, not a subsequence
+   test (a subsequence comparison would tolerate missing, duplicated or
+   reordered gameplay prompts):
+   - Ordinary gameplay prompts stay in the **game trace**, in the exact
+     current event shape — no namespace field is added to existing
+     entries, so `golden_act1.json` remains valid untouched. Sit-down
+     decisions ride a separate console channel
+     (`scene_menu(namespace, prompt, options)`, delegating to `menu()`
+     everywhere except replay tooling) and land in a namespaced
+     **scene trace**.
+   - The flag-on stand-pat game trace must equal the flag-off game
+     trace **exactly — event for event**, full lists compared, not
+     merely by digest.
+   - The scene trace is asserted independently: every event in the
+     sit-down namespace, and exactly the permitted interaction — one
+     chair selection choosing stand-pat and one confirmation, nothing
+     else. A flag-off run's scene trace must be empty.
+   - Ending, nightly legacy projection and shared RNG streams remain
+     exact, per criterion 1; `sitdown`/`brokers`/`war` stay provably
+     undrawn in stand-pat.
+   - The scene consumes **no bot decision RNG**: bots answer scene
+     prompts through a deterministic handler (the scene guarantees its
+     last option always progresses), and the bot's RNG state is
+     asserted identical immediately before and after the scene —
+     otherwise the extra menu would shift every later bot choice even
+     with the game streams untouched.
 
 ### 2.8 Canon and invariant compliance
 
@@ -1225,6 +1255,16 @@ Ordered roughly by blast radius, smallest first:
   termination, one new ending family — but Sale-versus-stand-pat does not
   validate the fork's central promise, so the flag stays down). *Gate:
   criteria 1–3 + escrow rows of 4–5, run flag-on in the harness.*
+  **Split into two reviewable PRs (rev. 5):** *P1a* — the replay
+  decision recorded, `GameConfig`, the unchanged flag-off golden gate,
+  the two-channel paired harness (built before the scene),
+  `SitdownSnapshot` with lock-up capture and migration default,
+  `BranchState` constructors and validation, deterministic chair
+  evaluation, scene rendering, and stand-pat; gate: flag-off golden
+  300/300 plus flag-on stand-pat paired equality. *P1b* — after P1a's
+  review: the Quiet Sale itself (brokers stream, diligence clock,
+  valuation and incidents, early termination, endings), its bots,
+  studies, and FINDINGS round 8's body.
 - **P2** — the Straight Path (counsel, settlements, disposal runs,
   advertising). **The Sale flag lifts when this gate passes** — the fork
   reaches players only once at least two active branches exist. *Gate: the
@@ -1379,3 +1419,50 @@ snapshot exploitable and one warning window too narrow:
 4. *Wording* — morning plans are intentions committed at service, so
    the criterion says "planned or taken," not "committed at plan time"
    (§2.1).
+
+**Revision 5** records the P1 authorization decisions (P1a scope), made
+before any fork code exists so the contracts precede the implementation:
+
+1. *The stand-pat replay contradiction is resolved by normalized exact
+   equality over two channels* — gameplay prompts keep their exact
+   current event shape in the game trace (goldens untouched, no
+   namespace field added to existing entries); sit-down decisions ride
+   a separate namespaced `scene_menu` channel into a scene trace; the
+   flag-on stand-pat game trace must equal the flag-off game trace
+   event for event, with the scene trace independently asserted to
+   contain exactly the permitted interaction. A subsequence comparison
+   was considered and rejected as too permissive — it can tolerate
+   missing, duplicated or reordered gameplay prompts (§2.7 criterion
+   6).
+2. *Bots answer the scene deterministically* — the scene handler
+   consumes no bot decision RNG (asserted identical before and after
+   the scene), and every scene menu's last option progresses so a
+   deterministic last-option bot always completes the scene (§2.7).
+3. *Flag architecture* — an immutable `GameConfig(fork_enabled,
+   enabled_branches)` passed explicitly; the CLI may translate an
+   environment variable, engine code never reads the environment; the
+   config is not saved. The flag gates **entry** into the fork (the
+   lock-up snapshot is captured only while it is on), never
+   continuation: a save carrying a pending snapshot or `act == 2` is
+   authoritative and resumes correctly whatever the launch
+   configuration says — no save silently becomes unplayable after a
+   flag rollback.
+4. *Snapshot persistence carries primitives only* —
+   `SitdownSnapshot(payoff_day, case_at_lockup,
+   evidence_count_at_lockup)`; R, chair verdicts, withholding prose and
+   the gate-crossing record are derived by a pure evaluator, never
+   stored — one source of truth. Older v3 payloads load the field as
+   None; no version bump.
+5. *Chair visibility in partial builds* — all four chairs render with
+   their actual gate verdicts; unimplemented chairs carry an explicit
+   development-build marker outside the fiction, are not selectable,
+   and never silently become stand-pat — an implementation limitation
+   must not be converted into a permanent player decision. Criterion 2
+   evaluates the complete computed offer set (§2.7).
+6. *BranchState grows constructors and validation before any branch can
+   be assigned* — per-chair constructors; `validate` raises ValueError
+   (never assert — assertions vanish under optimized Python) at branch
+   transition and save-load: dead fields at defaults, stand-pat implies
+   no BranchState, active branches carry their required fields, mixed
+   payloads rejected.
+7. *P1 splits into P1a (foundation) and P1b (the Quiet Sale)* — §7.
