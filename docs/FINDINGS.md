@@ -819,6 +819,45 @@ across implementations. Identity gates: flag-off golden 300/300 and
 paired stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11,
 3.12 and 3.13. 228 tests green.
 
+### Round 8 correction 5 (re-review — two model contracts)
+
+Re-review reproduced every number and found the rev. 8 implementation
+exact in behavior but not in model; both corrections landed at the
+root (design §8, revision 8 completion).
+
+- **Integer points are the canonical unit.** `cut_points / 100` had
+  re-introduced binary float at storage: real broker seeds 6 and 17
+  stored 28 as 28.000000000000004 and 29 as 28.999999999999996 — and
+  the exactness regression passed only because its one draw happened
+  to be representable. `BranchState.escrow_discount_pct` now stores
+  the integer; the division happens once inside the dollar-rounded
+  term; pre-correction v3 payloads migrate on load; and all 16
+  possible draws (20–35) are pinned with plain integer equality — no
+  round(), no isclose(), through save round-trips and the rendered
+  card alike.
+- **The severance taxonomy is now a machine, not a label.** The review
+  exhibited five contradictory rows the validator accepted (paid with
+  no amount, paid with no crew, declined with money, not_applicable
+  with a crew, pending with a headcount) — and a paid/None/2 save
+  loaded silently into an epilogue that said nothing. The complete
+  state machine binds at transition and load: pending carries nothing
+  and never survives a sold run (the terminal invariant reads the
+  run's game_over); paid means exactly rate × positive headcount;
+  declined/unaffordable mean a positive headcount and zero paid;
+  not_applicable means zero and zero. One canonical rate
+  (`models.SEVERANCE_PER_HEAD`) prices validation, the closing sheet
+  and the epilogue; the closing applies its outcome triple through one
+  validated transition. All five exhibited rows are pinned as
+  refusals, both directly and through doctored saves.
+
+After correction 5: 235 tests green on 3.11 and 3.12 (7 new, 6 failing
+on the pre-fix engine); ruff/mypy clean; flag-off golden 300/300 and
+paired stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11,
+3.12 and 3.13; both ensembles reproduce the correction-4 numbers
+bit-for-bit — 150 seeds: flips 27/60 = 45%, median mark delta $2,370;
+500 seeds: flips 81/188 = 43%, median $2,444 — the unit change is
+behavior-preserving, now provably so at the model.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

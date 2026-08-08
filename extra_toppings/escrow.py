@@ -16,7 +16,8 @@ the stream provably fresh (§2.7).
 from dataclasses import dataclass
 
 from . import data
-from .models import BranchState, State, validate_branch_state
+from .models import (SEVERANCE_PER_HEAD, BranchState, State,
+                     validate_branch_state)
 from .rng import Streams
 from .ui import Console, money
 
@@ -33,7 +34,6 @@ REPRICE_MIN_PCT = 20             # first-incident repricing, whole points
 REPRICE_MAX_PCT = 35             # (rev. 8 constants ruling)
 OFFSITE_RISK = 0.20              # the truck at the rolling door, per move
 DIRTY_TOLERANCE = 200            # unlaundered cash a clean close may carry
-SEVERANCE_PER_HEAD = 300
 DILIGENCE_DAYS = 4               # closing is the morning after day 4
 TIER_WELL = 25_000
 TIER_MODEST = 10_000
@@ -88,7 +88,7 @@ class MarkBreakdown:
     case_term: int
     war_armed: bool
     war_term: int
-    incident_discount: float
+    incident_discount_pct: int    # whole points — the canonical unit
     incident_term: int
     floored: bool
     final: int
@@ -107,14 +107,16 @@ def build_mark(state: State) -> MarkBreakdown:
     war_armed = war_clause_armed(state)
     war_term = round(subtotal * WAR_CLAUSE) if war_armed else 0
     after_war = subtotal - war_term
-    discount = _bs(state).escrow_discount
-    incident_term = round(after_war * discount) if discount else 0
+    pct = _bs(state).escrow_discount_pct
+    # The division by 100 happens HERE, once, inside a term that rounds
+    # to whole dollars — never at storage time (rev. 8 completion).
+    incident_term = round(after_war * pct / 100) if pct else 0
     final = max(0, after_war - incident_term)
     return MarkBreakdown(
         reputation=rep, case=case, upgrade_spend=spend,
         rep_term=rep_term, upgrade_term=upgrade_term, case_term=case_term,
         war_armed=war_armed, war_term=war_term,
-        incident_discount=discount, incident_term=incident_term,
+        incident_discount_pct=pct, incident_term=incident_term,
         floored=floored, final=final)
 
 
@@ -141,9 +143,9 @@ def _show_card(state: State, con: Console) -> None:
     if card.floored:
         con.say("  The additions never reach the deductions: subtotal "
                 "below zero; the mark floors at $0.")
-    if card.incident_discount:
+    if card.incident_discount_pct:
         con.say(f"  Incident repricing to date: "
-                f"-{card.incident_discount * 100:.0f}% = "
+                f"-{card.incident_discount_pct}% = "
                 f"-{money(card.incident_term)}.")
     con.say(f"  MARK: {money(card.final)}. Terms: re-marked each "
             f"morning; incidents reprice -{REPRICE_MIN_PCT} to "
@@ -243,7 +245,7 @@ def record_incident(state: State, con: Console, streams: Streams,
         revert_to_standpat(state, con, collapsed=True)
         return
     cut_points = streams.brokers.randint(REPRICE_MIN_PCT, REPRICE_MAX_PCT)
-    bs.escrow_discount += cut_points / 100
+    bs.escrow_discount_pct += cut_points
     bs.escrow_mark = compute_mark(state)
     con.bullet(f"INCIDENT: {why}. The mark reprices -{cut_points}% to "
                f"{money(bs.escrow_mark)}. One more and the deal dies.")
@@ -373,9 +375,13 @@ def _closing(state: State, con: Console) -> None:
     if severance > state.clean + bs.escrow_mark:
         raise ValueError("closing transaction would overdraw")   # unreachable
     state.clean = state.clean + bs.escrow_mark - severance
+    # One validated transition (rev. 8 completion): the outcome triple
+    # is applied together and checked against the full state machine —
+    # with the terminal invariant — before the run is allowed to end.
     bs.severance_outcome = outcome
     bs.severance_paid = severance
     bs.closing_headcount = len(crew)
+    validate_branch_state("quiet_sale", bs, game_over="sold")
     if outcome == "paid":
         con.say(f"  {money(severance)} in envelopes, handed over by you, "
                 f"before the ink. They hear it from you. It matters.")

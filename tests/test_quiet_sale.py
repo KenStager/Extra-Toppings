@@ -143,8 +143,9 @@ class TestTheMark(unittest.TestCase):
     def test_incident_discounts_compound_into_the_mark(self):
         state = in_escrow(case=31.0, rep=24.0)
         state.shop.upgrades = {"walk_in", "guard"}
-        state.branch_state.escrow_discount = 0.15
-        self.assertEqual(escrow.compute_mark(state), int(6465 * 0.85))
+        state.branch_state.escrow_discount_pct = 15
+        self.assertEqual(escrow.compute_mark(state),
+                         6465 - round(6465 * 15 / 100))
 
     def test_the_mark_moves_only_when_inputs_move(self):
         state = in_escrow(rep=40.0)
@@ -192,10 +193,9 @@ class TestDiligenceRules(unittest.TestCase):
         escrow.walkthrough(state, con, Streams(3))   # day 1: he walks, always
         self.assertEqual(state.branch_state.escrow_incidents, 1)
         # Rev. 8: -20..-35, drawn in whole percentage points.
-        self.assertGreaterEqual(state.branch_state.escrow_discount, 0.20)
-        self.assertLessEqual(state.branch_state.escrow_discount, 0.35)
-        self.assertEqual(round(state.branch_state.escrow_discount * 100),
-                         state.branch_state.escrow_discount * 100)
+        self.assertIsInstance(state.branch_state.escrow_discount_pct, int)
+        self.assertGreaterEqual(state.branch_state.escrow_discount_pct, 20)
+        self.assertLessEqual(state.branch_state.escrow_discount_pct, 35)
         self.assertLess(state.branch_state.escrow_mark, before)
         self.assertIsNotNone(con.find("INCIDENT"))
 
@@ -605,7 +605,7 @@ class TestMarkBreakdown(unittest.TestCase):
         # become credits, and the card must say the floor out loud.
         state = in_escrow(case=84.9, rep=5.0)
         state.rivals["vinnie"].relation = -60.0     # arms the war clause
-        state.branch_state.escrow_discount = 0.15
+        state.branch_state.escrow_discount_pct = 15
         card = escrow.build_mark(state)
         self.assertTrue(card.floored)
         self.assertEqual(card.war_term, 0)
@@ -661,6 +661,114 @@ class TestEscrowSafeFallbacks(unittest.TestCase):
         self.assertEqual(state.dirty, 5000)    # ask_int default is zero
 
 
+# ══ The canonical units and the severance machine (rev. 8 compl.) ═
+
+class _FixedBrokers:
+    """A stub streams object whose brokers draw a chosen repricing."""
+
+    class _Rng:
+        def __init__(self, value):
+            self.value = value
+
+        def randint(self, lo, hi):
+            return self.value
+
+    def __init__(self, value):
+        self.brokers = self._Rng(value)
+
+
+class TestIntegerPercentageStorage(unittest.TestCase):
+    def test_all_sixteen_repricings_store_exactly(self):
+        # The review's finding: cut_points / 100 stored 28 as
+        # 28.000000000000004. The canonical unit is the integer, so
+        # every one of the 16 possible draws must persist bit-exactly —
+        # no round(), no isclose(), plain equality on ints.
+        for pct in range(escrow.REPRICE_MIN_PCT, escrow.REPRICE_MAX_PCT + 1):
+            state = in_escrow(rep=40.0)
+            con = CaptureConsole([])
+            escrow.record_incident(state, con, _FixedBrokers(pct), "test")
+            stored = state.branch_state.escrow_discount_pct
+            self.assertIsInstance(stored, int)
+            self.assertEqual(stored, pct)
+            self.assertIsNotNone(con.find(f"-{pct}% to"), pct)
+            restored = save.state_from_dict(save.state_to_dict(state))
+            self.assertEqual(restored.branch_state.escrow_discount_pct, pct)
+            card = escrow.build_mark(restored)
+            self.assertEqual(card.incident_discount_pct, pct)
+
+    def test_legacy_float_discounts_migrate_to_whole_points(self):
+        state = in_escrow(rep=40.0)
+        d = save.state_to_dict(state)
+        bs = d["branch_state"]
+        del bs["escrow_discount_pct"]
+        bs["escrow_discount"] = 28.000000000000004 / 100   # the old unit
+        restored = save.state_from_dict(d)
+        self.assertEqual(restored.branch_state.escrow_discount_pct, 28)
+
+
+class TestSeveranceStateMachine(unittest.TestCase):
+    """The review's contradiction matrix: every row it exhibited must
+    now be refused, at transition and at load alike."""
+
+    def quiet_sale_state(self, outcome, paid, heads):
+        bs = BranchState.quiet_sale(diligence_day=2)
+        bs.severance_outcome = outcome
+        bs.severance_paid = paid
+        bs.closing_headcount = heads
+        return bs
+
+    def test_the_exhibited_contradictions_are_refused(self):
+        rows = [("paid", None, 2),
+                ("paid", 600, 0),
+                ("declined", 600, 2),
+                ("not_applicable", 0, 2),
+                ("pending", 0, 2)]
+        for outcome, paid, heads in rows:
+            with self.assertRaises(ValueError, msg=(outcome, paid, heads)):
+                validate_branch_state(
+                    "quiet_sale",
+                    self.quiet_sale_state(outcome, paid, heads))
+
+    def test_the_legitimate_states_pass(self):
+        validate_branch_state("quiet_sale",
+                              self.quiet_sale_state("pending", None, None))
+        validate_branch_state("quiet_sale",
+                              self.quiet_sale_state("paid", 600, 2))
+        validate_branch_state("quiet_sale",
+                              self.quiet_sale_state("declined", 0, 2))
+        validate_branch_state("quiet_sale",
+                              self.quiet_sale_state("unaffordable", 0, 3))
+        validate_branch_state("quiet_sale",
+                              self.quiet_sale_state("not_applicable", 0, 0))
+
+    def test_paid_must_match_the_canonical_rate(self):
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale",
+                                  self.quiet_sale_state("paid", 500, 2))
+
+    def test_a_sold_run_cannot_stay_pending(self):
+        pending = self.quiet_sale_state("pending", None, None)
+        validate_branch_state("quiet_sale", pending, game_over=None)
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale", pending, game_over="sold")
+
+    def test_a_contradictory_save_is_refused_on_load(self):
+        # The review's exact scenario: paid / None / 2 in a v3 payload
+        # loaded silently and the epilogue said nothing.
+        state = at_closing(rep=40.0)
+        escrow.diligence_morning(state, CaptureConsole([1, 1]), Streams(3))
+        d = save.state_to_dict(state)
+        d["branch_state"]["severance_paid"] = None
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+        d2 = save.state_to_dict(state)
+        d2["branch_state"]["severance_outcome"] = "pending"
+        d2["branch_state"]["severance_paid"] = None
+        d2["branch_state"]["closing_headcount"] = None
+        with self.assertRaises(ValueError):        # sold + pending
+            save.state_from_dict(d2)
+
+
 # ══ Persistence ═══════════════════════════════════════════════════
 
 class TestEscrowPersistence(unittest.TestCase):
@@ -669,7 +777,7 @@ class TestEscrowPersistence(unittest.TestCase):
         state.branch_state.diligence_day = 3
         state.branch_state.escrow_mark = 5000
         state.branch_state.escrow_incidents = 1
-        state.branch_state.escrow_discount = 0.18
+        state.branch_state.escrow_discount_pct = 18
         restored = save.state_from_dict(save.state_to_dict(state))
         self.assertEqual(restored.branch, "quiet_sale")
         self.assertEqual(restored.branch_state, state.branch_state)

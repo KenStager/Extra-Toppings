@@ -143,12 +143,17 @@ class BranchState:
     diligence_day: int = 0
     escrow_mark: int = 0
     escrow_incidents: int = 0
-    escrow_discount: float = 0.0    # cumulative incident repricing (0..1)
+    # Cumulative incident repricing in WHOLE percentage points (rev. 8
+    # completion): the integer is the canonical stored unit — dividing
+    # by 100 turns 28 into 28.000000000000004, so the division happens
+    # once, at term-computation time, never at storage time.
+    escrow_discount_pct: int = 0
     # Closing outcome (rev. 8): a real discriminator, because an amount
     # alone collapses distinct outcomes — refusal, unaffordability and
-    # an empty roster all looked like $0.
+    # an empty roster all looked like $0. The full state machine is
+    # enforced by validate_branch_state.
     severance_outcome: str = "pending"   # SEVERANCE_OUTCOMES
-    severance_paid: int | None = None    # amount; None until signed
+    severance_paid: int | None = None    # amount; None while pending
     closing_headcount: int | None = None # hired heads at the closing table
 
     @classmethod
@@ -184,11 +189,14 @@ _BRANCH_FIELDS = {
     "partner": {"points_due_day", "points_missed", "vig_owed"},
     "war": {"war_target", "declared_day"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
-                   "escrow_discount", "severance_outcome", "severance_paid",
-                   "closing_headcount"},
+                   "escrow_discount_pct", "severance_outcome",
+                   "severance_paid", "closing_headcount"},
 }
 SEVERANCE_OUTCOMES = ("pending", "paid", "declined", "unaffordable",
                       "not_applicable")
+# THE canonical severance rate: validation, the closing sheet and the
+# epilogue all price envelopes from this one number.
+SEVERANCE_PER_HEAD = 300
 if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")
 _BRANCH_REQUIRED = {
@@ -200,10 +208,13 @@ _BRANCH_REQUIRED = {
 
 
 def validate_branch_state(branch: str | None,
-                          branch_state: "BranchState | None") -> None:
+                          branch_state: "BranchState | None",
+                          game_over: str | None = None) -> None:
     """Reject impossible branch/BranchState combinations, raising
     ValueError (never assert — assertions vanish under optimized
-    Python). Called at branch transition and at save-load."""
+    Python). Called at branch transition and at save-load. Pass the
+    run's game_over so terminal invariants bind too — a sold run may
+    not carry a pending severance outcome."""
     if branch is None or branch == "stand_pat":
         if branch_state is not None:
             raise ValueError(
@@ -228,9 +239,49 @@ def validate_branch_state(branch: str | None,
     if branch == "quiet_sale":
         if branch_state.diligence_day < 1:
             raise ValueError("quiet_sale: the sit-down is diligence day 1")
-        if branch_state.severance_outcome not in SEVERANCE_OUTCOMES:
-            raise ValueError(f"quiet_sale: unknown severance outcome "
-                             f"{branch_state.severance_outcome!r}")
+        _validate_severance(branch_state, game_over)
+
+
+def _validate_severance(bs: "BranchState", game_over: str | None) -> None:
+    """The complete severance state machine (rev. 8 completion) — the
+    label alone permitted contradictory rows like paid/None/2:
+      pending        → amount and headcount both None (no sold run)
+      paid           → headcount > 0, amount == rate × headcount
+      declined       → headcount > 0, amount == 0
+      unaffordable   → headcount > 0, amount == 0
+      not_applicable → headcount == 0, amount == 0
+    """
+    outcome = bs.severance_outcome
+    paid = bs.severance_paid
+    heads = bs.closing_headcount
+    if outcome not in SEVERANCE_OUTCOMES:
+        raise ValueError(f"quiet_sale: unknown severance outcome {outcome!r}")
+    if outcome == "pending":
+        if paid is not None or heads is not None:
+            raise ValueError("quiet_sale: pending severance must carry no "
+                             "amount and no headcount")
+        if game_over == "sold":
+            raise ValueError("quiet_sale: a sold run cannot leave the "
+                             "severance outcome pending")
+        return
+    if heads is None or paid is None:
+        raise ValueError(f"quiet_sale: outcome {outcome!r} requires both "
+                         f"amount and headcount")
+    if outcome == "paid":
+        if heads <= 0 or paid != SEVERANCE_PER_HEAD * heads:
+            raise ValueError(f"quiet_sale: paid severance must be "
+                             f"{SEVERANCE_PER_HEAD} x a positive headcount "
+                             f"(got {paid} for {heads})")
+    elif outcome in ("declined", "unaffordable"):
+        if heads <= 0 or paid != 0:
+            raise ValueError(f"quiet_sale: {outcome} requires a positive "
+                             f"headcount and zero paid (got {paid} for "
+                             f"{heads})")
+    else:                                   # not_applicable
+        if heads != 0 or paid != 0:
+            raise ValueError(f"quiet_sale: not_applicable requires zero "
+                             f"headcount and zero paid (got {paid} for "
+                             f"{heads})")
 
 
 @dataclass

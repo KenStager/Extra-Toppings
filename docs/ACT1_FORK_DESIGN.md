@@ -1688,3 +1688,28 @@ seams, made on paper before implementation:
 4. *The careful policy retains the permitted $200* — the buyer's
    tolerance is walking money, and burning it destroys value for
    nothing: the careful burn is max(0, dirty − tolerance).
+
+**Revision 8 completion (model-level corrections).** Re-review found
+the rev. 8 implementation exact in behavior but not in model:
+
+1. *Whole-percentage storage was not whole* — `cut_points / 100` turned
+   28 into 28.000000000000004 at storage time (real broker seeds 6 and
+   17), silently violating the exactness the ruling bought. The
+   canonical stored unit is now the **integer percentage point**
+   (`escrow_discount_pct`); the division by 100 happens once, inside
+   the dollar-rounded term, never at storage. Existing v3 payloads
+   carrying the float migrate on load; all 16 possible draws (20–35)
+   are exhaustively pinned with plain integer equality — no round(),
+   no isclose().
+2. *The severance discriminator was a label, not a machine* — rows
+   like paid/None/2 and not_applicable/0/2 validated, and a
+   contradictory save loaded silently. The complete state machine now
+   binds at transition and load: pending → no amount, no headcount
+   (and never on a sold run — the terminal invariant takes the run's
+   game_over); paid → positive headcount and exactly rate × headcount;
+   declined/unaffordable → positive headcount, zero paid;
+   not_applicable → zero and zero. The rate itself has one canonical
+   home (`models.SEVERANCE_PER_HEAD`), and the closing applies its
+   outcome triple through one validated transition before the run is
+   allowed to end. The review's five exhibited contradictions are
+   pinned as refusals.
