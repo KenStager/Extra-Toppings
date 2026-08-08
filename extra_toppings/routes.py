@@ -80,6 +80,15 @@ def plan_route(state: State, con: Console, rng: random.Random,
         f"Delivery orders to run for cover ({state.delivery_pool} on the board, "
         f"wagon space {space})",
         0, legit_cap, min(8 if cargo else 4, legit_cap))
+    # §2.1 same-night telegraph: a contraband route planned while payoff
+    # is in reach can book bust evidence tonight (up to ~20 + 0.3/unit on
+    # a ride-along search) and slam a Case gate the sit-down reads
+    # tomorrow. What it books depends on the night, so the warning is
+    # unconditional in that window — a printed line only; the plan can
+    # still be replanned or cancelled from the morning menu.
+    if cargo and state.payoff_in_reach():
+        con.say("  With the debt this close to settled, remember: a bad stop "
+                "tonight goes into the file tomorrow's table reads.")
     return {"district": dk, "driver": driver, "ride_along": ride_along,
             "cargo": cargo, "legit": legit}
 

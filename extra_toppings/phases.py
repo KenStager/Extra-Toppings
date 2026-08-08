@@ -317,6 +317,16 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                     con.say(f"  {e.name} stands a little straighter.")
         elif c == 3:
             crew = state.hired()
+            # §2.1 same-night telegraph: firing someone who knows books a
+            # 6-point witness record, which can only close a chair from
+            # within 6 of a gate — warn pre-action exactly then. A line
+            # before the existing menu; the prompt itself is golden.
+            if state.payoff_in_reach() and any(e.aware for e in crew) \
+                    and any(state.case < g <= state.case + 6.0
+                            for g in (60.0, 70.0, 85.0)):
+                con.say("  With the debt this close to settled: someone "
+                        "walking out with what they know goes straight into "
+                        "the file tomorrow's table reads.")
             names = [e.name for e in crew] + ["Back"]
             p = con.menu("Let go whom?", names)
             if p < len(crew):
@@ -518,8 +528,7 @@ def _launder(state: State, remaining: int, con: Console) -> int:
     # could slam a Case gate is warned about BEFORE the act — a printed
     # line only; the prompt below is part of the golden decision trace
     # and must not change.
-    if state.debt > 0 and state.clean + state.dirty >= state.debt \
-            and state.dirty > remaining:
+    if state.payoff_in_reach() and state.dirty > remaining:
         could = state.case + min(20.0, (state.dirty - remaining) / 400)
         if any(state.case < gate <= could for gate in (60.0, 70.0, 85.0)):
             con.say("  With the debt this close to settled, mind what the "

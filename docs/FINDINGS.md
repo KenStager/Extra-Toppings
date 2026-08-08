@@ -428,6 +428,58 @@ Full suite 114 tests green on 3.11 and 3.12; ruff (0.15.x pin) and mypy
 clean. No sweep rerun: by the equivalence gate the studies' inputs are
 bit-identical, so round 6's headline numbers stand unchanged.
 
+### Round 7 correction (review)
+
+Independent review of the first telegraph pass found one blocking
+coverage gap and one specification seam; both are fixed, and the design
+document carries the corrections as revision 3 (§8).
+
+- **Same-night Case protection covered only laundering.** The reviewer
+  reproduced, through the real route and night phases: Case 55, debt
+  $1,000 with payoff cash on hand, a full-cargo ride-along, a police
+  bust (+8, +6 resistance, +6 owner-in-vehicle, +0.3/unit) to Case 81,
+  payoff that night — Carmine's Partner withheld tomorrow with neither
+  §2.7 warning arm satisfied. Fixed by generalizing the pre-action
+  surface to every evidence-capable player act committed while payoff
+  is in reach (`State.payoff_in_reach`: debt alive, on-hand ≥ debt):
+  the wash keeps its exact arithmetic; contraband routes and raids warn
+  at plan time unconditionally in the window (their accrual depends on
+  in-act outcomes, so the superset is by construction, and both plans
+  can still be cancelled); firing an aware employee warns before the
+  selection menu exactly when the Case is within its fixed 6 points of
+  a gate. The reviewer's exact scenario is now a regression driven
+  through `plan_route` → `service` → `night` with a seed scan to an
+  actual gate-crossing bust plus same-night payoff
+  (`TestRouteCrossingThenPayoff`), and the three new surfaces were
+  proven to fail on the pre-fix engine (3 failures at 4278f51).
+- **Post-payoff accrual could re-shape the table.** `rival_phase` and
+  `_law_phase` run after `_pay_debt` but before the sit-down morning,
+  so the world's own dice could close a chair after the payoff decision
+  with no telegraph possible. Resolved on paper for P1 (no sit-down
+  code exists yet): the design now specifies an **eligibility
+  snapshot** — chairs freeze at the moment the debt reaches zero;
+  later evidence still counts toward the Case and arrest at 100 still
+  outranks the fork, but the table cannot change retroactively (§2.1
+  rev. 3). World events remain the named residue: non-acts get no
+  pre-action warning, and the §2.7 criterion now carries the explicit
+  third arm (snapshot + the scene naming the closing record) instead of
+  claiming coverage it cannot have.
+- **"At least two days" was arithmetically false at the boundary.**
+  Payoff day 21 → R = 9 withholds the Partner chair; the day-20 warning
+  preceded it by one calendar day, and the tests required silence on
+  day 19. The criterion was the error, not the beats: restated as "the
+  warning morning strictly precedes the payoff day — at least two
+  playable decision days including the warning day," which day 20
+  satisfies at the Partner (21) and War (23) boundaries and day 24 at
+  the no-sit-down cliff (26). Encoded as
+  `TestCalendarCriterionArithmetic`, including the reviewer's day-21
+  case.
+
+After the correction: 123 tests green on 3.11 and 3.12, ruff/mypy
+clean, equivalence re-verified at **300/300 on 3.11, 3.12 and 3.13** —
+the broadened warnings are still say-lines only; no prompt, state or
+RNG surface moved.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

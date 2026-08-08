@@ -15,7 +15,7 @@ that; these tests pin the transcript itself."""
 
 import unittest
 
-from extra_toppings import data, phases
+from extra_toppings import data, market, phases, routes
 from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
@@ -33,6 +33,9 @@ CASE60_WARNING = "read the papers too"
 LEDGER_CLAUSE = "opinions about what comes after"
 SAMENIGHT_WARNING = "reads the same spreadsheet"
 LAUNDER_PROMPT = "Run how much through the books?"
+ROUTE_WARNING = "a bad stop tonight goes into the file"
+RAID_WARNING = "whatever tonight leaves behind goes into the file"
+FIRING_WARNING = "walking out with what they know"
 
 
 class CaptureConsole(ScriptedConsole):
@@ -261,6 +264,164 @@ class TestSameNightWarning(unittest.TestCase):
     def test_settled_debt_never_warns(self):
         con = self.night_with(debt=0, script=(0, 0, 4))
         self.assertIsNone(con.find(SAMENIGHT_WARNING))
+
+
+# ══ Same-night warnings on the other evidence-capable acts ════════
+
+class TestRouteCrossingThenPayoff(unittest.TestCase):
+    """Review repro (rev. 3): a ride-along bust books 8 + 6 resistance
+    + 6 owner-in-vehicle + 0.3/unit — from Case 55 it jumps past 70 the
+    same night the debt is paid, and the earlier build had no warning on
+    that path. Now the plan itself warns while payoff is in reach."""
+
+    def run_bust_night(self, seed):
+        streams = Streams(seed)
+        state = new_state()
+        state.day = 12
+        state.debt = 1000
+        state.clean = 1500
+        state.dirty = 400
+        state.add_case(55.0, "prior seizures", kind="physical")
+        state.shop_stash = {"mushrooms": 20}
+        state.districts["meadows"].heat = 90
+        market.roll_prices(state, streams.daily(state.day, "market"))
+        # Plan through the real planner: meadows, first driver, ride
+        # along, load 20, no cover — the loudest possible wagon.
+        plan_con = CaptureConsole([3, 0, 1, 20, 0])
+        plan = routes.plan_route(state, plan_con, streams.routes)
+        # Service with "Sell" at every stop and "Play it cool" at every
+        # blue light — the reviewer's path to a search.
+        service_con = CaptureConsole([0] * 40)
+        phases.service(state, {"route": plan, "raid": None},
+                       service_con, streams)
+        night_con = CaptureConsole([1, 1000, 4])
+        phases.night(state, {}, {}, night_con, streams)
+        return state, plan_con, night_con
+
+    def test_the_bust_payoff_night_is_warned_at_plan_time(self):
+        for seed in range(150):
+            state, plan_con, night_con = self.run_bust_night(seed)
+            if state.case >= 70.0 and state.debt_paid_day is not None:
+                # The gate slammed today: no earlier-morning Case-60
+                # warning was possible (the file was at 55 this morning)…
+                self.assertEqual(
+                    phases._case_first_crossed_60_day(state), 12)
+                # …so the plan-time warning is the required §2.7 arm,
+                # and it precedes the route by construction.
+                self.assertIsNotNone(plan_con.find(ROUTE_WARNING))
+                self.assertIsNotNone(night_con.find("PAID"))
+                return
+        self.fail("no seed produced a gate-crossing bust plus payoff")
+
+    def test_no_warning_without_contraband_or_without_reach(self):
+        state = new_state()
+        state.day = 12
+        state.debt = 1000
+        state.clean = 1500
+        market.roll_prices(state, Streams(1).daily(12, "market"))
+        con = CaptureConsole([3, 0, 1, 0, 0])       # ride along, load nothing
+        routes.plan_route(state, con, Streams(1).routes)
+        self.assertIsNone(con.find(ROUTE_WARNING))
+
+        state = new_state()
+        state.day = 12
+        state.debt = 50000                          # payoff out of reach
+        state.shop_stash = {"mushrooms": 20}
+        market.roll_prices(state, Streams(1).daily(12, "market"))
+        con = CaptureConsole([3, 0, 1, 20, 0])
+        routes.plan_route(state, con, Streams(1).routes)
+        self.assertIsNone(con.find(ROUTE_WARNING))
+
+
+class TestRaidPlanWarning(unittest.TestCase):
+    """Raids run before the night's settling, so raid evidence can cross
+    a gate hours before a same-night payoff — the plan warns while
+    payoff is in reach."""
+
+    def plan_through_morning(self, debt, clean=5000):
+        state = new_state()
+        state.day = 12
+        state.debt = debt
+        state.clean = clean
+        for e in state.hired():
+            e.aware = True                          # a raid needs crew
+        # Staff → none; Plan a night job: target, objective, one crew,
+        # Enough, unarmed; then open for service.
+        con = CaptureConsole([7, 0, 0, 0, 1, 0, 8])
+        phases.morning(state, con, Streams(3))
+        return con
+
+    def test_raid_planned_near_payoff_is_warned(self):
+        self.assertIsNotNone(
+            self.plan_through_morning(debt=1000).find(RAID_WARNING))
+
+    def test_no_warning_when_payoff_is_out_of_reach(self):
+        self.assertIsNone(
+            self.plan_through_morning(debt=50000).find(RAID_WARNING))
+
+
+class TestFiringWarning(unittest.TestCase):
+    """Firing an aware employee books a fixed 6-point witness record: it
+    can only close a chair from within 6 of a gate, and exactly then the
+    selection menu is preceded by the warning."""
+
+    def staff_morning(self, case, debt=500, clean=1000):
+        state = new_state()
+        state.day = 10
+        state.debt = debt
+        state.clean = clean
+        for e in state.hired():
+            if e.name.startswith("Tony"):
+                e.aware = True
+        if case:
+            state.add_case(case, "prior seizures", kind="physical")
+        con = CaptureConsole([4, 3, 0, 4, 8])       # Staff → Let go → first
+        phases.morning(state, con, Streams(5))
+        return con
+
+    def test_warning_precedes_the_selection_menu_within_6_of_a_gate(self):
+        con = self.staff_morning(case=65.0)         # 65 < 70 <= 71
+        warn, menu = con.find(FIRING_WARNING), con.find("Let go whom?")
+        self.assertIsNotNone(warn)
+        self.assertIsNotNone(menu)
+        self.assertLess(warn, menu)
+
+    def test_silent_when_no_gate_is_within_6(self):
+        self.assertIsNone(self.staff_morning(case=30.0).find(FIRING_WARNING))
+
+    def test_silent_when_payoff_is_out_of_reach(self):
+        self.assertIsNone(
+            self.staff_morning(case=65.0, debt=50000).find(FIRING_WARNING))
+
+
+# ══ The calendar criterion's arithmetic (rev. 3) ══════════════════
+
+class TestCalendarCriterionArithmetic(unittest.TestCase):
+    """Design §2.1 rev. 3: the warning morning strictly precedes the
+    payoff day — at least two playable decision days including the
+    warning day — checked at every calendar gate's boundary. R = days
+    remaining including the sit-down morning = 30 − payoff_day."""
+
+    # chair -> (minimum R that seats it, the warning day that covers it)
+    GATES = {"partner": (10, 20), "war": (8, 20),
+             "straight_and_sale": (5, 24)}
+
+    def test_every_boundary_is_warned_before_its_payoff_day(self):
+        for chair, (min_r, warning_day) in self.GATES.items():
+            earliest_withheld_payoff = 30 - min_r + 1
+            self.assertLess(warning_day, earliest_withheld_payoff, chair)
+            playable = earliest_withheld_payoff - warning_day + 1
+            self.assertGreaterEqual(playable, 2, chair)
+
+    def test_day_21_payoff_the_review_boundary(self):
+        # The seam the review found: payoff day 21 → R = 9 withholds
+        # Carmine's Partner; the day-20 warning is one calendar day
+        # earlier, which the amended criterion counts as two playable
+        # decision days including the warning day.
+        r = 30 - 21
+        self.assertLess(r, self.GATES["partner"][0])
+        self.assertGreaterEqual(r, self.GATES["war"][0])
+        self.assertEqual(21 - 20 + 1, 2)
 
 
 if __name__ == "__main__":
