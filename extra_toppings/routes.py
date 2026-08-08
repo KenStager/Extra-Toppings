@@ -214,7 +214,8 @@ def _handle_police_stop(state: State, plan: dict, con: Console,
         state.dirty -= 300
         if rng.random() < 0.8:
             con.say("  He tucks the bills under his citation pad and waves you off.")
-            state.add_case(2, "a patrolman on the take knows your face")
+            state.add_case(2, "a patrolman on the take knows your face",
+                           kind="witness")
             return True
         con.say("  Wrong cop. He steps back and calls it in.")
         return _bust(state, plan, con, rng, report, resisted=False)
@@ -277,8 +278,16 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
             driver.arrested = True
             state.add_heat(dk, 18)
             evidence = 10 if driver.aware else 4
+            # Physical, not witness: the record is dominated by the
+            # seizure and the arrest report, which no settlement may ever
+            # soften. (Splitting an aware driver's what-they-know premium
+            # into its own witness record would change float-addition
+            # order and break bit-exact Case identity; if that premium
+            # should be remediable, it becomes a separate record in a
+            # deliberate balance pass, not here.)
             state.add_case(evidence + seized * 0.3,
-                           f"{driver.name} arrested on a route")
+                           f"{driver.name} arrested on a route",
+                           kind="physical", source=driver.key)
             report["busted"] = True
             report["lines"].append(
                 f"{driver.name} didn't come back. Precinct says possession, "

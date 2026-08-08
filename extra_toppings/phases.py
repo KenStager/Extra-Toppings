@@ -196,7 +196,8 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
             con.bullet(f"{e.name} hangs up the apron mid-morning. 'I told you.' "
                        f"They're gone.")
             if e.aware:
-                state.add_case(6, f"{e.name} walked out knowing everything")
+                state.add_case(6, f"{e.name} walked out knowing everything",
+                               kind="witness", source=e.key)
             continue
         else:
             e.resignation_pending = True
@@ -210,7 +211,8 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
                 con.bullet(f"The till is light. {e.name} won't meet your eyes. "
                            f"(-{money(skim)} dirty)")
             elif e.aware and rng.random() < 0.3:
-                state.add_case(10, f"{e.name} had a long talk with a detective")
+                state.add_case(10, f"{e.name} had a long talk with a detective",
+                               kind="witness", source=e.key)
                 con.bullet(f"{e.name} was seen outside the precinct. Probably nothing.")
                 e.morale = 4
 
@@ -281,7 +283,8 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                 e = crew[p]
                 e.hired = False
                 if e.aware:
-                    state.add_case(6, f"{e.name} was fired knowing everything")
+                    state.add_case(6, f"{e.name} was fired knowing everything",
+                                   kind="witness", source=e.key)
                     con.say(f"  {e.name} leaves quietly. Too quietly. They know things.")
                 else:
                     con.say(f"  {e.name} is gone.")
@@ -482,11 +485,11 @@ def _launder(state: State, remaining: int, con: Console) -> int:
         over = amt - remaining
         evidence = min(20.0, over / 400)
         state.add_case(evidence, f"the register claimed {money(amt)} beyond "
-                                 f"any plausible night's sales")
+                                 f"any plausible night's sales", kind="paper")
         con.say(f"  {money(amt)} washed. {money(over)} of it is hard to explain. "
                 f"Somewhere, a spreadsheet notices.")
     else:
-        state.add_case(0.5, "")
+        state.add_case(0.5, "", kind="paper")
         con.say(f"  {money(amt)} washed clean. The books look plausible.")
     observant = [e for e in state.hired() if e.trait == "observant" and not e.aware]
     if observant and amt > remaining:

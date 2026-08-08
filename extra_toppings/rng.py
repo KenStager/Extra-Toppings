@@ -12,7 +12,12 @@ import random
 
 
 class Streams:
-    PERSISTENT = ("routes", "rivals", "raids", "staff")
+    # sitdown/brokers/war are reserved for the Act II fork (the sit-down
+    # scene, the escrow buyer, the harbor war). They exist now so save v3
+    # is final, and they stay undrawn until the fork triggers — the
+    # equivalence harness asserts exactly that.
+    PERSISTENT = ("routes", "rivals", "raids", "staff",
+                  "sitdown", "brokers", "war")
 
     def __init__(self, seed: int | None) -> None:
         if seed is None:
@@ -22,6 +27,9 @@ class Streams:
         self.rivals = random.Random(f"{seed}/rivals")
         self.raids = random.Random(f"{seed}/raids")
         self.staff = random.Random(f"{seed}/staff")
+        self.sitdown = random.Random(f"{seed}/sitdown")
+        self.brokers = random.Random(f"{seed}/brokers")
+        self.war = random.Random(f"{seed}/war")
 
     def daily(self, day: int, channel: str) -> random.Random:
         """A fresh generator for one (day, channel) — action-independent."""
@@ -37,9 +45,13 @@ class Streams:
 
     @classmethod
     def from_dict(cls, d: dict) -> "Streams":
+        """A stream missing from the payload (a pre-fork save) keeps its
+        fresh seed-derived state — that IS the migration for streams."""
         s = cls(d["seed"])
         for name in cls.PERSISTENT:
-            getattr(s, name).setstate(_rng_state_from_json(d["streams"][name]))
+            if name in d["streams"]:
+                getattr(s, name).setstate(
+                    _rng_state_from_json(d["streams"][name]))
         return s
 
 

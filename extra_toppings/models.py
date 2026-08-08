@@ -73,6 +73,46 @@ class ActiveEvent:
 
 
 @dataclass
+class Evidence:
+    """One record in the Case file. The Case is the clamped SUM of these —
+    never a separately stored number — so what the file says and what the
+    meter shows can never drift apart.
+
+    kind: "witness" (a person who knows), "paper" (financial trail),
+    "physical" (seizures and scenes), "pattern" (the raid handwriting),
+    "legacy" (migrated from a pre-v3 save; renders its text verbatim).
+    Routine paper ticks carry why="" and render nowhere, exactly like the
+    flagless accruals they replace."""
+    day: int
+    magnitude: float
+    kind: str
+    why: str
+    source: str = ""          # Employee.key when a witness is attached
+
+
+@dataclass
+class BranchState:
+    """Act II branch-specific state — None until the sit-down seats a
+    chair. One sparse dataclass rather than a union: State.branch names
+    the chair and says which fields are live; the save carries all of
+    them (fields per docs/ACT1_FORK_DESIGN.md §2.4)."""
+    # The Straight Path
+    disposal_runs_left: int = 0
+    last_crime_day: int | None = None
+    # Carmine's Partner
+    points_due_day: int | None = None
+    points_missed: int = 0
+    vig_owed: int = 0
+    # The Harbor War
+    war_target: str | None = None
+    declared_day: int | None = None
+    # The Quiet Sale
+    diligence_day: int = 0
+    escrow_mark: int = 0
+    escrow_incidents: int = 0
+
+
+@dataclass
 class Shop:
     quality: str = "standard"        # purchasing policy: cheap / standard / gourmet
     price: str = "standard"          # cheap / standard / gourmet  (menu pricing)
@@ -82,6 +122,14 @@ class Shop:
     upgrades: set = field(default_factory=set)
     damage_days: int = 0             # closed/limping after a raid
     coupon_days: int = 0             # rival coupon blitz siphoning customers
+    district: str = data.HOME_DISTRICT
+    stash: dict = field(default_factory=dict)    # good -> units hidden here
+    # This address's own order book and honest till — per shop, so a
+    # second branch brings its own demand, cover pool and believable
+    # ceiling instead of another schema change.
+    demand_today: int = 0
+    delivery_pool: int = 0
+    legit_revenue_today: int = 0
 
     @property
     def stash_cap(self) -> int:
@@ -103,8 +151,7 @@ class State:
     clean: int = data.START_CLEAN
     dirty: int = data.START_DIRTY
     debt: int = data.START_DEBT
-    shop: Shop = field(default_factory=Shop)
-    shop_stash: dict = field(default_factory=dict)       # good -> units at the shop
+    shops: list = field(default_factory=lambda: [Shop()])  # [0] is DiNapoli's
     warehouse: dict | None = None                        # good -> units, None = not rented
     warehouse_cash: int = 0                              # dirty cash stashed off-site
     employees: list = field(default_factory=list)
@@ -112,18 +159,70 @@ class State:
     rivals: dict = field(default_factory=dict)
     prices: dict = field(default_factory=dict)           # district -> good -> price
     events: list = field(default_factory=list)           # ActiveEvent
-    case: float = 0.0                                    # 0-100 the investigation
-    case_flags: list = field(default_factory=list)       # evidence descriptions
+    evidence: list = field(default_factory=list)         # Evidence records; Case = their sum
     news: list = field(default_factory=list)
     game_over: str | None = None                         # ending id once decided
     debt_paid_day: int | None = None
+    act: int = 1                                         # 1 = the hustle; 2 after the sit-down
+    branch: str | None = None                            # act-2 chair id once chosen
+    branch_state: BranchState | None = None              # chair-specific state after the fork
     total_laundered: int = 0
     raids_led: int = 0
     kills: int = 0
     demand_shock: float = 1.0        # today's demand luck — rolled once, policy-independent
-    demand_today: int = 0            # today's real customer demand, recomputed from policy
-    delivery_pool: int = 0           # slice of demand that wants delivery (cover comes from here)
-    legit_revenue_today: int = 0     # every honest dollar today — feeds the believable ceiling
+
+    # ── the shop, addressed as one while there is one ────────────
+    @property
+    def shop(self) -> Shop:
+        return self.shops[0]
+
+    @property
+    def shop_stash(self) -> dict:
+        return self.shops[0].stash
+
+    @shop_stash.setter
+    def shop_stash(self, value: dict) -> None:
+        self.shops[0].stash = value
+
+    @property
+    def demand_today(self) -> int:
+        return self.shops[0].demand_today
+
+    @demand_today.setter
+    def demand_today(self, value: int) -> None:
+        self.shops[0].demand_today = value
+
+    @property
+    def delivery_pool(self) -> int:
+        return self.shops[0].delivery_pool
+
+    @delivery_pool.setter
+    def delivery_pool(self, value: int) -> None:
+        self.shops[0].delivery_pool = value
+
+    @property
+    def legit_revenue_today(self) -> int:
+        return self.shops[0].legit_revenue_today
+
+    @legit_revenue_today.setter
+    def legit_revenue_today(self, value: int) -> None:
+        self.shops[0].legit_revenue_today = value
+
+    # ── the Case, derived from its records ───────────────────────
+    @property
+    def case(self) -> float:
+        # An explicit left-to-right fold, NOT sum(): Python 3.12 moved
+        # sum() to compensated summation, which breaks bit-exact identity
+        # with the sequential running total this property replaced.
+        total = 0.0
+        for record in self.evidence:
+            total += record.magnitude
+        return max(0.0, min(100.0, total))
+
+    @property
+    def case_flags(self) -> list:
+        return [e.why if e.kind == "legacy" else f"day {e.day}: {e.why}"
+                for e in self.evidence if e.why]
 
     # ── derived ──────────────────────────────────────────────────
     def stash_bulk(self, stash: dict) -> int:
@@ -143,10 +242,21 @@ class State:
         d = self.districts[dk]
         d.heat = max(0.0, min(100.0, d.heat + amount))
 
-    def add_case(self, amount: float, why: str) -> None:
-        self.case = max(0.0, min(100.0, self.case + amount))
-        if amount > 0 and why:
-            self.case_flags.append(f"day {self.day}: {why}")
+    def add_case(self, amount: float, why: str,
+                 kind: str = "physical", source: str = "") -> None:
+        """Book evidence. Every accrual is its own record, appended in
+        order — the fold reproduces the old running total bit for bit.
+        The moment the sum reaches 100, prosecution latches: game_over is
+        set HERE, at accrual time, and arrest outranks every simultaneous
+        outcome (design §2.5) — a success ending set moments earlier
+        loses to the latch. Nothing accrues evidence after a run ends,
+        so a finished game is never rewritten."""
+        if amount <= 0:
+            return
+        self.evidence.append(Evidence(day=self.day, magnitude=amount,
+                                      kind=kind, why=why, source=source))
+        if self.case >= 100:
+            self.game_over = "arrested"
 
     def net_worth(self) -> int:
         stock = sum(u * data.GOODS[g]["base"] for g, u in self.shop_stash.items())
@@ -157,6 +267,7 @@ class State:
 
 def new_state() -> State:
     s = State()
+    s.shops = [Shop(district=data.HOME_DISTRICT)]
     s.employees = [
         Employee(key=f"e{i}", **spec) for i, spec in enumerate(data.EMPLOYEE_POOL)
     ]

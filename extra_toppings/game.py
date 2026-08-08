@@ -21,7 +21,10 @@ Keep the food good. Keep the books believable. Keep the rivals afraid.
 """
 
 
-def run(seed: int | None, con: Console, max_days: int | None = None) -> State:
+def run(seed: int | None, con: Console, max_days: int | None = None,
+        on_night=None) -> State:
+    """`on_night(state, streams)` is an observation hook for the analysis
+    harness — called after each completed day, it must not mutate."""
     streams = Streams(seed)
     state = new_state()
     con.say(INTRO)
@@ -36,6 +39,8 @@ def run(seed: int | None, con: Console, max_days: int | None = None) -> State:
         if state.debt > 0:
             state.debt = int(state.debt * (1 + data.DEBT_RATE))
         _check_endings(state)
+        if on_night is not None:
+            on_night(state, streams)
 
     if not state.game_over:
         state.game_over = "survived" if state.debt <= 0 else "kneecaps"
