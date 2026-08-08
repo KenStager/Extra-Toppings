@@ -71,7 +71,8 @@ def _poach(state: State, rival, spec: dict, con: Console, rng: random.Random) ->
         e.hired = False
         con.bullet(f"{e.name} took {spec['short']}'s offer and didn't finish the shift.")
         if e.aware:
-            state.add_case(8, f"{e.name} left for a rival knowing everything")
+            state.add_case(8, f"{e.name} left for a rival knowing everything",
+                           kind="witness", source=e.name)
             con.bullet(f"...and {e.name} knew things. That's a problem now.")
     else:
         e.morale -= 1
@@ -89,7 +90,8 @@ def _plant(state: State, rival, spec: dict, con: Console, rng: random.Random) ->
     con.bullet("An anonymous tip sends a patrol crawling past your block all night.")
     state.add_heat(data.HOME_DISTRICT, 12)
     if rng.random() < 0.3:
-        state.add_case(4, "an informant's tip put your shop in a file")
+        state.add_case(4, "an informant's tip put your shop in a file",
+                       kind="witness")
 
 
 def negotiate(state: State, con: Console, rng: random.Random) -> None:

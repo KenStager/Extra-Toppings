@@ -150,7 +150,8 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
     # Even a ghost leaves a pattern: the same handwriting, night after night.
     if state.raids_led >= 1:
         premium = min(8.0, 1.5 * state.raids_led)
-        state.add_case(premium, "a pattern of night jobs in the same handwriting")
+        state.add_case(premium, "a pattern of night jobs in the same handwriting",
+                       kind="pattern")
         con.say(f"  Somewhere downtown, tonight's job is pinned beside the "
                 f"others. The pattern is starting to look like handwriting. "
                 f"(Case +{premium:g})")

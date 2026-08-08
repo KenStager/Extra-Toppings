@@ -214,7 +214,8 @@ def _handle_police_stop(state: State, plan: dict, con: Console,
         state.dirty -= 300
         if rng.random() < 0.8:
             con.say("  He tucks the bills under his citation pad and waves you off.")
-            state.add_case(2, "a patrolman on the take knows your face")
+            state.add_case(2, "a patrolman on the take knows your face",
+                           kind="witness")
             return True
         con.say("  Wrong cop. He steps back and calls it in.")
         return _bust(state, plan, con, rng, report, resisted=False)
@@ -278,7 +279,8 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
             state.add_heat(dk, 18)
             evidence = 10 if driver.aware else 4
             state.add_case(evidence + seized * 0.3,
-                           f"{driver.name} arrested on a route")
+                           f"{driver.name} arrested on a route",
+                           kind="witness", source=driver.name)
             report["busted"] = True
             report["lines"].append(
                 f"{driver.name} didn't come back. Precinct says possession, "
