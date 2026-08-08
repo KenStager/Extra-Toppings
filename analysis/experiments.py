@@ -13,11 +13,14 @@ Usage:
 
 import argparse
 import random
+import statistics
 from collections import Counter, defaultdict
 from typing import ClassVar
 
-from extra_toppings import data, market, phases, raids
-from extra_toppings.bot import BOTS, CrimeHeavyBot, GreedyBot
+from extra_toppings import data, escrow, market, phases, raids
+from extra_toppings.bot import (BOTS, CrimeHeavyBot, EscrowBot, GreedyBot,
+                                KeepsStashBot, MarketBot, SloppyEscrowBot)
+from extra_toppings.config import GameConfig
 from extra_toppings.game import run
 from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
@@ -243,10 +246,149 @@ def events(seeds: int) -> None:
               f"without {100*wo_w//max(wo_n,1):>3}%")
 
 
+def fork(seeds: int) -> None:
+    """P1b acceptance rows (§2.7): sit-down reachability for the
+    unmodified market bot; the Quiet Sale's close/revert discipline; the
+    careful-vs-careless valuation study; forced-branch crash-freedom.
+    Thresholds are falsification bars, not tuning targets."""
+    sale_on = GameConfig(fork_enabled=True,
+                         enabled_branches=frozenset({"quiet_sale"}))
+    fork_only = GameConfig(fork_enabled=True)
+
+    # ── criterion 2 (rev. 7): reachability, measured completely ──
+    from extra_toppings import sitdown as sd
+    opened = 0
+    full_tables = 0
+    absent_calendar = 0
+    absent_case = 0
+    payoff_days = []
+    for seed in range(seeds):
+        s = run(seed, MarketBot(random.Random(seed)), config=fork_only)
+        if s.act != 2 or s.sitdown_snapshot is None:
+            continue
+        opened += 1
+        payoff_days.append(s.sitdown_snapshot.payoff_day)
+        verdicts = sd.evaluate_chairs(s.sitdown_snapshot, s.evidence)
+        missing = [v for v in verdicts if not v.available]
+        if not missing:
+            full_tables += 1
+        else:
+            absent_calendar += sum(1 for v in missing
+                                   if v.blocker == "calendar")
+            absent_case += sum(1 for v in missing if v.blocker == "case")
+    print(f"reachability: market bot reaches an open sit-down in "
+          f"{opened}/{seeds} seeds ({opened / seeds:.0%}; bar ≥ 55%)")
+    if opened:
+        payoff_days.sort()
+        med = payoff_days[len(payoff_days) // 2]
+        q3 = payoff_days[(3 * len(payoff_days)) // 4]
+        print(f"  full tables: {full_tables}/{opened} of open sit-downs "
+              f"({full_tables / opened:.0%}); absent chairs: "
+              f"{absent_calendar} calendar-gated, {absent_case} case-gated")
+
+        def chairs_at(payoff_day):
+            from extra_toppings.models import SitdownSnapshot
+            vs = sd.evaluate_chairs(SitdownSnapshot(payoff_day, 0.0, 0), [])
+            return "".join("+" if v.available else "-"
+                           for v in vs if v.chair != "stand_pat")
+        print(f"  payoff days: median {med} (chairs {chairs_at(med)}), "
+              f"75th pct {q3} (chairs {chairs_at(q3)}); boundaries: "
+              + ", ".join(f"day {d}:{chairs_at(d)}"
+                          for d in (20, 21, 22, 23, 25, 26)))
+
+    # ── criterion 3: forced-branch chaos completes ───────────────
+    class ChaosSale(BotConsole):
+        def scene_menu(self, namespace, prompt, options):
+            if prompt == "Your chair:" and not getattr(self, "_t", False):
+                self._t = True
+                return 3
+            return len(options) - 1
+    crashes = 0
+    for seed in range(seeds):
+        s = run(seed, ChaosSale(random.Random(seed)), config=sale_on)
+        if s.game_over is None:
+            crashes += 1
+    print(f"crash-freedom: forced-sale chaos completes {seeds - crashes}/"
+          f"{seeds} runs")
+
+    # ── criterion 4, escrow rows ─────────────────────────────────
+    def escrow_run(bot_cls, seed):
+        bot = bot_cls(random.Random(seed))
+        s = run(seed, bot, config=sale_on)
+        # Entry is latched by the bot's own transcript sniffing — a
+        # day-one collapse reverts before the first night hook would see
+        # the branch, so state inspection alone undercounts.
+        entered = getattr(bot, "_entered_escrow", False) \
+            or s.branch == "quiet_sale"
+        sold = s.game_over == "sold"
+        on_schedule = (not sold) or (
+            s.day == s.sitdown_snapshot.payoff_day + 1 + escrow.DILIGENCE_DAYS)
+        return {"entered": entered, "sold": sold,
+                "on_schedule": on_schedule,
+                # The dollar comparison uses the final broker mark before
+                # severance (rev. 7 ruling): walking money rewards
+                # retaining illicit assets and punishes burning cash.
+                "mark": s.branch_state.escrow_mark if sold else None,
+                "tier": escrow.sale_tier(s) if sold else None,
+                "dirty_locked": sold and (s.dirty + s.warehouse_cash)
+                > escrow.DIRTY_TOLERANCE}
+
+    rows = {}
+    rates = {}
+    for name, cls in (("careful", EscrowBot), ("sloppy", SloppyEscrowBot),
+                      ("keeps-stash", KeepsStashBot)):
+        entered = closed = off_schedule = 0
+        tiers: Counter = Counter()
+        per_seed = {}
+        for seed in range(seeds):
+            r = escrow_run(cls, seed)
+            per_seed[seed] = r
+            if r["entered"]:
+                entered += 1
+                if r["sold"]:
+                    closed += 1
+                    tiers[r["tier"]] += 1
+                if not r["on_schedule"]:
+                    off_schedule += 1
+        rows[name] = per_seed
+        rates[name] = closed / entered if entered else 0.0
+        bar = "bar ≥ 70%" if name == "careful" else \
+            "ablation" if name == "keeps-stash" else "valuation control"
+        print(f"{name}: entered {entered}/{seeds}, closed {closed} "
+              f"({rates[name]:.0%} of entered; {bar}), off-schedule "
+              f"{off_schedule} (bar 0), tiers {dict(tiers)}")
+    print(f"ablation drop: careful {rates['careful']:.0%} → keeps-stash "
+          f"{rates['keeps-stash']:.0%} "
+          f"({(rates['careful'] - rates['keeps-stash']) * 100:.0f} points; "
+          f"bar ≥ 20)")
+
+    # Matched seeds where BOTH policies closed: the valuation must be
+    # decision-sensitive, not formula-implied.
+    matched = [s for s in range(seeds)
+               if rows["careful"][s]["sold"] and rows["sloppy"][s]["sold"]]
+    if matched:
+        diffs = [rows["careful"][s]["mark"]
+                 - rows["sloppy"][s]["mark"] for s in matched]
+        flips = sum(1 for s in matched
+                    if rows["careful"][s]["tier"] != rows["sloppy"][s]["tier"])
+        print(f"valuation: {len(matched)} matched closes; careful-minus-"
+              f"sloppy median mark ${statistics.median(diffs):,.0f} "
+              f"(bar ≥ $1,000); tier flips {flips}/{len(matched)} "
+              f"({flips / len(matched):.0%}; bar ≥ 40%, unconditioned)")
+        locked = [s for s in matched if rows["careful"][s]["dirty_locked"]
+                  and rows["sloppy"][s]["dirty_locked"]]
+        print(f"  cash-locked at kept-the-trade in both runs: "
+              f"{len(locked)} (diagnostic only — the bar stays "
+              f"unconditioned)")
+    else:
+        print("valuation: no matched closes — study inconclusive")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("experiment", choices=["sweep", "grid", "policy",
-                                           "trajectory", "raids", "events", "all"])
+                                           "trajectory", "raids", "events",
+                                           "fork", "all"])
     ap.add_argument("--seeds", type=int, default=None)
     ap.add_argument("--trials", type=int, default=300)
     args = ap.parse_args()
@@ -258,6 +400,7 @@ def main() -> None:
         ("trajectory", lambda: trajectory(n or 40)),
         ("raids", lambda: raid_roi(args.trials)),
         ("events", lambda: events(n or 150)),
+        ("fork", lambda: fork(n or 150)),
     ]
     for name, study in studies:
         if args.experiment in (name, "all"):

@@ -120,15 +120,31 @@ def state_from_dict(d: dict) -> State:
         total_laundered=d["total_laundered"], raids_led=d["raids_led"],
         kills=d["kills"], demand_shock=d["demand_shock"],
         act=d["act"], branch=d["branch"],
-        branch_state=BranchState(**d["branch_state"])
-        if d["branch_state"] is not None else None,
+        branch_state=_branch_state_from(d["branch_state"]),
         sitdown_snapshot=SitdownSnapshot(**d["sitdown_snapshot"])
         if d.get("sitdown_snapshot") is not None else None,
     )
     # A payload naming a branch must carry a coherent BranchState — a
-    # mixed or impossible combination is refused, not repaired.
-    validate_branch_state(state.branch, state.branch_state)
+    # mixed, impossible, or terminally-contradictory combination is
+    # refused, not repaired (the severance state machine binds here,
+    # including the sold-cannot-be-pending terminal invariant).
+    validate_branch_state(state.branch, state.branch_state,
+                          game_over=state.game_over)
     return state
+
+
+def _branch_state_from(payload: dict | None) -> BranchState | None:
+    if payload is None:
+        return None
+    payload = dict(payload)
+    # Migration: pre-rev.8-completion v3 payloads stored the incident
+    # discount as a binary float fraction (0.28000000000000004). The
+    # canonical unit is whole percentage points; the float converts
+    # once, here, on load.
+    if "escrow_discount" in payload and "escrow_discount_pct" not in payload:
+        payload["escrow_discount_pct"] = round(
+            payload.pop("escrow_discount") * 100)
+    return BranchState(**payload)
 
 
 def save_game(state: State, streams: Streams, path: str) -> None:

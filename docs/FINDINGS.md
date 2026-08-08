@@ -664,6 +664,233 @@ After correction 2: 183 tests green on 3.11 and 3.12; ruff/mypy clean;
 flag-off golden 300/300 and paired stand-pat 300/300 with sit-downs
 expected 82 / held 82 (schema v1) on Python 3.11, 3.12 and 3.13.
 
+### Round 8 body — P1b: the Quiet Sale, measured
+
+The escrow week is in (`extra_toppings/escrow.py` + the scene commit
+path), behind the same flag, drawing the `brokers` stream only after
+the chair is taken. All §2.7 numbers below reproduce via
+`python3 -m analysis.experiments fork` (150 seeds; three escrow bots —
+careful, sloppy-learner, and the keeps-stash ablation — built as
+minimal policies over the greedy bot).
+
+| Criterion | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Reachability (unmodified market bot, open sit-down) | ≥ 55% | 85/150 = 57% | pass |
+| Crash-freedom (forced-sale chaos) | 150/150 | 150/150 | pass |
+| Careful close rate (of entered) | ≥ 70% | 76/82 = 93% | pass |
+| Closes exactly at fork+4 or reverts | always | 0 off-schedule | pass |
+| Ablation drop (keeps-stash) | ≥ 20 pts | 93% → 10% (83 pts) | pass |
+| Valuation, careful−sloppy median | ≥ $1,000 | $2,179 | pass |
+| Valuation, tier flips | ≥ 40% | 10/52 = **19%** | **miss** |
+
+The miss is a finding, not a tuning failure. Of the 52 matched closes,
+31 are **cash-locked at kept-the-trade in both runs**: laundering is
+off all week by design, so more than $200 of unlaundered cash at close
+was decided before the fork — no escrow-week policy can flip those
+tiers. Among the 21 unlocked pairs, flips run 10/21 = 48%, over the
+bar. The criterion needs a review ruling (condition on
+tier-controllable seeds, extend "careful" into pre-fork cash hygiene,
+or give escrow a dirty-cash outlet); the design doc records the
+question (§8, P1b notes).
+
+Two mechanics findings from the same runs, reported in the deviation
+record:
+
+- **Without a burn action the branch was unplayable.** First contact:
+  0% closes — every entered run collapsed on walk-through incidents,
+  because a stash-heavy month cannot leave through a 24-bulk wagon
+  before two incidents land. §3.4's "burn it for the clean close"
+  became a real diligence-morning choice; careful closes went 0% →
+  93% while the keeps-stash ablation stayed at 10% — the pressure is
+  real, and now so is the counterplay.
+- **The clean close is genuinely rare for a criminal month** — the
+  careful bot's tiers split 49 kept-trade / 23 fire-sale / 4 modest,
+  and *sold well* was never reached by any bot. That is the branch's
+  thesis (the clean number must be EARNED by the month, not the week);
+  whether it is fun is a human-play question for seeds 24/39/8, noted
+  for the P4 pass.
+
+Verification: 209 tests green on 3.11 and 3.12 (26 new in
+`tests/test_quiet_sale.py`, driving the real scene, mornings, service
+walk-throughs, night rules and closing); ruff/mypy clean; flag-off
+golden 300/300 AND paired stand-pat 300/300 (expected 82 / held 82,
+schema v1) on 3.11, 3.12 and 3.13 with all P1b code in the tree — the
+fork stays provably inert unless entered.
+
+### Round 8 correction 3 (review of P1b — design rev. 7)
+
+Review ruled the tier-flip miss a **missing player verb**, not a
+denominator problem, and found four further defects; all corrected,
+with the flip bar itself still open — for a new, fully isolated reason.
+
+- **The disposal verb exists now.** One primitive
+  (`escrow.incinerate`) burns cash and contraband alike — destruction,
+  never conversion. The night account menu is branch-aware (disposal
+  replaces laundering during escrow instead of refusing after
+  selection); warehouse cash must be trucked back before it can burn;
+  the card shows the $200 tolerance and projected classification every
+  morning. Effect measured: cash-locked matched pairs went **31 → 0**,
+  kept-the-trade all but vanished from careful closes, and a clean
+  close is reachable by burning (tested).
+- **One valuation view.** `MarkBreakdown` replaced the card's two
+  arithmetics (displayed rounded inputs vs computed truncated ones —
+  the rep-24.9/Case-61.5 repro). Explicit rounding policy, renderer
+  consumes the view only, displayed dollars sum exactly to the mark.
+- **The closing is transactional.** The reviewer's Case-84.9/rep-5/
+  $0-clean repro (−$600 cash, negative recorded mark) is a regression:
+  humane severance appears on the sheet only when settlement plus
+  clean funds it; nothing goes negative; `escrow_mark` stays the
+  buyer's price; `severance_paid` persists and the epilogue
+  acknowledges paid and unpaid. The transcript-only deviation is
+  withdrawn.
+- **Safe fallbacks restored.** The walk-in question's burn option
+  moved off the last position (an exhausted script had burned seven
+  oregano); every new escrow prompt is regression-pinned under an
+  exhausted script with no assets destroyed.
+- **Reachability measured completely, criterion revised on paper.**
+  Full tables 74/85 = 87% of open sit-downs (reviewer: 88.2% at
+  1,000 seeds), every absence calendar-gated, none case-gated; median
+  payoff day 11 and 75th-percentile day 16 both seat full tables;
+  boundary chair sets match the §2.1 table exactly (day 21 `+-++`,
+  day 23 `+--+`, day 26 `----`). The flat 90% bar is recorded as
+  falsified and criterion 2 now tests its thesis (§2.7 rev. 7).
+
+**The flip bar, after the verb (150 seeds, market-bot-based escrow
+bots — the "smart bot" the criterion names):** careful closes 93%,
+ablation drop 85 points, valuation median mark delta $1,396 ≥ $1,000 —
+and tier flips **17/60 = 28%** against the unconditioned 40% bar.
+The cash-lock explanation is exhausted (0 locked pairs); the tier
+population now straddles the boundary (careful: 40 fire / 39 modest);
+what remains is arithmetic: a ~$1,400 escrow-week lever flips a
+$10,000-wide tier boundary only for runs within a lever's width of it.
+Supplying the verb moved flips 19% → 28% (18% → 28% after the
+smart-bot rebase); the residual gap is a property of §2.4.4's declared
+numbers — incident repricing depth (−10..−25%), the illustrative mark
+formula's scale, and the $10k/$25k tier spacing — not of bot policy.
+Raising any of the three is a design-constant decision recorded for
+review, not taken unilaterally.
+
+After correction 3: 223 tests green on 3.11 and 3.12 (14 new);
+ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11, 3.12 and 3.13.
+
+### Round 8 correction 4 (final review — the constants ruling, and green)
+
+Review ruled on the §2.4.4 constants and named three last seams; the
+design records it as revision 8, on paper before implementation.
+
+- **The constants ruling.** Mark formula and $10k/$25k tiers stay;
+  first-incident repricing rises from −10..−25% to **−20..−35%, drawn
+  in whole percentage points** (the displayed rate is thereby exact);
+  the second incident still collapses. The rationale is the review's:
+  this lever prices the behavior under test — moving tier boundaries
+  would relabel identical outcomes, and scaling the mark would revalue
+  the chair against future branches.
+- **Negative subtotals floor before deductions.** The rep-5/Case-84.9/
+  war-armed/incident card had rendered "--$24"/"--$15" — percentage
+  deductions against a negative subtotal becoming credits. The raw
+  subtotal now clamps at zero first, the floor is carried in the
+  MarkBreakdown and said out loud ("the mark floors at $0"), war and
+  incident terms are provably non-negative, and the exact combination
+  is pinned.
+- **Severance is a real outcome, not an amount.** $0 had collapsed
+  deliberate refusal, unaffordability, and an empty roster — a
+  crewless close still eulogized "the crew." The closing persists
+  pending/paid/declined/unaffordable/not_applicable with the amount
+  and closing headcount; the epilogue drives from the outcome (four
+  distinct texts, and silence for a crew that never was); every state
+  round-trips; unknown outcomes are rejected at validation.
+- **The careful policy keeps the permitted $200** (burn =
+  dirty − tolerance), and the clean-close regression was repaired to
+  land exactly at fork+4 with no manual clock-winding.
+
+**The full §2.7 battery now passes, matching the reviewer's
+counterfactual to the digit** (150 seeds): reachability 57% with full
+tables at the median (day 11) and Q3 (day 16) payoff states and exact
+boundary chair sets; crash-freedom 150/150; careful closes 79/85 = 93%,
+0 off-schedule; ablation drop 84 points; valuation median mark delta
+**$2,370**; tier flips **27/60 = 45%** against the unconditioned 40%
+bar. The 500-seed confirmation: **81/188 = 43% flips, median mark
+delta $2,444, careful closes 261 (93%), sloppy 189, ablation drop 85
+points, 0 off-schedule, full tables at median day 10 and Q3 day 16,
+crash-free 500/500** — against the reviewer's independent
+counterfactual of 81/188 = 43.1% and $2,445: the same runs, reproduced
+across implementations. Identity gates: flag-off golden 300/300 and
+paired stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11,
+3.12 and 3.13. 228 tests green.
+
+### Round 8 correction 5 (re-review — two model contracts)
+
+Re-review reproduced every number and found the rev. 8 implementation
+exact in behavior but not in model; both corrections landed at the
+root (design §8, revision 8 completion).
+
+- **Integer points are the canonical unit.** `cut_points / 100` had
+  re-introduced binary float at storage: real broker seeds 6 and 17
+  stored 28 as 28.000000000000004 and 29 as 28.999999999999996 — and
+  the exactness regression passed only because its one draw happened
+  to be representable. `BranchState.escrow_discount_pct` now stores
+  the integer; the division happens once inside the dollar-rounded
+  term; pre-correction v3 payloads migrate on load; and all 16
+  possible draws (20–35) are pinned with plain integer equality — no
+  round(), no isclose(), through save round-trips and the rendered
+  card alike.
+- **The severance taxonomy is now a machine, not a label.** The review
+  exhibited five contradictory rows the validator accepted (paid with
+  no amount, paid with no crew, declined with money, not_applicable
+  with a crew, pending with a headcount) — and a paid/None/2 save
+  loaded silently into an epilogue that said nothing. The complete
+  state machine binds at transition and load: pending carries nothing
+  and never survives a sold run (the terminal invariant reads the
+  run's game_over); paid means exactly rate × positive headcount;
+  declined/unaffordable mean a positive headcount and zero paid;
+  not_applicable means zero and zero. One canonical rate
+  (`models.SEVERANCE_PER_HEAD`) prices validation, the closing sheet
+  and the epilogue; the closing applies its outcome triple through one
+  validated transition. All five exhibited rows are pinned as
+  refusals, both directly and through doctored saves.
+
+After correction 5: 235 tests green on 3.11 and 3.12 (7 new, 6 failing
+on the pre-fix engine); ruff/mypy clean; flag-off golden 300/300 and
+paired stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11,
+3.12 and 3.13; both ensembles reproduce the correction-4 numbers
+bit-for-bit — 150 seeds: flips 27/60 = 45%, median mark delta $2,370;
+500 seeds: flips 81/188 = 43%, median $2,444 — the unit change is
+behavior-preserving, now provably so at the model.
+
+### Round 8 correction 6 (final re-review — the persistence half)
+
+The severance machine was accepted; the canonical-percentage contract
+was enforced only on the producer path. A doctored v3 payload accepted
+0.28 back into the integer field, a fractional 29.5, a −10 that raised
+the mark as a $1,000 credit, and an out-of-domain 200 — the original
+representation defect could return through save-load. Fixed at the
+model boundary (design §8, rev. 8 completion, item 3):
+
+- `_validate_escrow_pricing` requires an actual integer (`type(x) is
+  int`, so bools are refused too) in the ruled domain, tied to the
+  incident count: zero incidents → zero discount; one incident → a
+  permitted 20–35; two incidents cannot remain in an active sale.
+- The repricing domain moved to its one canonical home
+  (`models.REPRICE_MIN_PCT`/`MAX_PCT`); the escrow draw and the
+  validator share it.
+- Legacy float migration is the only conversion site, and its result
+  passes through the same validator.
+- The sole surviving first-incident discount is assigned, not
+  accumulated.
+- Malformed payloads (0.28, 29.5, −10, 200, True) and relationship
+  violations (a repricing with no incident; two incidents active) are
+  pinned through `state_from_dict`. Two tests that had set
+  out-of-design-range values directly (15, 18) were corrected to legal
+  states — the validator would now have caught them, which is the
+  point.
+
+After correction 6: 237 tests green on 3.11 and 3.12; ruff/mypy clean;
+flag-off golden 300/300 and paired stand-pat 300/300 (expected 82 /
+held 82, schema v1) on 3.11, 3.12 and 3.13; both ensembles unchanged —
+150 seeds: flips 27/60 = 45%, median $2,370; 500 seeds: 81/188 = 43%,
+median $2,444.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

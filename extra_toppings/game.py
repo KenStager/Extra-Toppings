@@ -1,6 +1,6 @@
 """Game orchestration: the 30-day run and its endings."""
 
-from . import data, phases, sitdown
+from . import data, escrow, phases, sitdown
 from .config import GameConfig
 from .models import State, new_state
 from .rng import Streams
@@ -41,6 +41,13 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
         # are actionable inside the scene.
         if sitdown.due(state):
             sitdown.run_scene(state, con, config)
+        if state.branch == "quiet_sale" and not state.game_over:
+            # The escrow week: the broker's card each diligence morning,
+            # the closing on the morning after day four. Signing is the
+            # one success that ends a run early (§2.5 precedence 3).
+            escrow.diligence_morning(state, con, streams)
+            if state.game_over:
+                break
         plans = phases.morning(state, con, streams)
         report = phases.service(state, plans, con, streams)
         phases.night(state, plans, report, con, streams, config)
@@ -76,7 +83,60 @@ def epilogue(state: State, con: Console) -> None:
             f"| case file {state.case:.0f}/100")
 
     e = state.game_over
-    if e == "arrested":
+    if e == "sold":
+        tier = escrow.sale_tier(state)
+        total = escrow.walkaway_total(state)
+        con.say(f"  Walking money: {money(total)} — settlement, cash, and "
+                f"whatever left with you (stock at book value).")
+        # The closing outcome is persisted state, and the epilogue
+        # drives from the real discriminator (rev. 8) — refusal,
+        # unaffordability and an empty roster are different stories.
+        outcome = state.branch_state.severance_outcome \
+            if state.branch_state is not None else "pending"
+        amount = state.branch_state.severance_paid \
+            if state.branch_state is not None else None
+        if outcome == "paid" and amount:
+            con.say(f"  The crew's envelopes — {money(amount)}, handed "
+                    f"over before the ink — are the part of this sale "
+                    f"nobody had to do. Around the harbor, that's the "
+                    f"part they'll retell.")
+        elif outcome == "declined":
+            con.say("  No envelopes. The crew found out on the buyer's "
+                    "schedule and scattered on their own dime. Around the "
+                    "harbor, that's the part they'll retell.")
+        elif outcome == "unaffordable":
+            con.say("  There was nothing left for envelopes — the sale "
+                    "barely covered the pen that signed it. The crew knows "
+                    "the difference between broke and cheap; it helps, a "
+                    "little.")
+        # not_applicable: nobody was left to tell, and the epilogue does
+        # not invent a crew to be sorry for.
+        if tier == "kept_trade":
+            con.say("""
+  The bill of sale lists ovens, tables, a wagon, a name. It does not
+  list what rode out the back gate, or the cash nobody ever washed.
+  You didn't leave the life. You downsized it — and the Case stays
+  open on you, wherever you land.
+  ENDING: Sold the shop, kept the trade.""")
+        elif tier == "well":
+            con.say("""
+  Papers signed, keys handed over, every drawer empty and every dollar
+  explicable. The new owner keeps the recipes. Nobody keeps your name.
+  Whatever this city remembers, it isn't yours to carry.
+  ENDING: Sold — and sold well. The clean number, earned.""")
+        elif tier == "modest":
+            con.say("""
+  It isn't a fortune. It was never going to be a fortune — the card
+  told you every morning exactly what a month like yours is worth.
+  It's enough to leave, and leaving was the point.
+  ENDING: Sold — a modest ending, honestly priced.""")
+        else:
+            con.say("""
+  The number on the check is barely worth the pen. A hot file, a thin
+  reputation, a buyer who knew you had no other door — the fire sale
+  is what a bad month looks like, notarized.
+  ENDING: Sold — the fire sale.""")
+    elif e == "arrested":
         con.say("""
   They come at 6 a.m., politely, with a warrant that cites your own
   register tapes. The pizza was never the problem. The paperwork was.

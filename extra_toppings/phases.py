@@ -7,7 +7,7 @@ by anything the player does. Player-facing dice use persistent streams.
 
 import random
 
-from . import data, market, raids, rivals, routes, shop
+from . import data, escrow, market, raids, rivals, routes, shop
 from .config import GameConfig
 from .models import SitdownSnapshot, State
 from .rng import Streams
@@ -42,7 +42,12 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         con.bullet(f"NEWS: {line}")
     for line in market.rumor_sheet(state, streams.daily(state.day, "rumors")):
         con.bullet(f"RUMOR: {line}")
+    hired_before = len(state.hired())
     _staff_trouble(state, con, streams.staff)
+    if state.branch == "quiet_sale" and len(state.hired()) < hired_before:
+        # A walkout mid-diligence is an incident (§2.4.4).
+        escrow.record_incident(state, con, streams,
+                               "a staff walkout mid-diligence")
 
     # Carmine won't let his investment starve: he fronts stock — onto the debt.
     if state.shop.ingredients < 10 and state.clean < 200:
@@ -395,6 +400,9 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
             con.bullet(line)
         if r["cash"]:
             con.say(f"  Route take: {money(r['cash'])} dirty, {r['sold']} units moved.")
+    if state.branch == "quiet_sale":
+        # The buyer's man walks the shop every diligence afternoon.
+        escrow.walkthrough(state, con, streams)
     return report
 
 
@@ -463,7 +471,11 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
 
     for key, rival in state.rivals.items():
         if rival.alive and rival.raid_warning == 1:
-            raids.incoming_raid(state, key, con, streams.raids)
+            landed = raids.incoming_raid(state, key, con, streams.raids)
+            if landed and state.branch == "quiet_sale" \
+                    and not state.game_over:
+                escrow.record_incident(state, con, streams,
+                                       "a rival raid landing mid-diligence")
 
     _payroll_and_rent(state, con)
 
@@ -476,21 +488,34 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
                 f"Debt {money(state.debt)}")
         remaining = max(0, ceiling - laundered_tonight)
-        con.say(f"  Books can absorb about {money(remaining)} more tonight "
-                f"without raising eyebrows.")
+        if state.branch == "quiet_sale":
+            con.say("  The register is being read line by line this week — "
+                    "nothing washes until the papers are signed or torn.")
+        else:
+            con.say(f"  Books can absorb about {money(remaining)} more tonight "
+                    f"without raising eyebrows.")
+        # Branch-aware (rev. 7): during escrow the register is being
+        # read, so the menu offers disposal instead of advertising a
+        # laundering allowance it would refuse after selection.
+        first_action = ("Burn dirty cash (the buyer's ledger test is coming)"
+                        if state.branch == "quiet_sale"
+                        else "Launder dirty cash through the register")
         c = con.menu("Settle accounts:", [
-            "Launder dirty cash through the register",
+            first_action,
             "Pay Carmine (he prefers unmarked bills)",
             "Move stash / cash (shop ↔ warehouse)",
             "Talk to a rival",
             "Lock up →",
         ])
         if c == 0:
-            laundered_tonight += _launder(state, remaining, con)
+            if state.branch == "quiet_sale":
+                escrow.burn_cash_action(state, con)
+            else:
+                laundered_tonight += _launder(state, remaining, con)
         elif c == 1:
             _pay_debt(state, con)
         elif c == 2:
-            _storage(state, con)
+            _storage(state, con, streams)
         elif c == 3:
             rivals.negotiate(state, con, streams.rivals)
         else:
@@ -541,6 +566,11 @@ def _launder(state: State, remaining: int, con: Console) -> int:
     """Wash dirty cash against tonight's REMAINING allowance. Returns the
     amount washed so the night loop can shrink the allowance — chunking
     the wash into small calls buys nothing."""
+    if state.branch == "quiet_sale":
+        # §2.4.4: the one week the two ledgers cannot touch.
+        con.say("  Not this week. The books are being read line by line — "
+                "the register stays boring until closing.")
+        return 0
     if state.dirty <= 0:
         con.say("  No dirty cash on hand.")
         return 0
@@ -624,7 +654,7 @@ def _carmine_remark(state: State, amt: int, con: Console) -> None:
                 "when this is over — you're deciding that now.'")
 
 
-def _storage(state: State, con: Console) -> None:
+def _storage(state: State, con: Console, streams: Streams) -> None:
     if state.warehouse is None:
         con.say("  You'd need the warehouse for that. (Improvements, mornings.)")
         return
@@ -633,12 +663,18 @@ def _storage(state: State, con: Console) -> None:
                                 f"Cash from stash (stashed: {money(state.warehouse_cash)})",
                                 "Back"])
     if c == 0:
+        moved = 0
         for g, u in list(state.shop_stash.items()):
             if u <= 0:
                 continue
             n = con.ask_int(f"Move {data.GOODS[g]['label']} (have {u})", 0, u, u)
             state.shop_stash[g] -= n
             state.warehouse[g] = state.warehouse.get(g, 0) + n
+            moved += n
+        if moved and state.branch == "quiet_sale":
+            # A truck at the rolling door while the buyer's man watches
+            # the neighborhood: 20% incident risk per move (§2.4.4).
+            escrow.offsite_move_risk(state, con, streams)
     elif c == 1:
         for g, u in list(state.warehouse.items()):
             if u <= 0:

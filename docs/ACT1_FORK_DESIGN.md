@@ -667,8 +667,8 @@ charges you for slipping.
 **Diligence days:** each day is an incident check the player plays through
 the normal loop. Laundering during escrow is off (the books are being
 *read*); contraband on premises at any walk-through, a rival raid landing,
-a staff walkout — each is an incident: reprice (−10 to −25%) or, twice,
-collapse. The stash must go — but the warehouse is not a free answer.
+a staff walkout — each is an incident: reprice (−20 to −35%, drawn in
+whole percentage points — rev. 8 constants ruling) or, twice, collapse. The stash must go — but the warehouse is not a free answer.
 Moving stock off-site mid-diligence is a truck at a rolling door while the
 buyer's man watches the neighborhood: the move itself carries a one-time
 20% incident risk, and warehouse rent keeps drawing dirty cash all week.
@@ -807,14 +807,24 @@ seeds 24/39/8 remains the test of fun.
    pre-fork; (c) **action replay** — the bot's decision log is identical,
    and so is the ending. The §2.1 telegraph lines are the sole permitted
    transcript additions pre-fork, and they touch no state and draw no RNG.
-2. **Reachability.** The unmodified market bot reaches an open sit-down in
-   ≥ 55% of seeds; at typical payoff states every chair is present in
-   ≥ 90% of open sit-downs (the gates of §2.1 should bite on outliers, not
-   the median run). Chair presence is measured on the **complete computed
-   offer set** — the pure evaluator's verdicts for all four chairs — not
-   on which menu entries happen to be actionable in a given build
-   (rev. 5): a development build with branches disabled still computes,
-   renders and is judged on the full table.
+2. **Reachability (revised rev. 7 — the 90% share was falsified and the
+   criterion now tests its thesis).** The unmodified market bot reaches
+   an open sit-down in ≥ 55% of seeds. The earlier "every chair present
+   in ≥ 90% of open sit-downs" was measured at 87% over 150 seeds
+   (88.2% over 1,000), with **every** absence an intentional calendar
+   gate and none a Case gate — the flat share was at odds with the
+   deliberate late-payoff gates, so the criterion is restated to test
+   what it meant: **all four chairs must be present at the median and
+   through the 75th-percentile payoff state** (measured: median payoff
+   day 10, Q3 day 16 — both full tables), the **exact chair set at
+   every documented boundary** (payoff 20/21/22/23/25/26) must match
+   the §2.1 table, and the full-table share is **always reported**
+   alongside, split by cause (calendar vs Case). Chair presence is
+   measured on the complete computed offer set — the pure evaluator's
+   verdicts — not on which menu entries are actionable in a given
+   build (rev. 5). If ≥ 90% full tables ever becomes a product
+   requirement, the branch calendars themselves must change — that is
+   a design decision, not a harness one.
 3. **Crash-freedom.** Chaos-monkey (`--auto`) forced down each branch × 150
    seeds completes every run; full unittest/ruff/mypy suite green.
 4. **Divergence.** Four branch bots (minimal per-branch policies over the
@@ -836,10 +846,12 @@ seeds 24/39/8 remains the test of fun.
      reverts to stand-pat; closes in ≥ 70% of seeds. **Valuation is
      decision-sensitive, not formula-implied:** on matched seeds, a
      careful diligence policy (stash cleared before day 2,
-     incident-averse choices) must close ≥ $1,000 above a careless one at
-     the median, and flip the ending tier in ≥ 40% of seeds. (The earlier
-     draft's price-vs-Case correlation is dropped: the pricing formula
-     guarantees it, so it tested nothing.)
+     incident-averse choices) must beat a careless one by ≥ $1,000 at
+     the median on the **final broker mark before severance** (rev. 7:
+     walking money rewarded retaining illicit assets and punished
+     burning cash), and flip the ending tier in ≥ 40% of matched seeds,
+     unconditioned. (The earlier draft's price-vs-Case correlation is
+     dropped: the pricing formula guarantees it, so it tested nothing.)
    - *Pairwise:* post-fork profile vectors with **eight components** —
      route-day %, raid-day %, covert $/day, legit $/day, staff spend
      $/day (wages + raises + settlements + war pay), remediation spend
@@ -1556,3 +1568,161 @@ Pinned: frozen 65 → live 90 (offers stand, both live-danger warnings
 present); the Case-72 Partner rejection naming 70, 72 and the record;
 the day-21 calendar rejection naming ten-needed/nine-remaining; the
 shared fold on the 3.12-sensitive sequence.
+
+**P1b implementation notes (pre-review).** The Quiet Sale landed with
+three recorded deviations-with-argument and one measured criterion
+miss, all awaiting review judgment:
+
+1. *The incinerator is now an action.* §3.4's oregano question ("burn
+   it for the clean close") had no mechanic — and without one the
+   branch was unplayable: a stash-heavy month cannot leave through a
+   24-bulk wagon before walk-throughs stack two incidents (measured:
+   0% closes before the mechanic, 93% after, with the ablation still
+   cratering at 10%). Each diligence morning with stock on premises
+   asks: keep it and chance the walk, or burn it. In-branch prompt
+   only; no identity surface moves.
+2. *Severance is remembered by the closing transcript and the crew's
+   morale* (the cheap choice costs −2 morale a head), not by a
+   variant epilogue paragraph — a simplification to either bless or
+   correct.
+3. *No bespoke escrow extortion event.* §3.4's D16 note-under-the-door
+   is carried by the existing machinery instead: rival extortion and
+   raids continue during escrow, a landed raid is an incident, and the
+   war clause visibly arms on a live telegraph or vendetta.
+4. *The tier-flip bar misses as written, and the miss is a finding.*
+   Careful-vs-sloppy tier flips run 19% (bar ≥ 40%) — but 31 of 52
+   matched closes are cash-locked at kept-the-trade in BOTH runs:
+   laundering is off all week by design, so > $200 of unlaundered cash
+   at close is decided before the fork, and no escrow-week policy can
+   flip those tiers. Among the 21 unlocked pairs, flips run 48% — over
+   the bar. The criterion needs a ruling: condition it on
+   tier-controllable seeds, extend "careful" to pre-fork cash hygiene,
+   or give escrow a dirty-cash outlet. The dollar bar passes unhelped
+   (careful-minus-sloppy median $2,179 ≥ $1,000).
+
+**Revision 7** responds to the review of P1b (PR #11), which ruled on
+the tier-flip question and found four further defects. The ruling: the
+miss exposed a **missing player verb**, not a denominator problem — the
+design says dirty cash must be "hidden or burned," and only contraband
+could burn. Corrections:
+
+1. *One escrow disposal primitive* (`escrow.incinerate`) now serves
+   cash and contraband alike: destruction, never conversion — no clean
+   cash back, no Case relief, no value. Exposed at the morning surface
+   (the walk-in question) and the night account menu, which is now
+   **branch-aware**: during escrow the menu offers "Burn dirty cash"
+   instead of advertising a laundering allowance it would refuse after
+   selection. Physicality preserved: warehouse cash must be trucked
+   back before it can burn. The card shows the exact $200 tolerance and
+   the projected closing classification every morning. The tier-flip
+   bar stays **unconditioned at ≥ 40%**, tested on the original
+   population with the missing verb supplied; the valuation dollar bar
+   moves from total walking money (which rewards retaining illicit
+   assets) to the **final broker mark before severance**.
+2. *One valuation view* — the card had two sources of truth (displayed
+   rounded inputs, computed truncated ones: rep 24.9 / Case 61.5
+   printed "25 × $140 … 62 × $45" while computing with 24 and 61). An
+   immutable `MarkBreakdown` now carries every priced term and the
+   final mark under one explicit rounding policy (each term rounds
+   once, nearest dollar; the war clause and incident repricing round
+   against the running subtotal; final clamps at zero), the renderer
+   consumes it exclusively, and the displayed dollars sum exactly.
+3. *The closing is transactional* — the whole transaction validates
+   before mutation; humane severance is on the sheet only when
+   settlement plus clean can fund it (the reviewer's Case-84.9/rep-5/
+   $0-clean repro produced −$600 cash and a negative recorded mark);
+   cash and settlement never go negative; `escrow_mark` stays the
+   buyer's price; the severance choice persists as closing outcome
+   data (`BranchState.severance_paid`) and the epilogue acknowledges
+   paid and unpaid alike. The transcript-only severance deviation is
+   withdrawn.
+4. *Ordinary escrow menus honor the safe-fallback contract* — the
+   walk-in question's destructive option moved off the last position
+   (an exhausted script was burning the whole stash), and regressions
+   pin every new non-scene escrow prompt under an exhausted script:
+   no assets destroyed.
+5. *Reachability measured completely* — the harness now reports the
+   full-table share, absence causes, chair sets at the median and
+   75th-percentile payoff states, and the exact boundary sets; the 90%
+   share is recorded as falsified (87% at 150 seeds, 88.2% at 1,000,
+   all absences calendar-gated) and criterion 2 is restated to test
+   its thesis (see the criterion text).
+
+Deviation rulings from the same review: the incinerator action is
+accepted, folded into the disposal primitive; the transcript-only
+severance memory is rejected and replaced with persisted outcome data;
+the absent bespoke D16 extortion is accepted (measured: in 82 careful
+entries, 33 saw an escrow-time extortion, 28 a new raid telegraph, and
+the war clause armed at some point in 40).
+
+**Revision 8** records the final P1b review ruling and the last three
+seams, made on paper before implementation:
+
+1. *Constants ruling on the tier-flip bar.* The mark formula and the
+   $10k/$25k ending thresholds stay unchanged; **first-incident
+   repricing rises from −10..−25% to −20..−35%, drawn as whole
+   percentage points** (the displayed rate is thereby exact); the
+   second incident still collapses. Rationale: this lever changes the
+   consequence of the behavior under test — moving tier boundaries
+   would mostly relabel identical outcomes, and scaling the whole mark
+   would change the chair's value against future branches. Reviewer
+   counterfactual (with the careful bot retaining the permitted $200):
+   150 seeds → 45% flips, median mark advantage $2,370; 500 seeds →
+   43.1%, $2,445. Close behavior unchanged; only the price of a
+   diligence breach becomes consequential.
+2. *Negative valuation subtotals must not become credits.* At rep 5 /
+   Case 84.9 with the war clause armed and an incident booked, the
+   card rendered "--$24"/"--$15" — percentage deductions against a
+   negative subtotal. The raw subtotal clamps to zero BEFORE
+   percentage deductions, the floor is carried explicitly in the
+   MarkBreakdown and rendered ("subtotal below zero; the mark floors
+   at $0"), and war/incident terms are never negative. The exact
+   combination is pinned.
+3. *Severance outcome taxonomy.* A bare amount collapsed distinct
+   outcomes (deliberate refusal, unaffordability, no crew) — a
+   crewless close still printed "the crew found out." The closing
+   persists a real discriminator — pending / paid / declined /
+   unaffordable / not_applicable — alongside the amount and the
+   closing headcount; the epilogue drives from the outcome; every
+   state round-trips.
+4. *The careful policy retains the permitted $200* — the buyer's
+   tolerance is walking money, and burning it destroys value for
+   nothing: the careful burn is max(0, dirty − tolerance).
+
+**Revision 8 completion (model-level corrections).** Re-review found
+the rev. 8 implementation exact in behavior but not in model:
+
+1. *Whole-percentage storage was not whole* — `cut_points / 100` turned
+   28 into 28.000000000000004 at storage time (real broker seeds 6 and
+   17), silently violating the exactness the ruling bought. The
+   canonical stored unit is now the **integer percentage point**
+   (`escrow_discount_pct`); the division by 100 happens once, inside
+   the dollar-rounded term, never at storage. Existing v3 payloads
+   carrying the float migrate on load; all 16 possible draws (20–35)
+   are exhaustively pinned with plain integer equality — no round(),
+   no isclose().
+2. *The severance discriminator was a label, not a machine* — rows
+   like paid/None/2 and not_applicable/0/2 validated, and a
+   contradictory save loaded silently. The complete state machine now
+   binds at transition and load: pending → no amount, no headcount
+   (and never on a sold run — the terminal invariant takes the run's
+   game_over); paid → positive headcount and exactly rate × headcount;
+   declined/unaffordable → positive headcount, zero paid;
+   not_applicable → zero and zero. The rate itself has one canonical
+   home (`models.SEVERANCE_PER_HEAD`), and the closing applies its
+   outcome triple through one validated transition before the run is
+   allowed to end. The review's five exhibited contradictions are
+   pinned as refusals.
+3. *The canonical-unit contract binds at the persistence boundary too*
+   (final re-review) — the producer path was exact, but a doctored v3
+   payload accepted 0.28 back into the integer field, a fractional
+   29.5, a −10 that became a $1,000 credit, and an out-of-domain 200.
+   Validation now requires an actual integer (bools refused) in the
+   ruled 20–35 domain, tied to the incident count: no incident means
+   zero, one incident means a permitted repricing, and two incidents
+   cannot remain in an active sale (the second collapses it). The
+   repricing domain moved to its one canonical home
+   (`models.REPRICE_MIN_PCT`/`MAX_PCT`), legacy float migration is the
+   only conversion site and feeds the same validator, and the sole
+   surviving first-incident discount is assigned, not accumulated.
+   Malformed payloads are pinned through `state_from_dict`.

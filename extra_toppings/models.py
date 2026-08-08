@@ -73,13 +73,18 @@ class ActiveEvent:
 
 
 def fold_case(evidence: list) -> float:
-    """THE Case arithmetic — the only fold in the codebase (rev. 6
-    completion). An explicit left-to-right addition, clamped to 0..100:
-    NOT sum(), which Python 3.12 moved to compensated summation,
-    breaking bit-identity with the sequential running total (found as
-    15/300 golden failures in review). State.case and the sit-down's
-    live ledger both call this; a second copy of this arithmetic is a
-    recurrence waiting to happen."""
+    """THE full-ledger Case-total fold (rev. 6 completion). An explicit
+    left-to-right addition, clamped to 0..100: NOT sum(), which Python
+    3.12 moved to compensated summation, breaking bit-identity with the
+    sequential running total (found as 15/300 golden failures in
+    review). State.case and the sit-down's live ledger both call this.
+    Two purpose-specific PREFIX scans exist elsewhere (locating the day
+    or record where a running total first crosses a threshold — the
+    Case-60 telegraph and the sit-down's gate-crossing record); they
+    are sequential by the same rule and correct, but they answer a
+    different question than a ledger total. If evidence remediation
+    (the Straight Path) multiplies these scans, fold them into one
+    shared prefix iterator before copies drift."""
     total = 0.0
     for record in evidence:
         total += record.magnitude
@@ -138,6 +143,18 @@ class BranchState:
     diligence_day: int = 0
     escrow_mark: int = 0
     escrow_incidents: int = 0
+    # Cumulative incident repricing in WHOLE percentage points (rev. 8
+    # completion): the integer is the canonical stored unit — dividing
+    # by 100 turns 28 into 28.000000000000004, so the division happens
+    # once, at term-computation time, never at storage time.
+    escrow_discount_pct: int = 0
+    # Closing outcome (rev. 8): a real discriminator, because an amount
+    # alone collapses distinct outcomes — refusal, unaffordability and
+    # an empty roster all looked like $0. The full state machine is
+    # enforced by validate_branch_state.
+    severance_outcome: str = "pending"   # SEVERANCE_OUTCOMES
+    severance_paid: int | None = None    # amount; None while pending
+    closing_headcount: int | None = None # hired heads at the closing table
 
     @classmethod
     def straight(cls, *, disposal_runs_left: int = 3,
@@ -171,8 +188,19 @@ _BRANCH_FIELDS = {
     "straight": {"disposal_runs_left", "last_crime_day"},
     "partner": {"points_due_day", "points_missed", "vig_owed"},
     "war": {"war_target", "declared_day"},
-    "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents"},
+    "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
+                   "escrow_discount_pct", "severance_outcome",
+                   "severance_paid", "closing_headcount"},
 }
+SEVERANCE_OUTCOMES = ("pending", "paid", "declined", "unaffordable",
+                      "not_applicable")
+# THE canonical severance rate: validation, the closing sheet and the
+# epilogue all price envelopes from this one number.
+SEVERANCE_PER_HEAD = 300
+# THE canonical repricing domain (rev. 8 ruling): whole percentage
+# points, first incident only. Validation and the escrow draw share it.
+REPRICE_MIN_PCT = 20
+REPRICE_MAX_PCT = 35
 if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")
 _BRANCH_REQUIRED = {
@@ -184,10 +212,13 @@ _BRANCH_REQUIRED = {
 
 
 def validate_branch_state(branch: str | None,
-                          branch_state: "BranchState | None") -> None:
+                          branch_state: "BranchState | None",
+                          game_over: str | None = None) -> None:
     """Reject impossible branch/BranchState combinations, raising
     ValueError (never assert — assertions vanish under optimized
-    Python). Called at branch transition and at save-load."""
+    Python). Called at branch transition and at save-load. Pass the
+    run's game_over so terminal invariants bind too — a sold run may
+    not carry a pending severance outcome."""
     if branch is None or branch == "stand_pat":
         if branch_state is not None:
             raise ValueError(
@@ -209,8 +240,78 @@ def validate_branch_state(branch: str | None,
         if getattr(branch_state, name) is None:
             raise ValueError(f"branch {branch!r}: required field "
                              f"{name!r} is unset")
-    if branch == "quiet_sale" and branch_state.diligence_day < 1:
-        raise ValueError("quiet_sale: the sit-down is diligence day 1")
+    if branch == "quiet_sale":
+        if branch_state.diligence_day < 1:
+            raise ValueError("quiet_sale: the sit-down is diligence day 1")
+        _validate_escrow_pricing(branch_state)
+        _validate_severance(branch_state, game_over)
+
+
+def _validate_escrow_pricing(bs: "BranchState") -> None:
+    """The persistence half of the canonical-unit contract (rev. 8
+    completion): the integer contract must hold at the model boundary,
+    not just on the producer path — otherwise a doctored payload
+    reintroduces the representation defect (0.28, 29.5, −10-as-credit,
+    200) through save-load."""
+    pct = bs.escrow_discount_pct
+    if type(pct) is not int:                 # bools are ints; refuse those too
+        raise ValueError(f"quiet_sale: escrow_discount_pct must be an "
+                         f"integer number of percentage points, got {pct!r}")
+    incidents = bs.escrow_incidents
+    if incidents == 0:
+        if pct != 0:
+            raise ValueError(f"quiet_sale: a repricing of {pct}% with no "
+                             f"incident on record")
+    elif incidents == 1:
+        if not REPRICE_MIN_PCT <= pct <= REPRICE_MAX_PCT:
+            raise ValueError(f"quiet_sale: first-incident repricing must "
+                             f"lie in {REPRICE_MIN_PCT}..{REPRICE_MAX_PCT} "
+                             f"points, got {pct}")
+    else:
+        raise ValueError(f"quiet_sale: {incidents} incidents cannot remain "
+                         f"in an active sale — the second collapses it")
+
+
+def _validate_severance(bs: "BranchState", game_over: str | None) -> None:
+    """The complete severance state machine (rev. 8 completion) — the
+    label alone permitted contradictory rows like paid/None/2:
+      pending        → amount and headcount both None (no sold run)
+      paid           → headcount > 0, amount == rate × headcount
+      declined       → headcount > 0, amount == 0
+      unaffordable   → headcount > 0, amount == 0
+      not_applicable → headcount == 0, amount == 0
+    """
+    outcome = bs.severance_outcome
+    paid = bs.severance_paid
+    heads = bs.closing_headcount
+    if outcome not in SEVERANCE_OUTCOMES:
+        raise ValueError(f"quiet_sale: unknown severance outcome {outcome!r}")
+    if outcome == "pending":
+        if paid is not None or heads is not None:
+            raise ValueError("quiet_sale: pending severance must carry no "
+                             "amount and no headcount")
+        if game_over == "sold":
+            raise ValueError("quiet_sale: a sold run cannot leave the "
+                             "severance outcome pending")
+        return
+    if heads is None or paid is None:
+        raise ValueError(f"quiet_sale: outcome {outcome!r} requires both "
+                         f"amount and headcount")
+    if outcome == "paid":
+        if heads <= 0 or paid != SEVERANCE_PER_HEAD * heads:
+            raise ValueError(f"quiet_sale: paid severance must be "
+                             f"{SEVERANCE_PER_HEAD} x a positive headcount "
+                             f"(got {paid} for {heads})")
+    elif outcome in ("declined", "unaffordable"):
+        if heads <= 0 or paid != 0:
+            raise ValueError(f"quiet_sale: {outcome} requires a positive "
+                             f"headcount and zero paid (got {paid} for "
+                             f"{heads})")
+    else:                                   # not_applicable
+        if heads != 0 or paid != 0:
+            raise ValueError(f"quiet_sale: not_applicable requires zero "
+                             f"headcount and zero paid (got {paid} for "
+                             f"{heads})")
 
 
 @dataclass
