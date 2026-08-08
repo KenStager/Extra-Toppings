@@ -166,6 +166,45 @@ def raid_roi(trials: int) -> None:
             line += f"  avg haul ${haul_value/max(success, 1):,.0f}"
         print(line)
 
+    # Repeat-raid decline: three consecutive steal_stock jobs on one target.
+    # Primary metric is EXPECTED dollars per attempt (failures included) —
+    # success rate alone can mislead when successful hauls grow richer.
+    n_repeat = trials
+    hauls = [0.0, 0.0, 0.0]
+    succ = [0, 0, 0]
+    for seed in range(n_repeat):
+        rng = random.Random(seed)
+        st = new_state()
+        market.roll_prices(st, rng)
+        st.warehouse = {}                     # storage isn't the confound here
+        crew = st.employees[:3]
+        for e in crew:
+            e.hired = e.aware = True
+        for attempt in range(3):
+            def stock_value(s):
+                total = sum(u * data.GOODS[g]["base"]
+                            for g, u in s.shop_stash.items())
+                return total + sum(u * data.GOODS[g]["base"]
+                                   for g, u in (s.warehouse or {}).items())
+            before = stock_value(st)
+            plan = {"rival": "vinnie", "objective": "steal_stock",
+                    "team": [e for e in crew if e.available], "armed": False,
+                    "wagon_free": True}
+            if not plan["team"]:
+                break
+            raids.run_raid(st, plan, BotConsole(random.Random(seed * 3 + attempt)),
+                           rng)
+            gained = stock_value(st) - before
+            hauls[attempt] += gained
+            succ[attempt] += gained > 0
+            for e in crew:
+                e.injured_days = 0
+    print(f"  repeat steal_stock on one target ({n_repeat} trials):")
+    for i in range(3):
+        print(f"    attempt {i+1}: success {100*succ[i]//n_repeat}%  "
+              f"expected ${hauls[i]/n_repeat:,.0f}/attempt  "
+              f"(${hauls[i]/max(succ[i],1):,.0f} per success)")
+
 
 def events(seeds: int) -> None:
     """Does an event firing in days 1-10 shift the payoff rate?"""

@@ -210,10 +210,68 @@ optimum); the zero-cover column is uniformly the arrest column
 Case. Context — heat, events, driver, district — should be what moves
 the ideal split, not a memorized ratio.
 
+## Round 4 — raid pricing (design pass, post-merge)
+
+Raids stop being an ATM. Five mechanisms, all tested
+(`tests/test_raid_pricing.py`):
+
+- **Target alertness** (`Rival.alertness`, 0–10): every attempt teaches
+  them (+1 fail/abort, +2 success); guards multiply and sharpen with it,
+  shelves thin, and it decays only slowly (~1 point per 3 quiet days).
+  At alertness 4+ the game says so: "They've been expecting somebody."
+- **Pattern evidence**: each successful job after the first adds Case
+  (1.5 × prior jobs, capped at 8) — even ghosts leave handwriting. A
+  ten-raid spree now costs ~54 Case on pattern alone.
+- **Physical carry limits**: 8 bulk per crew member with the wagon,
+  4 without — and the wagon is a contested resource: if it runs tonight's
+  route, the raid crew carries duffel bags.
+- **Storage bottleneck**: stolen stock must fit the shop stash, then the
+  warehouse if rented; the rest stays in their alley.
+- **Consumable ledger**: leaning on a stolen ledger spends it.
+- **Decoy cap**: the empty-the-stash defense protects exactly one
+  wagonload; overflow is found and taken.
+
+### Round 4 correction (review)
+
+The first cut of this pass had three defects: alertness raised guard
+*drama* without touching the quiet-action odds that decide success;
+cheap-goods-first loading let thinner shelves yield *richer* successful
+hauls (expected $/attempt was flat at ~$250 across repeats at 5,000
+trials); alertness decayed on the raid night itself; and downed crew
+still carried full loads. All fixed:
+
+- Alertness now directly penalizes Slip-past and quiet-takedown odds
+  (−0.04/point), and crews load the expensive shelves first — which is
+  exactly what an alerted target locks down hardest.
+- Decay skips any rival hit that same day (`Rival.last_raided_day`).
+- Extraction capacity counts the crew that reaches the door, not the
+  crew that walked in.
+- Security level ("sleepy / wary / hardened / fortress") shows in the
+  target menu; the pattern premium is warned before committing and
+  announced the moment it lands.
+
+Measured at 2,000 trials (`analysis/experiments.py raids --trials 2000`;
+primary metric is expected $ per attempt, failures included):
+
+```
+attempt 1: success 20%  expected $781/attempt  ($3,799 per success)
+attempt 2: success 18%  expected $597/attempt  ($3,288 per success)
+attempt 3: success 14%  expected $438/attempt  ($3,002 per success)
+```
+
+Both components decline monotonically. Note the honest correction: an
+earlier draft claimed a −79% single-job haul cut, but that number was an
+artifact of the naive loading order. With rational value-first loading, a
+*first* job against a sleepy target pays ~$3.8k when it succeeds
+(~$0.8k expected) — the anti-ATM pricing comes from the decline curve,
+the pattern Case (~54 across a ten-job spree), hardening, and injuries,
+not from making the first job worthless. Ledger/sabotage — leverage and
+tempo plays, not loot — are intentionally unchanged. The 150-seed sweep
+is unmoved (market 62%, greedy 58%, crime-heavy 21%): the pricing is
+contained to raids.
+
 ## Still open (carried to the next design pass)
 
-- Raids remain under-priced (target hardening, pattern evidence, carry
-  limits, single-use ledger leverage are designed but deferred by scope).
 - The midgame still resolves around day 12–15; the payoff-triggered
   Act I fork (leave the trade / expand with Carmine / press rivals /
   cash out) is the agreed direction.

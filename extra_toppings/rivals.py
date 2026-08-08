@@ -17,6 +17,9 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
         if rival.ovens_wrecked_days:
             rival.ovens_wrecked_days -= 1
             rival.strength = max(1, rival.strength - 2)
+        # Guards get bored again, slowly — but not on a night you hit them.
+        if rival.last_raided_day != state.day:
+            rival.alertness = max(0.0, rival.alertness - 0.34)
 
         # A telegraphed raid counts down; landing is handled by the night phase.
         if rival.raid_warning > 1:
@@ -127,6 +130,8 @@ def negotiate(state: State, con: Console, rng: random.Random) -> None:
         rival.strength -= 15
         rival.relation -= 10
         rival.tribute_demanded = 0
+        rival.ledger_stolen = False   # leverage used is leverage gone
         state.dirty += 2000
         con.say("  You read three names off page twelve. An envelope arrives by morning.")
-        con.say(f"  +{money(2000)} dirty. {spec['short']} will not forget this.")
+        con.say(f"  +{money(2000)} dirty. {spec['short']} will not forget this — "
+                f"and by next week those pages are worthless.")
