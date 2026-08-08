@@ -161,10 +161,14 @@ cannot close a chair retroactively: the table the player earned at
 close of business is the table they sit at. Without this rule the
 world's own dice could empty a chair after the payoff decision, with no
 telegraph even possible — violating "an empty chair must be earned,
-never retroactive." The scene still displays the *current* Case band
-(invariant 8); since only post-lock-up world evidence can make the two
-disagree, any disagreement gets one line ("last night didn't help — but
-the offer stands").
+never retroactive." The scene renders from one canonical view carrying
+BOTH ledgers (rev. 6): the frozen Case and chair verdicts the offers
+were cut from, and the live morning Case with its band. **Every**
+difference between them is rendered, whether or not a threshold moved —
+a quiet 20 → 32 warming is shown ("the chairs were set at closing
+time") exactly as a gate-crossing 65 → 72 is ("last night didn't help —
+but the offers stand"). Chairs that remain open at a near-closed file
+are visibly dangerous in-scene, per the edge cases above.
 
 **Which chairs are at the table** (each gate is stated in-scene when it
 fails — an empty chair is explained, never silent):
@@ -904,6 +908,20 @@ seeds 24/39/8 remains the test of fun.
      asserted identical immediately before and after the scene —
      otherwise the extra menu would shift every later bot choice even
      with the game streams untouched.
+   - **Existence, not just equivalence (rev. 6).** The gate must fail
+     when the sit-down is missing, not only when something else moved.
+     Whether a scene is owed is derived from the FLAG-OFF nightly
+     timeline alone — debt_paid_day, the day, and whether the run had
+     ended — never from fork code or its snapshot; expected scenes must
+     equal observed scenes, pair by pair. A fired scene is compared
+     against a **frozen, versioned scene schema** — exact namespace,
+     prompt, complete ordered options and answer, event for event,
+     literal in the harness (never imported from the scene module, so
+     drift fails the gate exactly as a drifted engine fails the
+     goldens; changing the scene lands with a schema version bump).
+     Mutation regressions pin the failure modes: a disabled scene, a
+     missing/extra/reordered event, a changed prompt, option, answer or
+     namespace must each fail a pair that reaches the table.
 
 ### 2.8 Canon and invariant compliance
 
@@ -1466,3 +1484,44 @@ before any fork code exists so the contracts precede the implementation:
    no BranchState, active branches carry their required fields, mixed
    payloads rejected.
 7. *P1 splits into P1a (foundation) and P1b (the Quiet Sale)* — §7.
+
+**Revision 6** responds to the review of the P1a foundation (PR #10),
+which found four contracts needing root-level correction:
+
+1. *The paired gate could pass with the sit-down completely missing* —
+   with `due()` disabled on a table-reaching run, every checked surface
+   still passed, and the "exact" checker accepted wrong prompt and
+   option text → the gate gains the existence check: expected scenes
+   (derived purely from the flag-off timeline — debt_paid_day, day,
+   ending) must equal observed scenes, and a fired scene must equal a
+   frozen, versioned literal schema event for event. Mutation
+   regressions cover a disabled scene, missing/extra/reordered events,
+   and changed prompt/option/answer/namespace (§2.7 criterion 6).
+2. *Frozen eligibility and the live Case were conflated* — the scene
+   showed only the lock-up Case unless chair availability changed,
+   though the design requires every disagreement visible → one
+   canonical SitdownView (frozen Case + frozen verdicts + live Case +
+   live band, with structured blockers: calendar/case/None, threshold,
+   closing record), rendering any live/frozen difference even when no
+   threshold moved, and marking open-but-dangerous chairs at Case ≥ 85
+   (§2.1).
+3. *Scripted scene input failed open* — an exhausted ScriptedConsole
+   silently chose the last option twice and irrevocably committed
+   stand-pat → scene_menu on ScriptedConsole requires an explicit
+   answer and raises a dedicated ScriptExhausted before any mutation;
+   progress-last remains the DETERMINISTIC BOT policy only, never a
+   scripted fallback. Exhaustion pinned before chair selection and
+   between selection and confirmation, with reload/replay verified
+   (ui.py).
+4. *GameConfig was not actually immutable* — a caller-held mutable set
+   could grow enabled_branches after construction → normalized to
+   frozenset in __post_init__, unknown branch identifiers rejected, and
+   branch ids sourced from one canonical definition
+   (models.BRANCH_ORDER / ACTIVE_BRANCHES) shared by config, validation
+   and the scene.
+
+Accepted judgment calls from the same review: 300 paired runs stand as
+identity coverage (explicitly not the P1b reachability study);
+calendar-first precedence when both gates fail, now encoded as the
+structured primary blocker with a single prose reason; progress-last
+stays a bot policy only.

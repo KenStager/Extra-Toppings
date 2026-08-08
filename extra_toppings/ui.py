@@ -117,12 +117,20 @@ class BotConsole(Console):
         return len(options) - 1
 
 
+class ScriptExhausted(Exception):
+    """A ScriptedConsole ran out of answers at a scene decision — scene
+    choices are irrevocable, so there is no safe fallback to take."""
+
+
 class ScriptedConsole(Console):
     """Replays an exact list of answers. Used by tests to pin decisions.
 
     Each script entry answers the next menu/ask_int/confirm call in order.
     When the script runs out: menus take their last option, ask_int takes
     its default, confirm answers False — all safe "do nothing" choices.
+    The exception is scene_menu: sit-down decisions permanently dismiss
+    chairs, so an exhausted script raises ScriptExhausted (before any
+    state mutates) instead of failing open into a commitment (rev. 6).
     """
 
     def __init__(self, script: list | None = None) -> None:
@@ -152,6 +160,14 @@ class ScriptedConsole(Console):
     def confirm(self, prompt: str) -> bool:
         ans = bool(self._next(False))
         self.transcript.append(f"confirm[{prompt}] -> {ans}")
+        return ans
+
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        if not self.script:
+            raise ScriptExhausted(
+                f"scene_menu[{prompt}] needs an explicit scripted answer")
+        ans = max(0, min(int(self.script.pop(0)), len(options) - 1))
+        self.transcript.append(f"scene[{namespace}:{prompt}] -> {options[ans]}")
         return ans
 
     def pause(self) -> None:

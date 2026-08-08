@@ -583,6 +583,54 @@ new paired stand-pat gate **300/300 runs identical** (150 seeds × both
 bot profiles, flag-on vs flag-off), with the sit-downs that fired held
 to the exact scene contract.
 
+### Round 8 correction (review)
+
+Review of the P1a foundation falsified the paired gate's central claim
+and found three more foundation defects; all four are fixed at the
+root, recorded as design revision 6 (§8).
+
+- **The paired gate proved equivalence, not existence.** The reviewer
+  disabled `sitdown.due()` on a table-reaching run (greedy, seed 1) and
+  every checked surface still passed — `_scene_contract([])` accepted
+  the missing scene, and the "exact" checker accepted arbitrary prompt
+  and option text. The gate now derives whether a scene is OWED from
+  the flag-off nightly timeline alone (debt_paid_day, day, ending —
+  world facts, no fork code) and requires expected == observed pair by
+  pair; a fired scene must equal a frozen, versioned literal schema
+  (namespace, prompt, complete ordered options, answer — hardcoded in
+  the harness, never imported from the scene module, so drift fails
+  like a drifted engine fails the goldens). Mutation regressions pin
+  it: the disabled-due probe now fails the gate while every equivalence
+  surface still matches, and missing/extra/reordered events and changed
+  prompt/option/answer/namespace each fail a table-reaching pair.
+  The ensemble independently reproduces **82 expected / 82 held**.
+- **Frozen and live Case were conflated.** A snapshot at 20 with the
+  live file at 32 rendered "20/100" and never mentioned 32 — the
+  disagreement line fired only when chair availability changed. One
+  canonical `SitdownView` now carries frozen Case + frozen verdicts +
+  live Case + live band; every difference renders (20→32 with "the
+  chairs were set at closing time"; 65→72 with "the offers stand"), and
+  chairs still open at Case ≥ 85 are marked visibly dangerous in-scene.
+  Blockers are structured (calendar/case/None + threshold + closing
+  record) with calendar-first precedence pinned.
+- **Scripted scene input failed open.** An empty ScriptedConsole chose
+  the last option twice and irrevocably committed stand-pat — the
+  documented safe-exhaustion contract inverted at the one place choices
+  are permanent. `scene_menu` on ScriptedConsole now demands an
+  explicit answer and raises `ScriptExhausted` before any mutation;
+  pinned before chair selection and between selection and
+  confirmation, with reload/replay verified. Progress-last remains the
+  deterministic-bot policy only.
+- **GameConfig immutability was cosmetic.** A caller-held mutable set
+  could grow `enabled_branches` after construction. `__post_init__` now
+  normalizes to a frozenset and rejects unknown branch ids, with branch
+  identifiers sourced from one canonical definition
+  (`models.BRANCH_ORDER`) shared by config, validation and the scene.
+
+After the correction: 179 tests green on 3.11 and 3.12 (15 new);
+ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+with sit-downs expected 82 / held 82 on Python 3.11, 3.12 and 3.13.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

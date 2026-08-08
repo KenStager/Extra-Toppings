@@ -9,17 +9,20 @@ harness's two modes (`check` flag-off against the untouched goldens,
 `standpat` paired flag-on); these tests pin the semantics themselves.
 """
 
+import copy
 import random
 import unittest
 from dataclasses import FrozenInstanceError
+from unittest import mock
 
+from analysis import equivalence
 from extra_toppings import data, game, phases, save, sitdown
 from extra_toppings.bot import GreedyBot
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (BranchState, Evidence, SitdownSnapshot,
                                    new_state, validate_branch_state)
 from extra_toppings.rng import Streams
-from extra_toppings.ui import BotConsole, ScriptedConsole
+from extra_toppings.ui import BotConsole, ScriptedConsole, ScriptExhausted
 
 FORK_ON = GameConfig(fork_enabled=True)
 
@@ -103,6 +106,17 @@ class TestGameConfig(unittest.TestCase):
     def test_config_is_immutable(self):
         with self.assertRaises(FrozenInstanceError):
             GameConfig().fork_enabled = True  # type: ignore[misc]
+
+    def test_a_mutable_set_cannot_reach_inside_the_config(self):
+        branches = {"straight"}
+        cfg = GameConfig(fork_enabled=True, enabled_branches=branches)
+        branches.add("war")                    # mutate the caller's set
+        self.assertEqual(cfg.enabled_branches, frozenset({"straight"}))
+        self.assertIsInstance(cfg.enabled_branches, frozenset)
+
+    def test_unknown_branch_ids_are_rejected(self):
+        with self.assertRaises(ValueError):
+            GameConfig(enabled_branches={"golf_course"})
 
 
 # ══ The lock-up snapshot ══════════════════════════════════════════
@@ -344,6 +358,179 @@ class TestSitdownScene(unittest.TestCase):
                          enabled_branches=frozenset({"straight"}))
         with self.assertRaises(NotImplementedError):
             sitdown.run_scene(state, CaptureConsole([0]), cfg)
+
+
+# ══ The canonical view: frozen ledger vs live morning file ════════
+
+class TestSitdownView(unittest.TestCase):
+    """Rev. 6: one canonical SitdownView carries frozen and live Case;
+    every difference renders, whether or not a threshold moved."""
+
+    def test_view_carries_both_ledgers_and_bands(self):
+        state = scene_state(case=20.0, evidence=[(12, 20.0, "seizures")])
+        state.evidence.append(Evidence(day=12, magnitude=12.0,
+                                       kind="witness", why="an informant"))
+        view = sitdown.build_view(state.sitdown_snapshot, state.evidence)
+        self.assertEqual(view.frozen_case, 20.0)
+        self.assertEqual(view.live_case, 32.0)
+        self.assertEqual(view.frozen_band, "a quiet file")
+        self.assertEqual(view.live_band, "a warm file")
+
+    def test_a_warming_below_every_threshold_still_renders(self):
+        # 20 → 32: no gate moved, the difference is shown anyway.
+        state = scene_state(case=20.0, evidence=[(12, 20.0, "seizures")])
+        state.evidence.append(Evidence(day=12, magnitude=12.0,
+                                       kind="witness", why="an informant"))
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        i = con.find("has warmed since the books closed")
+        self.assertIsNotNone(i)
+        self.assertIn("32", con.lines[i])
+        self.assertIn("chairs were set at closing time", con.lines[i])
+
+    def test_a_crossing_after_lockup_says_the_offers_stand(self):
+        # 65 → 72: the live file crosses the Partner gate; the frozen
+        # offer stands and the scene says exactly that.
+        state = scene_state(case=65.0, evidence=[(12, 65.0, "seizures")])
+        state.evidence.append(Evidence(day=12, magnitude=7.0,
+                                       kind="witness", why="an informant"))
+        con = CaptureConsole([1, 4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        i = con.find("has warmed since the books closed")
+        self.assertIsNotNone(i)
+        self.assertIn("offers stand", con.lines[i])
+        self.assertIsNotNone(con.find("development build"))
+        self.assertIsNone(con.find("That chair is empty"))
+
+    def test_an_unchanged_file_renders_no_disagreement(self):
+        state = scene_state(case=20.0, evidence=[(12, 20.0, "seizures")])
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNone(con.find("has warmed"))
+
+    def test_open_chairs_at_case_85_are_visibly_dangerous(self):
+        state = scene_state(case=85.0, evidence=[(10, 85.0, "the ledger fire")])
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNotNone(con.find("dignified way to lose"))
+        self.assertIsNotNone(con.find("near-suicidal"))
+        verdicts = {v.chair: v for v in
+                    sitdown.evaluate_chairs(state.sitdown_snapshot,
+                                            state.evidence)}
+        self.assertTrue(verdicts["straight"].available)
+        self.assertTrue(verdicts["war"].available)
+
+    def test_blockers_are_structured_with_calendar_precedence(self):
+        # Both gates fail: calendar wins, one reason, no closing record.
+        both = {v.chair: v for v in sitdown.evaluate_chairs(
+            SitdownSnapshot(21, 72.0, 1),
+            [Evidence(day=9, magnitude=72.0, kind="physical", why="a fire")])}
+        self.assertEqual(both["partner"].blocker, "calendar")
+        self.assertIsNone(both["partner"].threshold)
+        self.assertEqual(both["partner"].closed_by, "")
+        # Case alone: structured threshold plus the closing record.
+        case_only = {v.chair: v for v in sitdown.evaluate_chairs(
+            SitdownSnapshot(13, 72.0, 1),
+            [Evidence(day=9, magnitude=72.0, kind="physical", why="a fire")])}
+        self.assertEqual(case_only["partner"].blocker, "case")
+        self.assertEqual(case_only["partner"].threshold, 70.0)
+        self.assertEqual(case_only["partner"].closed_by, "a fire")
+        seated = {v.chair: v for v in sitdown.evaluate_chairs(
+            SitdownSnapshot(13, 10.0, 0), [])}
+        self.assertIsNone(seated["straight"].blocker)
+
+
+# ══ Scripted scene input fails closed ═════════════════════════════
+
+class TestSceneScriptExhaustion(unittest.TestCase):
+    """Rev. 6: an exhausted script must never fail open into an
+    irrevocable commitment — it raises before anything mutates."""
+
+    def test_exhaustion_before_the_chair_selection(self):
+        state = scene_state()
+        with self.assertRaises(ScriptExhausted):
+            sitdown.run_scene(state, CaptureConsole([]), FORK_ON)
+        self.assertIsNone(state.branch)
+        self.assertEqual(state.act, 1)
+
+    def test_exhaustion_between_selection_and_confirmation(self):
+        state = scene_state()
+        with self.assertRaises(ScriptExhausted):
+            sitdown.run_scene(state, CaptureConsole([4]), FORK_ON)
+        self.assertIsNone(state.branch)
+        self.assertEqual(state.act, 1)
+        # The reload replays the scene, which can now conclude.
+        sitdown.run_scene(state, CaptureConsole([4, 1]), FORK_ON)
+        self.assertEqual(state.branch, "stand_pat")
+
+    def test_gameplay_prompts_keep_their_safe_fallbacks(self):
+        con = ScriptedConsole([])
+        self.assertEqual(con.menu("Settle accounts:", ["a", "b"]), 1)
+        self.assertEqual(con.ask_int("Pay?", 0, 10, 3), 3)
+        self.assertFalse(con.confirm("Ride along?"))
+
+
+# ══ The paired gate detects absence and drift ═════════════════════
+
+class TestPairedGateMutations(unittest.TestCase):
+    """Rev. 6: the standpat gate must prove the feature EXISTS, not just
+    that nothing else moved — a disabled sit-down, a drifted prompt, a
+    reordered event and a changed answer must each fail a pair that
+    reaches the table."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.off = equivalence.run_recorded(1, "greedy")
+        cls.on = equivalence.run_recorded(1, "greedy", FORK_ON)
+
+    def test_the_reference_pair_reaches_the_table_and_passes(self):
+        self.assertTrue(equivalence._scene_expected(self.off["night_facts"]))
+        problem, held = equivalence._compare_pair(self.off, self.on)
+        self.assertIsNone(problem)
+        self.assertTrue(held)
+
+    def test_a_disabled_sitdown_fails_the_gate(self):
+        # The review's exact probe: turn due() off and replay. Every
+        # equivalence surface still matches — the existence check is
+        # what catches it.
+        with mock.patch.object(sitdown, "due", lambda s: False):
+            broken = equivalence.run_recorded(1, "greedy", FORK_ON)
+        self.assertEqual(broken["raw_trace"], self.off["raw_trace"])
+        self.assertEqual(broken["nights"], self.off["nights"])
+        problem, held = equivalence._compare_pair(self.off, broken)
+        self.assertIsNotNone(problem)
+        self.assertIn("no sit-down was held", problem)
+        self.assertFalse(held)
+
+    def test_an_unexpected_scene_fails_the_gate(self):
+        off_no_payoff = dict(self.off)
+        off_no_payoff["night_facts"] = [[d, e, None] for d, e, _ in
+                                        self.off["night_facts"]]
+        problem, _ = equivalence._compare_pair(off_no_payoff, self.on)
+        self.assertIsNotNone(problem)
+        self.assertIn("expects none", problem)
+
+    def test_every_schema_mutation_is_caught(self):
+        self.assertIsNone(equivalence._scene_contract(
+            copy.deepcopy(equivalence.STANDPAT_SCENE)))
+        mutations = {
+            "missing event": lambda m: m.pop(1),
+            "extra event": lambda m: m.append(copy.deepcopy(m[1])),
+            "reordered events": lambda m: m.reverse(),
+            "changed prompt": lambda m: m[0].__setitem__(1, "Pick a chair:"),
+            "changed option": lambda m: m[0][2].__setitem__(
+                0, "The Crooked Path"),
+            "changed answer": lambda m: m[0].__setitem__(3, 0),
+            "changed namespace": lambda m: m[1].__setitem__(0, "scene"),
+        }
+        for name, mutate in mutations.items():
+            mutated = copy.deepcopy(equivalence.STANDPAT_SCENE)
+            mutate(mutated)
+            self.assertIsNotNone(equivalence._scene_contract(mutated), name)
+            bad = dict(self.on)
+            bad["scene_trace"] = mutated
+            problem, _ = equivalence._compare_pair(self.off, bad)
+            self.assertIsNotNone(problem, name)
 
 
 # ══ Bots and the scene: zero decision RNG ═════════════════════════

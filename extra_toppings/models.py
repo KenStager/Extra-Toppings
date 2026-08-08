@@ -145,6 +145,12 @@ class BranchState:
         return cls(diligence_day=diligence_day, escrow_mark=escrow_mark)
 
 
+# THE canonical branch identifiers (rev. 6): config validation, the
+# BranchState field map and the scene's chair order all derive from
+# this one definition — nothing else may spell a branch id.
+BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
+ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
+
 # Which BranchState fields are live per active branch; everything else
 # must sit at its dataclass default or the payload is a cross-branch mix.
 _BRANCH_FIELDS = {
@@ -153,6 +159,8 @@ _BRANCH_FIELDS = {
     "war": {"war_target", "declared_day"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents"},
 }
+if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
+    raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")
 _BRANCH_REQUIRED = {
     "straight": (),
     "partner": ("points_due_day",),
