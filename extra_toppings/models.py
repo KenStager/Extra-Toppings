@@ -587,6 +587,19 @@ class State:
         if self.case >= 100:
             self.game_over = "arrested"
 
+    def total_stock_units(self) -> int:
+        """Contraband anywhere — shop stash plus warehouse. The Straight
+        Path's stock-zero goal term, the rivals' smell-of-retreat test
+        and the insolvency definition all read this one sum."""
+        units = sum(u for u in self.shop_stash.values() if u > 0)
+        if self.warehouse:
+            units += sum(u for u in self.warehouse.values() if u > 0)
+        return units
+
+    def unlaundered_total(self) -> int:
+        """Dirty cash anywhere — till plus warehouse stash."""
+        return self.dirty + self.warehouse_cash
+
     def net_worth(self) -> int:
         stock = sum(u * data.GOODS[g]["base"] for g, u in self.shop_stash.items())
         if self.warehouse:

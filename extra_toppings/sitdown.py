@@ -23,6 +23,7 @@ with a schema version bump there.
 
 from dataclasses import dataclass
 
+from . import straight
 from .config import GameConfig
 from .models import (BRANCH_ORDER, BranchState, SitdownSnapshot, State,
                      case_prefix, fold_case, validate_branch_state)
@@ -302,6 +303,24 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
             con.say("  Carmine finishes his espresso and shakes your hand "
                     "like a door closing. 'The shop is yours. The city is "
                     "what it is.' Nobody mentions the table again.")
+            return
+        if chair == "straight":
+            con.say("  Carmine slides a folded thing across the table: "
+                    "your own coded-customer book, bought back from a "
+                    "man who found it. 'A gift. Whichever way it goes "
+                    "in the oven.'")
+            confirmed = con.scene_menu(
+                NAMESPACE,
+                "Take the Straight Path? The book burns this morning.",
+                ["Reconsider", "Burn the book — wind it down"])
+            if confirmed == 0:
+                continue
+            branch_state = BranchState.straight()
+            validate_branch_state("straight", branch_state)
+            state.branch_state = branch_state
+            state.branch = "straight"
+            state.act = 2
+            straight.entry_scene(state, con)
             return
         if chair == "quiet_sale":
             sal = state.rivals.get("sal")

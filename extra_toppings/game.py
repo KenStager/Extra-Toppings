@@ -1,6 +1,6 @@
 """Game orchestration: the 30-day run and its endings."""
 
-from . import data, escrow, phases, sitdown
+from . import data, escrow, phases, sitdown, straight
 from .config import GameConfig
 from .models import State, new_state
 from .rng import Streams
@@ -59,7 +59,11 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
             on_night(state, streams)
 
     if not state.game_over:
-        state.game_over = "survived" if state.debt <= 0 else "kneecaps"
+        if state.branch == "straight":
+            # §2.5 precedence 5: the branch's own day-30 matrix.
+            state.game_over = straight.grade(state)
+        else:
+            state.game_over = "survived" if state.debt <= 0 else "kneecaps"
     epilogue(state, con)
     return state
 
@@ -136,6 +140,32 @@ def epilogue(state: State, con: Console) -> None:
   reputation, a buyer who knew you had no other door — the fire sale
   is what a bad month looks like, notarized.
   ENDING: Sold — the fire sale.""")
+    elif e == "straight_exit":
+        con.say("""
+  Day thirty. The walk-in holds flour, the ledger holds nothing it
+  can't explain, and the lunch line goes out the door. You wound the
+  wheel down with your own hands, paid for every silence honestly, and
+  let the lawyers argue the rest into footnotes. Nobody does that.
+  The city eventually forgets there was anything to remember — and
+  forgetting cost you every dollar it looks like it didn't.
+  ENDING: The Legitimate Exit — earned. The rarest pie on the menu.""")
+    elif e == "almost_out":
+        con.say(f"""
+  Every term met but one: the file. Stock gone, money clean, people
+  settled, feuds cold — and a case number that still opens when your
+  name is typed ({state.case:.0f}, and the exit wanted
+  {straight.GOAL_CASE:.0f}). Clean, and they're still watching.
+  You got out. You'll spend a long time proving it.
+  ENDING: Almost Out.""")
+    elif e == "half_measures":
+        con.say("""
+  Day thirty. You left the trade — and never landed the exit. What
+  failed, by name:""")
+        for term in straight.failed_terms(state, as_of=data.DEBT_DUE_DAY):
+            con.say(f"    · {term}")
+        con.say("""
+  Half in, half out — the most expensive place to stand.
+  ENDING: Half Measures.""")
     elif e == "arrested":
         con.say("""
   They come at 6 a.m., politely, with a warrant that cites your own
@@ -148,7 +178,14 @@ def epilogue(state: State, con: Console) -> None:
   You keep your legs — a courtesy, he says, to your uncle.
   ENDING: The debt came due.""")
     elif e == "broke":
-        con.say("""
+        if state.branch == "straight":
+            con.say("""
+  Empty pantry, empty safe, empty dining room — and no wagon in the
+  night to refill any of them, because you burned that book yourself.
+  The cover business couldn't cover the cover-up.
+  ENDING: The oven went cold. Going straight costs money too.""")
+        else:
+            con.say("""
   Empty pantry, empty safe, empty dining room. You lock the door from
   the outside and drop the key through the mail slot.
   ENDING: The oven went cold.""")

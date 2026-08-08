@@ -2,7 +2,7 @@
 
 import random
 
-from . import data
+from . import data, straight
 from .models import State
 from .ui import Console, money
 
@@ -31,6 +31,10 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
 
         grudge = max(0.0, -rival.relation) / 100      # 0..1
         act_chance = spec["aggression"] * 0.5 + grudge * 0.6
+        if state.branch == "straight" and state.total_stock_units() == 0:
+            # Rivals smell retreat: a shop that no longer scares anyone
+            # (§2.4.1, rev. 9 item 13).
+            act_chance *= straight.RETREAT_AGGRESSION
         if rng.random() > act_chance:
             if rival.relation > 20 and rng.random() < 0.2:
                 con.bullet(f"{spec['short']} sends over a tray of cannoli. A truce holds.")

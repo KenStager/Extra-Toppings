@@ -2,7 +2,7 @@
 
 import random
 
-from . import data, market
+from . import data, market, straight
 from .models import Employee, State
 from .ui import Console, money
 
@@ -194,7 +194,12 @@ def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
         g = rng.choice(goods_left)
         spec = data.GOODS[g]
         base_price = state.prices[dk][g]
-        mult = rng.uniform(0.85, 1.2)
+        # A disposal run prices like a seller without a network (rev. 9
+        # item 1): the haircut replaces the ordinary offer roll, draw
+        # for draw, on the same stream.
+        mult = rng.uniform(straight.DISPOSAL_HAIRCUT_LO,
+                           straight.DISPOSAL_HAIRCUT_HI) \
+            if plan.get("disposal") else rng.uniform(0.85, 1.2)
         offer = int(base_price * mult)
         top_want = max(2, int(4 * data.DISTRICTS[dk]["underground"]
                               * market.event_mult(state, dk, "underground")))
@@ -337,7 +342,11 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
         units = int(cargo[g] * sell_frac)
         if units:
             cargo[g] -= units
-            _sell(state, dk, g, units, rng.uniform(0.9, 1.05), report)
+            # Disposal runs sell at the haircut, same draw (rev. 9).
+            mult = rng.uniform(straight.DISPOSAL_HAIRCUT_LO,
+                               straight.DISPOSAL_HAIRCUT_HI) \
+                if plan.get("disposal") else rng.uniform(0.9, 1.05)
+            _sell(state, dk, g, units, mult, report)
     for g, u in cargo.items():
         if u > 0:
             state.shop_stash[g] = state.shop_stash.get(g, 0) + u

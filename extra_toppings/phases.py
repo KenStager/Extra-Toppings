@@ -7,7 +7,7 @@ by anything the player does. Player-facing dice use persistent streams.
 
 import random
 
-from . import data, escrow, market, raids, rivals, routes, shop
+from . import data, escrow, market, raids, rivals, routes, shop, straight
 from .config import GameConfig
 from .models import SitdownSnapshot, State, case_prefix
 from .rng import Streams
@@ -35,6 +35,8 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             line += " …and he has opinions about what comes after."
         con.say(line)
         _act1_telegraphs(state, con)
+    elif state.branch == "straight":
+        straight.morning_lines(state, con)
 
     con.say(f"  Order book: ~{state.demand_today} customers expected, "
             f"{state.delivery_pool} delivery orders on the board.")
@@ -49,12 +51,26 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         escrow.record_incident(state, con, streams,
                                "a staff walkout mid-diligence")
 
-    # Carmine won't let his investment starve: he fronts stock — onto the debt.
-    if state.shop.ingredients < 10 and state.clean < 200:
+    # Carmine won't let his investment starve: he fronts stock — onto
+    # the debt. On the Straight Path there is no investment left to
+    # protect: a starving pantry is the branch's own problem.
+    if state.shop.ingredients < 10 and state.clean < 200 \
+            and state.branch != "straight":
         shop.stock_pantry(state, 40)
         state.debt += 40 * data.INGREDIENT_COST[state.shop.quality] + 100
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
                    "The account, of course, is the debt.")
+
+    plans: dict = {"route": None, "raid": None}
+    if state.branch == "straight":
+        # The supplier's van is gone (rev. 9 item 9); the back door gets
+        # visitors of its own instead.
+        offer = straight.temptation_offer(
+            state, streams.daily(state.day, "straight"))
+        if offer:
+            straight.temptation_card(state, offer, con)
+        _straight_morning_menu(state, con, streams, plans, offer)
+        return plans
 
     supplier = _supplier_offer(state, streams.daily(state.day, "supplier"))
     if supplier:
@@ -62,7 +78,6 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         con.bullet(f"SUPPLIER: {supplier['units']}x {g['label']} at "
                    f"{money(supplier['price'])}/unit, cash — he doesn't care whose.")
 
-    plans: dict = {"route": None, "raid": None}
     while True:
         c = con.menu("Morning at the shop:", [
             "Market board (prices you actually know)",
@@ -103,6 +118,89 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         elif c == 8:
             break
     return plans
+
+
+def _straight_morning_menu(state: State, con: Console, streams: Streams,
+                           plans: dict, offer: dict | None) -> None:
+    """The branch's morning (rev. 9 item 9): the supplier slot belongs
+    to the temptation offer, 'Plan tonight's route' is Disposal with
+    the counted runs in its label, and the raid verb is gone."""
+    fire_sale_done = False
+    while True:
+        bs = straight.live(state)
+        options = [
+            "Market board (prices you actually know)",
+            "Kitchen policy (quality / menu prices)",
+            "Buy ingredients",
+            ("Answer the back door (new trade — not disposal)"
+             if offer else "Nobody at the back door today"),
+            "Staff (hire, read in, raises)",
+            "Improvements & warehouse",
+            f"Disposal (runs left: {bs.disposal_runs_left})",
+            "Open for service →",
+        ]
+        c = con.menu("Morning at the shop:", options)
+        if c == 0:
+            _market_board(state, con)
+        elif c == 1:
+            _kitchen_policy(state, con, plans)
+        elif c == 2:
+            _buy_ingredients(state, con)
+        elif c == 3 and offer:
+            if straight.take_temptation(state, offer, con, streams):
+                offer = None
+        elif c == 4:
+            _staff_menu(state, con, streams.staff)
+        elif c == 5:
+            _improvements(state, con)
+        elif c == 6:
+            fire_sale_done = _disposal_menu(state, con, streams, plans,
+                                            fire_sale_done)
+        elif c == 7:
+            break
+
+
+def _disposal_menu(state: State, con: Console, streams: Streams,
+                   plans: dict, fire_sale_done: bool) -> bool:
+    """Three ways out for the remaining stash (§2.4.1): Sal's truck at
+    40%, a counted run at a haircut, or the oven. Back stays last; the
+    destructive option is never last (rev. 7's lesson)."""
+    bs = straight.live(state)
+    c = con.menu("Disposal — what's left goes one of three ways:", [
+        "Fire-sale to Sal's people — 40% of book, his truck, one "
+        "meeting a day [a crime]",
+        f"A disposal run — runs left: {bs.disposal_runs_left}, 60–75% "
+        f"of board, full route rules and risks [a crime]",
+        "Burn the shop stash — nothing back, no risk, no crime",
+        "Back",
+    ])
+    if c == 0:
+        if fire_sale_done:
+            con.say("  Sal's man came once today already. One meeting a "
+                    "day — his rule, and he keeps it.")
+        else:
+            fire_sale_done = straight.fire_sale(state, con, streams)
+    elif c == 1:
+        if bs.disposal_runs_left <= 0:
+            con.say("  The three runs are spent. What's left goes to "
+                    "Sal's people, or into the oven.")
+        elif plans.get("route"):
+            con.say("  Tonight's wagon is already spoken for.")
+        else:
+            plan = routes.plan_route(state, con, streams.routes)
+            if plan is not None:
+                if any(plan["cargo"].values()):
+                    plan["disposal"] = True
+                    con.say("  A disposal run spends one of the three "
+                            "when the wagon actually loads — and the "
+                            "clean days start over when it rolls.")
+                else:
+                    con.say("  Pizzas only: an honest drive spends no "
+                            "run and commits no crime.")
+                plans["route"] = plan
+    elif c == 2:
+        straight.burn_stock(state, con)
+    return fire_sale_done
 
 
 def _act1_telegraphs(state: State, con: Console) -> None:
@@ -349,14 +447,29 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
 def _improvements(state: State, con: Console) -> None:
     while True:
         owned = state.shop.upgrades
+        # Branch verbs first (rev. 9 items 8 and 10): counsel and
+        # advertising live here on the Straight Path. Flag-off and
+        # stand-pat menus are untouched — extras is empty there.
+        extras = []
+        if state.branch == "straight":
+            extras = [("counsel", straight.counsel_label(state)),
+                      ("advertise", straight.ad_label(state))]
         keys = [k for k in data.UPGRADES if k not in owned]
-        opts = [f"{data.UPGRADES[k]['label']} — {money(data.UPGRADES[k]['cost'])} clean. "
-                f"{data.UPGRADES[k]['desc']}" for k in keys]
+        opts = [label for _key, label in extras]
+        opts += [f"{data.UPGRADES[k]['label']} — {money(data.UPGRADES[k]['cost'])} clean. "
+                 f"{data.UPGRADES[k]['desc']}" for k in keys]
         if state.warehouse is None:
             opts.append(f"Rent the harbor warehouse — {money(data.WAREHOUSE_RENT)}/day dirty. "
                         f"Bulk space, off-site stash, one more address to defend.")
         opts.append("Back")
         c = con.menu(f"Improvements (clean {money(state.clean)}):", opts)
+        if c < len(extras):
+            if extras[c][0] == "counsel":
+                straight.toggle_counsel(state, con)
+            else:
+                straight.advertise(state, con)
+            continue
+        c -= len(extras)
         if c < len(keys):
             k = keys[c]
             cost = data.UPGRADES[k]["cost"]
@@ -429,6 +542,16 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
                    f"delivery orders — orders, ovens and pantry set the limit.")
     plan["legit"] = doable
     state.shop.ingredients -= doable
+    # A disposal run spends one of the three at the moment the wagon
+    # actually loads product — a plan that scrubbed, or loaded nothing,
+    # costs nothing (rev. 9 item 5: the crime is the run that rolls).
+    if plan.get("disposal") and any(plan["cargo"].values()):
+        bs = straight.live(state)
+        bs.disposal_runs_left -= 1
+        straight.crime_committed(state)
+        con.say(f"  The wagon loads for a disposal run — "
+                f"{bs.disposal_runs_left} left after tonight, and the "
+                f"clean days start over.")
     return True
 
 
@@ -475,7 +598,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                 escrow.record_incident(state, con, streams,
                                        "a rival raid landing mid-diligence")
 
-    _payroll_and_rent(state, con)
+    payroll_short = _payroll_and_rent(state, con)
 
     # The ceiling covers every honest dollar of the day — and it's a
     # nightly total, not a per-transaction allowance.
@@ -494,28 +617,42 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                     f"without raising eyebrows.")
         # Branch-aware (rev. 7): during escrow the register is being
         # read, so the menu offers disposal instead of advertising a
-        # laundering allowance it would refuse after selection.
+        # laundering allowance it would refuse after selection. On the
+        # Straight Path (rev. 9) the debt is history — Carmine's line
+        # leaves the menu and the settlement verb takes a seat.
         first_action = ("Burn dirty cash (the buyer's ledger test is coming)"
                         if state.branch == "quiet_sale"
                         else "Launder dirty cash through the register")
-        c = con.menu("Settle accounts:", [
-            first_action,
-            "Pay Carmine (he prefers unmarked bills)",
-            "Move stash / cash (shop ↔ warehouse)",
-            "Talk to a rival",
-            "Lock up →",
-        ])
-        if c == 0:
+        entries = [(first_action, "cash")]
+        if state.branch == "straight":
+            entries += [
+                ("Move stash / cash (shop ↔ warehouse)", "storage"),
+                ("Talk to a rival", "rival"),
+                ("Settle with a witness (clean cash buys quiet)", "settle"),
+                ("Lock up →", "lockup"),
+            ]
+        else:
+            entries += [
+                ("Pay Carmine (he prefers unmarked bills)", "debt"),
+                ("Move stash / cash (shop ↔ warehouse)", "storage"),
+                ("Talk to a rival", "rival"),
+                ("Lock up →", "lockup"),
+            ]
+        key = entries[con.menu("Settle accounts:",
+                               [label for label, _k in entries])][1]
+        if key == "cash":
             if state.branch == "quiet_sale":
                 escrow.burn_cash_action(state, con)
             else:
                 laundered_tonight += _launder(state, remaining, con)
-        elif c == 1:
+        elif key == "debt":
             _pay_debt(state, con)
-        elif c == 2:
+        elif key == "storage":
             _storage(state, con, streams)
-        elif c == 3:
+        elif key == "rival":
             rivals.negotiate(state, con, streams.rivals)
+        elif key == "settle":
+            straight.settle_menu(state, con)
         else:
             break
 
@@ -532,8 +669,17 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             case_at_lockup=state.case,
             evidence_count_at_lockup=len(state.evidence))
 
+    # The branch's own night work: counsel, the campaign, dormancy, the
+    # insolvency counter (rev. 9) — after the discretionary actions,
+    # before the world's dice.
+    if state.branch == "straight" and not state.game_over:
+        straight.night_tick(state, con, payroll_short)
+
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))
+
+    if state.branch == "straight":
+        straight.exit_readout(state, con)
 
     # The city cools a little overnight.
     for d in state.districts.values():
@@ -541,7 +687,9 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     state.day += 1
 
 
-def _payroll_and_rent(state: State, con: Console) -> None:
+def _payroll_and_rent(state: State, con: Console) -> bool:
+    """Returns whether payroll came up short — the Straight Path's
+    clean-insolvency counter reads it (rev. 9 item 11)."""
     wages = sum(e.wage for e in state.hired() if not e.arrested)
     costs = wages + data.RENT_PER_DAY
     if state.warehouse is not None:
@@ -552,12 +700,13 @@ def _payroll_and_rent(state: State, con: Console) -> None:
     if state.clean >= costs:
         state.clean -= costs
         con.say(f"  Wages and rent paid: {money(costs)} clean.")
-    else:
-        short = costs - state.clean
-        state.clean = 0
-        con.say(f"  You come up {money(short)} short on payroll. People notice.")
-        for e in state.hired():
-            e.morale -= 2
+        return False
+    short = costs - state.clean
+    state.clean = 0
+    con.say(f"  You come up {money(short)} short on payroll. People notice.")
+    for e in state.hired():
+        e.morale -= 2
+    return True
 
 
 def _launder(state: State, remaining: int, con: Console) -> int:
@@ -572,6 +721,17 @@ def _launder(state: State, remaining: int, con: Console) -> int:
     if state.dirty <= 0:
         con.say("  No dirty cash on hand.")
         return 0
+    # §2.3 dual use: while counsel is retained the believable ceiling
+    # is enforced — the "wash more anyway" branch is simply not offered
+    # (counsel's office sees the tapes). Straight branch only; the
+    # flag-off prompt and bounds are untouched.
+    counsel = state.branch == "straight" and state.branch_state is not None \
+        and state.branch_state.counsel_retained
+    top = min(state.dirty, remaining) if counsel else state.dirty
+    if counsel and top <= 0:
+        con.say("  Counsel's rule holds: nothing washes past tonight's "
+                "ceiling, and the ceiling is spent.")
+        return 0
     # §2.1 same-night telegraph: near payoff, an over-ceiling wash that
     # could slam a Case gate is warned about BEFORE the act — a printed
     # line only; the prompt below is part of the golden decision trace
@@ -584,7 +744,7 @@ def _launder(state: State, remaining: int, con: Console) -> int:
                     "from you tomorrow reads the same spreadsheet the law "
                     "does.")
     amt = con.ask_int(f"Run how much through the books? (dirty {money(state.dirty)})",
-                      0, state.dirty, min(state.dirty, remaining))
+                      0, top, min(state.dirty, remaining))
     if amt <= 0:
         return 0
     state.dirty -= amt
@@ -597,6 +757,12 @@ def _launder(state: State, remaining: int, con: Console) -> int:
                                  f"any plausible night's sales", kind="paper")
         con.say(f"  {money(amt)} washed. {money(over)} of it is hard to explain. "
                 f"Somewhere, a spreadsheet notices.")
+        if state.branch == "straight":
+            # Washing past the ceiling is a crime on the branch's clock
+            # (§2.4.1) — the clean days start over.
+            straight.crime_committed(state)
+            con.say("  And it was a crime, tonight of all nights: the "
+                    "clean days start over.")
     else:
         state.add_case(0.5, "", kind="paper")
         con.say(f"  {money(amt)} washed clean. The books look plausible.")
@@ -698,6 +864,10 @@ def _law_phase(state: State, con: Console, rng: random.Random) -> None:
     home_heat = state.heat(data.HOME_DISTRICT)
     if home_heat > 70 and rng.random() < 0.35:
         con.bullet("A squad car parks across the street for an hour. Just parks.")
+        if state.branch == "straight":
+            # §2.4.1: with nothing to find, searches attack the exit
+            # through people — no RNG, first watcher on the roster.
+            straight.search_spook(state, con)
         if rng.random() < 0.4 and state.stash_bulk(state.shop_stash) > 0:
             con.bullet("Then two officers 'stop in for a slice' and look at everything.")
             if rng.random() < 0.5:

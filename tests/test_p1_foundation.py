@@ -353,11 +353,13 @@ class TestSitdownScene(unittest.TestCase):
         self.assertEqual(state.branch, "stand_pat")
 
     def test_an_enabled_branch_without_a_commit_path_fails_loudly(self):
+        # P2 gave `straight` its commit path; `partner` is now the
+        # probe — the invariant is the loud failure, not the branch.
         state = scene_state()
         cfg = GameConfig(fork_enabled=True,
-                         enabled_branches=frozenset({"straight"}))
+                         enabled_branches=frozenset({"partner"}))
         with self.assertRaises(NotImplementedError):
-            sitdown.run_scene(state, CaptureConsole([0]), cfg)
+            sitdown.run_scene(state, CaptureConsole([1]), cfg)
 
 
 # ══ The canonical view: frozen ledger vs live morning file ════════
