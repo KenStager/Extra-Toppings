@@ -20,7 +20,18 @@ DELIVERY_SHARE = 0.35   # fraction of real demand that phones in a delivery
 
 
 def roll_demand(state: State, rng: random.Random) -> None:
-    """Morning: how many customers actually want your pizza today."""
+    """Morning: roll today's demand LUCK once. The demand itself is a
+    deterministic function of policy, so changing the menu re-prices the
+    same crowd honestly — it can't keep a cheap-menu crowd at gourmet
+    tickets."""
+    state.demand_shock = rng.uniform(0.85, 1.15)
+    state.legit_revenue_today = 0
+    recompute_demand(state)
+
+
+def recompute_demand(state: State) -> None:
+    """Recompute the order book from current policy and today's shock.
+    Called whenever pricing or hours change during the morning."""
     shop = state.shop
     dk = data.HOME_DISTRICT
     dspec = data.DISTRICTS[dk]
@@ -32,23 +43,18 @@ def roll_demand(state: State, rng: random.Random) -> None:
     coupon_f = 0.8 if shop.coupon_days > 0 else 1.0
     ev_f = market.event_mult(state, dk, "traffic")
     state.demand_today = int(base * rep_f * price_f * late_f * coupon_f * ev_f
-                             * rng.uniform(0.85, 1.15))
+                             * state.demand_shock)
     state.delivery_pool = int(state.demand_today * DELIVERY_SHARE)
-    state.legit_revenue_today = 0
 
 
 def simulate_shift(state: State, route_legit: int, rng: random.Random) -> dict:
     """One day of honest counter business. Route deliveries were part of
-    today's demand, so they're subtracted before the dining room fills."""
+    today's demand AND today's oven time: the kitchen bakes every pizza,
+    so delivery production comes out of the same capacity."""
     shop = state.shop
 
-    if shop.damage_days:
-        shop.damage_days -= 1
-    if shop.coupon_days:
-        shop.coupon_days -= 1
-
     demand = max(0, state.demand_today - route_legit)
-    capacity = shop.kitchen_cap
+    capacity = max(0, shop.kitchen_cap - route_legit)
     orders = min(demand, capacity, shop.ingredients)
     lost = demand - orders
     shop.ingredients -= orders

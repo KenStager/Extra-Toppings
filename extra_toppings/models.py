@@ -24,6 +24,7 @@ class Employee:
     arrested: bool = False
     routes_survived: int = 0
     familiarity: dict = field(default_factory=dict)   # district -> routes driven there
+    resignation_pending: bool = False    # confronted you; one chance to fix it
 
     @property
     def available(self) -> bool:
@@ -116,7 +117,8 @@ class State:
     total_laundered: int = 0
     raids_led: int = 0
     kills: int = 0
-    demand_today: int = 0            # today's real customer demand, rolled each morning
+    demand_shock: float = 1.0        # today's demand luck — rolled once, policy-independent
+    demand_today: int = 0            # today's real customer demand, recomputed from policy
     delivery_pool: int = 0           # slice of demand that wants delivery (cover comes from here)
     legit_revenue_today: int = 0     # every honest dollar today — feeds the believable ceiling
 

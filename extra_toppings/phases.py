@@ -68,7 +68,7 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         if c == 0:
             _market_board(state, con)
         elif c == 1:
-            _kitchen_policy(state, con)
+            _kitchen_policy(state, con, plans)
         elif c == 2:
             _buy_ingredients(state, con)
         elif c == 3 and supplier:
@@ -109,7 +109,7 @@ def _market_board(state: State, con: Console) -> None:
                     f"run a route to get fresh numbers")
 
 
-def _kitchen_policy(state: State, con: Console) -> None:
+def _kitchen_policy(state: State, con: Console, plans: dict | None = None) -> None:
     q = con.menu(f"Ingredient quality (now: {state.shop.quality}):",
                  [f"{lv} (cost {money(data.INGREDIENT_COST[lv])}/order)"
                   for lv in QUALITY_LEVELS])
@@ -120,6 +120,14 @@ def _kitchen_policy(state: State, con: Console) -> None:
     state.shop.price = QUALITY_LEVELS[p]
     if state.shop.price == "gourmet" and state.shop.quality == "cheap":
         con.say("  Charging gourmet prices for cheap pies. Bold. Reviews incoming.")
+    # New prices, new crowd — the order book re-forms around the menu.
+    shop.recompute_demand(state)
+    con.say(f"  Order book now: ~{state.demand_today} customers, "
+            f"{state.delivery_pool} delivery orders.")
+    route = (plans or {}).get("route")
+    if route and route["legit"] > state.delivery_pool:
+        con.say("  Tonight's route was planned against the old order book — "
+                "the kitchen will fill what it can.")
 
 
 def _buy_ingredients(state: State, con: Console) -> None:
@@ -171,9 +179,21 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
             e.injured_days -= 1
             if e.injured_days == 0:
                 con.bullet(f"{e.name} is back on their feet.")
-        if e.morale == 3 or e.morale == 2:
-            con.bullet(f"{e.name} looks done. One more bad week and they walk. "
-                       f"(A raise would help.)")
+        if e.morale > 3:
+            e.resignation_pending = False
+        elif e.resignation_pending:
+            e.hired = False
+            e.resignation_pending = False
+            con.bullet(f"{e.name} hangs up the apron mid-morning. 'I told you.' "
+                       f"They're gone.")
+            if e.aware:
+                state.add_case(6, f"{e.name} walked out knowing everything")
+            continue
+        else:
+            e.resignation_pending = True
+            con.bullet(f"{e.name} corners you by the walk-in: pay, respect, "
+                       f"or they walk tomorrow. (Morale {e.morale} — a raise "
+                       f"would fix this.)")
         if e.morale <= 2 and rng.random() < 0.4:
             if e.trait == "greedy" and state.dirty > 0:
                 skim = min(state.dirty, rng.randrange(100, 400, 50))
@@ -184,9 +204,7 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
                 state.add_case(10, f"{e.name} had a long talk with a detective")
                 con.bullet(f"{e.name} was seen outside the precinct. Probably nothing.")
                 e.morale = 4
-            elif e.morale <= 1:
-                e.hired = False
-                con.bullet(f"{e.name} quit. Left the apron on the counter.")
+
 
 
 def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
@@ -275,6 +293,7 @@ def _improvements(state: State, con: Console) -> None:
                 state.clean -= cost
                 owned.add(k)
                 con.say(f"  {data.UPGRADES[k]['label']}: done by closing time.")
+                shop.recompute_demand(state)
         elif state.warehouse is None and c == len(keys):
             state.warehouse = {}
             con.say("  Keys to a rusted rolling door. Nobody asks what's in the crates.")
@@ -286,7 +305,10 @@ def _improvements(state: State, con: Console) -> None:
 
 def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     con.header(f"DAY {state.day} — SERVICE")
-    route_legit = plans["route"]["legit"] if plans.get("route") else 0
+    plan = plans.get("route")
+    if plan:
+        _commit_route(state, plan, con)
+    route_legit = plan["legit"] if plan else 0
     report = shop.simulate_shift(state, route_legit,
                                  streams.daily(state.day, "critic"))
     lost = f" ({report['lost']} turned away)" if report["lost"] else ""
@@ -304,6 +326,27 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
         if r["cash"]:
             con.say(f"  Route take: {money(r['cash'])} dirty, {r['sold']} units moved.")
     return report
+
+
+def _commit_route(state: State, plan: dict, con: Console) -> None:
+    """Morning plans are intentions; resources commit when service starts.
+    Cancelled or replaced plans never touch inventory."""
+    for g in list(plan["cargo"]):
+        have = state.shop_stash.get(g, 0)
+        take = min(plan["cargo"][g], have)
+        if take < plan["cargo"][g]:
+            con.bullet(f"Only {take}x {data.GOODS[g]['label']} left to load — "
+                       f"the stash moved since this morning.")
+        plan["cargo"][g] = take
+        state.shop_stash[g] = have - take
+    # Cover pizzas are real orders AND real oven time.
+    doable = min(plan["legit"], state.delivery_pool,
+                 state.shop.kitchen_cap, state.shop.ingredients)
+    if doable < plan["legit"]:
+        con.bullet(f"The kitchen fills {doable} of {plan['legit']} planned "
+                   f"delivery orders — orders, ovens and pantry set the limit.")
+    plan["legit"] = doable
+    state.shop.ingredients -= doable
 
 
 # ══ NIGHT ═════════════════════════════════════════════════════════
@@ -364,9 +407,13 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))
 
-    # The city cools a little overnight.
+    # The city cools a little overnight; repairs and coupon blitzes age out.
     for d in state.districts.values():
         d.heat = max(0.0, d.heat - 5)
+    if state.shop.damage_days:
+        state.shop.damage_days -= 1
+    if state.shop.coupon_days:
+        state.shop.coupon_days -= 1
     state.day += 1
 
 

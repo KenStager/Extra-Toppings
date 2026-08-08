@@ -145,5 +145,144 @@ class TestCouponIsTemporary(unittest.TestCase):
         self.assertGreater(state.demand_today, couponed)
 
 
+class TestDemandPolicyIntegrity(unittest.TestCase):
+    """Blocking finding 1: changing menu price must re-price the same crowd —
+    it can never keep the old policy's demand at the new policy's ticket."""
+
+    def test_price_switch_reforms_the_order_book(self):
+        state, _ = fresh(21)
+        state.shop.price = "cheap"
+        shop.roll_demand(state, random.Random(42))
+        cheap_demand = state.demand_today
+
+        state.shop.price = "gourmet"
+        shop.recompute_demand(state)          # what _kitchen_policy now does
+        switched = state.demand_today
+
+        state2, _ = fresh(21)
+        state2.shop.price = "gourmet"
+        shop.roll_demand(state2, random.Random(42))   # same shock, honest gourmet
+        honest = state2.demand_today
+
+        self.assertEqual(switched, honest)
+        self.assertLess(switched, cheap_demand)
+
+    def test_service_charges_the_crowd_the_menu_created(self):
+        """Revenue under switch == revenue under honest gourmet, same shock."""
+        def revenue(switch):
+            state, _ = fresh(21)
+            state.shop.ingredients = 200
+            state.shop.price = "cheap" if switch else "gourmet"
+            shop.roll_demand(state, random.Random(42))
+            if switch:
+                state.shop.price = "gourmet"
+                shop.recompute_demand(state)
+            report = shop.simulate_shift(state, 0, random.Random(1))
+            return report["revenue"]
+        self.assertEqual(revenue(switch=True), revenue(switch=False))
+
+
+class TestSharedKitchenCapacity(unittest.TestCase):
+    """Blocking finding 2: delivery orders are real oven work."""
+
+    def test_route_and_counter_share_the_ovens(self):
+        state, _ = fresh(22)
+        state.shop.ingredients = 200
+        state.demand_today = 100
+        report = shop.simulate_shift(state, 12, random.Random(1))
+        total_baked = report["orders"] + 12
+        self.assertLessEqual(total_baked, state.shop.kitchen_cap)
+        self.assertEqual(report["orders"], state.shop.kitchen_cap - 12)
+
+    def test_damaged_kitchen_throttles_deliveries_too(self):
+        state, _ = fresh(22)
+        state.shop.damage_days = 2
+        state.delivery_pool = 12
+        state.shop.ingredients = 200
+        plan = {"cargo": {}, "legit": 12, "district": "university",
+                "ride_along": False}
+        phases._commit_route(state, plan, ScriptedConsole())
+        state.demand_today = 100
+        report = shop.simulate_shift(state, plan["legit"], random.Random(1))
+        self.assertLessEqual(report["orders"] + plan["legit"],
+                             state.shop.kitchen_cap)
+
+    def test_empty_pantry_fills_no_delivery_orders(self):
+        state, _ = fresh(22)
+        state.delivery_pool = 12
+        state.shop.ingredients = 3
+        plan = {"cargo": {}, "legit": 12, "district": "university",
+                "ride_along": False}
+        phases._commit_route(state, plan, ScriptedConsole())
+        self.assertEqual(plan["legit"], 3)
+
+
+class TestTransactionalPlanning(unittest.TestCase):
+    """Blocking finding 3: plans are intentions; only service commits."""
+
+    def _fresh_planner(self):
+        state, rng = fresh(23)
+        state.delivery_pool = 12
+        state.shop_stash = {"oregano": 8}
+        state.shop.ingredients = 40
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        return state, rng
+
+    def test_planning_and_cancelling_leaves_inventory_untouched(self):
+        state, rng = self._fresh_planner()
+        before = (dict(state.shop_stash), state.shop.ingredients,
+                  state.delivery_pool)
+        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng)
+        self.assertEqual(sum(plan["cargo"].values()), 4)
+        cancelled = routes.plan_route(state, ScriptedConsole([4]), rng)
+        self.assertIsNone(cancelled)
+        after = (dict(state.shop_stash), state.shop.ingredients,
+                 state.delivery_pool)
+        self.assertEqual(before, after)
+
+    def test_replanning_never_strands_stock(self):
+        state, rng = self._fresh_planner()
+        for _ in range(5):
+            routes.plan_route(state, ScriptedConsole([0, 0, False, 8, 4]), rng)
+        self.assertEqual(state.shop_stash["oregano"], 8)
+        self.assertEqual(state.shop.ingredients, 40)
+
+    def test_commit_takes_exactly_the_plan_once(self):
+        state, rng = self._fresh_planner()
+        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng)
+        phases._commit_route(state, plan, ScriptedConsole())
+        self.assertEqual(state.shop_stash["oregano"], 4)
+        self.assertEqual(state.shop.ingredients, 36)
+
+
+class TestResignationFlow(unittest.TestCase):
+    """Smaller issue: confrontation -> one management window -> departure."""
+
+    def _worker(self, state):
+        return next(e for e in state.employees if e.hired)
+
+    def test_confrontation_precedes_every_departure(self):
+        state, _ = fresh(24)
+        e = self._worker(state)
+        e.morale = 1
+        phases._staff_trouble(state, ScriptedConsole(), random.Random(0))
+        self.assertTrue(e.hired)                  # warned, not gone
+        self.assertTrue(e.resignation_pending)
+        phases._staff_trouble(state, ScriptedConsole(), random.Random(0))
+        self.assertFalse(e.hired)                 # ignored the warning
+
+    def test_a_raise_saves_them(self):
+        state, _ = fresh(24)
+        e = self._worker(state)
+        e.morale = 2
+        phases._staff_trouble(state, ScriptedConsole(), random.Random(0))
+        self.assertTrue(e.resignation_pending)
+        e.morale = 6                              # the raise landed
+        phases._staff_trouble(state, ScriptedConsole(), random.Random(0))
+        self.assertTrue(e.hired)
+        self.assertFalse(e.resignation_pending)
+
+
 if __name__ == "__main__":
     unittest.main()

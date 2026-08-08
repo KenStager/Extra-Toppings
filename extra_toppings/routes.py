@@ -68,8 +68,7 @@ def plan_route(state: State, con: Console, rng: random.Random,
             n = con.ask_int(f"Load {spec['label']}? have {have}, fits {fit}{hint}",
                             0, fit, 0)
             if n:
-                cargo[g] = n
-                state.shop_stash[g] = have - n
+                cargo[g] = n            # intention only — committed at service
                 space -= n * spec["bulk"]
 
     # Cover has to be real: only customers who actually ordered delivery.
@@ -81,7 +80,6 @@ def plan_route(state: State, con: Console, rng: random.Random,
         f"Delivery orders to run for cover ({state.delivery_pool} on the board, "
         f"wagon space {space})",
         0, legit_cap, min(8 if cargo else 4, legit_cap))
-    state.shop.ingredients -= legit
     return {"district": dk, "driver": driver, "ride_along": ride_along,
             "cargo": cargo, "legit": legit}
 

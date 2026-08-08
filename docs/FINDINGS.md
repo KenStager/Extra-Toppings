@@ -98,6 +98,59 @@ What changed materially, as predicted:
    "at least half a load, with real cover" — rather than a single magic
    number, which is the healthier shape.
 
+## Round 2 revision — review of the integrity pass found three more defects
+
+Independent review of the first round-2 numbers found three further
+integrity problems, all fixed and regression-tested:
+
+- **Stale-demand price switch**: demand was rolled against morning policy,
+  but service charged whatever the menu said by then — alternating
+  cheap/gourmet sold gourmet tickets to a cheap-sized crowd. Demand is now
+  a deterministic function of policy times a once-rolled daily shock, and
+  recomputes whenever policy changes (`TestDemandPolicyIntegrity`).
+- **Delivery orders bypassed kitchen capacity**: a 60-cap kitchen could
+  produce 72 pizzas (60 counter + 12 route). Route production now comes
+  out of the same oven capacity, so the second oven, raid damage, cooks
+  and ingredients genuinely gate criminal cover
+  (`TestSharedKitchenCapacity`).
+- **Route planning mutated live state**: planning then cancelling
+  destroyed stash and ingredients; repeated replanning stranded stock.
+  Plans are now intentions; resources commit once, at service start
+  (`TestTransactionalPlanning`). Resignations also now follow a
+  confront → one-management-window → walk sequence
+  (`TestResignationFlow`).
+
+The third bug had been silently draining inventory from *bot* runs on
+every replan, which means the provisional round-2 numbers were biased
+low across the board. Final numbers, same protocol (150 seeds):
+
+| Strategy | Payoff | Arrests | Case μ | Rep μ | Net med | Driver arrests |
+| --- | --- | --- | --- | --- | --- | --- |
+| **market** | **61%** | 1% | **26** | 21 | **+$6,940** | 40 |
+| greedy | 58% | 8% | 58 | 7 | +$6,683 | 139 |
+| cautious | 32% | 1% | 42 | 6 | −$8,192 | 80 |
+| crime-heavy | 23% | 8% | 44 | 9 | −$19,388 | 77 |
+| pizza-first | 0% | 0% | 7 | 34 | −$31,442 | 0 |
+
+Revised readings:
+
+1. **The headline survives and sharpens.** Market-aware play now leads
+   outright (61% vs 58%) while carrying less than half greedy's Case,
+   an eighth of its arrest rate, and triple its reputation. Blind
+   aggression can match the payoff only by absorbing dramatically more
+   prosecution risk.
+2. **The cargo optimum sharpened into an interior band**: ¾ load with
+   modest cover peaks at ~67%, while the full-wagon row now costs real
+   arrests (5–15%) — overloading eats both cover capacity and the
+   kitchen link. Grid: `analysis/experiments.py grid`.
+3. **Delegation tradeoff holds after the fixes**: boss rides 23% payoff /
+   Case 38 vs driver alone 16% / Case 19 (~1.4×, with the quiet-route
+   discount intact).
+4. **Laundering discipline still buys safety, not income**: 11% vs 41%
+   arrests at equal payoff.
+5. Pizza-first remains 0% — the structural temptation is untouched by
+   any of the integrity work.
+
 ## Still open (carried to the next design pass)
 
 - Raids remain under-priced (target hardening, pattern evidence, carry
