@@ -143,9 +143,10 @@ class TestTheMark(unittest.TestCase):
     def test_incident_discounts_compound_into_the_mark(self):
         state = in_escrow(case=31.0, rep=24.0)
         state.shop.upgrades = {"walk_in", "guard"}
-        state.branch_state.escrow_discount_pct = 15
+        state.branch_state.escrow_incidents = 1        # a legal state:
+        state.branch_state.escrow_discount_pct = 20    # one priced incident
         self.assertEqual(escrow.compute_mark(state),
-                         6465 - round(6465 * 15 / 100))
+                         6465 - round(6465 * 20 / 100))
 
     def test_the_mark_moves_only_when_inputs_move(self):
         state = in_escrow(rep=40.0)
@@ -605,7 +606,8 @@ class TestMarkBreakdown(unittest.TestCase):
         # become credits, and the card must say the floor out loud.
         state = in_escrow(case=84.9, rep=5.0)
         state.rivals["vinnie"].relation = -60.0     # arms the war clause
-        state.branch_state.escrow_discount_pct = 15
+        state.branch_state.escrow_incidents = 1
+        state.branch_state.escrow_discount_pct = 20
         card = escrow.build_mark(state)
         self.assertTrue(card.floored)
         self.assertEqual(card.war_term, 0)
@@ -698,12 +700,46 @@ class TestIntegerPercentageStorage(unittest.TestCase):
 
     def test_legacy_float_discounts_migrate_to_whole_points(self):
         state = in_escrow(rep=40.0)
+        state.branch_state.escrow_incidents = 1
         d = save.state_to_dict(state)
         bs = d["branch_state"]
         del bs["escrow_discount_pct"]
         bs["escrow_discount"] = 28.000000000000004 / 100   # the old unit
         restored = save.state_from_dict(d)
         self.assertEqual(restored.branch_state.escrow_discount_pct, 28)
+        self.assertIs(type(restored.branch_state.escrow_discount_pct), int)
+
+    def test_malformed_pct_payloads_are_refused_on_load(self):
+        # The review's table: float, fractional, negative-as-credit and
+        # out-of-domain values must all die at the persistence boundary.
+        for bad in (0.28, 29.5, -10, 200, True):
+            state = in_escrow(rep=40.0)
+            state.branch_state.escrow_incidents = 1
+            state.branch_state.escrow_discount_pct = 28
+            d = save.state_to_dict(state)
+            d["branch_state"]["escrow_discount_pct"] = bad
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                save.state_from_dict(d)
+
+    def test_the_pct_incident_relationship_is_enforced(self):
+        # A repricing with no incident on record…
+        state = in_escrow(rep=40.0)
+        state.branch_state.escrow_discount_pct = 20
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale", state.branch_state)
+        # …an incident priced outside the ruled domain…
+        state2 = in_escrow(rep=40.0)
+        state2.branch_state.escrow_incidents = 1
+        state2.branch_state.escrow_discount_pct = 0
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale", state2.branch_state)
+        # …and a second incident cannot remain in an active sale.
+        state3 = in_escrow(rep=40.0)
+        state3.branch_state.escrow_incidents = 2
+        state3.branch_state.escrow_discount_pct = 28
+        d = save.state_to_dict(state3)
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
 
 
 class TestSeveranceStateMachine(unittest.TestCase):
@@ -777,7 +813,7 @@ class TestEscrowPersistence(unittest.TestCase):
         state.branch_state.diligence_day = 3
         state.branch_state.escrow_mark = 5000
         state.branch_state.escrow_incidents = 1
-        state.branch_state.escrow_discount_pct = 18
+        state.branch_state.escrow_discount_pct = 28
         restored = save.state_from_dict(save.state_to_dict(state))
         self.assertEqual(restored.branch, "quiet_sale")
         self.assertEqual(restored.branch_state, state.branch_state)

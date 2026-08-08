@@ -858,6 +858,39 @@ bit-for-bit — 150 seeds: flips 27/60 = 45%, median mark delta $2,370;
 500 seeds: flips 81/188 = 43%, median $2,444 — the unit change is
 behavior-preserving, now provably so at the model.
 
+### Round 8 correction 6 (final re-review — the persistence half)
+
+The severance machine was accepted; the canonical-percentage contract
+was enforced only on the producer path. A doctored v3 payload accepted
+0.28 back into the integer field, a fractional 29.5, a −10 that raised
+the mark as a $1,000 credit, and an out-of-domain 200 — the original
+representation defect could return through save-load. Fixed at the
+model boundary (design §8, rev. 8 completion, item 3):
+
+- `_validate_escrow_pricing` requires an actual integer (`type(x) is
+  int`, so bools are refused too) in the ruled domain, tied to the
+  incident count: zero incidents → zero discount; one incident → a
+  permitted 20–35; two incidents cannot remain in an active sale.
+- The repricing domain moved to its one canonical home
+  (`models.REPRICE_MIN_PCT`/`MAX_PCT`); the escrow draw and the
+  validator share it.
+- Legacy float migration is the only conversion site, and its result
+  passes through the same validator.
+- The sole surviving first-incident discount is assigned, not
+  accumulated.
+- Malformed payloads (0.28, 29.5, −10, 200, True) and relationship
+  violations (a repricing with no incident; two incidents active) are
+  pinned through `state_from_dict`. Two tests that had set
+  out-of-design-range values directly (15, 18) were corrected to legal
+  states — the validator would now have caught them, which is the
+  point.
+
+After correction 6: 237 tests green on 3.11 and 3.12; ruff/mypy clean;
+flag-off golden 300/300 and paired stand-pat 300/300 (expected 82 /
+held 82, schema v1) on 3.11, 3.12 and 3.13; both ensembles unchanged —
+150 seeds: flips 27/60 = 45%, median $2,370; 500 seeds: 81/188 = 43%,
+median $2,444.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

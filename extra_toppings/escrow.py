@@ -16,8 +16,8 @@ the stream provably fresh (§2.7).
 from dataclasses import dataclass
 
 from . import data
-from .models import (SEVERANCE_PER_HEAD, BranchState, State,
-                     validate_branch_state)
+from .models import (REPRICE_MAX_PCT, REPRICE_MIN_PCT, SEVERANCE_PER_HEAD,
+                     BranchState, State, validate_branch_state)
 from .rng import Streams
 from .ui import Console, money
 
@@ -30,8 +30,6 @@ CASE_DISCOUNT = 45               # $/Case point — pure price, no lawyering
 WAR_CLAUSE = 0.20                # any rival at relation <= -50 or a live raid
 WAR_RELATION = -50.0
 INCIDENT_LIMIT = 2               # the second incident collapses the deal
-REPRICE_MIN_PCT = 20             # first-incident repricing, whole points
-REPRICE_MAX_PCT = 35             # (rev. 8 constants ruling)
 OFFSITE_RISK = 0.20              # the truck at the rolling door, per move
 DIRTY_TOLERANCE = 200            # unlaundered cash a clean close may carry
 DILIGENCE_DAYS = 4               # closing is the morning after day 4
@@ -245,7 +243,9 @@ def record_incident(state: State, con: Console, streams: Streams,
         revert_to_standpat(state, con, collapsed=True)
         return
     cut_points = streams.brokers.randint(REPRICE_MIN_PCT, REPRICE_MAX_PCT)
-    bs.escrow_discount_pct += cut_points
+    # Assignment, not accumulation: only the first incident ever
+    # reprices — the second collapsed above, before any draw.
+    bs.escrow_discount_pct = cut_points
     bs.escrow_mark = compute_mark(state)
     con.bullet(f"INCIDENT: {why}. The mark reprices -{cut_points}% to "
                f"{money(bs.escrow_mark)}. One more and the deal dies.")

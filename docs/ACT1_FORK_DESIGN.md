@@ -1713,3 +1713,16 @@ the rev. 8 implementation exact in behavior but not in model:
    outcome triple through one validated transition before the run is
    allowed to end. The review's five exhibited contradictions are
    pinned as refusals.
+3. *The canonical-unit contract binds at the persistence boundary too*
+   (final re-review) — the producer path was exact, but a doctored v3
+   payload accepted 0.28 back into the integer field, a fractional
+   29.5, a −10 that became a $1,000 credit, and an out-of-domain 200.
+   Validation now requires an actual integer (bools refused) in the
+   ruled 20–35 domain, tied to the incident count: no incident means
+   zero, one incident means a permitted repricing, and two incidents
+   cannot remain in an active sale (the second collapses it). The
+   repricing domain moved to its one canonical home
+   (`models.REPRICE_MIN_PCT`/`MAX_PCT`), legacy float migration is the
+   only conversion site and feeds the same validator, and the sole
+   surviving first-incident discount is assigned, not accumulated.
+   Malformed payloads are pinned through `state_from_dict`.

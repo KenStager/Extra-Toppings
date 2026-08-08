@@ -197,6 +197,10 @@ SEVERANCE_OUTCOMES = ("pending", "paid", "declined", "unaffordable",
 # THE canonical severance rate: validation, the closing sheet and the
 # epilogue all price envelopes from this one number.
 SEVERANCE_PER_HEAD = 300
+# THE canonical repricing domain (rev. 8 ruling): whole percentage
+# points, first incident only. Validation and the escrow draw share it.
+REPRICE_MIN_PCT = 20
+REPRICE_MAX_PCT = 35
 if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")
 _BRANCH_REQUIRED = {
@@ -239,7 +243,33 @@ def validate_branch_state(branch: str | None,
     if branch == "quiet_sale":
         if branch_state.diligence_day < 1:
             raise ValueError("quiet_sale: the sit-down is diligence day 1")
+        _validate_escrow_pricing(branch_state)
         _validate_severance(branch_state, game_over)
+
+
+def _validate_escrow_pricing(bs: "BranchState") -> None:
+    """The persistence half of the canonical-unit contract (rev. 8
+    completion): the integer contract must hold at the model boundary,
+    not just on the producer path — otherwise a doctored payload
+    reintroduces the representation defect (0.28, 29.5, −10-as-credit,
+    200) through save-load."""
+    pct = bs.escrow_discount_pct
+    if type(pct) is not int:                 # bools are ints; refuse those too
+        raise ValueError(f"quiet_sale: escrow_discount_pct must be an "
+                         f"integer number of percentage points, got {pct!r}")
+    incidents = bs.escrow_incidents
+    if incidents == 0:
+        if pct != 0:
+            raise ValueError(f"quiet_sale: a repricing of {pct}% with no "
+                             f"incident on record")
+    elif incidents == 1:
+        if not REPRICE_MIN_PCT <= pct <= REPRICE_MAX_PCT:
+            raise ValueError(f"quiet_sale: first-incident repricing must "
+                             f"lie in {REPRICE_MIN_PCT}..{REPRICE_MAX_PCT} "
+                             f"points, got {pct}")
+    else:
+        raise ValueError(f"quiet_sale: {incidents} incidents cannot remain "
+                         f"in an active sale — the second collapses it")
 
 
 def _validate_severance(bs: "BranchState", game_over: str | None) -> None:
