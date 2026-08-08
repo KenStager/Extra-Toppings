@@ -325,12 +325,28 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
 
         state = new_state()
         state.day = 12
-        state.debt = 50000                          # payoff out of reach
+        state.debt = 10_000_000                     # beyond any night's take
         state.shop_stash = {"mushrooms": 20}
         market.roll_prices(state, Streams(1).daily(12, "market"))
         con = CaptureConsole([3, 0, 1, 20, 0])
         routes.plan_route(state, con, Streams(1).routes)
         self.assertIsNone(con.find(ROUTE_WARNING))
+
+    def test_a_route_that_would_fund_the_payoff_is_warned(self):
+        # Rev. 4: on-hand cash alone cannot clear the debt, but tonight's
+        # cargo can — the "one last run" is exactly when the table is at
+        # stake, and the old on-hand-only window missed it.
+        state = new_state()
+        state.day = 12
+        state.debt = 2000
+        state.clean = 5                             # payoff NOT in on-hand reach
+        state.dirty = 0
+        state.shop_stash = {"mushrooms": 20}
+        market.roll_prices(state, Streams(1).daily(12, "market"))
+        self.assertFalse(state.payoff_in_reach())
+        con = CaptureConsole([3, 0, 1, 20, 0])
+        routes.plan_route(state, con, Streams(1).routes)
+        self.assertIsNotNone(con.find(ROUTE_WARNING))
 
 
 class TestRaidPlanWarning(unittest.TestCase):
@@ -358,6 +374,38 @@ class TestRaidPlanWarning(unittest.TestCase):
     def test_no_warning_when_payoff_is_out_of_reach(self):
         self.assertIsNone(
             self.plan_through_morning(debt=50000).find(RAID_WARNING))
+
+    def raid_night(self, debt_at_plan, clean_at_night):
+        """Plan through the real morning, then run the real night —
+        rev. 4: eligibility is re-measured immediately before the job."""
+        state = new_state()
+        state.day = 12
+        state.debt = debt_at_plan
+        state.clean = 5000
+        for e in state.hired():
+            e.aware = True
+        streams = Streams(3)
+        plan_con = CaptureConsole([7, 0, 0, 0, 1, 0, 8])
+        plans = phases.morning(state, plan_con, streams)
+        state.clean = clean_at_night        # the day's takings
+        night_con = CaptureConsole([])      # guards abort, then lock up
+        phases.night(state, plans, {}, night_con, streams)
+        return plan_con, night_con
+
+    def test_takings_arriving_after_planning_warn_at_execution(self):
+        plan_con, night_con = self.raid_night(debt_at_plan=50000,
+                                              clean_at_night=60000)
+        self.assertIsNone(plan_con.find(RAID_WARNING))
+        warn, header = night_con.find(RAID_WARNING), night_con.find("NIGHT JOB")
+        self.assertIsNotNone(warn)
+        self.assertIsNotNone(header)
+        self.assertLess(warn, header)
+
+    def test_a_plan_time_warning_is_not_repeated_at_execution(self):
+        plan_con, night_con = self.raid_night(debt_at_plan=1000,
+                                              clean_at_night=5000)
+        self.assertIsNotNone(plan_con.find(RAID_WARNING))
+        self.assertIsNone(night_con.find(RAID_WARNING))
 
 
 class TestFiringWarning(unittest.TestCase):

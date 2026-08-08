@@ -452,6 +452,12 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                 con.say("  The crew is short tonight; the job goes ahead anyway.")
             raid_plan["team"] = team
             raid_plan["wagon_free"] = plans.get("route") is None
+            # §2.1 rev. 4: the day's takings can put payoff in reach
+            # after the job was planned — recheck once, before it runs.
+            if not raid_plan.get("table_warned") and state.payoff_in_reach():
+                con.say("  With the debt this close to settled, remember: "
+                        "whatever tonight leaves behind goes into the file "
+                        "tomorrow's table reads.")
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():

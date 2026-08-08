@@ -480,6 +480,54 @@ clean, equivalence re-verified at **300/300 on 3.11, 3.12 and 3.13** —
 the broadened warnings are still say-lines only; no prompt, state or
 RNG surface moved.
 
+### Round 7 correction 2 (re-review)
+
+The re-review confirmed the ride-along regression and the calendar
+correction, and found one new blocker plus one boundary the first
+correction left uncovered. Design revision 4 (§8) records all of it.
+
+- **The payment-time snapshot rewarded action ordering.** Rev. 3 froze
+  chair eligibility inside `_pay_debt` — and explicitly protected a
+  post-payment over-wash. The reviewer reproduced the exploit through
+  the real night ordering: Case 65 → pay the final $1,000 → $10,000
+  over-wash → Case 85, debt zero, no arrest, both Case-gated chairs
+  preserved. The snapshot moves to **lock-up**: frozen when the player
+  leaves the settle-accounts menu, after every discretionary account
+  action, immediately before the rival and law phases — every voluntary
+  act counts, only the world's after-hours dice are excluded. Two
+  paired snapshot-integrity acceptance tests are now specified for P1
+  (§2.7): pay → over-wash → lock up closes the chairs at 85; pay → lock
+  up at 65 → forced world evidence to 85 leaves the offers standing,
+  arrest at 100 excepted. Paper-only, like the snapshot itself — the
+  binding tests land with the sit-down.
+- **A route that funds the payoff warned nobody.** With on-hand cash
+  short of the debt, the "one last run" that earns the final payoff
+  money fell outside the on-hand-only window — a player act with no
+  warning under any §2.7 arm. The route surface's reach test now counts
+  tonight's plausible take: on-hand + 2 × demand × gourmet ticket +
+  Σ units × district price × 1.5 ≥ debt, each term a supremum of its
+  runtime counterpart (sale price tops out at a 1.2 offer roll × 1.25
+  haggle; orders never exceed demand; no ticket beats gourmet; the
+  doubling absorbs a morning policy change). Overestimating only warns
+  early. Regression: cash $5, debt $2,000, twenty units aboard —
+  `payoff_in_reach` false, warning fires anyway.
+- **Raids re-measure at execution.** Service revenue can put payoff in
+  reach between scheduling and the job, so `night()` rechecks
+  immediately before `run_raid`; the plan records whether it already
+  warned, so the line prints once. Regression drives the real morning
+  and night: debt out of reach at planning, takings arrive, the warning
+  appears before the NIGHT JOB header; and a plan-time warning is not
+  repeated at execution. Both new positive regressions fail on the
+  rev. 3 engine (2 failures at 06dea64).
+- Wording aligned with the engine's transactional-planning semantics:
+  plans are intentions committed at service, so the criterion reads
+  "planned or taken," not "committed at plan time."
+
+After correction 2: 126 tests green on 3.11 and 3.12, ruff/mypy clean,
+equivalence re-verified at **300/300 on 3.11, 3.12 and 3.13**. The raid
+plan dict gained a transient `table_warned` key — never saved, never
+digested; prompts, state and RNG surfaces are untouched.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered
