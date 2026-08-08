@@ -281,5 +281,73 @@ class TestSecurityVisibility(unittest.TestCase):
         self.fail("no successful raid found to check the announcement")
 
 
+class TestNoiseTimeout(unittest.TestCase):
+    """Issue #4 regression: running out of time BEFORE the last room is a
+    failed extraction — no objective, no job counted, abort-grade
+    hardening. Driven through run_raid's actual room loop: the crew
+    rushes every guard until the noise gives them away."""
+
+    def _noisy_run(self, seed):
+        state, rng = fresh(seed)
+        state.shop_stash = {}
+        state.warehouse = {}
+        con = CaptureConsole([2] * 12)      # answer every guard: "Rush him"
+        raids.run_raid(state, steal_plan(state), con, random.Random(seed))
+        return state, "\n".join(con.lines)
+
+    def test_early_timeout_awards_nothing(self):
+        timeouts = successes = 0
+        for seed in range(150):
+            state, text = self._noisy_run(seed)
+            v = state.rivals["vinnie"]
+            if "Time's up" in text:
+                timeouts += 1
+                self.assertEqual(state.raids_led, 0,
+                                 "an early timeout must not count as a job")
+                self.assertEqual(v.strength,
+                                 data.RIVALS["vinnie"]["strength"],
+                                 "the stockroom was never reached")
+                self.assertEqual(sum(state.shop_stash.values())
+                                 + sum(state.warehouse.values()), 0,
+                                 "nothing comes home from a failed extraction")
+                self.assertEqual(v.alertness, 1.0,
+                                 "a timeout hardens like an abort (+1), "
+                                 "not a success (+2)")
+                self.assertIn("nothing but your skins", text)
+            elif state.raids_led == 1:
+                successes += 1
+        self.assertGreater(timeouts, 0,
+                           "no early timeout reproduced in 150 seeds")
+        self.assertGreater(successes, 0,
+                           "the fix must not kill successful jobs")
+
+
+class TestPatternDisplayHonesty(unittest.TestCase):
+    """Issue #4 display nit: the warned premium and the incurred premium
+    must be the same number — 4.5 reads 4.5, not a ties-to-even 4."""
+
+    def test_planning_warning_shows_exact_premium(self):
+        state, rng = fresh(48)
+        crew_for(state)
+        state.raids_led = 3                  # premium = min(8, 1.5*3) = 4.5
+        con = CaptureConsole([3])            # look, then Never mind
+        raids.plan_raid(state, con, rng)
+        self.assertIn("adds 4.5 Case", "\n".join(con.lines))
+
+    def test_incurred_announcement_matches_the_warning(self):
+        for seed in range(80):
+            state, _ = fresh(48)
+            crew_for(state)
+            state.raids_led = 3              # premium = 4.5
+            before = state.case
+            con = CaptureConsole()
+            raids.run_raid(state, steal_plan(state), con, random.Random(seed))
+            if state.raids_led == 4:         # success
+                self.assertIn("(Case +4.5)", "\n".join(con.lines))
+                self.assertGreaterEqual(state.case - before, 4.5)
+                return
+        self.fail("no successful raid found to check the announcement")
+
+
 if __name__ == "__main__":
     unittest.main()

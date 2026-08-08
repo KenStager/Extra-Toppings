@@ -270,11 +270,53 @@ tempo plays, not loot — are intentionally unchanged. The 150-seed sweep
 is unmoved (market 62%, greedy 58%, crime-heavy 21%): the pricing is
 contained to raids.
 
+## Round 5 — issue #4 closed: the noise-timeout regression (P0 opens)
+
+The raid regression logged in issue #4 during the PR #3 review is fixed,
+as the first item of the Act I fork's P0 phase (the fork design itself is
+`docs/ACT1_FORK_DESIGN.md`, merged as the decision record via PR #6):
+
+- **Early timeouts no longer pay.** `run_raid`'s `noise >= 1.0` branch
+  broke the room loop without marking the job failed, so a crew caught by
+  the lights mid-building still received the objective. Timing out with
+  rooms still ahead is now a failed extraction — abort consequences
+  (+1 alertness, heat, relation), no objective, no job counted, no
+  pattern premium. Crossing the threshold in the *final* room remains a
+  loud success: the clean-exit pricing (+5 witness Case) covers it, so
+  the noisy-completion path is not dead code.
+- **The premium display matches the premium.** `:.0f` rendered the 4.5
+  pattern premium as "~4" (Python rounds ties to even); the planning
+  warning and the incurred announcement now print the exact figure.
+- Regression tests drive the actual player path (`TestNoiseTimeout`,
+  `TestPatternDisplayHonesty`: scripted room-loop play, all-rush crews,
+  seed scans). All three fail on the pre-fix engine — verified by
+  reverting the fix and rerunning.
+
+Measured impact at 2,000 trials (round-4 protocol):
+
+```
+attempt 1: success 19%  expected $752/attempt  ($3,827 per success)
+attempt 2: success 16%  expected $556/attempt  ($3,309 per success)
+attempt 3: success 13%  expected $413/attempt  ($3,037 per success)
+```
+
+This lands exactly on the curve the issue #4 review predicted for the fix
+($752 → $556 → $413) and supersedes round 4's $781 → $597 → $438, which
+is now known to have been inflated by bug-awarded timeouts — roughly one
+to two points of "success" per attempt were crews the lights had already
+caught. The 150-seed sweep is unmoved: market 62% (Case μ26, rep 20),
+greedy 58%, crime-heavy 21%, cautious 33%, pizza-first 0%.
+
+(Tooling note: ruff 0.15 flags E702 on the experiment runner's one-line
+dispatch statements; the dispatcher was reshaped with no behavior
+change.)
+
 ## Still open (carried to the next design pass)
 
-- The midgame still resolves around day 12–15; the payoff-triggered
-  Act I fork (leave the trade / expand with Carmine / press rivals /
-  cash out) is the agreed direction.
+- The midgame still resolves around day 12–15. The payoff-triggered
+  Act I fork is now fully designed and merged as the decision record
+  (`docs/ACT1_FORK_DESIGN.md`, PR #6); implementation follows the phased
+  plan there — this round's fix is P0's first item.
 - Heat still under-binds relative to the Case; needs local teeth without
   becoming a second global meter.
 - Event responsiveness beyond payday/heat-wave is now *provable* with the
