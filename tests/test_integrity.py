@@ -199,8 +199,9 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state.shop.damage_days = 2
         state.delivery_pool = 12
         state.shop.ingredients = 200
+        rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False}
+                "ride_along": False, "driver": rosa}
         phases._commit_route(state, plan, ScriptedConsole())
         state.demand_today = 100
         report = shop.simulate_shift(state, plan["legit"], random.Random(1))
@@ -211,8 +212,9 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state, _ = fresh(22)
         state.delivery_pool = 12
         state.shop.ingredients = 3
+        rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False}
+                "ride_along": False, "driver": rosa}
         phases._commit_route(state, plan, ScriptedConsole())
         self.assertEqual(plan["legit"], 3)
 
@@ -282,6 +284,160 @@ class TestResignationFlow(unittest.TestCase):
         phases._staff_trouble(state, ScriptedConsole(), random.Random(0))
         self.assertTrue(e.hired)
         self.assertFalse(e.resignation_pending)
+
+
+class TestRaiseAnswersConfrontation(unittest.TestCase):
+    """Review round 3, finding 1: the raise must travel the REAL raise path
+    and must save an employee even from morale 1."""
+
+    def test_actual_raise_cancels_resignation_at_morale_one(self):
+        state, _ = fresh(31)
+        e = next(x for x in state.employees if x.hired)
+        e.morale = 1
+        phases._staff_trouble(state, ScriptedConsole(), random.Random(0))
+        self.assertTrue(e.resignation_pending)
+        # The real menu path: Staff -> Give a raise -> pick them -> Back.
+        idx = state.hired().index(e)
+        phases._staff_menu(state, ScriptedConsole([2, idx, 4]), random.Random(0))
+        self.assertFalse(e.resignation_pending)
+        self.assertGreater(e.morale, 3)
+        # They stay — this morning and the next.
+        for _ in range(2):
+            phases._staff_trouble(state, ScriptedConsole(), random.Random(0))
+        self.assertTrue(e.hired)
+
+
+class TestDriverRevalidation(unittest.TestCase):
+    """Review round 3, finding 2: a route whose driver is gone must scrub
+    before committing any resource."""
+
+    def _plan(self, state, rng):
+        state.delivery_pool = 12
+        state.shop_stash = {"oregano": 8}
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        return routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng)
+
+    def test_fired_driver_scrubs_the_route_uncommitted(self):
+        state, rng = fresh(32)
+        plan = self._plan(state, rng)
+        plan["driver"].hired = False               # fired after planning
+        before = (dict(state.shop_stash), state.shop.ingredients)
+        ok = phases._commit_route(state, plan, ScriptedConsole())
+        self.assertFalse(ok)
+        self.assertEqual((dict(state.shop_stash), state.shop.ingredients), before)
+
+    def test_service_skips_the_scrubbed_route_entirely(self):
+        state, rng = fresh(32)
+        plan = self._plan(state, rng)
+        driver = plan["driver"]
+        driver.hired = False
+        survived_before = driver.routes_survived
+        shop.roll_demand(state, random.Random(1))
+        phases.service(state, {"route": plan, "raid": None},
+                       ScriptedConsole(), Streams(32))
+        self.assertEqual(driver.routes_survived, survived_before)
+        self.assertEqual(state.shop_stash.get("oregano"), 8)   # cargo never left
+
+
+class TestQualityIdentity(unittest.TestCase):
+    """Review round 3, finding 3: stock keeps the quality it was bought at.
+    Cheap flour served under a gourmet menu cooks — and reviews — as cheap."""
+
+    def _serve_day(self, buy_quality, serve_policy_quality):
+        state, _ = fresh(33)
+        state.shop.ingredients = 0
+        state.shop.quality = buy_quality
+        state.clean = 10000
+        phases._buy_ingredients(state, ScriptedConsole([40]))
+        state.shop.quality = serve_policy_quality
+        state.shop.price = "gourmet"
+        shop.roll_demand(state, random.Random(9))
+        shop.simulate_shift(state, 0, random.Random(9))
+        return state
+
+    def test_pantry_keeps_purchase_quality(self):
+        state = self._serve_day("cheap", "gourmet")
+        self.assertEqual(state.shop.pantry_quality, "cheap")
+
+    def test_cheap_stock_under_gourmet_menu_burns_reputation(self):
+        scam = self._serve_day("cheap", "gourmet")
+        honest = self._serve_day("gourmet", "gourmet")
+        self.assertLess(scam.shop.reputation, honest.shop.reputation)
+
+    def test_mixing_grades_drags_the_pantry_down(self):
+        state, _ = fresh(33)
+        state.shop.ingredients = 0
+        state.clean = 10000
+        state.shop.quality = "gourmet"
+        phases._buy_ingredients(state, ScriptedConsole([20]))
+        self.assertEqual(state.shop.pantry_quality, "gourmet")
+        state.shop.quality = "cheap"
+        phases._buy_ingredients(state, ScriptedConsole([20]))
+        self.assertEqual(state.shop.pantry_quality, "cheap")
+
+
+class TestEffectDurations(unittest.TestCase):
+    """Review round 3, finding 4: effects created tonight keep their full
+    duration; only effects that served today age at close."""
+
+    def test_preexisting_effects_age_at_close(self):
+        state, _ = fresh(34)
+        state.shop.coupon_days = 2
+        state.shop.damage_days = 2
+        for r in state.rivals.values():
+            r.strength = 0
+        phases.night(state, {"route": None, "raid": None}, {"revenue": 0},
+                     ScriptedConsole([4]), Streams(34))
+        self.assertEqual(state.shop.coupon_days, 1)
+        self.assertEqual(state.shop.damage_days, 1)
+
+    def test_effects_created_tonight_keep_full_duration(self):
+        state, _ = fresh(34)
+        for r in state.rivals.values():
+            r.strength = 0
+        orig = rivals.rival_phase
+
+        def blitz_tonight(st, con, rng):
+            st.shop.coupon_days = 3          # Sal's coupons land tonight
+            st.shop.damage_days = 3          # and so does a wrecking crew
+
+        rivals.rival_phase = blitz_tonight
+        try:
+            phases.night(state, {"route": None, "raid": None}, {"revenue": 0},
+                         ScriptedConsole([4]), Streams(34))
+        finally:
+            rivals.rival_phase = orig
+        self.assertEqual(state.shop.coupon_days, 3)   # three full service days
+        self.assertEqual(state.shop.damage_days, 3)
+
+
+class TestSaveCompleteness(unittest.TestCase):
+    """Review round 3, finding 5: the save must carry every State field —
+    including demand_shock — so a reload never quietly resets anything."""
+
+    def test_every_state_field_is_serialized(self):
+        import dataclasses
+
+        from extra_toppings import save
+        state, _ = fresh(35)
+        d = save.state_to_dict(state)
+        for f in dataclasses.fields(type(state)):
+            self.assertIn(f.name, d, f"State.{f.name} missing from save")
+
+    def test_demand_shock_survives_the_round_trip(self):
+        from extra_toppings import save
+        state, _ = fresh(35)
+        state.demand_shock = 1.0418
+        restored = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(restored.demand_shock, 1.0418)
+        # And the reviewer's exact symptom: the same policy change must
+        # produce the same demand after a reload.
+        state.shop.price = "gourmet"
+        shop.recompute_demand(state)
+        restored.shop.price = "gourmet"
+        shop.recompute_demand(restored)
+        self.assertEqual(state.demand_today, restored.demand_today)
 
 
 if __name__ == "__main__":

@@ -139,10 +139,11 @@ Revised readings:
    an eighth of its arrest rate, and triple its reputation. Blind
    aggression can match the payoff only by absorbing dramatically more
    prosecution risk.
-2. **The cargo optimum sharpened into an interior band**: ¾ load with
-   modest cover peaks at ~67%, while the full-wagon row now costs real
-   arrests (5–15%) — overloading eats both cover capacity and the
-   kitchen link. Grid: `analysis/experiments.py grid`.
+2. **Intermediate loads with real cover outperform extremes.** (An
+   earlier draft froze "¾ load peaks at 67%" from a 40-seed grid; at 150
+   seeds the cell leader is not stable, so the durable claim is the band,
+   not a point — see the round-3 grid below.) The full-wagon and
+   zero-cover edges now cost real arrests either way.
 3. **Delegation tradeoff holds after the fixes**: boss rides 23% payoff /
    Case 38 vs driver alone 16% / Case 19 (~1.4×, with the quiet-route
    discount intact).
@@ -150,6 +151,64 @@ Revised readings:
    arrests at equal payoff.
 5. Pizza-first remains 0% — the structural temptation is untouched by
    any of the integrity work.
+
+## Round 3 — five edge cases against the fixes themselves
+
+A further review pass reproduced five defects, three of which weakened
+the round-2 fixes. All are closed with regressions through the actual
+player paths (`tests/test_integrity.py`, round-3 classes):
+
+- **A raise didn't always answer the confrontation**: +2 morale from 1
+  left the employee critical and still walking. The real raise path now
+  clears `resignation_pending` and lifts morale out of the critical band
+  (`TestRaiseAnswersConfrontation`, driven through the staff menu).
+- **Route drivers weren't live-revalidated**: a driver fired after
+  planning still drove. `_commit_route` now scrubs the route — committing
+  nothing — if the driver is unavailable (`TestDriverRevalidation`).
+- **Ingredient-quality arbitrage**: buy 40 cheap orders for $120, flip
+  policy to gourmet, serve them at gourmet tickets. Stock now keeps the
+  quality it was bought at (`Shop.pantry_quality`); mixing grades drags
+  the pantry to the lower one, and the kitchen cooks — and gets
+  reviewed — as what's actually in the walk-in. The scam still "works"
+  for a day; the reputation engine now prices it (`TestQualityIdentity`).
+- **New effects lost a day**: coupon blitzes and raid damage created at
+  night were immediately aged by the end-of-night tick. Effects that
+  served today now age at close, before tonight creates new ones — a
+  3-day blitz suppresses three full service days (`TestEffectDurations`).
+- **Save v2 omitted `demand_shock`**: a reload silently reset the day's
+  demand luck. The field is serialized, and a completeness test now
+  asserts every `State` dataclass field appears in the save, so future
+  fields can't be forgotten (`TestSaveCompleteness`).
+
+Final study on the corrected engine (150 seeds; bots don't exploit any
+of the five closed paths, so the headline is expected to hold — and does):
+
+| Strategy | Payoff | Arrests | Case μ | Rep μ | Net med |
+| --- | --- | --- | --- | --- | --- |
+| **market** | **61%** (91/150) | 1% | **26** | 20 | **+$6,559** |
+| greedy | 58% (87/150) | 9% | 60 | 7 | +$6,392 |
+| cautious | 33% | 1% | 42 | 6 | −$8,050 |
+| crime-heavy | 22% | 6% | 44 | 8 | −$19,541 |
+| pizza-first | 0% | 0% | 7 | 33 | −$32,536 |
+
+150-seed cargo × cover grid (payoff% / arrest% / mean Case), corrected
+engine:
+
+```
+         cover= 0 cover= 4 cover= 8 cover=12
+cf=0.25   26/ 6/55  35/ 0/45  40/ 1/43  44/ 1/41
+cf=0.5    37/10/59  56/ 4/55  58/ 4/53  60/ 1/51
+cf=0.75   48/11/62  54/ 4/60  52/ 3/57  57/ 3/57
+cf=1.0    47/ 8/59  54/ 9/61  58/ 9/60  56/ 8/59
+```
+
+The durable claims at this power: **intermediate-to-full loads with real
+cover form a broad ~52–60% plateau whose cell leader is not stable**
+(half-load + full cover led this run at 60%; do not freeze a point
+optimum); the zero-cover column is uniformly the arrest column
+(6–11%); and within every row, more cover monotonically buys down the
+Case. Context — heat, events, driver, district — should be what moves
+the ideal split, not a memorized ratio.
 
 ## Still open (carried to the next design pass)
 

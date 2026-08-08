@@ -41,7 +41,7 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
 
     # Carmine won't let his investment starve: he fronts stock — onto the debt.
     if state.shop.ingredients < 10 and state.clean < 200:
-        state.shop.ingredients += 40
+        shop.stock_pantry(state, 40)
         state.debt += 40 * data.INGREDIENT_COST[state.shop.quality] + 100
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
                    "The account, of course, is the debt.")
@@ -110,6 +110,9 @@ def _market_board(state: State, con: Console) -> None:
 
 
 def _kitchen_policy(state: State, con: Console, plans: dict | None = None) -> None:
+    con.say(f"  Pantry holds {state.shop.ingredients} orders of "
+            f"{state.shop.pantry_quality} stock — the kitchen cooks what "
+            f"it has, whatever the menu says.")
     q = con.menu(f"Ingredient quality (now: {state.shop.quality}):",
                  [f"{lv} (cost {money(data.INGREDIENT_COST[lv])}/order)"
                   for lv in QUALITY_LEVELS])
@@ -135,9 +138,14 @@ def _buy_ingredients(state: State, con: Console) -> None:
     most = state.clean // cost if cost else 0
     restock = max(0, min(most, 80 - state.shop.ingredients))
     n = con.ask_int(f"Buy how many orders of stock? ({money(cost)} each, clean cash, "
-                    f"have {state.shop.ingredients})", 0, min(most, 200), restock)
+                    f"have {state.shop.ingredients} {state.shop.pantry_quality})",
+                    0, min(most, 200), restock)
     state.clean -= n * cost
-    state.shop.ingredients += n
+    before_q = state.shop.pantry_quality if state.shop.ingredients else None
+    shop.stock_pantry(state, n)
+    if before_q and state.shop.pantry_quality != before_q:
+        con.say(f"  The new {state.shop.quality} stock mixes into the walk-in — "
+                f"the pantry now cooks as {state.shop.pantry_quality}.")
 
 
 def _supplier_offer(state: State, rng: random.Random) -> dict | None:
@@ -256,7 +264,14 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                 e.wage += 20
                 e.morale = min(10, e.morale + 2)
                 e.loyalty = min(10, e.loyalty + 1)
-                con.say(f"  {e.name} stands a little straighter.")
+                if e.resignation_pending:
+                    # The confrontation was answered, and they know it.
+                    e.resignation_pending = False
+                    e.morale = max(e.morale, 5)
+                    con.say(f"  {e.name} reads the new number twice, nods, "
+                            f"and ties the apron back on.")
+                else:
+                    con.say(f"  {e.name} stands a little straighter.")
         elif c == 3:
             crew = state.hired()
             names = [e.name for e in crew] + ["Back"]
@@ -306,8 +321,8 @@ def _improvements(state: State, con: Console) -> None:
 def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     con.header(f"DAY {state.day} — SERVICE")
     plan = plans.get("route")
-    if plan:
-        _commit_route(state, plan, con)
+    if plan and not _commit_route(state, plan, con):
+        plans["route"] = plan = None
     route_legit = plan["legit"] if plan else 0
     report = shop.simulate_shift(state, route_legit,
                                  streams.daily(state.day, "critic"))
@@ -328,9 +343,15 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     return report
 
 
-def _commit_route(state: State, plan: dict, con: Console) -> None:
+def _commit_route(state: State, plan: dict, con: Console) -> bool:
     """Morning plans are intentions; resources commit when service starts.
-    Cancelled or replaced plans never touch inventory."""
+    Cancelled or replaced plans never touch inventory. Returns False (and
+    commits nothing) if the plan can no longer run at all."""
+    driver = plan["driver"]
+    if not driver.available:
+        con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
+                   f"around to drive it.")
+        return False
     for g in list(plan["cargo"]):
         have = state.shop_stash.get(g, 0)
         take = min(plan["cargo"][g], have)
@@ -347,6 +368,7 @@ def _commit_route(state: State, plan: dict, con: Console) -> None:
                    f"delivery orders — orders, ovens and pantry set the limit.")
     plan["legit"] = doable
     state.shop.ingredients -= doable
+    return True
 
 
 # ══ NIGHT ═════════════════════════════════════════════════════════
@@ -354,6 +376,14 @@ def _commit_route(state: State, plan: dict, con: Console) -> None:
 def night(state: State, plans: dict, service_report: dict, con: Console,
           streams: Streams) -> None:
     con.header(f"DAY {state.day} — AFTER CLOSE")
+
+    # Today's wear is booked at close, BEFORE tonight's raids and rival
+    # moves create new effects — a coupon blitz or smashed oven tonight
+    # keeps its full stated duration of service days.
+    if state.shop.damage_days:
+        state.shop.damage_days -= 1
+    if state.shop.coupon_days:
+        state.shop.coupon_days -= 1
 
     raid_plan = plans.get("raid")
     if raid_plan:
@@ -407,13 +437,9 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))
 
-    # The city cools a little overnight; repairs and coupon blitzes age out.
+    # The city cools a little overnight.
     for d in state.districts.values():
         d.heat = max(0.0, d.heat - 5)
-    if state.shop.damage_days:
-        state.shop.damage_days -= 1
-    if state.shop.coupon_days:
-        state.shop.coupon_days -= 1
     state.day += 1
 
 

@@ -17,6 +17,19 @@ def cooks_skill(state: State) -> int:
 
 
 DELIVERY_SHARE = 0.35   # fraction of real demand that phones in a delivery
+QUALITY_ORDER = {"cheap": 0, "standard": 1, "gourmet": 2}
+
+
+def stock_pantry(state: State, units: int) -> None:
+    """Add stock bought at the CURRENT purchasing policy. Stock keeps its
+    identity: mixing grades drags the pantry down to the lower one —
+    a gourmet pie built on cheap flour is a cheap pie."""
+    shop = state.shop
+    if units <= 0:
+        return
+    if shop.ingredients <= 0 or QUALITY_ORDER[shop.quality] < QUALITY_ORDER[shop.pantry_quality]:
+        shop.pantry_quality = shop.quality
+    shop.ingredients += units
 
 
 def roll_demand(state: State, rng: random.Random) -> None:
@@ -64,9 +77,11 @@ def simulate_shift(state: State, route_legit: int, rng: random.Random) -> dict:
     state.clean += revenue
     state.legit_revenue_today += revenue
 
-    # Reputation drifts with quality vs. price expectations and lost orders.
+    # Reputation drifts with what's ACTUALLY in the pantry vs. what the
+    # menu charges for — cheap stock at gourmet prices is a short con.
     skill = cooks_skill(state)
-    q_score = {"cheap": 3, "standard": 5, "gourmet": 8}[shop.quality] + skill / 2
+    q_score = {"cheap": 3, "standard": 5, "gourmet": 8}[shop.pantry_quality] \
+        + skill / 2
     expect = {"cheap": 5, "standard": 7, "gourmet": 10}[shop.price]
     drift = max(-5.0, (q_score - expect) * 0.8 - (lost / max(demand, 1)) * 6)
     shop.reputation = max(0.0, min(100.0, shop.reputation + drift))

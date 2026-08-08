@@ -43,6 +43,7 @@ def state_to_dict(state: State) -> dict:
         "total_laundered": state.total_laundered,
         "raids_led": state.raids_led,
         "kills": state.kills,
+        "demand_shock": state.demand_shock,
         "demand_today": state.demand_today,
         "delivery_pool": state.delivery_pool,
         "legit_revenue_today": state.legit_revenue_today,
@@ -69,7 +70,8 @@ def state_from_dict(d: dict) -> State:
         case=d["case"], case_flags=list(d["case_flags"]), news=list(d["news"]),
         game_over=d["game_over"], debt_paid_day=d["debt_paid_day"],
         total_laundered=d["total_laundered"], raids_led=d["raids_led"],
-        kills=d["kills"], demand_today=d["demand_today"],
+        kills=d["kills"], demand_shock=d["demand_shock"],
+        demand_today=d["demand_today"],
         delivery_pool=d["delivery_pool"],
         legit_revenue_today=d["legit_revenue_today"],
     )

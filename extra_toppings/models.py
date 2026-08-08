@@ -72,9 +72,10 @@ class ActiveEvent:
 
 @dataclass
 class Shop:
-    quality: str = "standard"        # cheap / standard / gourmet
+    quality: str = "standard"        # purchasing policy: cheap / standard / gourmet
     price: str = "standard"          # cheap / standard / gourmet  (menu pricing)
     ingredients: int = 40            # one unit = one order
+    pantry_quality: str = "standard" # what the stock on hand actually IS
     reputation: float = 50.0         # 0-100
     upgrades: set = field(default_factory=set)
     damage_days: int = 0             # closed/limping after a raid
