@@ -184,9 +184,16 @@ identical to main):
   comes after") — a standing pointer that payoff is a doorway, not just a
   finish line.
 
-Verification hooks into §2.7: in any run where a chair is withheld at the
-sit-down, the transcript must contain the corresponding warning line at
-least two days before payoff.
+Verification hooks into §2.7, split by gate type because their timing
+differs. Calendar gates are slow: the warning must precede payoff by at
+least two days. Case gates can slam shut in a single night — an
+over-ceiling wash on payoff night can jump the Case from 55 past 70 — so
+the requirement is disjunctive: either the Case-60 warning appeared on an
+earlier day, or the threshold was crossed on payoff night by an act whose
+own warning surface fired first (the over-ceiling prompt already says a
+spreadsheet will notice; with the debt near zero it adds that tomorrow's
+table reads the same spreadsheet), and the sit-down scene then names the
+specific record that closed the chair.
 
 **Edge cases the assignment names, answered concretely:**
 
@@ -291,10 +298,11 @@ the Straight Path):**
 
 **Bounds (so evidence laundering never becomes a slider — the money-doctrine
 invariant has an evidence twin):** total remediation across a run is capped
-at 25 points. The floor is not hidden arithmetic: the first time remediation
-would take the sum below 10, a permanent **institutional suspicion** record
-("they remember your name") is written for the difference — so the displayed
-Case always equals the sum of the records the player can read. That
+at 25 points. The floor is not hidden arithmetic: whenever remediation
+would take the sum below 10 — the first time and every later time — a
+permanent **institutional suspicion** record ("they remember your name")
+is written, or topped up, by exactly the difference, so the sum never
+displays below 10 and always equals the records the player can read. That
 ledger-transparency identity is asserted every night by every bot (§2.7).
 The climate cools; it does not un-happen.
 
@@ -392,7 +400,8 @@ arrest, any moment (§2.3). Full matrix and precedence: §2.5.
 
 #### 2.4.2 Carmine's Partner (the second branch)
 
-**Goal (day 30):** both shops open, points current, Case < 100 — graded on
+**Goal (day 30):** points current, the Case never having latched — both
+shops are open by the branch invariant declared below — graded on
 combined net and the second shop's reputation. This is canon's Act II made
 playable, and it deliberately ends the month *mid-story*: the ending text
 points at Act III.
@@ -440,9 +449,16 @@ shop, a named manager for shop 2 (an aware employee; their loyalty is now
 load-bearing), familiarity resets in the new district, and poaching one
 roster across two addresses is how rivals fight you here.
 
-**Failure states / endings:** *"The Operation (two ovens)"* — day 30, both
-shops open, points current; upgraded operation-holds text, explicit Act III
-hook. *"On the Hook"* (new) — day 30 with exactly one missed payment
+**An invariant, declared and tested:** once funded, the second shop opens
+and stays open. Construction is deterministic (the capital is escrowed
+with Carmine's own contractor), raid damage limps a shop but never
+shutters it, and no Partner-branch event can un-open an address — the only
+ways to lose shop 2 are Foreclosure and arrest, both of which end the run.
+"Both shops open" is therefore not a day-30 condition to check but an
+invariant to test; the day-30 matrix reduces to the points ledger.
+
+**Failure states / endings:** *"The Operation (two ovens)"* — day 30,
+points current; upgraded operation-holds text, explicit Act III hook. *"On the Hook"* (new) — day 30 with exactly one missed payment
 outstanding: both ovens burn, but the vig is compounding and Carmine owns
 your schedule now; a survival ending graded below Two Ovens, whose Act III
 hook reads very differently. *"Foreclosure"* (new) — a second missed
@@ -564,7 +580,10 @@ counting the sit-down, and the run ends at closing.
 50% of upgrade spend; discounts: −$45 × Case, −20% if any rival is at
 relation ≤ −50 or has a live raid warning. The mark is recomputed each
 diligence morning and shown with its terms (invariant 8: the player sees
-exactly what their month is worth and why).
+exactly what their month is worth and why), and it moves **only when its
+inputs move** — reputation, Case, the war clause, incidents. There is no
+passive daily drift: diligence never pays you for waiting, it only
+charges you for slipping.
 
 **Diligence days:** each day is an incident check the player plays through
 the normal loop. Laundering during escrow is off (the books are being
@@ -597,7 +616,9 @@ input — the branch retroactively rewards having run a real restaurant.
 walkthrough.
 
 **Failure states / endings:** *"Sold"* (new), tiered by total walk-away
-(settlement + clean + whatever leaves with you): ≥ $25k *sold well*;
+(settlement + clean + whatever leaves with you, with retained stock priced
+at base book value — exactly as `net_worth()` already prices stock): ≥
+$25k *sold well*;
 $10–25k *a modest ending*, which is what this chair honestly is; < $10k
 *the fire sale* — and any close that keeps contraband or dirty cash is
 reclassified *"Sold the shop, kept the trade,"* capped at modest
@@ -639,14 +660,16 @@ regression. The morning header notes what you turned down, once.
 | Straight | all goal terms met | The Legitimate Exit (earned) |
 | Straight | all met except Case 46–99 | Almost Out |
 | Straight | any other term failed | Half Measures (names the failed term) |
-| Partner | shops open, points current | The Operation (two ovens) |
-| Partner | shops open, one payment outstanding | On the Hook |
+| Partner | points current | The Operation (two ovens) |
+| Partner | one payment outstanding | On the Hook |
 | War | target broken, the other rival still standing | The Harbor Is Yours |
 | War | both rivals broken | The Syndicate |
 | War | target still standing | A Long War |
 | Sale | (never reaches day 30 in-branch) | closes at fork+4 or reverts |
 | Stand-pat | as today | the existing survived grades |
 
+Partner's second shop is open at day 30 by tested invariant (§2.4.2), so
+its matrix is the points ledger alone — a third state cannot exist.
 Pre-day-30 terminals: arrest (any branch, via the latch); Foreclosure
 (Partner); Burned Out (War); clean insolvency (any branch — the Straight
 Path is where it lives); the escrow close — Sold, in three tiers with the
@@ -692,12 +715,19 @@ into FINDINGS with the usual honesty rules. Bots remain instruments, not
 tuning targets — thresholds below are falsification bars, and human play on
 seeds 24/39/8 remains the test of fun.
 
-1. **Act I is untouched — exactly, per seed.** Determinism makes "within
-   noise" too weak a bar: for every seed, a paired run of current main vs.
-   the fork build must produce **identical day-by-day state** (compare
-   `state_to_dict` hashes each night) up to the payoff day, 150/150. The
-   §2.1 telegraph lines are the sole permitted transcript additions
-   pre-fork, and they touch no state and draw no RNG.
+1. **Act I is untouched — exactly, per seed.** Raw `state_to_dict` hashes
+   cannot match across a save-version bump (v3 carries fields v2 never
+   had), so equality is defined on three testable surfaces: (a) a
+   **normalized legacy projection** — a harness function mapping v3 state
+   onto the v2 field set (`shops[0]` flattened back to the old shop and
+   stash fields, the evidence sum rendered as the old scalar Case, its
+   records rendered as the old flag strings, v3-only fields dropped) —
+   compared nightly against main, 150/150; (b) **RNG-stream equality** —
+   every stream the two builds share serializes identically each night,
+   and the new streams (`sitdown`, `brokers`, `war`) are provably undrawn
+   pre-fork; (c) **action replay** — the bot's decision log is identical,
+   and so is the ending. The §2.1 telegraph lines are the sole permitted
+   transcript additions pre-fork, and they touch no state and draw no RNG.
 2. **Reachability.** The unmodified market bot reaches an open sit-down in
    ≥ 55% of seeds; at typical payoff states every chair is present in
    ≥ 90% of open sit-downs (the gates of §2.1 should bite on outliers, not
@@ -736,9 +766,12 @@ seeds 24/39/8 remains the test of fun.
      components.
    - *Ledger transparency:* every night, displayed Case equals the sum of
      visible evidence records (§2.3) — asserted by every bot in every run.
-   - *Telegraphy:* in every run where the sit-down withholds a chair, the
-     corresponding §2.1 warning line appeared in the transcript at least
-     two days before payoff.
+   - *Telegraphy, split by gate type:* for every calendar-withheld chair,
+     the day-20/24 warning appeared at least two days before payoff; for
+     every Case-withheld chair, either the Case-60 warning appeared on an
+     earlier day, or the transcript shows the same-night pre-action
+     warning on the act that crossed the threshold (§2.1). No withheld
+     chair may ever appear with neither.
 5. **Stakes are real (ablations).** Each branch bot's branch-good ending
    rate lands in a 25–70% band (no auto-win, no hopeless chair), and
    removing the branch's stated counterplay drops it by ≥ 20 points:
@@ -748,10 +781,11 @@ seeds 24/39/8 remains the test of fun.
    premises. If an ablation *doesn't* hurt, the pressure is decorative and
    the branch fails review.
 6. **The control stands — exactly, per seed.** For every seed, a stand-pat
-   run and a current-main run must produce identical nightly state hashes
-   and the identical ending, 150/150 — not a matching distribution, the
-   same runs. (The sit-down scene and its declined offers may add
-   transcript lines only.)
+   run and a current-main run must match on the same three surfaces as
+   criterion 1 — nightly legacy projection, shared RNG streams, action
+   replay, ending — 150/150; not a matching distribution, the same runs.
+   (The sit-down scene and its declined offers may add transcript lines
+   only.)
 
 ### 2.8 Canon and invariant compliance
 
@@ -937,8 +971,8 @@ the Case band and calendar shown beside each. One choice, confirmed twice.
   truck it to the warehouse at dusk — the truck at the rolling door is
   itself a 20% incident while the buyer's man watches the neighborhood,
   rent keeps drawing dirty cash, and the card says what off-site holdings
-  make you: *a seller who kept the trade.* You send the truck anyway.
-  Otherwise a clean day: the mark drifts to $6,020.
+  make you: *a seller who kept the trade.* You send the truck anyway; the
+  20% doesn't fire. Otherwise a clean day: the mark holds at $5,890.
 - **D16 — diligence day 3.** Word reaches Vinnie: a note under the door —
   $1,200 or "the buyer learns what he's buying." Refusing risks the raid
   telegraph going live before closing, which arms the −20% clause — about
@@ -948,11 +982,12 @@ the Case band and calendar shown beside each. One choice, confirmed twice.
 - **D17 — diligence day 4.** Staff day. Severance line-items on the
   closing sheet: $300 a name, or nothing and the epilogue remembers. The
   critic tours — one last gourmet service lifts rep 24 → 27; the mark
-  reprices +$420 to $6,440. A squad car slows, doesn't stop. The walk-in
+  reprices +$420 to $6,310. A squad car slows, doesn't stop. The walk-in
   holds flour and receipts.
-- **D18 — closing morning.** Final mark $6,440. Sign: settlement + clean
-  $1,900 + the warehouse's $800 and twelve units of oregano out the back
-  gate ≈ $9,500 in walking money — and the ending card says what it cost:
+- **D18 — closing morning.** Final mark $6,310. Sign: settlement + clean
+  $1,900 + the warehouse's $800 + twelve units of oregano out the back
+  gate at book value ($540, as the epilogue prices all retained stock) ≈
+  $9,550 in walking money — and the ending card says what it cost:
   contraband and unlaundered cash left with you, so this is **"Sold the
   shop, kept the trade"** — capped at the modest tier, the file still open
   on your name. The clean close was worth less money and a better life;
@@ -985,7 +1020,7 @@ walkthroughs share exactly one screen: the sit-down.
 | R6 | Multi-shop refactor blast radius: demand/cover/laundering pipeline is `HOME_DISTRICT`-hardcoded and invariant-tested | tech | H | H | Ship Partner branch **last** (§7); refactor to a shop *collection* with shop-local state, schema landing in save v3 during P0 as a list of one (§5) so Act III adds elements, not migrations; War-branch capture deliberately does *not* reuse multi-shop (§6.4) |
 | R7 | Save v3 churn and determinism across branches | tech | M | M | Field-completeness guard already forces coverage; new persistent streams (`sitdown`, `brokers`, `war`) keep world channels untouched; no player-facing saves exist yet (`save.py` docstring), so no migration burden |
 | R8 | Issue #4 (noise-timeout awards objectives) poisons the War branch economy | tech | H | H | Hard prerequisite: fix + regression through the actual raid path before War work starts (§7 P0) |
-| R9 | Ending combinatorics: 6 new IDs × branch flavors bloat `epilogue` | tech | L | M | One dispatcher arm per branch; graded text inside one ending ID where possible (Sold tiers) |
+| R9 | Ending combinatorics: 8 new IDs × branch flavors bloat `epilogue` | tech | L | M | One dispatcher arm per branch; graded text inside one ending ID where possible (Sold tiers, the Won-the-War arrest arm) |
 | R10 | Bot fleet cost: 4 branch bots + ablations + control ≈ 10 conditions × 150 seeds per study round | tech | M | M | Branch bots are thin policies over the existing smart bot; post-fork days only; `fork` study runs branches independently |
 | R11 | Late-payoff players never see Act II and call it missing content | product | M | L | The scene says why the chairs are empty; FINDINGS shows median payoff is day 12–15, so the median player forks |
 | R12 | Escrow's 5-day runs skew aggregate stats (net worth, arrests) if pooled naively | tech | M | L | Report per-branch tables; never pool across branches in FINDINGS |
@@ -1170,3 +1205,29 @@ Doctrine notes adopted: the hard, mutually exclusive Sit-Down is recorded
 as an *interpretation* of canon rather than canon arriving (§2.8); the
 Quiet Sale ships behind a feature flag until the Straight Path passes its
 gate (§7).
+
+**Merge-preparation pass** (same review cycle, pre-merge), responding to
+the re-review of revision 2:
+
+1. Raw `state_to_dict` hashes cannot match across a save-version bump, so
+   the paired-run equality criteria were reformulated as three surfaces:
+   normalized legacy projection, shared-RNG-stream equality (with the new
+   streams provably undrawn), and action-replay + ending identity (§2.7
+   criteria 1 and 6).
+2. Telegraph verification split by gate type: calendar gates need two
+   days' notice; Case gates — which can slam shut in one night — need
+   either a prior Case-60 warning or a same-night pre-action warning on
+   the act that crossed the threshold (§2.1, §2.7).
+3. The Partner second shop is declared and tested as always-open (the
+   only ways to lose it end the run), so "shops open" left the day-30
+   matrix, which is now the points ledger alone — no third state can
+   exist (§2.4.2, §2.5).
+4. The Quiet Sale's unexplained $130 drift was removed — the mark moves
+   only when its inputs move — and retained stock in walking money is
+   priced at base book value, as `net_worth()` already prices stock; the
+   walkthrough recomputed ($5,890 held → $6,310 after the critic →
+   ≈ $9,550 walking) (§2.4.4, §3.4).
+
+Cleanups from the same pass: R9's ending count corrected to eight; the
+institutional-suspicion record now tops itself up on every sub-floor
+remediation, keeping the displayed-Case ≡ visible-ledger identity exact.
