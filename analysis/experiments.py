@@ -251,18 +251,18 @@ def main() -> None:
     ap.add_argument("--trials", type=int, default=300)
     args = ap.parse_args()
     n = args.seeds
-    if args.experiment in ("sweep", "all"):
-        print("== sweep =="); sweep(n or 150)
-    if args.experiment in ("grid", "all"):
-        print("== grid =="); grid(n or 40)
-    if args.experiment in ("policy", "all"):
-        print("== policy =="); policy(n or 60)
-    if args.experiment in ("trajectory", "all"):
-        print("== trajectory =="); trajectory(n or 40)
-    if args.experiment in ("raids", "all"):
-        print("== raids =="); raid_roi(args.trials)
-    if args.experiment in ("events", "all"):
-        print("== events =="); events(n or 150)
+    studies = [
+        ("sweep", lambda: sweep(n or 150)),
+        ("grid", lambda: grid(n or 40)),
+        ("policy", lambda: policy(n or 60)),
+        ("trajectory", lambda: trajectory(n or 40)),
+        ("raids", lambda: raid_roi(args.trials)),
+        ("events", lambda: events(n or 150)),
+    ]
+    for name, study in studies:
+        if args.experiment in (name, "all"):
+            print(f"== {name} ==")
+            study()
 
 
 if __name__ == "__main__":

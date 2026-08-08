@@ -33,7 +33,7 @@ def plan_raid(state: State, con: Console, rng: random.Random,
         premium = min(8.0, 1.5 * state.raids_led)
         con.say(f"  The Ledger has counted {state.raids_led} unsolved "
                 f"burglar{'y' if state.raids_led == 1 else 'ies'} this month. "
-                f"Another success adds ~{premium:.0f} Case to the pattern.")
+                f"Another success adds {premium:g} Case to the pattern.")
     t_labels = [f"{data.RIVALS[k]['label']} "
                 f"(strength {state.rivals[k].strength:.0f}, "
                 f"security {_security_word(state.rivals[k].alertness)})"
@@ -128,8 +128,13 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
             con.say("  Everyone's down or dragging someone who is. The job collapses.")
             aborted = True
             break
-        if noise >= 1.0:
+        # Too loud with rooms still ahead = a failed extraction: the crew
+        # never reaches the prize. Crossing the threshold in the FINAL room
+        # is different — the job is done, just not quietly (clean_exit
+        # False prices that below).
+        if noise >= 1.0 and i < len(layout["rooms"]) - 1:
             con.say("  Lights snap on across the street. Time's up.")
+            aborted = True
             break
 
     if aborted or not team:
@@ -148,7 +153,7 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
         state.add_case(premium, "a pattern of night jobs in the same handwriting")
         con.say(f"  Somewhere downtown, tonight's job is pinned beside the "
                 f"others. The pattern is starting to look like handwriting. "
-                f"(Case +{premium:.0f})")
+                f"(Case +{premium:g})")
     state.raids_led += 1
     rival.alertness = min(10.0, rival.alertness + 2.0)
     rival.last_raided_day = state.day
