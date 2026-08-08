@@ -45,7 +45,10 @@ python3 -m unittest discover -s tests            # test suite
 ```
 
 Deep-simulation results and their history live in `docs/FINDINGS.md`;
-every table there is reproducible with `analysis/experiments.py`.
+every table there is reproducible with `analysis/experiments.py`. The
+founding design documents — the original pitch and the north-star brief
+with its ten nonnegotiable invariants — are preserved verbatim as canon
+in [`docs/canon/`](docs/canon/).
 
 ## The setup
 
