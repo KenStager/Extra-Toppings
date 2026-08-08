@@ -376,12 +376,66 @@ gate per review:
   demand / delivery pool / legitimate revenue moved into `Shop` — the
   second shop and the fork arrive as data, not as another migration.
 
+## Round 7 — the fork learns to speak: §2.1 telegraphs, transcript only
+
+The pre-payoff telegraph channels of the fork design
+(`docs/ACT1_FORK_DESIGN.md` §2.1) are in — the last item of the §7 P0
+scope. The player now learns the rules of the sit-down table while the
+debt still exists, through four channels plus one pre-action warning,
+and the engine provably did not move underneath them:
+
+- **Payment remarks** (`_pay_debt`): every non-trivial partial payment
+  (≥ $500) draws a line from Carmine keyed to trajectory — big
+  (≥ START_DEBT/4) × early (day ≤ 15) quadrants, deterministic in day
+  and amount because the channel is not allowed an RNG draw. Big-and-
+  early carries the design's canonical line ("A man who pays early is a
+  man worth backing. We should talk when this is done.").
+- **Calendar warnings**: with the debt alive, day 20 carries the
+  buyer-losing-interest warning (attributed to Lena when a connected
+  employee is on staff, to "a regular" otherwise — the `rumor_sheet`
+  convention) and day 24 turns explicit: settle by tomorrow night or
+  the table will be empty. Unconditional on their days; world facts.
+- **Case-60 warning**: prints the morning after the Case first reaches
+  60 with the debt alive. Once-only with **no stored flag** — evidence
+  records carry their day, so "first prefix-sum ≥ 60 landed on day D"
+  is derived on the fly (same left-to-right fold as `State.case`, so
+  "crossed" agrees bit-for-bit with the meter) and the line prints only
+  when `day == D + 1`. Nothing persists, so saves and traces are
+  untouched.
+- **Carmine's ledger clause**: the morning debt line gains "…and he has
+  opinions about what comes after" once the debt is below half of
+  START_DEBT.
+- **Same-night threshold warning** (`_launder`): when payoff is in
+  reach (on-hand cash ≥ debt) and an over-ceiling wash *could* push the
+  Case past a gate (60/70/85 — max evidence `min(20, over/400)` from
+  washing everything), a warning prints BEFORE the amount prompt. This
+  is §2.7's second arm of the Case-gate disjunction: a gate may slam
+  the same night it is crossed only if the act that crossed it warned
+  first.
+
+Constraint and proof: golden decision traces digest every
+menu/ask_int/confirm prompt string verbatim, so all telegraph lines are
+`say`/`bullet` output only — no new prompts, no edits to existing
+prompt strings (the same-night warning is a printed line *before* the
+launder prompt, not a change to it), no state mutation, no RNG draw.
+`analysis.equivalence check` reproduces **300/300 on Python 3.11, 3.12
+and 3.13** with the lines in place. 19 transcript tests
+(`tests/test_telegraphs.py`) drive the actual `morning()`/`night()`
+phase code with scripted consoles and pin every channel's trigger, its
+negative space (wrong day, settled debt, cold case, wash that fits the
+books), and the before-the-prompt ordering of the same-night warning.
+Full suite 114 tests green on 3.11 and 3.12; ruff (0.15.x pin) and mypy
+clean. No sweep rerun: by the equivalence gate the studies' inputs are
+bit-identical, so round 6's headline numbers stand unchanged.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered
   Act I fork is now fully designed and merged as the decision record
   (`docs/ACT1_FORK_DESIGN.md`, PR #6); implementation follows the phased
-  plan there — this round's fix is P0's first item.
+  plan there. P0 is now complete — foundation (round 6) plus the §2.1
+  telegraph lines (round 7); P1 (the sit-down behind a feature flag) is
+  next, on the reviewer's go.
 - Heat still under-binds relative to the Case; needs local teeth without
   becoming a second global meter.
 - Event responsiveness beyond payday/heat-wave is now *provable* with the
