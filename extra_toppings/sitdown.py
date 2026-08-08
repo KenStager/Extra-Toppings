@@ -24,7 +24,7 @@ with a schema version bump there.
 from dataclasses import dataclass
 
 from .config import GameConfig
-from .models import (BRANCH_ORDER, SitdownSnapshot, State,
+from .models import (BRANCH_ORDER, SitdownSnapshot, State, fold_case,
                      validate_branch_state)
 from .ui import Console
 
@@ -55,26 +55,37 @@ CALENDAR_REASONS = {
 }
 
 
+# The live file at which open chairs become visibly dangerous — present
+# danger keys to the LIVE Case; eligibility keys to the frozen one.
+DANGER_CASE = 85.0
+
+
 @dataclass(frozen=True)
 class ChairVerdict:
     chair: str
     available: bool
-    # Structured blocker (rev. 6): None when seated; "calendar" beats
-    # "case" when both gates fail — pinned precedence, one prose reason.
+    # Structured gate facts (rev. 6, completed at the rendering
+    # boundary): None when seated; "calendar" beats "case" when both
+    # gates fail — pinned precedence, one prose reason. A failed gate
+    # carries its requirement AND what the player actually had, so the
+    # scene can state the math in player language.
     blocker: str | None = None
-    threshold: float | None = None   # the Case gate, when blocker == "case"
-    reason: str = ""                 # withholding line when empty; "" seated
-    closed_by: str = ""              # the record that shut a Case gate
+    requirement: float | None = None  # min R (calendar) / the Case gate (case)
+    actual: float | None = None       # R remaining / the Case at lock-up
+    case_gate: float | None = None    # the chair's Case gate, seated or not
+    reason: str = ""                  # withholding line when empty; "" seated
+    closed_by: str = ""               # the record that shut a Case gate
 
 
 @dataclass(frozen=True)
 class SitdownView:
-    """The one canonical view the scene renders from (rev. 6): the
-    frozen ledger the offers were cut from, and the live morning file —
-    never conflated, both always present."""
+    """The one canonical view the scene renders from (rev. 6): frozen
+    eligibility, live risk, and whether live conditions would alter the
+    offers — the renderer consumes this and nothing else."""
     frozen_case: float
     frozen_verdicts: tuple
     live_case: float
+    offers_would_change: bool     # live conditions would re-verdict chairs
 
     @property
     def frozen_band(self) -> str:
@@ -83,6 +94,11 @@ class SitdownView:
     @property
     def live_band(self) -> str:
         return case_band(self.live_case)
+
+    @property
+    def live_danger(self) -> bool:
+        """Present danger belongs to the live file, not the frozen one."""
+        return self.live_case >= DANGER_CASE
 
 
 def days_remaining(snapshot: SitdownSnapshot) -> int:
@@ -124,37 +140,43 @@ def evaluate_chairs(snapshot: SitdownSnapshot,
     count = snapshot.evidence_count_at_lockup
     verdicts = []
     for chair in BRANCH_ORDER:
+        gate = CASE_GATE.get(chair)
         if r < MIN_R[chair]:
             verdicts.append(ChairVerdict(
                 chair, False, blocker="calendar",
-                reason=CALENDAR_REASONS[chair]))
+                requirement=float(MIN_R[chair]), actual=float(r),
+                case_gate=gate, reason=CALENDAR_REASONS[chair]))
             continue
-        gate = CASE_GATE.get(chair)
         if gate is not None and case >= gate:
             reason = ("nobody invests in a burning building — he sends "
                       "a nephew instead of coming"
                       if chair == "partner"
                       else "any buyer's diligence would subpoena itself")
             verdicts.append(ChairVerdict(
-                chair, False, blocker="case", threshold=gate, reason=reason,
+                chair, False, blocker="case", requirement=gate, actual=case,
+                case_gate=gate, reason=reason,
                 closed_by=gate_crossing_record(evidence, count, gate)))
             continue
-        verdicts.append(ChairVerdict(chair, True))
+        verdicts.append(ChairVerdict(chair, True, case_gate=gate))
     verdicts.append(ChairVerdict("stand_pat", True))
     return verdicts
 
 
 def build_view(snapshot: SitdownSnapshot, evidence: list) -> SitdownView:
     """Frozen verdicts from the snapshot; the live Case from the full
-    ledger, folded exactly like State.case."""
-    total = 0.0
-    for record in evidence:
-        total += record.magnitude
-    live = max(0.0, min(100.0, total))
+    ledger through fold_case — the same arithmetic as State.case, by
+    construction rather than by copy (rev. 6 completion)."""
+    live = fold_case(evidence)
+    frozen = tuple(evaluate_chairs(snapshot, evidence))
+    live_verdicts = evaluate_chairs(SitdownSnapshot(
+        payoff_day=snapshot.payoff_day, case_at_lockup=live,
+        evidence_count_at_lockup=len(evidence)), evidence)
     return SitdownView(
         frozen_case=snapshot.case_at_lockup,
-        frozen_verdicts=tuple(evaluate_chairs(snapshot, evidence)),
-        live_case=live)
+        frozen_verdicts=frozen,
+        live_case=live,
+        offers_would_change=[v.available for v in frozen]
+        != [v.available for v in live_verdicts])
 
 
 def due(state: State) -> bool:
@@ -194,6 +216,8 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
         con.say("  Unfamiliar cars idle across the street the whole meal. "
                 "Carmine glances at them once and decides they can wait.")
 
+    # From here down the renderer consumes the view and nothing else —
+    # no re-evaluation, no reaching into gate tables (rev. 6 completion).
     view = build_view(snap, state.evidence)
     con.say(f"  The debt died on day {snap.payoff_day}. {r} days remain, "
             f"and the offers were cut from {view.frozen_band} "
@@ -201,16 +225,8 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
     # Invariant 8 + rev. 6: every difference between the lock-up ledger
     # and the live morning file is rendered, threshold or no threshold.
     if view.live_case != view.frozen_case:
-        offers_moved = (
-            [v.available for v in view.frozen_verdicts]
-            != [v.available for v in
-                evaluate_chairs(SitdownSnapshot(
-                    payoff_day=snap.payoff_day,
-                    case_at_lockup=view.live_case,
-                    evidence_count_at_lockup=len(state.evidence)),
-                    state.evidence)])
         coda = ("Last night didn't help — but the offers stand."
-                if offers_moved else
+                if view.offers_would_change else
                 "The chairs were set at closing time.")
         con.say(f"  (The file has warmed since the books closed — it reads "
                 f"{view.live_band} this morning, {view.live_case:.0f}, "
@@ -222,20 +238,30 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
     for chair in BRANCH_ORDER:
         v = by_chair[chair]
         if v.available:
-            gate = CASE_GATE.get(chair)
-            gate_note = (f" (open while the file reads under {gate:.0f})"
-                         if gate is not None else "")
+            gate_note = (f" (open while the file reads under "
+                         f"{v.case_gate:.0f})"
+                         if v.case_gate is not None else "")
             marker = ("" if chair in config.enabled_branches
                       else "  [not in this build]")
             con.bullet(f"{CHAIR_LABELS[chair]}{gate_note}{marker}")
         else:
+            # A failed gate is stated in-scene, in player language, with
+            # the math: what it required and what the player had.
             con.bullet(f"{CHAIR_LABELS[chair].split(' — ')[0]} — an empty "
                        f"chair: {v.reason}.")
-            if v.closed_by:
-                con.say(f"      What closed it: {v.closed_by}.")
-    if view.frozen_case >= 85.0:
+            if v.blocker == "calendar":
+                con.say(f"      The math: it needed {v.requirement:.0f} "
+                        f"days on the calendar; {v.actual:.0f} remain.")
+            else:
+                con.say(f"      The math: it required a file below "
+                        f"{v.requirement:.0f}; yours read {v.actual:.0f} "
+                        f"when the books closed.")
+                if v.closed_by:
+                    con.say(f"      What closed it: {v.closed_by}.")
+    if view.live_danger:
         # §2.1: open chairs at a near-closed file are visibly dangerous —
-        # the scene says so rather than letting "open" read as "wise".
+        # keyed to the LIVE file (eligibility stays frozen; danger is a
+        # fact about this morning, not about closing time).
         if by_chair["straight"].available:
             con.say("      With the file this hot, the Straight Path is "
                     "the natural play — and maybe a dignified way to lose.")

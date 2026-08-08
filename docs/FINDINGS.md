@@ -631,6 +631,39 @@ After the correction: 179 tests green on 3.11 and 3.12 (15 new);
 ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
 with sit-downs expected 82 / held 82 on Python 3.11, 3.12 and 3.13.
 
+### Round 8 correction 2 (the rendering boundary)
+
+Re-review accepted the existence oracle, the exact schema, fail-closed
+scripts, config immutability, canonical branch ids and calendar-first
+precedence — and found the canonical-view fix incomplete at its
+rendering boundary: `run_scene` still derived policy outside the view.
+Three concrete symptoms, all confirmed: danger warnings keyed to the
+frozen Case (frozen 65 → live 90 said "offers stand" but showed neither
+the Straight nor the War warning); failed gates never stated their math
+in-scene (a Case-72 Partner rejection never said "below 70", a day-21
+rejection never said "needs ten; nine remain"); and `build_view`
+reimplemented the Case fold that `State.case` owns — two copies of the
+exact arithmetic the round-6 Python 3.12 failure came from.
+
+Cut as one seam (design §8, rev. 6 completion): a single
+`fold_case(evidence)` primitive in models.py is now the only Case
+arithmetic, called by `State.case` and the view's live ledger alike —
+bit-identity by construction, regression-tested on the 3.12-divergent
+sequence (61.50000000000001 sequential vs 61.5 compensated) plus a
+function-identity assertion. `SitdownView` is complete — frozen
+eligibility, live risk, offers_would_change, and structured gate facts
+(kind, requirement, actual, the chair's gate, reason, closing record) —
+and the renderer consumes it exclusively: no re-evaluation, no gate
+tables. Eligibility keys to the frozen Case only; present danger to the
+live Case only. Failed gates render their math in player language.
+All four review cases pinned, and proven failing on the pre-fix engine
+(2 failures + 2 errors at 790ca40). The scene's prompts and options are
+untouched, so scene schema v1 and the goldens both stand.
+
+After correction 2: 183 tests green on 3.11 and 3.12; ruff/mypy clean;
+flag-off golden 300/300 and paired stand-pat 300/300 with sit-downs
+expected 82 / held 82 (schema v1) on Python 3.11, 3.12 and 3.13.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

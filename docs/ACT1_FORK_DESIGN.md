@@ -1525,3 +1525,34 @@ identity coverage (explicitly not the P1b reachability study);
 calendar-first precedence when both gates fail, now encoded as the
 structured primary blocker with a single prose reason; progress-last
 stays a bot policy only.
+
+**Revision 6 completion (the rendering boundary).** Re-review accepted
+three of the four corrections outright and found the canonical-view fix
+incomplete at its boundary: the renderer still derived policy outside
+the view — danger warnings keyed to the FROZEN Case (a 65 → 90 morning
+showed no Straight/War warnings), failed gates never stated their math
+in-scene, and `build_view` carried a second copy of the Case fold (the
+exact arithmetic the Python 3.12 summation failure came from). The seam
+is now cut in one place:
+
+1. One shared `fold_case(evidence)` primitive (models.py) is the only
+   Case arithmetic — `State.case` and the view's live ledger both call
+   it; the 3.12-divergent sequence regression asserts bit-identity
+   through both paths and function identity itself.
+2. `SitdownView` is complete: frozen eligibility, live risk
+   (`live_danger`, keyed to the live Case), whether live conditions
+   would alter the offers, and structured gate facts per chair — kind
+   (calendar/case), requirement, actual, the chair's Case gate, reason,
+   closing record.
+3. The renderer consumes the view and nothing else — no re-evaluation,
+   no reaching into gate tables.
+4. Eligibility derives exclusively from the frozen Case; present danger
+   exclusively from the live one.
+5. Failed gates are stated in player language with their math: "needed
+   10 days on the calendar; 9 remain" / "required a file below 70;
+   yours read 72 when the books closed", plus the closing record.
+
+Pinned: frozen 65 → live 90 (offers stand, both live-danger warnings
+present); the Case-72 Partner rejection naming 70, 72 and the record;
+the day-21 calendar rejection naming ten-needed/nine-remaining; the
+shared fold on the 3.12-sensitive sequence.

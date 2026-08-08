@@ -16,7 +16,7 @@ from dataclasses import FrozenInstanceError
 from unittest import mock
 
 from analysis import equivalence
-from extra_toppings import data, game, phases, save, sitdown
+from extra_toppings import data, game, models, phases, save, sitdown
 from extra_toppings.bot import GreedyBot
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (BranchState, Evidence, SitdownSnapshot,
@@ -421,23 +421,75 @@ class TestSitdownView(unittest.TestCase):
         self.assertTrue(verdicts["war"].available)
 
     def test_blockers_are_structured_with_calendar_precedence(self):
-        # Both gates fail: calendar wins, one reason, no closing record.
+        # Both gates fail: calendar wins, one reason, no closing record —
+        # and the gate facts carry requirement AND actual (rev. 6).
         both = {v.chair: v for v in sitdown.evaluate_chairs(
             SitdownSnapshot(21, 72.0, 1),
             [Evidence(day=9, magnitude=72.0, kind="physical", why="a fire")])}
         self.assertEqual(both["partner"].blocker, "calendar")
-        self.assertIsNone(both["partner"].threshold)
+        self.assertEqual(both["partner"].requirement, 10.0)
+        self.assertEqual(both["partner"].actual, 9.0)
         self.assertEqual(both["partner"].closed_by, "")
-        # Case alone: structured threshold plus the closing record.
+        # Case alone: requirement, actual, and the closing record.
         case_only = {v.chair: v for v in sitdown.evaluate_chairs(
             SitdownSnapshot(13, 72.0, 1),
             [Evidence(day=9, magnitude=72.0, kind="physical", why="a fire")])}
         self.assertEqual(case_only["partner"].blocker, "case")
-        self.assertEqual(case_only["partner"].threshold, 70.0)
+        self.assertEqual(case_only["partner"].requirement, 70.0)
+        self.assertEqual(case_only["partner"].actual, 72.0)
         self.assertEqual(case_only["partner"].closed_by, "a fire")
         seated = {v.chair: v for v in sitdown.evaluate_chairs(
             SitdownSnapshot(13, 10.0, 0), [])}
         self.assertIsNone(seated["straight"].blocker)
+        self.assertEqual(seated["partner"].case_gate, 70.0)   # for the note
+
+    def test_frozen_65_live_90_offers_stand_but_danger_is_live(self):
+        # Eligibility belongs to the frozen file; present danger to the
+        # live one. The frozen offers stand AND both open chairs carry
+        # this morning's warnings.
+        state = scene_state(case=65.0, evidence=[(12, 65.0, "seizures")])
+        state.evidence.append(Evidence(day=12, magnitude=25.0,
+                                       kind="witness", why="an informant"))
+        view = sitdown.build_view(state.sitdown_snapshot, state.evidence)
+        self.assertEqual(view.live_case, 90.0)
+        self.assertTrue(view.live_danger)
+        self.assertTrue(view.offers_would_change)
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        self.assertIsNotNone(con.find("offers stand"))
+        self.assertIsNotNone(con.find("dignified way to lose"))
+        self.assertIsNotNone(con.find("near-suicidal"))
+
+    def test_a_case_rejection_states_the_math_and_the_record(self):
+        state = scene_state(case=72.0, evidence=[(9, 72.0, "a fire")])
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        i = con.find("required a file below 70")
+        self.assertIsNotNone(i)
+        self.assertIn("72", con.lines[i])
+        self.assertIsNotNone(con.find("What closed it: a fire"))
+
+    def test_a_calendar_rejection_states_the_days(self):
+        state = scene_state(payoff_day=21)     # Partner: needs 10, has 9
+        con = CaptureConsole([4, 1])
+        sitdown.run_scene(state, con, FORK_ON)
+        i = con.find("needed 10 days on the calendar")
+        self.assertIsNotNone(i)
+        self.assertIn("9 remain", con.lines[i])
+
+    def test_the_live_ledger_shares_the_case_fold(self):
+        # The 3.12-sensitive sequence: folds to 61.50000000000001
+        # sequentially, sums to 61.5 compensated. The view's live Case
+        # must agree with State.case bit for bit because they are the
+        # SAME fold_case call, not a copy of its arithmetic.
+        state = scene_state(case=10.0)
+        for amount in [10.0, 5.0, 14.6, 0.5, 8.3, 9.2, 0.5, 8.9, 3.0, 1.5]:
+            state.evidence.append(Evidence(day=12, magnitude=amount,
+                                           kind="paper", why="x"))
+        self.assertEqual(state.case, 61.50000000000001)
+        view = sitdown.build_view(state.sitdown_snapshot, state.evidence)
+        self.assertEqual(view.live_case, state.case)
+        self.assertIs(sitdown.fold_case, models.fold_case)
 
 
 # ══ Scripted scene input fails closed ═════════════════════════════

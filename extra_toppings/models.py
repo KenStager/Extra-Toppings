@@ -72,6 +72,20 @@ class ActiveEvent:
     days_left: int
 
 
+def fold_case(evidence: list) -> float:
+    """THE Case arithmetic — the only fold in the codebase (rev. 6
+    completion). An explicit left-to-right addition, clamped to 0..100:
+    NOT sum(), which Python 3.12 moved to compensated summation,
+    breaking bit-identity with the sequential running total (found as
+    15/300 golden failures in review). State.case and the sit-down's
+    live ledger both call this; a second copy of this arithmetic is a
+    recurrence waiting to happen."""
+    total = 0.0
+    for record in evidence:
+        total += record.magnitude
+    return max(0.0, min(100.0, total))
+
+
 @dataclass
 class Evidence:
     """One record in the Case file. The Case is the clamped SUM of these —
@@ -299,13 +313,7 @@ class State:
     # ── the Case, derived from its records ───────────────────────
     @property
     def case(self) -> float:
-        # An explicit left-to-right fold, NOT sum(): Python 3.12 moved
-        # sum() to compensated summation, which breaks bit-exact identity
-        # with the sequential running total this property replaced.
-        total = 0.0
-        for record in self.evidence:
-            total += record.magnitude
-        return max(0.0, min(100.0, total))
+        return fold_case(self.evidence)
 
     @property
     def case_flags(self) -> list:
