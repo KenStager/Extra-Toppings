@@ -72,7 +72,7 @@ def _poach(state: State, rival, spec: dict, con: Console, rng: random.Random) ->
         con.bullet(f"{e.name} took {spec['short']}'s offer and didn't finish the shift.")
         if e.aware:
             state.add_case(8, f"{e.name} left for a rival knowing everything",
-                           kind="witness", source=e.name)
+                           kind="witness", source=e.key)
             con.bullet(f"...and {e.name} knew things. That's a problem now.")
     else:
         e.morale -= 1

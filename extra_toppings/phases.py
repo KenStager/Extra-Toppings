@@ -197,7 +197,7 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
                        f"They're gone.")
             if e.aware:
                 state.add_case(6, f"{e.name} walked out knowing everything",
-                               kind="witness", source=e.name)
+                               kind="witness", source=e.key)
             continue
         else:
             e.resignation_pending = True
@@ -212,7 +212,7 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
                            f"(-{money(skim)} dirty)")
             elif e.aware and rng.random() < 0.3:
                 state.add_case(10, f"{e.name} had a long talk with a detective",
-                               kind="witness", source=e.name)
+                               kind="witness", source=e.key)
                 con.bullet(f"{e.name} was seen outside the precinct. Probably nothing.")
                 e.morale = 4
 
@@ -284,7 +284,7 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                 e.hired = False
                 if e.aware:
                     state.add_case(6, f"{e.name} was fired knowing everything",
-                                   kind="witness", source=e.name)
+                                   kind="witness", source=e.key)
                     con.say(f"  {e.name} leaves quietly. Too quietly. They know things.")
                 else:
                     con.say(f"  {e.name} is gone.")

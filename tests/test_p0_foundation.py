@@ -10,7 +10,7 @@ import unittest
 from dataclasses import asdict
 
 from extra_toppings import data, market, save
-from extra_toppings.models import new_state
+from extra_toppings.models import BranchState, new_state
 from extra_toppings.rng import Streams
 
 
@@ -32,22 +32,33 @@ class TestDerivedCase(unittest.TestCase):
             old_style = max(0.0, min(100.0, old_style + amount))
             self.assertEqual(state.case, old_style)
 
+    def test_fold_matches_the_sequential_total_where_sum_would_not(self):
+        """Python 3.12 moved sum() to compensated (Neumaier) summation.
+        This game-plausible sequence folds to 61.50000000000001
+        sequentially but sums to 61.5 compensated — the Case must keep
+        the explicit left-to-right fold, or golden identity breaks on
+        3.12+ (found as 15/300 equivalence failures in review)."""
+        state, _ = fresh()
+        for amount in [10.0, 5.0, 14.6, 0.5, 8.3, 9.2, 0.5, 8.9, 3.0, 1.5]:
+            state.add_case(amount, "x")
+        self.assertEqual(state.case, 61.50000000000001)
+
     def test_flags_render_exactly_like_v2(self):
         state, _ = fresh()
         state.day = 7
         state.add_case(6, "Rosa walked out knowing everything",
-                       kind="witness", source="Rosa Delgado")
+                       kind="witness", source="e0")
         state.add_case(0.5, "", kind="paper")     # routine ticks never render
         self.assertEqual(state.case_flags,
                          ["day 7: Rosa walked out knowing everything"])
 
     def test_display_clamps_at_100_but_records_keep_accruing(self):
         state, _ = fresh()
-        state.game_over = "arrested"              # pre-latched; keep adding
         state.add_case(90, "a very bad month")
         state.add_case(60, "a worse one")
         self.assertEqual(state.case, 100.0)
         self.assertEqual(len(state.evidence), 2)
+        self.assertEqual(state.game_over, "arrested")
 
 
 class TestArrestLatch(unittest.TestCase):
@@ -58,11 +69,15 @@ class TestArrestLatch(unittest.TestCase):
         state.add_case(0.5, "", kind="paper")     # the tick that closes it
         self.assertEqual(state.game_over, "arrested")
 
-    def test_latch_never_overwrites_a_decided_ending(self):
+    def test_case_100_outranks_a_simultaneous_success(self):
+        """Design §2.5, precedence 1: arrest beats every outcome decided
+        in the same resolution — a success ending set moments earlier
+        loses to the latch. (Nothing accrues evidence after a run ends,
+        so a finished game is never rewritten.)"""
         state, _ = fresh()
-        state.game_over = "kneecaps"
-        state.add_case(100, "everything at once")
-        self.assertEqual(state.game_over, "kneecaps")
+        state.game_over = "survived"
+        state.add_case(100, "the file closes at the victory party")
+        self.assertEqual(state.game_over, "arrested")
 
 
 class TestShopsCollection(unittest.TestCase):
@@ -79,6 +94,15 @@ class TestShopsCollection(unittest.TestCase):
         self.assertEqual(len(state.shops), 1)
         self.assertEqual(state.shop.district, data.HOME_DISTRICT)
         self.assertEqual(state.shop_stash, dict(data.START_STASH))
+
+    def test_revenue_state_is_shop_local(self):
+        state, _ = fresh()
+        state.demand_today = 44
+        state.delivery_pool = 15
+        state.legit_revenue_today = 380
+        s0 = state.shops[0]
+        self.assertEqual((s0.demand_today, s0.delivery_pool,
+                          s0.legit_revenue_today), (44, 15, 380))
 
 
 def v2_payload() -> dict:
@@ -122,8 +146,12 @@ class TestV2Migration(unittest.TestCase):
         self.assertEqual(loaded.shop.upgrades, {"books"})
         self.assertEqual(loaded.shop.district, data.HOME_DISTRICT)
         self.assertEqual(loaded.shop_stash, {"oregano": 5, "mushrooms": 2})
+        self.assertEqual(loaded.demand_today, 58)     # moved into the shop
+        self.assertEqual(loaded.delivery_pool, 20)
+        self.assertEqual(loaded.legit_revenue_today, 0)
         self.assertEqual(loaded.act, 1)
         self.assertIsNone(loaded.branch)
+        self.assertIsNone(loaded.branch_state)
 
     def test_migrated_state_resaves_as_v3_and_round_trips(self):
         loaded = save.state_from_dict(v2_payload())
@@ -138,6 +166,22 @@ class TestV2Migration(unittest.TestCase):
         bad["version"] = 1
         with self.assertRaises(ValueError):
             save.state_from_dict(bad)
+
+
+class TestBranchStatePersistence(unittest.TestCase):
+    def test_none_and_populated_both_round_trip(self):
+        state, _ = fresh()
+        d = save.state_to_dict(state)
+        self.assertIn("branch_state", d)
+        self.assertIsNone(d["branch_state"])
+        state.act = 2
+        state.branch = "partner"
+        state.branch_state = BranchState(points_due_day=19, points_missed=1)
+        restored = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(restored.act, 2)
+        self.assertEqual(restored.branch, "partner")
+        self.assertEqual(restored.branch_state,
+                         BranchState(points_due_day=19, points_missed=1))
 
 
 class TestStreamMigration(unittest.TestCase):

@@ -278,9 +278,16 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
             driver.arrested = True
             state.add_heat(dk, 18)
             evidence = 10 if driver.aware else 4
+            # Physical, not witness: the record is dominated by the
+            # seizure and the arrest report, which no settlement may ever
+            # soften. (Splitting an aware driver's what-they-know premium
+            # into its own witness record would change float-addition
+            # order and break bit-exact Case identity; if that premium
+            # should be remediable, it becomes a separate record in a
+            # deliberate balance pass, not here.)
             state.add_case(evidence + seized * 0.3,
                            f"{driver.name} arrested on a route",
-                           kind="witness", source=driver.name)
+                           kind="physical", source=driver.key)
             report["busted"] = True
             report["lines"].append(
                 f"{driver.name} didn't come back. Precinct says possession, "

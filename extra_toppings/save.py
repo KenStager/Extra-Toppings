@@ -15,7 +15,8 @@ import json
 from dataclasses import asdict
 
 from . import data
-from .models import ActiveEvent, District, Employee, Evidence, Rival, Shop, State
+from .models import (ActiveEvent, BranchState, District, Employee, Evidence,
+                     Rival, Shop, State)
 from .rng import Streams
 
 SAVE_VERSION = 3
@@ -48,11 +49,10 @@ def state_to_dict(state: State) -> dict:
         "raids_led": state.raids_led,
         "kills": state.kills,
         "demand_shock": state.demand_shock,
-        "demand_today": state.demand_today,
-        "delivery_pool": state.delivery_pool,
-        "legit_revenue_today": state.legit_revenue_today,
         "act": state.act,
         "branch": state.branch,
+        "branch_state": asdict(state.branch_state)
+        if state.branch_state is not None else None,
     }
 
 
@@ -69,6 +69,11 @@ def _migrate_v2(d: dict) -> dict:
     shop = dict(out.pop("shop"))
     shop["district"] = data.HOME_DISTRICT
     shop["stash"] = out.pop("shop_stash")
+    # v2 kept the order book and honest till on the state; they are
+    # shop-local now.
+    shop["demand_today"] = out.pop("demand_today")
+    shop["delivery_pool"] = out.pop("delivery_pool")
+    shop["legit_revenue_today"] = out.pop("legit_revenue_today")
     out["shops"] = [shop]
     evidence = [{"day": 0, "magnitude": 0.0, "kind": "legacy",
                  "why": flag, "source": ""} for flag in out.pop("case_flags")]
@@ -79,6 +84,7 @@ def _migrate_v2(d: dict) -> dict:
     out["evidence"] = evidence
     out.setdefault("act", 1)
     out.setdefault("branch", None)
+    out.setdefault("branch_state", None)
     return out
 
 
@@ -108,10 +114,9 @@ def state_from_dict(d: dict) -> State:
         game_over=d["game_over"], debt_paid_day=d["debt_paid_day"],
         total_laundered=d["total_laundered"], raids_led=d["raids_led"],
         kills=d["kills"], demand_shock=d["demand_shock"],
-        demand_today=d["demand_today"],
-        delivery_pool=d["delivery_pool"],
-        legit_revenue_today=d["legit_revenue_today"],
         act=d["act"], branch=d["branch"],
+        branch_state=BranchState(**d["branch_state"])
+        if d["branch_state"] is not None else None,
     )
     return state
 

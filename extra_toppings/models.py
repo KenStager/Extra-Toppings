@@ -87,7 +87,29 @@ class Evidence:
     magnitude: float
     kind: str
     why: str
-    source: str = ""          # employee name when a witness is attached
+    source: str = ""          # Employee.key when a witness is attached
+
+
+@dataclass
+class BranchState:
+    """Act II branch-specific state — None until the sit-down seats a
+    chair. One sparse dataclass rather than a union: State.branch names
+    the chair and says which fields are live; the save carries all of
+    them (fields per docs/ACT1_FORK_DESIGN.md §2.4)."""
+    # The Straight Path
+    disposal_runs_left: int = 0
+    last_crime_day: int | None = None
+    # Carmine's Partner
+    points_due_day: int | None = None
+    points_missed: int = 0
+    vig_owed: int = 0
+    # The Harbor War
+    war_target: str | None = None
+    declared_day: int | None = None
+    # The Quiet Sale
+    diligence_day: int = 0
+    escrow_mark: int = 0
+    escrow_incidents: int = 0
 
 
 @dataclass
@@ -102,6 +124,12 @@ class Shop:
     coupon_days: int = 0             # rival coupon blitz siphoning customers
     district: str = data.HOME_DISTRICT
     stash: dict = field(default_factory=dict)    # good -> units hidden here
+    # This address's own order book and honest till — per shop, so a
+    # second branch brings its own demand, cover pool and believable
+    # ceiling instead of another schema change.
+    demand_today: int = 0
+    delivery_pool: int = 0
+    legit_revenue_today: int = 0
 
     @property
     def stash_cap(self) -> int:
@@ -137,13 +165,11 @@ class State:
     debt_paid_day: int | None = None
     act: int = 1                                         # 1 = the hustle; 2 after the sit-down
     branch: str | None = None                            # act-2 chair id once chosen
+    branch_state: BranchState | None = None              # chair-specific state after the fork
     total_laundered: int = 0
     raids_led: int = 0
     kills: int = 0
     demand_shock: float = 1.0        # today's demand luck — rolled once, policy-independent
-    demand_today: int = 0            # today's real customer demand, recomputed from policy
-    delivery_pool: int = 0           # slice of demand that wants delivery (cover comes from here)
-    legit_revenue_today: int = 0     # every honest dollar today — feeds the believable ceiling
 
     # ── the shop, addressed as one while there is one ────────────
     @property
@@ -158,10 +184,40 @@ class State:
     def shop_stash(self, value: dict) -> None:
         self.shops[0].stash = value
 
+    @property
+    def demand_today(self) -> int:
+        return self.shops[0].demand_today
+
+    @demand_today.setter
+    def demand_today(self, value: int) -> None:
+        self.shops[0].demand_today = value
+
+    @property
+    def delivery_pool(self) -> int:
+        return self.shops[0].delivery_pool
+
+    @delivery_pool.setter
+    def delivery_pool(self, value: int) -> None:
+        self.shops[0].delivery_pool = value
+
+    @property
+    def legit_revenue_today(self) -> int:
+        return self.shops[0].legit_revenue_today
+
+    @legit_revenue_today.setter
+    def legit_revenue_today(self, value: int) -> None:
+        self.shops[0].legit_revenue_today = value
+
     # ── the Case, derived from its records ───────────────────────
     @property
     def case(self) -> float:
-        return min(100.0, sum(e.magnitude for e in self.evidence))
+        # An explicit left-to-right fold, NOT sum(): Python 3.12 moved
+        # sum() to compensated summation, which breaks bit-exact identity
+        # with the sequential running total this property replaced.
+        total = 0.0
+        for record in self.evidence:
+            total += record.magnitude
+        return max(0.0, min(100.0, total))
 
     @property
     def case_flags(self) -> list:
@@ -189,14 +245,17 @@ class State:
     def add_case(self, amount: float, why: str,
                  kind: str = "physical", source: str = "") -> None:
         """Book evidence. Every accrual is its own record, appended in
-        order — the sum reproduces the old running total bit for bit.
+        order — the fold reproduces the old running total bit for bit.
         The moment the sum reaches 100, prosecution latches: game_over is
-        set HERE, at accrual time, and nothing ever unsets it."""
+        set HERE, at accrual time, and arrest outranks every simultaneous
+        outcome (design §2.5) — a success ending set moments earlier
+        loses to the latch. Nothing accrues evidence after a run ends,
+        so a finished game is never rewritten."""
         if amount <= 0:
             return
         self.evidence.append(Evidence(day=self.day, magnitude=amount,
                                       kind=kind, why=why, source=source))
-        if self.case >= 100 and not self.game_over:
+        if self.case >= 100:
             self.game_over = "arrested"
 
     def net_worth(self) -> int:
