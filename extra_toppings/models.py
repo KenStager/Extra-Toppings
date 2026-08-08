@@ -144,7 +144,12 @@ class BranchState:
     escrow_mark: int = 0
     escrow_incidents: int = 0
     escrow_discount: float = 0.0    # cumulative incident repricing (0..1)
-    severance_paid: int | None = None   # closing outcome: None until signed
+    # Closing outcome (rev. 8): a real discriminator, because an amount
+    # alone collapses distinct outcomes — refusal, unaffordability and
+    # an empty roster all looked like $0.
+    severance_outcome: str = "pending"   # SEVERANCE_OUTCOMES
+    severance_paid: int | None = None    # amount; None until signed
+    closing_headcount: int | None = None # hired heads at the closing table
 
     @classmethod
     def straight(cls, *, disposal_runs_left: int = 3,
@@ -179,8 +184,11 @@ _BRANCH_FIELDS = {
     "partner": {"points_due_day", "points_missed", "vig_owed"},
     "war": {"war_target", "declared_day"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
-                   "escrow_discount", "severance_paid"},
+                   "escrow_discount", "severance_outcome", "severance_paid",
+                   "closing_headcount"},
 }
+SEVERANCE_OUTCOMES = ("pending", "paid", "declined", "unaffordable",
+                      "not_applicable")
 if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")
 _BRANCH_REQUIRED = {
@@ -217,8 +225,12 @@ def validate_branch_state(branch: str | None,
         if getattr(branch_state, name) is None:
             raise ValueError(f"branch {branch!r}: required field "
                              f"{name!r} is unset")
-    if branch == "quiet_sale" and branch_state.diligence_day < 1:
-        raise ValueError("quiet_sale: the sit-down is diligence day 1")
+    if branch == "quiet_sale":
+        if branch_state.diligence_day < 1:
+            raise ValueError("quiet_sale: the sit-down is diligence day 1")
+        if branch_state.severance_outcome not in SEVERANCE_OUTCOMES:
+            raise ValueError(f"quiet_sale: unknown severance outcome "
+                             f"{branch_state.severance_outcome!r}")
 
 
 @dataclass

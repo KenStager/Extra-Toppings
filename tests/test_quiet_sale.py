@@ -191,8 +191,11 @@ class TestDiligenceRules(unittest.TestCase):
         con = CaptureConsole([])
         escrow.walkthrough(state, con, Streams(3))   # day 1: he walks, always
         self.assertEqual(state.branch_state.escrow_incidents, 1)
-        self.assertGreaterEqual(state.branch_state.escrow_discount, 0.10)
-        self.assertLessEqual(state.branch_state.escrow_discount, 0.25)
+        # Rev. 8: -20..-35, drawn in whole percentage points.
+        self.assertGreaterEqual(state.branch_state.escrow_discount, 0.20)
+        self.assertLessEqual(state.branch_state.escrow_discount, 0.35)
+        self.assertEqual(round(state.branch_state.escrow_discount * 100),
+                         state.branch_state.escrow_discount * 100)
         self.assertLess(state.branch_state.escrow_mark, before)
         self.assertIsNotNone(con.find("INCIDENT"))
 
@@ -290,8 +293,72 @@ class TestTheClosing(unittest.TestCase):
         state = at_closing(rep=40.0)
         escrow.diligence_morning(state, CaptureConsole([1, 1]), Streams(3))
         restored = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(restored.branch_state.severance_outcome, "paid")
         self.assertEqual(restored.branch_state.severance_paid,
                          state.branch_state.severance_paid)
+        self.assertEqual(restored.branch_state.closing_headcount, 2)
+
+    def test_every_severance_outcome_is_distinct_and_persists(self):
+        # paid
+        paid = at_closing(rep=40.0)
+        escrow.diligence_morning(paid, CaptureConsole([1, 1]), Streams(3))
+        self.assertEqual(paid.branch_state.severance_outcome, "paid")
+        # declined
+        declined = at_closing(rep=40.0)
+        escrow.diligence_morning(declined, CaptureConsole([1, 0]), Streams(3))
+        self.assertEqual(declined.branch_state.severance_outcome, "declined")
+        self.assertEqual(declined.branch_state.severance_paid, 0)
+        # unaffordable
+        broke = at_closing(case=84.9, rep=5.0)
+        broke.clean = 0
+        broke.dirty = 0
+        broke.shop_stash = {}
+        escrow.diligence_morning(broke, CaptureConsole([1]), Streams(3))
+        self.assertEqual(broke.branch_state.severance_outcome, "unaffordable")
+        # not_applicable — the review's repro: no crew, and the epilogue
+        # must not invent one to be sorry for.
+        alone = at_closing(rep=40.0)
+        for e in alone.employees:
+            e.hired = False
+        escrow.diligence_morning(alone, CaptureConsole([1]), Streams(3))
+        self.assertEqual(alone.branch_state.severance_outcome,
+                         "not_applicable")
+        self.assertEqual(alone.branch_state.closing_headcount, 0)
+        epi = CaptureConsole([])
+        game.epilogue(alone, epi)
+        self.assertIsNone(epi.find("crew found out"))
+        self.assertIsNone(epi.find("envelopes"))
+        # every outcome round-trips
+        for state in (paid, declined, broke, alone):
+            restored = save.state_from_dict(save.state_to_dict(state))
+            self.assertEqual(restored.branch_state.severance_outcome,
+                             state.branch_state.severance_outcome)
+
+    def test_unaffordable_severance_reaches_the_epilogue(self):
+        broke = at_closing(case=84.9, rep=5.0)
+        broke.clean = 0
+        broke.dirty = 0
+        broke.shop_stash = {}
+        escrow.diligence_morning(broke, CaptureConsole([1]), Streams(3))
+        epi = CaptureConsole([])
+        game.epilogue(broke, epi)
+        self.assertIsNotNone(epi.find("difference between broke and cheap"))
+
+    def test_unknown_severance_outcomes_are_rejected(self):
+        bad = BranchState.quiet_sale(diligence_day=2)
+        bad.severance_outcome = "ghosted"
+        with self.assertRaises(ValueError):
+            validate_branch_state("quiet_sale", bad)
+
+    def test_the_careful_bot_burns_only_past_the_tolerance(self):
+        from extra_toppings.bot import EscrowBot
+        bot = EscrowBot(random.Random(1))
+        ans = bot.ask_int("Burn how much? (dirty $900; the buyer's ledger "
+                          "test tolerates $200)", 0, 900, 0)
+        self.assertEqual(ans, 900 - escrow.DIRTY_TOLERANCE)
+        bot_low = EscrowBot(random.Random(1))
+        self.assertEqual(bot_low.ask_int("Burn how much? (dirty $150…)",
+                                         0, 150, 0), 0)
 
     def test_walking_away_reverts_and_the_run_continues(self):
         state = at_closing()
@@ -477,15 +544,21 @@ class TestDisposal(unittest.TestCase):
         self.assertIsNone(con2.find("Burn dirty cash"))
 
     def test_a_clean_close_is_now_reachable_by_burning(self):
+        # night() itself advances the day, so the burn-to-close path
+        # lands exactly at fork+4 with no manual clock-winding — and the
+        # careful burn keeps the permitted $200 (rev. 8).
         state = at_closing(rep=60.0)
         state.clean = 30000
         state.dirty = 900
         state.shop_stash = {}
         state.day -= 1                          # one diligence night left
-        con = CaptureConsole([0, 900, 4])
+        con = CaptureConsole([0, 700, 4])       # burn down to tolerance
         phases.night(state, {}, {}, con, Streams(3))
-        state.day += 1
+        self.assertEqual(state.day,
+                         escrow.sitdown_day(state) + escrow.DILIGENCE_DAYS)
+        self.assertEqual(state.dirty, escrow.DIRTY_TOLERANCE)
         escrow.diligence_morning(state, CaptureConsole([1, 1]), Streams(3))
+        self.assertEqual(state.game_over, "sold")
         self.assertEqual(escrow.sale_tier(state), "well")
 
 
@@ -525,6 +598,25 @@ class TestMarkBreakdown(unittest.TestCase):
         state = in_escrow(rep=33.3, case=17.7)
         self.assertEqual(escrow.compute_mark(state),
                          escrow.build_mark(state).final)
+
+    def test_a_negative_subtotal_floors_before_any_deduction(self):
+        # Rev. 8 pin: rep 5, Case 84.9, war clause armed, an incident
+        # booked — deductions against a negative subtotal must never
+        # become credits, and the card must say the floor out loud.
+        state = in_escrow(case=84.9, rep=5.0)
+        state.rivals["vinnie"].relation = -60.0     # arms the war clause
+        state.branch_state.escrow_discount = 0.15
+        card = escrow.build_mark(state)
+        self.assertTrue(card.floored)
+        self.assertEqual(card.war_term, 0)
+        self.assertEqual(card.incident_term, 0)
+        self.assertEqual(card.final, 0)
+        self.assertGreaterEqual(card.war_term, 0)
+        self.assertGreaterEqual(card.incident_term, 0)
+        con = CaptureConsole([1])
+        escrow.diligence_morning(state, con, Streams(3))
+        self.assertIsNotNone(con.find("the mark floors at $0"))
+        self.assertFalse(any("--$" in line for line in con.lines))
 
     def test_the_card_projects_the_closing_classification(self):
         state = in_escrow()

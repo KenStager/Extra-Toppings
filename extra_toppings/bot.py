@@ -9,6 +9,7 @@ import random
 import re
 from typing import ClassVar
 
+from . import escrow
 from .ui import Console
 
 
@@ -391,9 +392,12 @@ class EscrowBot(MarketBot):
 
     def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
         if prompt.startswith("Burn how much"):
-            # Careful: the ledger test tolerates $200, so everything
-            # burns. Careless: the bag stays shut.
-            return hi if self.careful else default
+            # Careful: burn down to the buyer's tolerance, not past it —
+            # the permitted $200 is walking money, and destroying it
+            # buys nothing (rev. 8). Careless: the bag stays shut.
+            if self.careful:
+                return max(0, min(hi, hi - escrow.DIRTY_TOLERANCE))
+            return default
         return super().ask_int(prompt, lo, hi, default)
 
     def _score(self, label: str) -> float:

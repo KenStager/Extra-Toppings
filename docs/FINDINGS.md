@@ -774,6 +774,51 @@ After correction 3: 223 tests green on 3.11 and 3.12 (14 new);
 ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
 (expected 82 / held 82, schema v1) on 3.11, 3.12 and 3.13.
 
+### Round 8 correction 4 (final review — the constants ruling, and green)
+
+Review ruled on the §2.4.4 constants and named three last seams; the
+design records it as revision 8, on paper before implementation.
+
+- **The constants ruling.** Mark formula and $10k/$25k tiers stay;
+  first-incident repricing rises from −10..−25% to **−20..−35%, drawn
+  in whole percentage points** (the displayed rate is thereby exact);
+  the second incident still collapses. The rationale is the review's:
+  this lever prices the behavior under test — moving tier boundaries
+  would relabel identical outcomes, and scaling the mark would revalue
+  the chair against future branches.
+- **Negative subtotals floor before deductions.** The rep-5/Case-84.9/
+  war-armed/incident card had rendered "--$24"/"--$15" — percentage
+  deductions against a negative subtotal becoming credits. The raw
+  subtotal now clamps at zero first, the floor is carried in the
+  MarkBreakdown and said out loud ("the mark floors at $0"), war and
+  incident terms are provably non-negative, and the exact combination
+  is pinned.
+- **Severance is a real outcome, not an amount.** $0 had collapsed
+  deliberate refusal, unaffordability, and an empty roster — a
+  crewless close still eulogized "the crew." The closing persists
+  pending/paid/declined/unaffordable/not_applicable with the amount
+  and closing headcount; the epilogue drives from the outcome (four
+  distinct texts, and silence for a crew that never was); every state
+  round-trips; unknown outcomes are rejected at validation.
+- **The careful policy keeps the permitted $200** (burn =
+  dirty − tolerance), and the clean-close regression was repaired to
+  land exactly at fork+4 with no manual clock-winding.
+
+**The full §2.7 battery now passes, matching the reviewer's
+counterfactual to the digit** (150 seeds): reachability 57% with full
+tables at the median (day 11) and Q3 (day 16) payoff states and exact
+boundary chair sets; crash-freedom 150/150; careful closes 79/85 = 93%,
+0 off-schedule; ablation drop 84 points; valuation median mark delta
+**$2,370**; tier flips **27/60 = 45%** against the unconditioned 40%
+bar. The 500-seed confirmation: **81/188 = 43% flips, median mark
+delta $2,444, careful closes 261 (93%), sloppy 189, ablation drop 85
+points, 0 off-schedule, full tables at median day 10 and Q3 day 16,
+crash-free 500/500** — against the reviewer's independent
+counterfactual of 81/188 = 43.1% and $2,445: the same runs, reproduced
+across implementations. Identity gates: flag-off golden 300/300 and
+paired stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11,
+3.12 and 3.13. 228 tests green.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered

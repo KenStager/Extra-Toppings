@@ -89,19 +89,28 @@ def epilogue(state: State, con: Console) -> None:
         con.say(f"  Walking money: {money(total)} — settlement, cash, and "
                 f"whatever left with you (stock at book value).")
         # The closing outcome is persisted state, and the epilogue
-        # acknowledges it (rev. 7): the humane-versus-cheap choice is
-        # what the crew's half of the story remembers.
-        severance = state.branch_state.severance_paid \
+        # drives from the real discriminator (rev. 8) — refusal,
+        # unaffordability and an empty roster are different stories.
+        outcome = state.branch_state.severance_outcome \
+            if state.branch_state is not None else "pending"
+        amount = state.branch_state.severance_paid \
             if state.branch_state is not None else None
-        if severance:
-            con.say(f"  The crew's envelopes — {money(severance)}, handed "
+        if outcome == "paid" and amount:
+            con.say(f"  The crew's envelopes — {money(amount)}, handed "
                     f"over before the ink — are the part of this sale "
                     f"nobody had to do. Around the harbor, that's the "
                     f"part they'll retell.")
-        elif severance == 0:
+        elif outcome == "declined":
             con.say("  No envelopes. The crew found out on the buyer's "
                     "schedule and scattered on their own dime. Around the "
                     "harbor, that's the part they'll retell.")
+        elif outcome == "unaffordable":
+            con.say("  There was nothing left for envelopes — the sale "
+                    "barely covered the pen that signed it. The crew knows "
+                    "the difference between broke and cheap; it helps, a "
+                    "little.")
+        # not_applicable: nobody was left to tell, and the epilogue does
+        # not invent a crew to be sorry for.
         if tier == "kept_trade":
             con.say("""
   The bill of sale lists ovens, tables, a wagon, a name. It does not
