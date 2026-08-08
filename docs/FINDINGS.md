@@ -893,12 +893,21 @@ median $2,444.
 
 ## Still open (carried to the next design pass)
 
-- The midgame still resolves around day 12–15. The payoff-triggered
-  Act I fork is now fully designed and merged as the decision record
-  (`docs/ACT1_FORK_DESIGN.md`, PR #6); implementation follows the phased
-  plan there. P0 is now complete — foundation (round 6) plus the §2.1
-  telegraph lines (round 7); P1 (the sit-down behind a feature flag) is
-  next, on the reviewer's go.
+- The payoff-triggered Act I fork: P0 and P1 are complete and merged
+  (P0 foundation + telegraphs, rounds 6–7; P1a fork skeleton + P1b
+  Quiet Sale, round 8 with corrections 1–6). **P2 — the Straight Path
+  (§2.4.1) — is next**, per the §7 phasing; its gate is the
+  negative-ΔCase study and its ablation, and its passing lifts the
+  Quiet Sale's flag for players (the fork reaches players only once
+  two active branches exist). P2 carry-ins: the sit-down commit path
+  for `straight` currently raises NotImplementedError by design; the
+  shared prefix iterator noted on `models.fold_case` becomes real work
+  when evidence remediation lands; remediation must respect the
+  evidence taxonomy (physical/pattern permanently immune, §2.3).
+- The Quiet Sale's human-play verdict is untaken: *sold well* was never
+  reached by any bot (the clean number must be earned by the month, not
+  the week — the branch's thesis). Whether that is fun is a seeds
+  24/39/8 question, deferred to the P4 human-play pass.
 - Heat still under-binds relative to the Case; needs local teeth without
   becoming a second global meter.
 - Event responsiveness beyond payday/heat-wave is now *provable* with the
