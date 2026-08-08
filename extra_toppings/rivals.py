@@ -17,8 +17,9 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
         if rival.ovens_wrecked_days:
             rival.ovens_wrecked_days -= 1
             rival.strength = max(1, rival.strength - 2)
-        # Guards get bored again, slowly.
-        rival.alertness = max(0.0, rival.alertness - 0.34)
+        # Guards get bored again, slowly — but not on a night you hit them.
+        if rival.last_raided_day != state.day:
+            rival.alertness = max(0.0, rival.alertness - 0.34)
 
         # A telegraphed raid counts down; landing is handled by the night phase.
         if rival.raid_warning > 1:

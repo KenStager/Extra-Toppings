@@ -59,6 +59,7 @@ class Rival:
     ledger_stolen: bool = False
     ovens_wrecked_days: int = 0
     alertness: float = 0.0        # 0-10: how hard their security has learned
+    last_raided_day: int = -99    # alertness decays only on quiet days
 
     @property
     def alive(self) -> bool:

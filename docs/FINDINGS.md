@@ -231,13 +231,44 @@ Raids stop being an ATM. Five mechanisms, all tested
 - **Decoy cap**: the empty-the-stash defense protects exactly one
   wagonload; overflow is found and taken.
 
-Measured effect (`analysis/experiments.py raids`, 300/200 trials):
-single-job steal_stock haul fell **$4,821 → ~$1,000** (−79%); repeat
-success on the same target declines (18% → 13% by attempt 2 under
-random play); ledger/sabotage — leverage and tempo plays, not loot —
-are intentionally unchanged. The 150-seed sweep is stable (market 62%,
-greedy 58%, crime-heavy 21%): the pricing removed the exploit without
-moving the wider economy.
+### Round 4 correction (review)
+
+The first cut of this pass had three defects: alertness raised guard
+*drama* without touching the quiet-action odds that decide success;
+cheap-goods-first loading let thinner shelves yield *richer* successful
+hauls (expected $/attempt was flat at ~$250 across repeats at 5,000
+trials); alertness decayed on the raid night itself; and downed crew
+still carried full loads. All fixed:
+
+- Alertness now directly penalizes Slip-past and quiet-takedown odds
+  (−0.04/point), and crews load the expensive shelves first — which is
+  exactly what an alerted target locks down hardest.
+- Decay skips any rival hit that same day (`Rival.last_raided_day`).
+- Extraction capacity counts the crew that reaches the door, not the
+  crew that walked in.
+- Security level ("sleepy / wary / hardened / fortress") shows in the
+  target menu; the pattern premium is warned before committing and
+  announced the moment it lands.
+
+Measured at 2,000 trials (`analysis/experiments.py raids --trials 2000`;
+primary metric is expected $ per attempt, failures included):
+
+```
+attempt 1: success 20%  expected $781/attempt  ($3,799 per success)
+attempt 2: success 18%  expected $597/attempt  ($3,288 per success)
+attempt 3: success 14%  expected $438/attempt  ($3,002 per success)
+```
+
+Both components decline monotonically. Note the honest correction: an
+earlier draft claimed a −79% single-job haul cut, but that number was an
+artifact of the naive loading order. With rational value-first loading, a
+*first* job against a sleepy target pays ~$3.8k when it succeeds
+(~$0.8k expected) — the anti-ATM pricing comes from the decline curve,
+the pattern Case (~54 across a ten-job spree), hardening, and injuries,
+not from making the first job worthless. Ledger/sabotage — leverage and
+tempo plays, not loot — are intentionally unchanged. The 150-seed sweep
+is unmoved (market 62%, greedy 58%, crime-heavy 21%): the pricing is
+contained to raids.
 
 ## Still open (carried to the next design pass)
 

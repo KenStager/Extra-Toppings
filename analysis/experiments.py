@@ -167,7 +167,9 @@ def raid_roi(trials: int) -> None:
         print(line)
 
     # Repeat-raid decline: three consecutive steal_stock jobs on one target.
-    n_repeat = min(trials, 200)
+    # Primary metric is EXPECTED dollars per attempt (failures included) —
+    # success rate alone can mislead when successful hauls grow richer.
+    n_repeat = trials
     hauls = [0.0, 0.0, 0.0]
     succ = [0, 0, 0]
     for seed in range(n_repeat):
@@ -200,7 +202,8 @@ def raid_roi(trials: int) -> None:
     print(f"  repeat steal_stock on one target ({n_repeat} trials):")
     for i in range(3):
         print(f"    attempt {i+1}: success {100*succ[i]//n_repeat}%  "
-              f"avg haul ${hauls[i]/max(succ[i],1):,.0f}")
+              f"expected ${hauls[i]/n_repeat:,.0f}/attempt  "
+              f"(${hauls[i]/max(succ[i],1):,.0f} per success)")
 
 
 def events(seeds: int) -> None:

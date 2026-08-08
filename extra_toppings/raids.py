@@ -29,7 +29,14 @@ def plan_raid(state: State, con: Console, rng: random.Random,
         con.say("  A raid needs read-in crew. Right now the only person you trust is you.")
         return None
 
-    t_labels = [f"{data.RIVALS[k]['label']} (strength {state.rivals[k].strength:.0f})"
+    if state.raids_led >= 1:
+        premium = min(8.0, 1.5 * state.raids_led)
+        con.say(f"  The Ledger has counted {state.raids_led} unsolved "
+                f"burglar{'y' if state.raids_led == 1 else 'ies'} this month. "
+                f"Another success adds ~{premium:.0f} Case to the pattern.")
+    t_labels = [f"{data.RIVALS[k]['label']} "
+                f"(strength {state.rivals[k].strength:.0f}, "
+                f"security {_security_word(state.rivals[k].alertness)})"
                 for k in targets] + ["Never mind"]
     pick = con.menu("Hit whom?", t_labels)
     if pick == len(targets):
@@ -60,6 +67,16 @@ def plan_raid(state: State, con: Console, rng: random.Random,
     return {"rival": rival_key, "objective": objective, "team": team, "armed": armed}
 
 
+def _security_word(alertness: float) -> str:
+    if alertness >= 7:
+        return "fortress"
+    if alertness >= 4:
+        return "hardened"
+    if alertness >= 2:
+        return "wary"
+    return "sleepy"
+
+
 def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None:
     rival = state.rivals[plan["rival"]]
     rspec = data.RIVALS[plan["rival"]]
@@ -84,13 +101,15 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
                  "Go loud" if plan["armed"] else "Rush him", "Abort the job"])
             best_nerve = max(e.nerve for e in team)
             if choice == 0:
-                if rng.random() < 0.25 + best_nerve * 0.06 - noise * 0.3:
+                if rng.random() < 0.25 + best_nerve * 0.06 - noise * 0.3 \
+                        - rival.alertness * 0.04:
                     con.say("  He lights a cigarette and never turns around.")
                 else:
                     noise += room["noise"]
                     _scuffle(state, team, guard_skill, con, rng, loud=False)
             elif choice == 1:
-                if rng.random() < 0.35 + best_nerve * 0.05:
+                if rng.random() < 0.35 + best_nerve * 0.05 \
+                        - rival.alertness * 0.04:
                     con.say("  A tap behind the ear. He'll wake up embarrassed.")
                     noise += 0.1
                 else:
@@ -117,17 +136,22 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
         state.add_heat(rspec["home"], 8)
         rival.relation -= 10
         rival.alertness = min(10.0, rival.alertness + 1.0)
+        rival.last_raided_day = state.day
         con.say("  You got out with nothing but your skins.")
         con.say("  By morning their guards walk in pairs.")
         return
 
-    _payoff(state, plan, rival, rspec, con, rng, clean_exit=noise < 1.0)
+    _payoff(state, plan, rival, rspec, con, rng, noise < 1.0, team)
     # Even a ghost leaves a pattern: the same handwriting, night after night.
     if state.raids_led >= 1:
-        state.add_case(min(8.0, 1.5 * state.raids_led),
-                       "a pattern of night jobs in the same handwriting")
+        premium = min(8.0, 1.5 * state.raids_led)
+        state.add_case(premium, "a pattern of night jobs in the same handwriting")
+        con.say(f"  Somewhere downtown, tonight's job is pinned beside the "
+                f"others. The pattern is starting to look like handwriting. "
+                f"(Case +{premium:.0f})")
     state.raids_led += 1
     rival.alertness = min(10.0, rival.alertness + 2.0)
+    rival.last_raided_day = state.day
 
 
 def _scuffle(state: State, team: list, guard_skill: float, con: Console,
@@ -151,14 +175,19 @@ def _scuffle(state: State, team: list, guard_skill: float, con: Console,
 
 
 def _payoff(state: State, plan: dict, rival, rspec, con: Console,
-            rng: random.Random, clean_exit: bool) -> None:
+            rng: random.Random, clean_exit: bool, team: list) -> None:
     objective = plan["objective"]
     if objective == "steal_stock":
-        # Crew hands and the wagon (if it's home tonight) bound the haul.
-        carry_bulk = (8 if plan.get("wagon_free", True) else 4) * len(plan["team"])
+        # Whoever is still standing carries the haul — with the wagon if
+        # it's home tonight, in duffel bags if not.
+        carry_bulk = (8 if plan.get("wagon_free", True) else 4) * len(team)
+        if len(team) < len(plan["team"]):
+            con.say("  Fewer hands make lighter hauls.")
         thin = max(0.3, 1.0 - rival.alertness * 0.07)   # alert targets stock less
         haul: dict = {}
-        for g in ("oregano", "mushrooms", "hot_honey"):
+        # Grab the expensive shelves first — which is exactly what an
+        # alerted target has already locked down hardest.
+        for g in ("hot_honey", "mushrooms", "oregano"):
             want = int(rng.randint(4, 10 + int(rival.strength / 10)) * thin)
             bulk = data.GOODS[g]["bulk"]
             take = min(want, carry_bulk // bulk)

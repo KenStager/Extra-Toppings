@@ -150,5 +150,136 @@ class TestDecoyCap(unittest.TestCase):
         self.assertEqual(state.shop_stash["mushrooms"], 10)
 
 
+class CaptureConsole(ScriptedConsole):
+    """Scripted answers plus a record of everything said to the player."""
+
+    def __init__(self, script=None):
+        super().__init__(script)
+        self.lines: list = []
+
+    def say(self, text=""):
+        self.lines.append(text)
+
+    def bullet(self, text):
+        self.lines.append(text)
+
+    def menu(self, prompt, options):
+        self.lines.extend(options)
+        return super().menu(prompt, options)
+
+
+class TestExpectedValueDeclines(unittest.TestCase):
+    """Review acceptance: expected DOLLARS per attempt — not merely success
+    rate — must decline across repeated raids on one target."""
+
+    def test_repeat_raids_pay_less_per_attempt(self):
+        n = 400
+        totals = [0.0, 0.0, 0.0]
+        for seed in range(n):
+            rng = random.Random(seed)
+            state = new_state()
+            market.roll_prices(state, rng)
+            state.warehouse = {}
+            crew = crew_for(state)
+            for attempt in range(3):
+                def value(s):
+                    return sum(u * data.GOODS[g]["base"]
+                               for st in (s.shop_stash, s.warehouse or {})
+                               for g, u in st.items())
+                before = value(state)
+                plan = {"rival": "vinnie", "objective": "steal_stock",
+                        "team": [e for e in crew if e.available],
+                        "armed": False, "wagon_free": True}
+                if not plan["team"]:
+                    break
+                raids.run_raid(state, plan,
+                               BotConsole(random.Random(seed * 3 + attempt)), rng)
+                totals[attempt] += value(state) - before
+                for e in crew:
+                    e.injured_days = 0
+        self.assertLess(totals[2], totals[0] * 0.85,
+                        f"attempt 3 must pay materially less: {totals}")
+
+
+class TestSurvivorCarry(unittest.TestCase):
+    """Review acceptance: extraction capacity uses the crew that reached
+    the door, not the crew that walked in."""
+
+    def test_downed_crew_carry_nothing_home(self):
+        state, rng = fresh(45)
+        state.shop_stash = {}
+        state.warehouse = {}
+        crew = crew_for(state)
+        survivors = crew[:2]                     # one didn't make it upright
+        plan = {"rival": "vinnie", "objective": "steal_stock",
+                "team": list(crew), "armed": False, "wagon_free": True}
+        rspec = data.RIVALS["vinnie"]
+        raids._payoff(state, plan, state.rivals["vinnie"], rspec,
+                      ScriptedConsole(), rng, True, survivors)
+        bulk = state.stash_bulk(state.shop_stash)             + state.stash_bulk(state.warehouse)
+        self.assertLessEqual(bulk, 8 * 2)
+
+
+class TestQuietDayDecay(unittest.TestCase):
+    """Review acceptance: alertness decays only on genuinely quiet days —
+    never on the night of the raid itself."""
+
+    def test_no_decay_on_the_night_of_the_raid(self):
+        state, rng = fresh(46)
+        v = state.rivals["vinnie"]
+        v.alertness = 6.0
+        v.relation = 0
+        v.last_raided_day = state.day            # hit tonight
+        rivals.rival_phase(state, ScriptedConsole(), rng)
+        self.assertEqual(v.alertness, 6.0)
+
+    def test_decay_resumes_the_next_quiet_day(self):
+        state, rng = fresh(46)
+        v = state.rivals["vinnie"]
+        v.alertness = 6.0
+        v.relation = 0
+        v.last_raided_day = state.day - 1        # yesterday's job
+        rivals.rival_phase(state, ScriptedConsole(), rng)
+        self.assertLess(v.alertness, 6.0)
+
+
+class TestSecurityVisibility(unittest.TestCase):
+    """Review acceptance: security level and pattern evidence must be
+    visible when the player can still act on them."""
+
+    def test_target_menu_shows_security_level(self):
+        state, rng = fresh(47)
+        crew_for(state)
+        state.rivals["vinnie"].alertness = 5.0
+        con = CaptureConsole([3])                # look, then Never mind
+        raids.plan_raid(state, con, rng)
+        text = "\n".join(con.lines)
+        self.assertIn("security hardened", text)
+        self.assertIn("security sleepy", text)   # sal, untouched
+
+    def test_pattern_premium_warned_before_committing(self):
+        state, rng = fresh(47)
+        crew_for(state)
+        state.raids_led = 3
+        con = CaptureConsole([3])
+        raids.plan_raid(state, con, rng)
+        text = "\n".join(con.lines)
+        self.assertIn("unsolved burglaries", text)
+        self.assertIn("Case", text)
+
+    def test_pattern_evidence_announced_when_incurred(self):
+        for seed in range(50):
+            state, _ = fresh(47)
+            crew_for(state)
+            state.raids_led = 2
+            con = CaptureConsole()
+            raids.run_raid(state, steal_plan(state), con, random.Random(seed))
+            if state.raids_led == 3:             # success
+                text = "\n".join(con.lines)
+                self.assertIn("pinned beside the others", text)
+                return
+        self.fail("no successful raid found to check the announcement")
+
+
 if __name__ == "__main__":
     unittest.main()
