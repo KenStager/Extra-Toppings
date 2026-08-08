@@ -667,8 +667,8 @@ charges you for slipping.
 **Diligence days:** each day is an incident check the player plays through
 the normal loop. Laundering during escrow is off (the books are being
 *read*); contraband on premises at any walk-through, a rival raid landing,
-a staff walkout — each is an incident: reprice (−10 to −25%) or, twice,
-collapse. The stash must go — but the warehouse is not a free answer.
+a staff walkout — each is an incident: reprice (−20 to −35%, drawn in
+whole percentage points — rev. 8 constants ruling) or, twice, collapse. The stash must go — but the warehouse is not a free answer.
 Moving stock off-site mid-diligence is a truck at a rolling door while the
 buyer's man watches the neighborhood: the move itself carries a one-time
 20% incident risk, and warehouse rent keeps drawing dirty cash all week.
@@ -1654,3 +1654,37 @@ severance memory is rejected and replaced with persisted outcome data;
 the absent bespoke D16 extortion is accepted (measured: in 82 careful
 entries, 33 saw an escrow-time extortion, 28 a new raid telegraph, and
 the war clause armed at some point in 40).
+
+**Revision 8** records the final P1b review ruling and the last three
+seams, made on paper before implementation:
+
+1. *Constants ruling on the tier-flip bar.* The mark formula and the
+   $10k/$25k ending thresholds stay unchanged; **first-incident
+   repricing rises from −10..−25% to −20..−35%, drawn as whole
+   percentage points** (the displayed rate is thereby exact); the
+   second incident still collapses. Rationale: this lever changes the
+   consequence of the behavior under test — moving tier boundaries
+   would mostly relabel identical outcomes, and scaling the whole mark
+   would change the chair's value against future branches. Reviewer
+   counterfactual (with the careful bot retaining the permitted $200):
+   150 seeds → 45% flips, median mark advantage $2,370; 500 seeds →
+   43.1%, $2,445. Close behavior unchanged; only the price of a
+   diligence breach becomes consequential.
+2. *Negative valuation subtotals must not become credits.* At rep 5 /
+   Case 84.9 with the war clause armed and an incident booked, the
+   card rendered "--$24"/"--$15" — percentage deductions against a
+   negative subtotal. The raw subtotal clamps to zero BEFORE
+   percentage deductions, the floor is carried explicitly in the
+   MarkBreakdown and rendered ("subtotal below zero; the mark floors
+   at $0"), and war/incident terms are never negative. The exact
+   combination is pinned.
+3. *Severance outcome taxonomy.* A bare amount collapsed distinct
+   outcomes (deliberate refusal, unaffordability, no crew) — a
+   crewless close still printed "the crew found out." The closing
+   persists a real discriminator — pending / paid / declined /
+   unaffordable / not_applicable — alongside the amount and the
+   closing headcount; the epilogue drives from the outcome; every
+   state round-trips.
+4. *The careful policy retains the permitted $200* — the buyer's
+   tolerance is walking money, and burning it destroys value for
+   nothing: the careful burn is max(0, dirty − tolerance).
