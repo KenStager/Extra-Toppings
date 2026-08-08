@@ -132,6 +132,11 @@ class StrategyBot(Console):
             return self.ride_along
         return False
 
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        # Deterministic and RNG-free (§2.7 rev. 5): the sit-down must not
+        # consume bot decision RNG. Last option always progresses.
+        return len(options) - 1
+
 
 class GreedyBot(StrategyBot):
     """Max cargo, decent cover, boss in the car, launders under the ceiling."""

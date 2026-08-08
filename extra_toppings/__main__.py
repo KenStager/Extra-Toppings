@@ -1,11 +1,23 @@
 """CLI entry: python -m extra_toppings [--seed N] [--auto [DAYS]] [--verbose]"""
 
 import argparse
+import os
 import random
 
 from .bot import GreedyBot
+from .config import GameConfig
 from .game import run
 from .ui import BotConsole, Console
+
+
+def _config_from_env() -> GameConfig:
+    """The CLI is the only place the environment is read; the engine
+    takes an explicit GameConfig (design §8 rev. 5). EXTRA_TOPPINGS_FORK=1
+    turns the sit-down trigger on (development builds — no branch is
+    actionable until its phase lands)."""
+    if os.environ.get("EXTRA_TOPPINGS_FORK") == "1":
+        return GameConfig(fork_enabled=True)
+    return GameConfig()
 
 
 def main() -> None:
@@ -22,15 +34,16 @@ def main() -> None:
                     help="with --auto: print the bot's full playthrough")
     args = ap.parse_args()
 
+    config = _config_from_env()
     if args.auto is not None:
         rng = random.Random(args.seed)
         bot_cls = GreedyBot if args.smart else BotConsole
         con = bot_cls(rng, verbose=args.verbose)
-        state = run(args.seed, con, max_days=args.auto)
+        state = run(args.seed, con, max_days=args.auto, config=config)
         print(f"[auto] ended day {state.day} — ending: {state.game_over}, "
               f"net {state.net_worth():+,}, case {state.case:.0f}/100")
     else:
-        run(args.seed, Console())
+        run(args.seed, Console(), config=config)
 
 
 if __name__ == "__main__":

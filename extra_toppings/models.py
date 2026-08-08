@@ -1,6 +1,6 @@
 """Mutable game state: people, places, money, evidence."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 from . import data
 
@@ -72,6 +72,20 @@ class ActiveEvent:
     days_left: int
 
 
+def fold_case(evidence: list) -> float:
+    """THE Case arithmetic — the only fold in the codebase (rev. 6
+    completion). An explicit left-to-right addition, clamped to 0..100:
+    NOT sum(), which Python 3.12 moved to compensated summation,
+    breaking bit-identity with the sequential running total (found as
+    15/300 golden failures in review). State.case and the sit-down's
+    live ledger both call this; a second copy of this arithmetic is a
+    recurrence waiting to happen."""
+    total = 0.0
+    for record in evidence:
+        total += record.magnitude
+    return max(0.0, min(100.0, total))
+
+
 @dataclass
 class Evidence:
     """One record in the Case file. The Case is the clamped SUM of these —
@@ -90,12 +104,26 @@ class Evidence:
     source: str = ""          # Employee.key when a witness is attached
 
 
+@dataclass(frozen=True)
+class SitdownSnapshot:
+    """Chair eligibility frozen at lock-up on payoff night (§2.1 rev. 4;
+    shape per rev. 5). Only primitive facts persist — R, chair verdicts,
+    withholding prose and the gate-crossing record are all derived by
+    the pure evaluator in sitdown.py, so the snapshot can never disagree
+    with what the scene computes from it."""
+    payoff_day: int
+    case_at_lockup: float
+    evidence_count_at_lockup: int
+
+
 @dataclass
 class BranchState:
     """Act II branch-specific state — None until the sit-down seats a
     chair. One sparse dataclass rather than a union: State.branch names
     the chair and says which fields are live; the save carries all of
-    them (fields per docs/ACT1_FORK_DESIGN.md §2.4)."""
+    them (fields per docs/ACT1_FORK_DESIGN.md §2.4). Construct through
+    the per-chair classmethods and check with validate_branch_state —
+    dead fields must stay at their defaults."""
     # The Straight Path
     disposal_runs_left: int = 0
     last_crime_day: int | None = None
@@ -110,6 +138,79 @@ class BranchState:
     diligence_day: int = 0
     escrow_mark: int = 0
     escrow_incidents: int = 0
+
+    @classmethod
+    def straight(cls, *, disposal_runs_left: int = 3,
+                 last_crime_day: int | None = None) -> "BranchState":
+        return cls(disposal_runs_left=disposal_runs_left,
+                   last_crime_day=last_crime_day)
+
+    @classmethod
+    def partner(cls, *, points_due_day: int) -> "BranchState":
+        return cls(points_due_day=points_due_day)
+
+    @classmethod
+    def war(cls, *, war_target: str, declared_day: int) -> "BranchState":
+        return cls(war_target=war_target, declared_day=declared_day)
+
+    @classmethod
+    def quiet_sale(cls, *, diligence_day: int = 1,
+                   escrow_mark: int = 0) -> "BranchState":
+        return cls(diligence_day=diligence_day, escrow_mark=escrow_mark)
+
+
+# THE canonical branch identifiers (rev. 6): config validation, the
+# BranchState field map and the scene's chair order all derive from
+# this one definition — nothing else may spell a branch id.
+BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
+ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
+
+# Which BranchState fields are live per active branch; everything else
+# must sit at its dataclass default or the payload is a cross-branch mix.
+_BRANCH_FIELDS = {
+    "straight": {"disposal_runs_left", "last_crime_day"},
+    "partner": {"points_due_day", "points_missed", "vig_owed"},
+    "war": {"war_target", "declared_day"},
+    "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents"},
+}
+if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
+    raise RuntimeError("BranchState field map out of step with BRANCH_ORDER")
+_BRANCH_REQUIRED = {
+    "straight": (),
+    "partner": ("points_due_day",),
+    "war": ("war_target", "declared_day"),
+    "quiet_sale": ("diligence_day",),
+}
+
+
+def validate_branch_state(branch: str | None,
+                          branch_state: "BranchState | None") -> None:
+    """Reject impossible branch/BranchState combinations, raising
+    ValueError (never assert — assertions vanish under optimized
+    Python). Called at branch transition and at save-load."""
+    if branch is None or branch == "stand_pat":
+        if branch_state is not None:
+            raise ValueError(
+                f"branch {branch!r} must not carry a BranchState")
+        return
+    if branch not in _BRANCH_FIELDS:
+        raise ValueError(f"unknown branch {branch!r}")
+    if branch_state is None:
+        raise ValueError(f"branch {branch!r} requires a BranchState")
+    defaults = BranchState()
+    live = _BRANCH_FIELDS[branch]
+    for f in fields(BranchState):
+        if f.name not in live and \
+                getattr(branch_state, f.name) != getattr(defaults, f.name):
+            raise ValueError(
+                f"branch {branch!r}: dead field {f.name!r} is set — "
+                f"mixed-branch payload")
+    for name in _BRANCH_REQUIRED[branch]:
+        if getattr(branch_state, name) is None:
+            raise ValueError(f"branch {branch!r}: required field "
+                             f"{name!r} is unset")
+    if branch == "quiet_sale" and branch_state.diligence_day < 1:
+        raise ValueError("quiet_sale: the sit-down is diligence day 1")
 
 
 @dataclass
@@ -166,6 +267,7 @@ class State:
     act: int = 1                                         # 1 = the hustle; 2 after the sit-down
     branch: str | None = None                            # act-2 chair id once chosen
     branch_state: BranchState | None = None              # chair-specific state after the fork
+    sitdown_snapshot: SitdownSnapshot | None = None      # frozen at lock-up on payoff night
     total_laundered: int = 0
     raids_led: int = 0
     kills: int = 0
@@ -211,13 +313,7 @@ class State:
     # ── the Case, derived from its records ───────────────────────
     @property
     def case(self) -> float:
-        # An explicit left-to-right fold, NOT sum(): Python 3.12 moved
-        # sum() to compensated summation, which breaks bit-exact identity
-        # with the sequential running total this property replaced.
-        total = 0.0
-        for record in self.evidence:
-            total += record.magnitude
-        return max(0.0, min(100.0, total))
+        return fold_case(self.evidence)
 
     @property
     def case_flags(self) -> list:

@@ -70,6 +70,13 @@ class Console:
     def confirm(self, prompt: str) -> bool:
         return self.menu(prompt, ["Yes", "No"]) == 0
 
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        """Fork-scene decisions ride a channel separate from menu() so
+        replay tooling can trace them apart from the gameplay decision
+        log (§2.7 rev. 5). Interactive play just delegates; bot consoles
+        override with a deterministic handler that consumes no RNG."""
+        return self.menu(prompt, options)
+
 
 class BotConsole(Console):
     """Plays by itself: random-but-sane choices. Used by --auto and the tests."""
@@ -101,6 +108,19 @@ class BotConsole(Console):
     def confirm(self, prompt: str) -> bool:
         return self.rng.random() < 0.5
 
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        # Deterministic and RNG-free (§2.7 rev. 5): scene choices must
+        # not perturb the bot's decision stream — the extra menus would
+        # otherwise shift every later gameplay choice. The scene
+        # guarantees its last option always progresses (stand pat / the
+        # confirming answer), so last-option is a complete policy.
+        return len(options) - 1
+
+
+class ScriptExhausted(Exception):
+    """A ScriptedConsole ran out of answers at a scene decision — scene
+    choices are irrevocable, so there is no safe fallback to take."""
+
 
 class ScriptedConsole(Console):
     """Replays an exact list of answers. Used by tests to pin decisions.
@@ -108,6 +128,9 @@ class ScriptedConsole(Console):
     Each script entry answers the next menu/ask_int/confirm call in order.
     When the script runs out: menus take their last option, ask_int takes
     its default, confirm answers False — all safe "do nothing" choices.
+    The exception is scene_menu: sit-down decisions permanently dismiss
+    chairs, so an exhausted script raises ScriptExhausted (before any
+    state mutates) instead of failing open into a commitment (rev. 6).
     """
 
     def __init__(self, script: list | None = None) -> None:
@@ -137,6 +160,14 @@ class ScriptedConsole(Console):
     def confirm(self, prompt: str) -> bool:
         ans = bool(self._next(False))
         self.transcript.append(f"confirm[{prompt}] -> {ans}")
+        return ans
+
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        if not self.script:
+            raise ScriptExhausted(
+                f"scene_menu[{prompt}] needs an explicit scripted answer")
+        ans = max(0, min(int(self.script.pop(0)), len(options) - 1))
+        self.transcript.append(f"scene[{namespace}:{prompt}] -> {options[ans]}")
         return ans
 
     def pause(self) -> None:
