@@ -107,7 +107,6 @@ class TestEconomy(unittest.TestCase):
         self.assertGreater(shop.believable_ceiling(state, 400), low)
 
     def test_oversell_depresses_next_day_price(self):
-        state, rng = prepped_state(5)
         heavy, light = [], []
         for seed in range(40):
             s, r = prepped_state(seed)

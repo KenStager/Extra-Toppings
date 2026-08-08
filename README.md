@@ -13,10 +13,34 @@ exposure.
 This is the **first playable vertical slice**: pure-Python, no dependencies,
 runs in any terminal.
 
+## Quick start
+
 ```
-python3 -m extra_toppings              # play
-python3 -m extra_toppings --seed 42    # repeatable run
+git clone https://github.com/KenStager/Extra-Toppings.git
+cd Extra-Toppings
+python3 -m extra_toppings --seed 24
+```
+
+That's the whole install: Python 3.10+ and a terminal. Every choice is a
+numbered menu — type the number, press enter. Pressing enter alone takes
+the suggested default on amount prompts. A full 30-day run takes about
+15–25 minutes.
+
+Recommended first seeds:
+
+| Seed | Character |
+| --- | --- |
+| `--seed 24` | Forgiving opening — quiet law, clear market signals |
+| `--seed 39` | Knife-edge — big early temptation, hot second half |
+| `--seed 8`  | Hostile — a jackpot-shaped trap; restraint required |
+
+Other ways to run it:
+
+```
+python3 -m extra_toppings                        # unseeded (random) run
 python3 -m extra_toppings --auto --smart --verbose   # watch a bot play
+python3 -m extra_toppings.bench --seeds 60       # strategy benchmark
+python3 -m unittest discover -s tests            # test suite
 ```
 
 ## The setup

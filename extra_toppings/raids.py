@@ -36,7 +36,7 @@ def plan_raid(state: State, con: Console, rng: random.Random) -> dict | None:
         return None
     objective = obj_keys[opick]
 
-    team = []
+    team: list = []
     pool = list(crew)
     while pool and len(team) < 3:
         names = [f"{e.name} (nerve {e.nerve}, {e.trait})" for e in pool] + ["Enough"]

@@ -7,7 +7,7 @@ RULE = "─" * 62
 
 
 def money(n: float) -> str:
-    n = int(round(n))
+    n = round(n)
     return f"-${abs(n):,}" if n < 0 else f"${n:,}"
 
 
@@ -100,6 +100,47 @@ class BotConsole(Console):
 
     def confirm(self, prompt: str) -> bool:
         return self.rng.random() < 0.5
+
+
+class ScriptedConsole(Console):
+    """Replays an exact list of answers. Used by tests to pin decisions.
+
+    Each script entry answers the next menu/ask_int/confirm call in order.
+    When the script runs out: menus take their last option, ask_int takes
+    its default, confirm answers False — all safe "do nothing" choices.
+    """
+
+    def __init__(self, script: list | None = None) -> None:
+        super().__init__()
+        self.quiet = True
+        self.script = list(script or [])
+        self.transcript: list[str] = []
+
+    def _next(self, fallback):
+        if self.script:
+            return self.script.pop(0)
+        return fallback
+
+    def menu(self, prompt: str, options: list[str]) -> int:
+        ans = self._next(len(options) - 1)
+        ans = max(0, min(int(ans), len(options) - 1))
+        self.transcript.append(f"menu[{prompt}] -> {options[ans]}")
+        return ans
+
+    def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
+        if lo >= hi:
+            return lo
+        ans = max(lo, min(int(self._next(default)), hi))
+        self.transcript.append(f"int[{prompt}] -> {ans}")
+        return ans
+
+    def confirm(self, prompt: str) -> bool:
+        ans = bool(self._next(False))
+        self.transcript.append(f"confirm[{prompt}] -> {ans}")
+        return ans
+
+    def pause(self) -> None:
+        pass
 
 
 def fatal(msg: str) -> None:

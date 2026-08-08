@@ -1,8 +1,10 @@
 """Static content: districts, goods, people, rivals, events, raid layouts."""
 
+from typing import Any
+
 # ── Contraband ────────────────────────────────────────────────────
 # Everything moves in pizza boxes under coded menu names.
-GOODS = {
+GOODS: dict[str, dict[str, Any]] = {
     "oregano": {
         "label": "Extra Oregano",
         "base": 45,          # baseline street price per unit
@@ -32,7 +34,7 @@ GOODS = {
 # ── Districts ─────────────────────────────────────────────────────
 # traffic: legit customer base. underground: covert demand multiplier.
 # patrol: baseline enforcement pressure. rival: who claims it.
-DISTRICTS = {
+DISTRICTS: dict[str, dict[str, Any]] = {
     "old_harbor": {
         "label": "Old Harbor",
         "traffic": 0.9,
@@ -75,7 +77,7 @@ HOME_DISTRICT = "old_harbor"  # your shop sits at the edge of Old Harbor
 
 # ── Employees ─────────────────────────────────────────────────────
 # Stats 1-10. Trait shapes events. wage is per day, paid in clean cash.
-EMPLOYEE_POOL = [
+EMPLOYEE_POOL: list[dict[str, Any]] = [
     {
         "name": "Rosa Delgado", "role": "driver",
         "food": 3, "driving": 9, "nerve": 7, "loyalty": 8,
@@ -138,7 +140,7 @@ TRAIT_NOTES = {
 }
 
 # ── Rivals ────────────────────────────────────────────────────────
-RIVALS = {
+RIVALS: dict[str, dict[str, Any]] = {
     "sal": {
         "label": "Sal Moretti — Moretti's Trattoria",
         "short": "Sal",
@@ -164,7 +166,7 @@ RIVALS = {
 # ── City events ───────────────────────────────────────────────────
 # Effects apply for `days`. price/traffic/underground are multipliers,
 # patrol is additive heat pressure.
-EVENTS = [
+EVENTS: list[dict[str, Any]] = [
     {
         "id": "concert",
         "news": "STADIUM SELLS OUT: two-night festival in The Meadows.",
@@ -217,13 +219,13 @@ EVENTS = [
 # ── Raid system ───────────────────────────────────────────────────
 # One layout grammar shared by every tactical location: an ordered room
 # path from entry to prize. Rooms carry guard odds and noise risk.
-RAID_LAYOUTS = {
+RAID_LAYOUTS: dict[str, dict[str, Any]] = {
     "rival_warehouse": {
         "label": "warehouse",
         "rooms": [
             {"name": "loading dock", "guard": 0.5, "noise": 0.3},
             {"name": "storage floor", "guard": 0.6, "noise": 0.4},
-            {"name": "the cage", "guard": 0.7, "noise": 0.5},
+            {"name": "cage", "guard": 0.7, "noise": 0.5},
             {"name": "back office", "guard": 0.4, "noise": 0.3},
         ],
     },
@@ -246,7 +248,7 @@ RAID_LAYOUTS = {
 }
 
 # The three raid objectives of the vertical slice.
-RAID_OBJECTIVES = {
+RAID_OBJECTIVES: dict[str, dict[str, Any]] = {
     "steal_stock": {
         "label": "Empty their stockroom",
         "layout": "rival_warehouse",
@@ -280,7 +282,7 @@ SHOP_STASH_CAP = 40       # bulk units hideable in the shop
 WAREHOUSE_CAP = 200
 LAUNDER_FACTOR = 1.25     # dirty $ washable per legit $ of sales
 
-UPGRADES = {
+UPGRADES: dict[str, dict[str, Any]] = {
     "walk_in": {
         "label": "Walk-in refrigerator", "cost": 1800,
         "desc": "Doubles shop stash space. Twice as much to lose in a search.",

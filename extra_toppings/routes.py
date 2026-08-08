@@ -42,12 +42,13 @@ def plan_route(state: State, con: Console, rng: random.Random) -> dict | None:
     ride_along = con.confirm("Ride along yourself? (You can handle trouble — and be caught in it.)")
 
     # Cargo: only read-in drivers carry product unless you're in the car.
+    # Pizzas and product share the same wagon — every box takes a slot.
     cargo: dict[str, int] = {}
+    space = data.VEHICLE_CARGO
     can_carry = driver.aware or ride_along
     if not can_carry:
         con.say(f"  {driver.name} isn't read in — pizzas only unless you ride along.")
     else:
-        space = data.VEHICLE_CARGO
         for g, spec in data.GOODS.items():
             have = state.shop_stash.get(g, 0)
             if have <= 0 or space <= 0:
@@ -65,8 +66,10 @@ def plan_route(state: State, con: Console, rng: random.Random) -> dict | None:
                 state.shop_stash[g] = have - n
                 space -= n * spec["bulk"]
 
-    legit = con.ask_int("Legit pizza stops for cover (uses ingredients)", 0,
-                        min(12, state.shop.ingredients), 8 if cargo else 4)
+    legit_cap = min(12, state.shop.ingredients, space)
+    legit = con.ask_int(
+        f"Legit pizza stops for cover (wagon space left: {space}, uses ingredients)",
+        0, legit_cap, min(8 if cargo else 4, legit_cap))
     state.shop.ingredients -= legit
     return {"district": dk, "driver": driver, "ride_along": ride_along,
             "cargo": cargo, "legit": legit}
@@ -92,7 +95,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     driver: Employee = plan["driver"]
     cargo = plan["cargo"]
     dspec = data.DISTRICTS[dk]
-    report = {"sold": 0, "cash": 0, "busted": False, "lines": []}
+    report: dict = {"sold": 0, "cash": 0, "busted": False, "lines": []}
 
     # Legit stops: cover, clean revenue, and food-quality exposure.
     if plan["legit"]:
@@ -176,9 +179,9 @@ def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
         _sell(state, dk, g, want, offer / base_price, report)
         con.say(f"  +{money(offer * want)} dirty.")
 
-        if rng.random() < _stop_risk(state, plan):
-            if not _handle_police_stop(state, plan, con, rng, report):
-                return   # busted: route over
+        if rng.random() < _stop_risk(state, plan) \
+                and not _handle_police_stop(state, plan, con, rng, report):
+            return   # busted: route over
 
     # Unsold product rides home.
     for g, u in cargo.items():
