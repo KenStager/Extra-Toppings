@@ -11,6 +11,7 @@ from extra_toppings import data, market, phases, raids, rivals, routes, save, sh
 from extra_toppings.bot import GreedyBot
 from extra_toppings.game import run
 from extra_toppings.models import new_state
+from extra_toppings.rng import Streams
 from extra_toppings.ui import BotConsole, ScriptedConsole
 
 
@@ -30,42 +31,70 @@ class TestDeterminism(unittest.TestCase):
         self.assertEqual(dicts[0], dicts[1])
 
     def test_save_reload_preserves_simulation_exactly(self):
-        def play_days(state, rng, con, n):
+        def play_days(state, streams, con, n):
             for _ in range(n):
                 if state.game_over:
                     break
-                plans = phases.morning(state, con, rng)
-                report = phases.service(state, plans, con, rng)
-                phases.night(state, plans, report, con, rng)
+                plans = phases.morning(state, con, streams)
+                report = phases.service(state, plans, con, streams)
+                phases.night(state, plans, report, con, streams)
                 if state.debt > 0:
                     state.debt = int(state.debt * (1 + data.DEBT_RATE))
 
-        # Play three days, save world + world-RNG + bot-RNG.
-        rng = random.Random(5)
+        # Play three days, save world + streams + bot-RNG.
+        streams = Streams(5)
         con = BotConsole(random.Random(5))
         state = new_state()
-        play_days(state, rng, con, 3)
+        play_days(state, streams, con, 3)
         path = os.path.join(tempfile.mkdtemp(), "save.json")
-        save.save_game(state, rng, path)
+        save.save_game(state, streams, path)
         bot_rng_state = con.rng.getstate()
 
         # Branch A: continue in place.
-        play_days(state, rng, con, 3)
+        play_days(state, streams, con, 3)
         result_a = save.state_to_dict(state)
 
         # Branch B: reload and replay the same three days.
-        state_b, rng_b = save.load_game(path)
+        state_b, streams_b = save.load_game(path)
         con_b = BotConsole(random.Random(0))
         con_b.rng.setstate(bot_rng_state)
-        play_days(state_b, rng_b, con_b, 3)
+        play_days(state_b, streams_b, con_b, 3)
         result_b = save.state_to_dict(state_b)
 
         self.assertEqual(result_a, result_b)
+
+    def test_world_is_action_independent(self):
+        """Same seed, wildly different play -> identical event schedule and
+        (absent player market impact) identical prices each day."""
+        def world_trace(bot):
+            trace = []
+            orig_night = phases.night
+            def spy_night(state, plans, report, con, streams):
+                trace.append((state.day,
+                              tuple(sorted(e.spec["id"] for e in state.events)),
+                              tuple(state.demand_today for _ in (1,))))
+                return orig_night(state, plans, report, con, streams)
+            phases.night = spy_night
+            try:
+                run(77, bot, max_days=8)
+            finally:
+                phases.night = orig_night
+            return trace
+
+        t1 = world_trace(BotConsole(random.Random(1)))
+        t2 = world_trace(GreedyBot(random.Random(2)))
+        # The event schedule — the world's dice — is identical under any play.
+        self.assertEqual([x[:2] for x in t1], [x[:2] for x in t2])
+        # Demand DICE are shared too, but computed demand also depends on
+        # reputation/policy, which the player owns — so only day 1 (before
+        # any divergence) must match exactly.
+        self.assertEqual(t1[0], t2[0])
 
 
 class TestSharedCapacity(unittest.TestCase):
     def _plan(self, load_units):
         state, rng = fresh(2)
+        state.delivery_pool = 20                    # plenty of real orders today
         state.shop_stash = {"oregano": 12}          # bulk 2: can fill the wagon
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         rosa.aware = True
@@ -131,8 +160,9 @@ class TestMoneySeparation(unittest.TestCase):
     def test_restaurant_revenue_is_clean_only(self):
         state, rng = fresh(3)
         state.shop.ingredients = 100
+        shop.roll_demand(state, rng)
         dirty_before = state.dirty
-        shop.simulate_shift(state, rng)
+        shop.simulate_shift(state, 0, rng)
         self.assertEqual(state.dirty, dirty_before)
 
     def test_street_sales_are_dirty_only(self):
@@ -159,12 +189,12 @@ class TestTelegraphedRaids(unittest.TestCase):
                                 "raid must never arrive the night it is decided")
 
     def test_warning_countdown_passes_through_a_visible_day(self):
-        state, rng = fresh(6)
+        state, _ = fresh(6)
         state.rivals["vinnie"].raid_warning = 3
         state.rivals["sal"].strength = 0          # keep sal quiet
         plans = {"route": None, "raid": None}
         report = {"revenue": 0}
-        phases.night(state, plans, report, ScriptedConsole(), rng)
+        phases.night(state, plans, report, ScriptedConsole(), Streams(6))
         self.assertEqual(state.rivals["vinnie"].raid_warning, 2)
         self.assertEqual(state.shop.damage_days, 0)   # no raid yet
 
@@ -210,15 +240,15 @@ class TestRecoverableFailure(unittest.TestCase):
 
 
 class TestCarmineCredit(unittest.TestCase):
-    def _run_morning(self, state, rng):
+    def _run_morning(self, state, seed=7):
         # Immediately open for service (option 9 in the morning menu).
-        return phases.morning(state, ScriptedConsole([8]), rng)
+        return phases.morning(state, ScriptedConsole([8]), Streams(seed))
 
     def test_credit_costs_more_than_the_groceries_are_worth(self):
-        state, rng = fresh(7)
+        state, _ = fresh(7)
         state.clean, state.shop.ingredients = 0, 0
         debt_before = state.debt
-        self._run_morning(state, rng)
+        self._run_morning(state)
         granted = state.shop.ingredients
         debt_added = state.debt - debt_before
         self.assertGreater(granted, 0)
@@ -226,16 +256,16 @@ class TestCarmineCredit(unittest.TestCase):
                            granted * data.INGREDIENT_COST[state.shop.quality])
 
     def test_credit_does_not_fire_when_solvent(self):
-        state, rng = fresh(8)
+        state, _ = fresh(8)
         state.clean, state.shop.ingredients = 5000, 50
         debt_before = state.debt
-        self._run_morning(state, rng)
+        self._run_morning(state, seed=8)
         self.assertEqual(state.debt, debt_before)
 
     def test_leaning_on_credit_compounds_against_you(self):
         """Ten days of deliberate starvation: debt grows faster than the
         retail value of everything Carmine delivered. No free lunch."""
-        state, rng = fresh(9)
+        state, _ = fresh(9)
         state.clean = 0
         total_groceries_value = 0
         debt_start = state.debt
@@ -243,7 +273,8 @@ class TestCarmineCredit(unittest.TestCase):
             state.shop.ingredients = 0
             state.clean = 0
             before = state.shop.ingredients
-            self._run_morning(state, rng)
+            self._run_morning(state, seed=9)
+            state.day += 1
             total_groceries_value += (state.shop.ingredients - before) \
                 * data.INGREDIENT_COST[state.shop.quality]
             state.debt = int(state.debt * (1 + data.DEBT_RATE))

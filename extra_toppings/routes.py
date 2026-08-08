@@ -15,11 +15,17 @@ def route_suspicion(covert: int, legit: int) -> float:
     return covert / total
 
 
-def plan_route(state: State, con: Console, rng: random.Random) -> dict | None:
-    """Morning: pick district, driver, cargo, cover. Returns a route plan."""
-    drivers = [e for e in state.hired() if e.available and e.driving >= 4]
+def plan_route(state: State, con: Console, rng: random.Random,
+               reserved: list | None = None) -> dict | None:
+    """Morning: pick district, driver, cargo, cover. Returns a route plan.
+
+    `reserved` employees (tonight's raid crew) can't also drive the route —
+    one person, one job per night."""
+    reserved = reserved or []
+    drivers = [e for e in state.hired()
+               if e.available and e.driving >= 4 and e not in reserved]
     if not drivers:
-        con.say("  Nobody available can drive. No route today.")
+        con.say("  Nobody free can drive — your people are spoken for tonight.")
         return None
 
     dist_keys = list(data.DISTRICTS)
@@ -66,9 +72,14 @@ def plan_route(state: State, con: Console, rng: random.Random) -> dict | None:
                 state.shop_stash[g] = have - n
                 space -= n * spec["bulk"]
 
-    legit_cap = min(12, state.shop.ingredients, space)
+    # Cover has to be real: only customers who actually ordered delivery.
+    legit_cap = min(12, state.shop.ingredients, space, state.delivery_pool)
+    if state.delivery_pool <= 0:
+        con.say("  No delivery orders on the board — a busier, better-liked "
+                "shop would give you cover.")
     legit = con.ask_int(
-        f"Legit pizza stops for cover (wagon space left: {space}, uses ingredients)",
+        f"Delivery orders to run for cover ({state.delivery_pool} on the board, "
+        f"wagon space {space})",
         0, legit_cap, min(8 if cargo else 4, legit_cap))
     state.shop.ingredients -= legit
     return {"district": dk, "driver": driver, "ride_along": ride_along,
@@ -102,6 +113,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
         ticket = data.TICKET_PRICE[state.shop.price]
         late = sum(cargo.values()) > 0 and plan["legit"] < sum(cargo.values())
         state.clean += plan["legit"] * ticket
+        state.legit_revenue_today += plan["legit"] * ticket
         if late:
             state.shop.reputation = max(0.0, state.shop.reputation - 3)
             report["lines"].append("Pizzas ran late around the extra stops. Two refunds, one review.")
@@ -131,6 +143,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
                    + route_suspicion(sum(cargo.values()), plan["legit"]) * 6)
     if not report["busted"]:
         driver.routes_survived += 1
+        driver.familiarity[dk] = min(10, driver.familiarity.get(dk, 0) + 1)
     return report
 
 
@@ -206,24 +219,24 @@ def _handle_police_stop(state: State, plan: dict, con: Console,
             state.add_case(2, "a patrolman on the take knows your face")
             return True
         con.say("  Wrong cop. He steps back and calls it in.")
-        return _bust(state, plan, con, report, resisted=False)
+        return _bust(state, plan, con, rng, report, resisted=False)
     if choice == 2:
         if rng.random() < 0.25 + driver.driving * 0.06:
             con.say(f"  {driver.name} loses him in the harbor alleys. Heart rates recover.")
             state.add_heat(plan["district"], 12)
             return True
         con.say("  The wagon fishtails into a fence. It's over.")
-        return _bust(state, plan, con, report, resisted=True)
+        return _bust(state, plan, con, rng, report, resisted=True)
     # play it cool
     if rng.random() < 0.35 + driver.nerve * 0.06:
         con.say("  'Delivery for the night shift.' He checks a box and lets you go.")
         return True
     con.say("  He asks to see the warmer bags.")
-    return _bust(state, plan, con, report, resisted=False)
+    return _bust(state, plan, con, rng, report, resisted=False)
 
 
-def _bust(state: State, plan: dict, con: Console, report: dict,
-          resisted: bool) -> bool:
+def _bust(state: State, plan: dict, con: Console, rng: random.Random,
+          report: dict, resisted: bool) -> bool:
     cargo = plan["cargo"]
     seized_units = sum(cargo.values())
     for g in cargo:
@@ -233,6 +246,17 @@ def _bust(state: State, plan: dict, con: Console, report: dict,
     state.add_heat(plan["district"], 20)
     state.add_case(8 + (6 if resisted else 0) + seized_units * 0.3,
                    "product seized in a traffic stop")
+    if plan["ride_along"]:
+        # You were in the car. That is now a fact the Case owns.
+        state.add_case(6, "the owner was in the vehicle when it was searched")
+        con.say("  They photograph you next to the open warmer bags.")
+    driver = plan["driver"]
+    if seized_units > 0 and not driver.arrested:
+        arrest_odds = 0.35 if plan["ride_along"] else 0.6
+        if rng.random() < arrest_odds:
+            driver.arrested = True
+            report["lines"].append(f"{driver.name} is booked for possession.")
+            con.say(f"  They take {driver.name} in. The wagon gets towed.")
     report["busted"] = True
     report["lines"].append("The cargo is gone and your name is in a report.")
     con.say(f"  Seized: {seized_units} units. The night is a total loss.")
@@ -245,7 +269,9 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
     dk = plan["district"]
     driver = plan["driver"]
     cargo = plan["cargo"]
-    risk = _stop_risk(state, plan) * (1.15 - driver.nerve * 0.05)
+    fam = driver.familiarity.get(dk, 0)
+    risk = _stop_risk(state, plan) * (1.15 - driver.nerve * 0.05) \
+        * max(0.5, 1.0 - fam * 0.07)
     if rng.random() < max(0.03, risk):
         # It goes wrong out of your sight.
         if rng.random() < 0.5:
@@ -273,7 +299,8 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
                 state.shop_stash[g] = state.shop_stash.get(g, 0) + u
         return
 
-    sell_frac = min(1.0, (0.5 + driver.nerve * 0.05) * (drops / 3))
+    sell_frac = min(1.0, (0.40 + driver.driving * 0.045 + driver.nerve * 0.03
+                          + fam * 0.04) * (drops / 3))
     for g in list(cargo):
         units = int(cargo[g] * sell_frac)
         if units:

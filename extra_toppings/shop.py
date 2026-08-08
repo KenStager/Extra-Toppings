@@ -1,4 +1,9 @@
-"""The legitimate pizzeria: demand, quality, revenue, reputation."""
+"""The legitimate pizzeria: demand, quality, revenue, reputation.
+
+Demand is rolled each morning from an action-independent daily stream.
+A slice of that demand wants delivery — and *only* those real orders can
+serve as cover on a route. A hollow restaurant has nothing to hide behind.
+"""
 
 import random
 
@@ -11,22 +16,38 @@ def cooks_skill(state: State) -> int:
     return max([e.food for e in cooks], default=2)
 
 
-def simulate_shift(state: State, rng: random.Random) -> dict:
-    """One day of honest business. Returns a report dict; mutates state."""
+DELIVERY_SHARE = 0.35   # fraction of real demand that phones in a delivery
+
+
+def roll_demand(state: State, rng: random.Random) -> None:
+    """Morning: how many customers actually want your pizza today."""
     shop = state.shop
     dk = data.HOME_DISTRICT
     dspec = data.DISTRICTS[dk]
 
-    if shop.damage_days:
-        shop.damage_days -= 1
-
     base = 55 * dspec["traffic"]
-    rep_f = 0.4 + state.shop.reputation / 100 * 1.2
+    rep_f = 0.4 + shop.reputation / 100 * 1.2
     price_f = {"cheap": 1.25, "standard": 1.0, "gourmet": 0.75}[shop.price]
     late_f = 1.2 if "late_license" in shop.upgrades else 1.0
+    coupon_f = 0.8 if shop.coupon_days > 0 else 1.0
     ev_f = market.event_mult(state, dk, "traffic")
-    demand = int(base * rep_f * price_f * late_f * ev_f * rng.uniform(0.85, 1.15))
+    state.demand_today = int(base * rep_f * price_f * late_f * coupon_f * ev_f
+                             * rng.uniform(0.85, 1.15))
+    state.delivery_pool = int(state.demand_today * DELIVERY_SHARE)
+    state.legit_revenue_today = 0
 
+
+def simulate_shift(state: State, route_legit: int, rng: random.Random) -> dict:
+    """One day of honest counter business. Route deliveries were part of
+    today's demand, so they're subtracted before the dining room fills."""
+    shop = state.shop
+
+    if shop.damage_days:
+        shop.damage_days -= 1
+    if shop.coupon_days:
+        shop.coupon_days -= 1
+
+    demand = max(0, state.demand_today - route_legit)
     capacity = shop.kitchen_cap
     orders = min(demand, capacity, shop.ingredients)
     lost = demand - orders
@@ -35,6 +56,7 @@ def simulate_shift(state: State, rng: random.Random) -> dict:
     ticket = data.TICKET_PRICE[shop.price]
     revenue = orders * ticket
     state.clean += revenue
+    state.legit_revenue_today += revenue
 
     # Reputation drifts with quality vs. price expectations and lost orders.
     skill = cooks_skill(state)
@@ -55,9 +77,9 @@ def simulate_shift(state: State, rng: random.Random) -> dict:
             critic_line = "The Ledger's critic calls your pie 'a cardboard apology.'"
 
     if "late_license" in shop.upgrades:
-        state.add_heat(dk, 1.5)   # neighbors complain about the 2 a.m. crowd
+        state.add_heat(data.HOME_DISTRICT, 1.5)  # 2 a.m. crowd, neighbor complaints
     if "guard" in shop.upgrades:
-        state.add_heat(dk, 0.5)   # why does a pizzeria need armed security?
+        state.add_heat(data.HOME_DISTRICT, 0.5)  # why the armed man at a pizzeria?
 
     return {
         "demand": demand, "orders": orders, "lost": lost,

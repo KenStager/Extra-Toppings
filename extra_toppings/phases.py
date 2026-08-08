@@ -1,9 +1,15 @@
-"""The daily rhythm: Morning (prepare) → Service (operate) → Night (settle)."""
+"""The daily rhythm: Morning (prepare) → Service (operate) → Night (settle).
+
+Randomness is split by domain (see rng.Streams): the world's dice — prices,
+events, rumors, suppliers, demand — are drawn per-day and cannot be shifted
+by anything the player does. Player-facing dice use persistent streams.
+"""
 
 import random
 
 from . import data, market, raids, rivals, routes, shop
 from .models import State
+from .rng import Streams
 from .ui import Console, money
 
 QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
@@ -11,10 +17,11 @@ QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
 
 # ══ MORNING ═══════════════════════════════════════════════════════
 
-def morning(state: State, con: Console, rng: random.Random) -> dict:
+def morning(state: State, con: Console, streams: Streams) -> dict:
     """Read the news, set the day up. Returns plans for later phases."""
-    market.draw_events(state, rng)
-    market.roll_prices(state, rng)
+    market.draw_events(state, streams.daily(state.day, "events"))
+    market.roll_prices(state, streams.daily(state.day, "market"))
+    shop.roll_demand(state, streams.daily(state.day, "demand"))
 
     con.header(f"DAY {state.day} of {data.DEBT_DUE_DAY} — MORNING")
     con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
@@ -24,11 +31,13 @@ def morning(state: State, con: Console, rng: random.Random) -> dict:
         days_left = data.DEBT_DUE_DAY - state.day
         con.say(f"  Carmine expects {money(state.debt)} within {days_left} day(s).")
 
+    con.say(f"  Order book: ~{state.demand_today} customers expected, "
+            f"{state.delivery_pool} delivery orders on the board.")
     for line in state.news:
         con.bullet(f"NEWS: {line}")
-    for line in market.rumor_sheet(state, rng):
+    for line in market.rumor_sheet(state, streams.daily(state.day, "rumors")):
         con.bullet(f"RUMOR: {line}")
-    _staff_trouble(state, con, rng)
+    _staff_trouble(state, con, streams.staff)
 
     # Carmine won't let his investment starve: he fronts stock — onto the debt.
     if state.shop.ingredients < 10 and state.clean < 200:
@@ -37,7 +46,7 @@ def morning(state: State, con: Console, rng: random.Random) -> dict:
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
                    "The account, of course, is the debt.")
 
-    supplier = _supplier_offer(state, rng)
+    supplier = _supplier_offer(state, streams.daily(state.day, "supplier"))
     if supplier:
         g = data.GOODS[supplier["good"]]
         con.bullet(f"SUPPLIER: {supplier['units']}x {g['label']} at "
@@ -65,13 +74,21 @@ def morning(state: State, con: Console, rng: random.Random) -> dict:
         elif c == 3 and supplier:
             supplier = _buy_supplier(state, supplier, con)
         elif c == 4:
-            _staff_menu(state, con, rng)
+            _staff_menu(state, con, streams.staff)
         elif c == 5:
             _improvements(state, con)
         elif c == 6:
-            plans["route"] = routes.plan_route(state, con, rng)
+            reserved = plans["raid"]["team"] if plans.get("raid") else []
+            plans["route"] = routes.plan_route(state, con, streams.routes,
+                                               reserved=reserved)
         elif c == 7:
-            plans["raid"] = raids.plan_raid(state, con, rng)
+            route = plans.get("route")
+            reserved = [route["driver"]] if route else []
+            if route and route["ride_along"]:
+                con.say("  You'll be in the wagon tonight — the crew goes "
+                        "without you, and without your nerve.")
+            plans["raid"] = raids.plan_raid(state, con, streams.raids,
+                                            reserved=reserved)
         elif c == 8:
             break
     return plans
@@ -154,6 +171,9 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
             e.injured_days -= 1
             if e.injured_days == 0:
                 con.bullet(f"{e.name} is back on their feet.")
+        if e.morale == 3 or e.morale == 2:
+            con.bullet(f"{e.name} looks done. One more bad week and they walk. "
+                       f"(A raise would help.)")
         if e.morale <= 2 and rng.random() < 0.4:
             if e.trait == "greedy" and state.dirty > 0:
                 skim = min(state.dirty, rng.randrange(100, 400, 50))
@@ -164,7 +184,7 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
                 state.add_case(10, f"{e.name} had a long talk with a detective")
                 con.bullet(f"{e.name} was seen outside the precinct. Probably nothing.")
                 e.morale = 4
-            else:
+            elif e.morale <= 1:
                 e.hired = False
                 con.bullet(f"{e.name} quit. Left the apron on the counter.")
 
@@ -264,9 +284,11 @@ def _improvements(state: State, con: Console) -> None:
 
 # ══ SERVICE ═══════════════════════════════════════════════════════
 
-def service(state: State, plans: dict, con: Console, rng: random.Random) -> dict:
+def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     con.header(f"DAY {state.day} — SERVICE")
-    report = shop.simulate_shift(state, rng)
+    route_legit = plans["route"]["legit"] if plans.get("route") else 0
+    report = shop.simulate_shift(state, route_legit,
+                                 streams.daily(state.day, "critic"))
     lost = f" ({report['lost']} turned away)" if report["lost"] else ""
     con.say(f"  Orders {report['orders']}/{report['demand']} demanded{lost}"
             f" | clean revenue {money(report['revenue'])}")
@@ -276,7 +298,7 @@ def service(state: State, plans: dict, con: Console, rng: random.Random) -> dict
         con.bullet(f"Pantry low: {state.shop.ingredients} orders of stock left.")
 
     if plans.get("route"):
-        r = routes.resolve_route(state, plans["route"], con, rng)
+        r = routes.resolve_route(state, plans["route"], con, streams.routes)
         for line in r["lines"]:
             con.bullet(line)
         if r["cash"]:
@@ -287,25 +309,40 @@ def service(state: State, plans: dict, con: Console, rng: random.Random) -> dict
 # ══ NIGHT ═════════════════════════════════════════════════════════
 
 def night(state: State, plans: dict, service_report: dict, con: Console,
-          rng: random.Random) -> None:
+          streams: Streams) -> None:
     con.header(f"DAY {state.day} — AFTER CLOSE")
 
-    if plans.get("raid"):
-        raids.run_raid(state, plans["raid"], con, rng)
+    raid_plan = plans.get("raid")
+    if raid_plan:
+        # The day happened between planning and doing: anyone arrested,
+        # injured or gone since morning is off the job.
+        team = [e for e in raid_plan["team"] if e.available]
+        if not team:
+            con.say("  The night job is scrubbed — the crew you picked this "
+                    "morning didn't make it to nightfall intact.")
+        else:
+            if len(team) < len(raid_plan["team"]):
+                con.say("  The crew is short tonight; the job goes ahead anyway.")
+            raid_plan["team"] = team
+            raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():
         if rival.alive and rival.raid_warning == 1:
-            raids.incoming_raid(state, key, con, rng)
+            raids.incoming_raid(state, key, con, streams.raids)
 
     _payroll_and_rent(state, con)
 
-    ceiling = shop.believable_ceiling(state, service_report["revenue"])
+    # The ceiling covers every honest dollar of the day — and it's a
+    # nightly total, not a per-transaction allowance.
+    ceiling = shop.believable_ceiling(state, state.legit_revenue_today)
+    laundered_tonight = 0
     while True:
         con.say("")
         con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
                 f"Debt {money(state.debt)}")
-        con.say(f"  Books can absorb about {money(ceiling)} tonight without "
-                f"raising eyebrows.")
+        remaining = max(0, ceiling - laundered_tonight)
+        con.say(f"  Books can absorb about {money(remaining)} more tonight "
+                f"without raising eyebrows.")
         c = con.menu("Settle accounts:", [
             "Launder dirty cash through the register",
             "Pay Carmine (he prefers unmarked bills)",
@@ -314,18 +351,18 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             "Lock up →",
         ])
         if c == 0:
-            _launder(state, ceiling, con)
+            laundered_tonight += _launder(state, remaining, con)
         elif c == 1:
             _pay_debt(state, con)
         elif c == 2:
             _storage(state, con)
         elif c == 3:
-            rivals.negotiate(state, con, rng)
+            rivals.negotiate(state, con, streams.rivals)
         else:
             break
 
-    rivals.rival_phase(state, con, rng)
-    _law_phase(state, con, rng)
+    rivals.rival_phase(state, con, streams.rivals)
+    _law_phase(state, con, streams.daily(state.day, "law"))
 
     # The city cools a little overnight.
     for d in state.districts.values():
@@ -352,31 +389,36 @@ def _payroll_and_rent(state: State, con: Console) -> None:
             e.morale -= 2
 
 
-def _launder(state: State, ceiling: int, con: Console) -> None:
+def _launder(state: State, remaining: int, con: Console) -> int:
+    """Wash dirty cash against tonight's REMAINING allowance. Returns the
+    amount washed so the night loop can shrink the allowance — chunking
+    the wash into small calls buys nothing."""
     if state.dirty <= 0:
         con.say("  No dirty cash on hand.")
-        return
+        return 0
     amt = con.ask_int(f"Run how much through the books? (dirty {money(state.dirty)})",
-                      0, state.dirty, min(state.dirty, ceiling))
+                      0, state.dirty, min(state.dirty, remaining))
     if amt <= 0:
-        return
+        return 0
     state.dirty -= amt
     state.clean += amt
     state.total_laundered += amt
-    if amt > ceiling:
-        over = amt - ceiling
+    if amt > remaining:
+        over = amt - remaining
         evidence = min(20.0, over / 400)
-        state.add_case(evidence, f"the register claimed {money(amt)} on a slow day")
+        state.add_case(evidence, f"the register claimed {money(amt)} beyond "
+                                 f"any plausible night's sales")
         con.say(f"  {money(amt)} washed. {money(over)} of it is hard to explain. "
                 f"Somewhere, a spreadsheet notices.")
     else:
         state.add_case(0.5, "")
         con.say(f"  {money(amt)} washed clean. The books look plausible.")
     observant = [e for e in state.hired() if e.trait == "observant" and not e.aware]
-    if observant and amt > ceiling:
+    if observant and amt > remaining:
         e = observant[0]
         e.morale -= 1
         con.say(f"  {e.name} rechecks the till twice and says nothing.")
+    return amt
 
 
 def _pay_debt(state: State, con: Console) -> None:

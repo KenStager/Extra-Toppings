@@ -11,12 +11,15 @@ from .models import State
 from .ui import Console, money
 
 
-def plan_raid(state: State, con: Console, rng: random.Random) -> dict | None:
+def plan_raid(state: State, con: Console, rng: random.Random,
+              reserved: list | None = None) -> dict | None:
+    """`reserved` employees (tonight's driver) already have a job."""
     targets = [k for k, r in state.rivals.items() if r.alive]
     if not targets:
         con.say("  There's nobody left worth robbing.")
         return None
-    crew = state.crew()
+    reserved = reserved or []
+    crew = [e for e in state.crew() if e not in reserved]
     if not crew:
         con.say("  A raid needs read-in crew. Right now the only person you trust is you.")
         return None

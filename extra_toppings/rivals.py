@@ -50,8 +50,10 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
 
 
 def _price_war(state: State, key: str, spec: dict, con: Console) -> None:
-    con.bullet(f"{spec['short']} papers the neighborhood with two-for-one coupons.")
-    state.shop.reputation = max(0.0, state.shop.reputation - 4)
+    # Coupons steal customers for a while; they don't make your pizza worse.
+    con.bullet(f"{spec['short']} papers the neighborhood with two-for-one coupons. "
+               f"Expect thin order books for a few days.")
+    state.shop.coupon_days = max(state.shop.coupon_days, 3)
 
 
 def _poach(state: State, rival, spec: dict, con: Console, rng: random.Random) -> None:

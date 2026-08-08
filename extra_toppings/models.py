@@ -23,6 +23,7 @@ class Employee:
     injured_days: int = 0
     arrested: bool = False
     routes_survived: int = 0
+    familiarity: dict = field(default_factory=dict)   # district -> routes driven there
 
     @property
     def available(self) -> bool:
@@ -76,6 +77,7 @@ class Shop:
     reputation: float = 50.0         # 0-100
     upgrades: set = field(default_factory=set)
     damage_days: int = 0             # closed/limping after a raid
+    coupon_days: int = 0             # rival coupon blitz siphoning customers
 
     @property
     def stash_cap(self) -> int:
@@ -114,6 +116,9 @@ class State:
     total_laundered: int = 0
     raids_led: int = 0
     kills: int = 0
+    demand_today: int = 0            # today's real customer demand, rolled each morning
+    delivery_pool: int = 0           # slice of demand that wants delivery (cover comes from here)
+    legit_revenue_today: int = 0     # every honest dollar today — feeds the believable ceiling
 
     # ── derived ──────────────────────────────────────────────────
     def stash_bulk(self, stash: dict) -> int:
