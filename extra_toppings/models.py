@@ -58,6 +58,7 @@ class Rival:
     raid_warning: int = 0         # days until their telegraphed raid (0 = none)
     ledger_stolen: bool = False
     ovens_wrecked_days: int = 0
+    alertness: float = 0.0        # 0-10: how hard their security has learned
 
     @property
     def alive(self) -> bool:

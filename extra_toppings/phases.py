@@ -88,7 +88,8 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
             plans["raid"] = raids.plan_raid(state, con, streams.raids,
-                                            reserved=reserved)
+                                            reserved=reserved,
+                                            wagon_free=route is None)
         elif c == 8:
             break
     return plans
@@ -397,6 +398,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             if len(team) < len(raid_plan["team"]):
                 con.say("  The crew is short tonight; the job goes ahead anyway.")
             raid_plan["team"] = team
+            raid_plan["wagon_free"] = plans.get("route") is None
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():

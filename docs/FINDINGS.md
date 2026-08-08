@@ -210,10 +210,37 @@ optimum); the zero-cover column is uniformly the arrest column
 Case. Context — heat, events, driver, district — should be what moves
 the ideal split, not a memorized ratio.
 
+## Round 4 — raid pricing (design pass, post-merge)
+
+Raids stop being an ATM. Five mechanisms, all tested
+(`tests/test_raid_pricing.py`):
+
+- **Target alertness** (`Rival.alertness`, 0–10): every attempt teaches
+  them (+1 fail/abort, +2 success); guards multiply and sharpen with it,
+  shelves thin, and it decays only slowly (~1 point per 3 quiet days).
+  At alertness 4+ the game says so: "They've been expecting somebody."
+- **Pattern evidence**: each successful job after the first adds Case
+  (1.5 × prior jobs, capped at 8) — even ghosts leave handwriting. A
+  ten-raid spree now costs ~54 Case on pattern alone.
+- **Physical carry limits**: 8 bulk per crew member with the wagon,
+  4 without — and the wagon is a contested resource: if it runs tonight's
+  route, the raid crew carries duffel bags.
+- **Storage bottleneck**: stolen stock must fit the shop stash, then the
+  warehouse if rented; the rest stays in their alley.
+- **Consumable ledger**: leaning on a stolen ledger spends it.
+- **Decoy cap**: the empty-the-stash defense protects exactly one
+  wagonload; overflow is found and taken.
+
+Measured effect (`analysis/experiments.py raids`, 300/200 trials):
+single-job steal_stock haul fell **$4,821 → ~$1,000** (−79%); repeat
+success on the same target declines (18% → 13% by attempt 2 under
+random play); ledger/sabotage — leverage and tempo plays, not loot —
+are intentionally unchanged. The 150-seed sweep is stable (market 62%,
+greedy 58%, crime-heavy 21%): the pricing removed the exploit without
+moving the wider economy.
+
 ## Still open (carried to the next design pass)
 
-- Raids remain under-priced (target hardening, pattern evidence, carry
-  limits, single-use ledger leverage are designed but deferred by scope).
 - The midgame still resolves around day 12–15; the payoff-triggered
   Act I fork (leave the trade / expand with Carmine / press rivals /
   cash out) is the agreed direction.

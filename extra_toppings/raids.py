@@ -12,8 +12,13 @@ from .ui import Console, money
 
 
 def plan_raid(state: State, con: Console, rng: random.Random,
-              reserved: list | None = None) -> dict | None:
-    """`reserved` employees (tonight's driver) already have a job."""
+              reserved: list | None = None,
+              wagon_free: bool = True) -> dict | None:
+    """`reserved` employees (tonight's driver) already have a job. If the
+    wagon runs a route tonight, the crew hauls what duffel bags hold."""
+    if not wagon_free:
+        con.say("  The wagon is out on tonight's route — whatever the crew "
+                "takes, they carry on foot.")
     targets = [k for k, r in state.rivals.items() if r.alive]
     if not targets:
         con.say("  There's nobody left worth robbing.")
@@ -61,14 +66,17 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
     obj = data.RAID_OBJECTIVES[plan["objective"]]
     layout = data.RAID_LAYOUTS[obj["layout"]]
     team = plan["team"]
-    guard_skill = 3 + rival.strength / 20
+    guard_skill = 3 + rival.strength / 20 + rival.alertness * 0.3
+    if rival.alertness >= 4:
+        con.say("  New cameras. New locks. They've been expecting somebody.")
 
     con.header(f"NIGHT JOB — {obj['label']} at {rspec['short']}'s {layout['label']}")
     noise = 0.0
     aborted = False
     for i, room in enumerate(layout["rooms"]):
         con.say(f"  [{i+1}/{len(layout['rooms'])}] The {room['name']}.")
-        guard_here = rng.random() < room["guard"] * (0.6 + rival.strength / 150) + noise * 0.3
+        guard_here = rng.random() < room["guard"] * (0.6 + rival.strength / 150) \
+            * (1 + rival.alertness * 0.08) + noise * 0.3
         if guard_here:
             choice = con.menu(
                 f"A guard. Noise so far: {'quiet' if noise < .3 else 'too much'}.",
@@ -108,11 +116,18 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
     if aborted or not team:
         state.add_heat(rspec["home"], 8)
         rival.relation -= 10
+        rival.alertness = min(10.0, rival.alertness + 1.0)
         con.say("  You got out with nothing but your skins.")
+        con.say("  By morning their guards walk in pairs.")
         return
 
     _payoff(state, plan, rival, rspec, con, rng, clean_exit=noise < 1.0)
+    # Even a ghost leaves a pattern: the same handwriting, night after night.
+    if state.raids_led >= 1:
+        state.add_case(min(8.0, 1.5 * state.raids_led),
+                       "a pattern of night jobs in the same handwriting")
     state.raids_led += 1
+    rival.alertness = min(10.0, rival.alertness + 2.0)
 
 
 def _scuffle(state: State, team: list, guard_skill: float, con: Console,
@@ -139,17 +154,50 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
             rng: random.Random, clean_exit: bool) -> None:
     objective = plan["objective"]
     if objective == "steal_stock":
-        haul = {}
+        # Crew hands and the wagon (if it's home tonight) bound the haul.
+        carry_bulk = (8 if plan.get("wagon_free", True) else 4) * len(plan["team"])
+        thin = max(0.3, 1.0 - rival.alertness * 0.07)   # alert targets stock less
+        haul: dict = {}
         for g in ("oregano", "mushrooms", "hot_honey"):
-            units = rng.randint(4, 10 + int(rival.strength / 10))
-            haul[g] = units
-            state.shop_stash[g] = state.shop_stash.get(g, 0) + units
+            want = int(rng.randint(4, 10 + int(rival.strength / 10)) * thin)
+            bulk = data.GOODS[g]["bulk"]
+            take = min(want, carry_bulk // bulk)
+            if take > 0:
+                haul[g] = take
+                carry_bulk -= take * bulk
+        # Stolen goods still need somewhere to live: shop stash, then the
+        # warehouse if rented — anything past that stays in their alley.
+        left_behind = 0
+        kept: dict = {}
+        for g, u in haul.items():
+            bulk = data.GOODS[g]["bulk"]
+            room = max(0, state.shop.stash_cap
+                       - state.stash_bulk(state.shop_stash)) // bulk
+            to_shop = min(u, room)
+            if to_shop:
+                state.shop_stash[g] = state.shop_stash.get(g, 0) + to_shop
+            rest = u - to_shop
+            if rest and state.warehouse is not None:
+                wh_room = max(0, data.WAREHOUSE_CAP
+                              - state.stash_bulk(state.warehouse)) // bulk
+                to_wh = min(rest, wh_room)
+                if to_wh:
+                    state.warehouse[g] = state.warehouse.get(g, 0) + to_wh
+                rest -= to_wh
+            left_behind += rest
+            if u - rest:
+                kept[g] = u - rest
         rival.strength -= 12
         rival.relation -= 25
-        got = ", ".join(f"{u}x {data.GOODS[g]['label']}" for g, u in haul.items())
-        con.say(f"  The cage is full. You take: {got}.")
+        if kept:
+            got = ", ".join(f"{u}x {data.GOODS[g]['label']}" for g, u in kept.items())
+            con.say(f"  You take what hands and storage can hold: {got}.")
+        else:
+            con.say("  The cage is thin and your arms are full of nothing.")
+        if left_behind:
+            con.say(f"  {left_behind} units stay behind — nowhere to put them.")
         con.say("  Their corner boys will be dry for a week — prices will feel it.")
-        for g in haul:
+        for g in kept:
             # A shortage: their unsold supply props up prices tomorrow.
             state.districts[rspec["home"]].sold_yesterday[g] = -8
     elif objective == "ledger":
@@ -199,11 +247,25 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         return
 
     if choice == 1:
-        # Stash survives; the shop takes the beating.
+        # The wagon holds a wagonload. Anything past that stays — and is found.
         con.say("  The wagon leaves at midnight, riding low. They break in at two.")
+        overflow = state.stash_bulk(state.shop_stash) - data.VEHICLE_CARGO
+        lost_units = 0
+        if overflow > 0:
+            for g in sorted(state.shop_stash,
+                            key=lambda g: -data.GOODS[g]["bulk"]):
+                while overflow > 0 and state.shop_stash.get(g, 0) > 0:
+                    state.shop_stash[g] -= 1
+                    overflow -= data.GOODS[g]["bulk"]
+                    lost_units += 1
         state.shop.damage_days = 2
         state.shop.reputation -= 8
-        con.say("  They wreck the front and find an empty walk-in. Message received — both ways.")
+        if lost_units:
+            con.say(f"  A wagon holds a wagonload. They find the other "
+                    f"{lost_units} units in the walk-in and take them.")
+        else:
+            con.say("  They wreck the front and find an empty walk-in. "
+                    "Message received — both ways.")
         rival.relation -= 5
         rival.raid_warning = 0
         return
