@@ -64,7 +64,21 @@ def plan_raid(state: State, con: Console, rng: random.Random,
         return None
 
     armed = con.confirm("Go in armed? (Safer in a fight. Gunfire changes the city.)")
-    return {"rival": rival_key, "objective": objective, "team": team, "armed": armed}
+    # §2.1 same-night telegraph: a raid runs before the night's settling,
+    # so its evidence (pattern premium, gunfire, bodies, witnesses) can
+    # cross a Case gate hours before a payoff the same night. What it
+    # books depends on choices made mid-job, so while payoff is in reach
+    # the warning is unconditional — a printed line only; the job can
+    # still be replanned or scrapped from the morning menu. The plan
+    # remembers whether it warned: service revenue can put payoff in
+    # reach after planning, and night() rechecks once before the job.
+    warned = state.payoff_in_reach()
+    if warned:
+        con.say("  With the debt this close to settled, remember: whatever "
+                "tonight leaves behind goes into the file tomorrow's table "
+                "reads.")
+    return {"rival": rival_key, "objective": objective, "team": team,
+            "armed": armed, "table_warned": warned}
 
 
 def _security_word(alertness: float) -> str:

@@ -29,7 +29,11 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             f"Case {state.case:.0f}/100")
     if state.debt > 0:
         days_left = data.DEBT_DUE_DAY - state.day
-        con.say(f"  Carmine expects {money(state.debt)} within {days_left} day(s).")
+        line = f"  Carmine expects {money(state.debt)} within {days_left} day(s)."
+        if state.debt < data.START_DEBT // 2:
+            line += " …and he has opinions about what comes after."
+        con.say(line)
+        _act1_telegraphs(state, con)
 
     con.say(f"  Order book: ~{state.demand_today} customers expected, "
             f"{state.delivery_pool} delivery orders on the board.")
@@ -93,6 +97,42 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         elif c == 8:
             break
     return plans
+
+
+def _act1_telegraphs(state: State, con: Console) -> None:
+    """§2.1 pre-payoff telegraphs. Transcript only — no state change, no
+    RNG draw — and the caller guarantees the debt is alive. Everything
+    here is a world fact derivable from state, so nothing needs a stored
+    once-only flag."""
+    if state.day == 20:
+        connected = any(e.trait == "connected" and e.available
+                        for e in state.hired())
+        src = "Lena, sorting receipts," if connected else "A regular at the counter"
+        con.bullet(f"{src} says the man who was asking around about buying "
+                   f"shops is losing interest. Whatever you're going to be, "
+                   f"you're already becoming it.")
+    elif state.day == 24:
+        con.bullet("Word from Carmine himself: settle up by tomorrow night, "
+                   "or the table will be empty. Past day 25, whatever you "
+                   "are on day 30 is what you'll be.")
+    crossed = _case_first_crossed_60_day(state)
+    if crossed is not None and state.day == crossed + 1:
+        con.bullet("The morning paper runs a column on 'irregularities' along "
+                   "the harbor. Investors and buyers read the papers too — a "
+                   "file this thick narrows what anyone will offer you across "
+                   "a table.")
+
+
+def _case_first_crossed_60_day(state: State) -> int | None:
+    """Day the Case first reached 60, or None. Derived from the evidence
+    records with the same left-to-right fold as State.case, so 'crossed'
+    here agrees bit-for-bit with what the meter showed."""
+    total = 0.0
+    for record in state.evidence:
+        total += record.magnitude
+        if total >= 60.0:
+            return record.day
+    return None
 
 
 def _market_board(state: State, con: Console) -> None:
@@ -277,6 +317,16 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                     con.say(f"  {e.name} stands a little straighter.")
         elif c == 3:
             crew = state.hired()
+            # §2.1 same-night telegraph: firing someone who knows books a
+            # 6-point witness record, which can only close a chair from
+            # within 6 of a gate — warn pre-action exactly then. A line
+            # before the existing menu; the prompt itself is golden.
+            if state.payoff_in_reach() and any(e.aware for e in crew) \
+                    and any(state.case < g <= state.case + 6.0
+                            for g in (60.0, 70.0, 85.0)):
+                con.say("  With the debt this close to settled: someone "
+                        "walking out with what they know goes straight into "
+                        "the file tomorrow's table reads.")
             names = [e.name for e in crew] + ["Back"]
             p = con.menu("Let go whom?", names)
             if p < len(crew):
@@ -402,6 +452,12 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                 con.say("  The crew is short tonight; the job goes ahead anyway.")
             raid_plan["team"] = team
             raid_plan["wagon_free"] = plans.get("route") is None
+            # §2.1 rev. 4: the day's takings can put payoff in reach
+            # after the job was planned — recheck once, before it runs.
+            if not raid_plan.get("table_warned") and state.payoff_in_reach():
+                con.say("  With the debt this close to settled, remember: "
+                        "whatever tonight leaves behind goes into the file "
+                        "tomorrow's table reads.")
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():
@@ -474,6 +530,17 @@ def _launder(state: State, remaining: int, con: Console) -> int:
     if state.dirty <= 0:
         con.say("  No dirty cash on hand.")
         return 0
+    # §2.1 same-night telegraph: near payoff, an over-ceiling wash that
+    # could slam a Case gate is warned about BEFORE the act — a printed
+    # line only; the prompt below is part of the golden decision trace
+    # and must not change.
+    if state.payoff_in_reach() and state.dirty > remaining:
+        could = state.case + min(20.0, (state.dirty - remaining) / 400)
+        if any(state.case < gate <= could for gate in (60.0, 70.0, 85.0)):
+            con.say("  With the debt this close to settled, mind what the "
+                    "register claims tonight: whoever sits across a table "
+                    "from you tomorrow reads the same spreadsheet the law "
+                    "does.")
     amt = con.ask_int(f"Run how much through the books? (dirty {money(state.dirty)})",
                       0, state.dirty, min(state.dirty, remaining))
     if amt <= 0:
@@ -517,6 +584,30 @@ def _pay_debt(state: State, con: Console) -> None:
         state.debt_paid_day = state.day
         con.say("  PAID. Carmine counts it twice, smiles once. 'Knew your uncle. "
                 "Good man. Bad cook.' The clock stops ticking.")
+    else:
+        _carmine_remark(state, amt, con)
+
+
+def _carmine_remark(state: State, amt: int, con: Console) -> None:
+    """§2.1 payment-remark telegraph: Carmine reacts to a partial payment,
+    keyed to trajectory. Deterministic in (day, amount) — transcript only."""
+    if amt < 500:
+        return
+    big = amt >= data.START_DEBT // 4
+    early = state.day <= 15
+    if big and early:
+        con.say("  Carmine folds the bills away without counting. 'A man who "
+                "pays early is a man worth backing. We should talk when this "
+                "is done.'")
+    elif big:
+        con.say("  Carmine weighs the envelope in one hand. 'Serious money. "
+                "Finish this, and there'll be things worth discussing.'")
+    elif early:
+        con.say("  Carmine nods once. 'Keep paying like this and people will "
+                "want to know you when it's done.'")
+    else:
+        con.say("  Carmine counts it slowly. 'It's something. What you'll be "
+                "when this is over — you're deciding that now.'")
 
 
 def _storage(state: State, con: Console) -> None:

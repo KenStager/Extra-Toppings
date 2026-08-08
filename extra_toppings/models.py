@@ -235,6 +235,12 @@ class State:
         """Read-in, available employees — the people you can use for the real work."""
         return [e for e in self.hired() if e.aware and e.available]
 
+    def payoff_in_reach(self) -> bool:
+        """§2.1 'near payoff': the debt is alive and on-hand cash could
+        clear it tonight — the window in which the sit-down table is at
+        stake and evidence-capable acts must warn before they run."""
+        return self.debt > 0 and self.clean + self.dirty >= self.debt
+
     def heat(self, dk: str) -> float:
         return self.districts[dk].heat
 

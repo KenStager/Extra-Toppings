@@ -146,6 +146,26 @@ next morning, before the regular morning menu, the sit-down scene runs —
 once, ever. Define `R` = days remaining including the sit-down morning
 (`R = 31 − sitdown_day`; payoff day 13 → sit-down day 14 → `R = 17`).
 
+**Eligibility snapshot (rev. 3, placement corrected rev. 4).** Chair
+eligibility is evaluated and frozen when the player **locks up** — on
+leaving the settle-accounts menu on the night the debt reached zero —
+after every discretionary account action, immediately before the rival
+and law phases. A payment-time snapshot would reward action ordering
+(pay the last dollar first, over-launder afterward at Case 65 → 85, and
+keep both Case-gated chairs); a lock-up snapshot includes every
+voluntary act in the reckoning, while still protecting the table from
+the world's after-hours dice. Evidence accrued after lock-up (the rival
+phase, the law phase) still joins the Case and can still end the run —
+arrest at 100 outranks the fork, §2.5, and always wins the tie — but it
+cannot close a chair retroactively: the table the player earned at
+close of business is the table they sit at. Without this rule the
+world's own dice could empty a chair after the payoff decision, with no
+telegraph even possible — violating "an empty chair must be earned,
+never retroactive." The scene still displays the *current* Case band
+(invariant 8); since only post-lock-up world evidence can make the two
+disagree, any disagreement gets one line ("last night didn't help — but
+the offer stands").
+
 **Which chairs are at the table** (each gate is stated in-scene when it
 fails — an empty chair is explained, never silent):
 
@@ -185,15 +205,70 @@ identical to main):
   finish line.
 
 Verification hooks into §2.7, split by gate type because their timing
-differs. Calendar gates are slow: the warning must precede payoff by at
-least two days. Case gates can slam shut in a single night — an
-over-ceiling wash on payoff night can jump the Case from 55 past 70 — so
-the requirement is disjunctive: either the Case-60 warning appeared on an
-earlier day, or the threshold was crossed on payoff night by an act whose
-own warning surface fired first (the over-ceiling prompt already says a
-spreadsheet will notice; with the debt near zero it adds that tomorrow's
-table reads the same spreadsheet), and the sit-down scene then names the
-specific record that closed the chair.
+differs (criteria as amended by rev. 3).
+
+*Calendar gates* are slow. The original "at least two days before
+payoff" is arithmetically false at the boundary and was never
+achievable with fixed warning days: payoff day 21 → sit-down day 22 →
+`R = 9` withholds Carmine's Partner, and the day-20 warning preceded it
+by one calendar day. The criterion is therefore: for every
+calendar-withheld chair, the relevant warning morning strictly precedes
+the payoff day — the player gets **at least two playable decision days
+including the warning day** before the payoff that sealed the table.
+The fixed beats stand (day 20 covers the Partner boundary at payoff 21
+and the War boundary at payoff 23; day 24 covers the no-sit-down cliff
+at payoff 26) and each satisfies the criterion at its own boundary.
+
+*Case gates* can slam shut in a single night — a route bust or an
+over-ceiling wash on payoff night can jump the Case from 55 past 70 —
+so the requirement is disjunctive: either the Case-60 warning appeared
+on an earlier morning, or the gate was crossed on payoff day by a
+**player act whose own warning surface fired before the act ran**.
+Laundering is not the only gate-closing act; every evidence-capable act
+carries a pre-action surface while payoff is in reach (debt alive, and
+on-hand cash ≥ debt, measured when the act is planned or taken — plans
+are intentions, committed at service, so "plan time" is the scheduling
+moment, and two acts re-measure later, below):
+
+- *Over-ceiling wash*: warned before the amount prompt whenever the
+  worst-case paper evidence (`min(20, over/400)` washing everything)
+  could reach a gate — exact arithmetic, since the accrual formula is
+  deterministic.
+- *Contraband route* (scheduled in the morning, runs at service):
+  warned at plan time, unconditionally in the window — what a route
+  books (bust, resistance, owner-in-vehicle, seizure per unit) depends
+  on the night, so the warning is a superset by construction. The plan
+  can still be cancelled or replanned. **Window (rev. 4):** the route
+  that earns the final payoff money is the natural "one last run," so
+  this surface's reach test counts what tonight could plausibly bring
+  in — `on-hand + 2 × demand × gourmet ticket + Σ units ×
+  district price × 1.5` ≥ debt — each term a supremum of its runtime
+  counterpart (a sale tops out at a 1.2 offer roll × the 1.25 haggle
+  premium; shop orders never exceed demand, no ticket beats gourmet,
+  and the doubling absorbs a later policy change re-forming the order
+  book). Overestimating only ever warns early.
+- *Raid* (scheduled in the morning, runs before the night's settling):
+  warned at plan time, unconditionally in the window — pattern premium,
+  gunfire, bodies and witnesses depend on choices made mid-job.
+  **Recheck (rev. 4):** the day's takings can put payoff in reach after
+  the job was scheduled, so eligibility is re-measured immediately
+  before the job runs; the warning prints once — at plan time or at
+  execution, whichever first finds the table at stake.
+- *Firing an aware employee* (fixed 6-point witness record): warned
+  before the selection menu exactly when the Case is within 6 of a gate
+  — sharp, because the accrual is a known constant.
+
+Two residues are named rather than papered over. **World events** (a
+staff walkout, a detective visit, a walk-through, rival moves) are not
+player acts and get no pre-action warning; a world-event crossing on
+payoff day itself is answered by the eligibility snapshot (post-payment
+events cannot close chairs at all) and, for pre-payment same-day
+crossings, by the sit-down scene naming the specific record that closed
+the chair — the acceptance criterion binds player acts. **In-act
+stacking** (several evidence records inside one warned act) is covered
+by that act's single warning: the warning is on the act, not the
+record. In every case, the sit-down scene names the specific record
+that closed each empty chair.
 
 **Edge cases the assignment names, answered concretely:**
 
@@ -766,12 +841,25 @@ seeds 24/39/8 remains the test of fun.
      components.
    - *Ledger transparency:* every night, displayed Case equals the sum of
      visible evidence records (§2.3) — asserted by every bot in every run.
-   - *Telegraphy, split by gate type:* for every calendar-withheld chair,
-     the day-20/24 warning appeared at least two days before payoff; for
-     every Case-withheld chair, either the Case-60 warning appeared on an
-     earlier day, or the transcript shows the same-night pre-action
-     warning on the act that crossed the threshold (§2.1). No withheld
-     chair may ever appear with neither.
+   - *Telegraphy, split by gate type (rev. 3):* for every
+     calendar-withheld chair, the day-20/24 warning morning strictly
+     preceded the payoff day (at least two playable decision days
+     including the warning day); for every Case-withheld chair, either
+     the Case-60 warning appeared on an earlier morning, or the
+     transcript shows the same-night pre-action warning on the player
+     act that crossed the threshold — wash, contraband route, raid, or
+     aware-employee firing (§2.1) — or the crossing was a world event,
+     in which case the eligibility snapshot and the scene's record-
+     naming line must both be in evidence. No withheld chair may ever
+     appear with none of the three.
+   - *Snapshot integrity (rev. 4):* two paired scripted-console tests
+     through the real night phase. (a) Pay the final dollar, then
+     over-launder to Case 85, then lock up: the snapshot records 85 and
+     both Case-gated chairs close — ordering buys nothing. (b) Pay and
+     lock up at Case 65, then forced law/rival evidence to 85 before
+     morning: the snapshot stays 65 and the offers stand — unless the
+     Case reaches 100, in which case arrest wins and the fork never
+     opens.
 5. **Stakes are real (ablations).** Each branch bot's branch-good ending
    rate lands in a 25–70% band (no auto-win, no hopeless chair), and
    removing the branch's stated counterplay drops it by ≥ 20 points:
@@ -1231,3 +1319,63 @@ the re-review of revision 2:
 Cleanups from the same pass: R9's ending count corrected to eight; the
 institutional-suspicion record now tops itself up on every sub-floor
 remediation, keeping the displayed-Case ≡ visible-ledger identity exact.
+
+**Revision 3** responds to the review of the telegraph implementation
+(PR #9), which found one coverage gap and one specification seam:
+
+1. *Same-night Case protection covered only laundering* → the pre-action
+   warning generalizes to every evidence-capable player act committed
+   while payoff is in reach: exact arithmetic for the wash, plan-time
+   unconditional warnings for contraband routes and raids (their
+   accrual depends on in-act outcomes, so the superset is by
+   construction), a sharp within-6-of-a-gate warning before firing an
+   aware employee. Reproduced through the real phases: a ride-along
+   bust (8 + 6 resistance + 6 owner-in-vehicle + 0.3/unit) jumps the
+   Case from 55 past 70 on payoff night with no §2.7 arm satisfied
+   (§2.1).
+2. *Post-payoff accrual could empty a chair retroactively* — the rival
+   and law phases run after `_pay_debt` but before the sit-down morning
+   → the eligibility snapshot: chairs are frozen at the moment the debt
+   reaches zero; later evidence still counts toward the Case and arrest
+   still outranks the fork, but the table cannot change after the
+   payoff decision (§2.1).
+3. *"At least two days" was false at the boundary* — payoff day 21
+   withholds the Partner chair with the day-20 warning only one
+   calendar day earlier → the criterion is restated as "the warning
+   morning strictly precedes the payoff day: at least two playable
+   decision days including the warning day," which the fixed day-20/24
+   beats satisfy at every boundary (payoffs 21, 23 and 26); the beats
+   themselves are unchanged (§2.1, §2.7).
+4. *World events are named as a residue, not silently excluded* — no
+   pre-action warning is possible for non-acts; pre-payment same-day
+   world-event crossings are answered by the scene naming the closing
+   record, post-payment ones by the snapshot; the §2.7 criterion gains
+   the explicit third arm rather than claiming coverage it cannot have
+   (§2.7).
+
+**Revision 4** responds to the re-review of revision 3, which found the
+snapshot exploitable and one warning window too narrow:
+
+1. *A payment-time snapshot rewards action ordering* — pay the final
+   dollar at Case 65, over-launder to 85 afterward, keep both
+   Case-gated chairs, since rev. 3 explicitly protected post-payment
+   washes → the snapshot moves to **lock-up**: frozen when the player
+   leaves the settle-accounts menu, after every discretionary account
+   action, immediately before the rival and law phases. Two paired
+   snapshot-integrity acceptance tests added to §2.7: pay → over-wash →
+   lock up closes the chairs at 85; pay → lock up at 65 → forced world
+   evidence to 85 leaves the offers standing, arrest at 100 excepted
+   (§2.1, §2.7).
+2. *A route that funds the payoff warned nobody* — with on-hand cash
+   short of the debt, the "one last run" that earns the final payoff
+   money fell outside the warning window, leaving a player act with no
+   earlier warning, no pre-action warning, and no world-event exemption
+   → the route surface's reach test now counts tonight's plausible
+   take, every term a supremum, documented in §2.1; overestimation only
+   warns early (§2.1, §2.7).
+3. *Raids re-measure at execution* — service revenue can put payoff in
+   reach between scheduling and the job; eligibility is rechecked
+   immediately before `run_raid`, printing the warning once (§2.1).
+4. *Wording* — morning plans are intentions committed at service, so
+   the criterion says "planned or taken," not "committed at plan time"
+   (§2.1).

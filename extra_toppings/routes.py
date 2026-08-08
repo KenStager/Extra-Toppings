@@ -80,8 +80,33 @@ def plan_route(state: State, con: Console, rng: random.Random,
         f"Delivery orders to run for cover ({state.delivery_pool} on the board, "
         f"wagon space {space})",
         0, legit_cap, min(8 if cargo else 4, legit_cap))
+    # §2.1 same-night telegraph: a contraband route scheduled while
+    # payoff is within tonight's reach can book bust evidence (up to
+    # ~20 + 0.3/unit on a ride-along search) and slam a Case gate the
+    # sit-down reads tomorrow. What it books depends on the night, so
+    # the warning is unconditional in that window — a printed line only;
+    # the plan can still be replanned or cancelled from the morning menu.
+    if cargo and _payoff_reachable_tonight(state, dk, cargo):
+        con.say("  With the debt this close to settled, remember: a bad stop "
+                "tonight goes into the file tomorrow's table reads.")
     return {"district": dk, "driver": driver, "ride_along": ride_along,
             "cargo": cargo, "legit": legit}
+
+
+def _payoff_reachable_tonight(state: State, dk: str, cargo: dict) -> bool:
+    """The route warning's window (§2.1 rev. 4): the route that earns the
+    final payoff money is the natural 'one last run,' so 'near payoff'
+    counts what tonight could plausibly bring in, each term a supremum
+    of its runtime counterpart. A sale tops out at 1.5x today's district
+    price (a 1.2 offer roll times the 1.25 haggle premium); shop orders
+    never exceed demand and no ticket beats gourmet, doubled to absorb a
+    later policy change re-forming the order book. Overestimating only
+    ever warns early."""
+    if state.debt <= 0:
+        return False
+    proceeds = sum(u * state.prices[dk][g] * 1.5 for g, u in cargo.items())
+    shop_take = 2 * state.demand_today * data.TICKET_PRICE["gourmet"]
+    return state.clean + state.dirty + shop_take + proceeds >= state.debt
 
 
 # ── resolution ────────────────────────────────────────────────────

@@ -376,12 +376,166 @@ gate per review:
   demand / delivery pool / legitimate revenue moved into `Shop` — the
   second shop and the fork arrive as data, not as another migration.
 
+## Round 7 — the fork learns to speak: §2.1 telegraphs, transcript only
+
+The pre-payoff telegraph channels of the fork design
+(`docs/ACT1_FORK_DESIGN.md` §2.1) are in — the last item of the §7 P0
+scope. The player now learns the rules of the sit-down table while the
+debt still exists, through four channels plus one pre-action warning,
+and the engine provably did not move underneath them:
+
+- **Payment remarks** (`_pay_debt`): every non-trivial partial payment
+  (≥ $500) draws a line from Carmine keyed to trajectory — big
+  (≥ START_DEBT/4) × early (day ≤ 15) quadrants, deterministic in day
+  and amount because the channel is not allowed an RNG draw. Big-and-
+  early carries the design's canonical line ("A man who pays early is a
+  man worth backing. We should talk when this is done.").
+- **Calendar warnings**: with the debt alive, day 20 carries the
+  buyer-losing-interest warning (attributed to Lena when a connected
+  employee is on staff, to "a regular" otherwise — the `rumor_sheet`
+  convention) and day 24 turns explicit: settle by tomorrow night or
+  the table will be empty. Unconditional on their days; world facts.
+- **Case-60 warning**: prints the morning after the Case first reaches
+  60 with the debt alive. Once-only with **no stored flag** — evidence
+  records carry their day, so "first prefix-sum ≥ 60 landed on day D"
+  is derived on the fly (same left-to-right fold as `State.case`, so
+  "crossed" agrees bit-for-bit with the meter) and the line prints only
+  when `day == D + 1`. Nothing persists, so saves and traces are
+  untouched.
+- **Carmine's ledger clause**: the morning debt line gains "…and he has
+  opinions about what comes after" once the debt is below half of
+  START_DEBT.
+- **Same-night threshold warning** (`_launder`): when payoff is in
+  reach (on-hand cash ≥ debt) and an over-ceiling wash *could* push the
+  Case past a gate (60/70/85 — max evidence `min(20, over/400)` from
+  washing everything), a warning prints BEFORE the amount prompt. This
+  is §2.7's second arm of the Case-gate disjunction: a gate may slam
+  the same night it is crossed only if the act that crossed it warned
+  first.
+
+Constraint and proof: golden decision traces digest every
+menu/ask_int/confirm prompt string verbatim, so all telegraph lines are
+`say`/`bullet` output only — no new prompts, no edits to existing
+prompt strings (the same-night warning is a printed line *before* the
+launder prompt, not a change to it), no state mutation, no RNG draw.
+`analysis.equivalence check` reproduces **300/300 on Python 3.11, 3.12
+and 3.13** with the lines in place. 19 transcript tests
+(`tests/test_telegraphs.py`) drive the actual `morning()`/`night()`
+phase code with scripted consoles and pin every channel's trigger, its
+negative space (wrong day, settled debt, cold case, wash that fits the
+books), and the before-the-prompt ordering of the same-night warning.
+Full suite 114 tests green on 3.11 and 3.12; ruff (0.15.x pin) and mypy
+clean. No sweep rerun: by the equivalence gate the studies' inputs are
+bit-identical, so round 6's headline numbers stand unchanged.
+
+### Round 7 correction (review)
+
+Independent review of the first telegraph pass found one blocking
+coverage gap and one specification seam; both are fixed, and the design
+document carries the corrections as revision 3 (§8).
+
+- **Same-night Case protection covered only laundering.** The reviewer
+  reproduced, through the real route and night phases: Case 55, debt
+  $1,000 with payoff cash on hand, a full-cargo ride-along, a police
+  bust (+8, +6 resistance, +6 owner-in-vehicle, +0.3/unit) to Case 81,
+  payoff that night — Carmine's Partner withheld tomorrow with neither
+  §2.7 warning arm satisfied. Fixed by generalizing the pre-action
+  surface to every evidence-capable player act committed while payoff
+  is in reach (`State.payoff_in_reach`: debt alive, on-hand ≥ debt):
+  the wash keeps its exact arithmetic; contraband routes and raids warn
+  at plan time unconditionally in the window (their accrual depends on
+  in-act outcomes, so the superset is by construction, and both plans
+  can still be cancelled); firing an aware employee warns before the
+  selection menu exactly when the Case is within its fixed 6 points of
+  a gate. The reviewer's exact scenario is now a regression driven
+  through `plan_route` → `service` → `night` with a seed scan to an
+  actual gate-crossing bust plus same-night payoff
+  (`TestRouteCrossingThenPayoff`), and the three new surfaces were
+  proven to fail on the pre-fix engine (3 failures at 4278f51).
+- **Post-payoff accrual could re-shape the table.** `rival_phase` and
+  `_law_phase` run after `_pay_debt` but before the sit-down morning,
+  so the world's own dice could close a chair after the payoff decision
+  with no telegraph possible. Resolved on paper for P1 (no sit-down
+  code exists yet): the design now specifies an **eligibility
+  snapshot** — chairs freeze at the moment the debt reaches zero;
+  later evidence still counts toward the Case and arrest at 100 still
+  outranks the fork, but the table cannot change retroactively (§2.1
+  rev. 3). World events remain the named residue: non-acts get no
+  pre-action warning, and the §2.7 criterion now carries the explicit
+  third arm (snapshot + the scene naming the closing record) instead of
+  claiming coverage it cannot have.
+- **"At least two days" was arithmetically false at the boundary.**
+  Payoff day 21 → R = 9 withholds the Partner chair; the day-20 warning
+  preceded it by one calendar day, and the tests required silence on
+  day 19. The criterion was the error, not the beats: restated as "the
+  warning morning strictly precedes the payoff day — at least two
+  playable decision days including the warning day," which day 20
+  satisfies at the Partner (21) and War (23) boundaries and day 24 at
+  the no-sit-down cliff (26). Encoded as
+  `TestCalendarCriterionArithmetic`, including the reviewer's day-21
+  case.
+
+After the correction: 123 tests green on 3.11 and 3.12, ruff/mypy
+clean, equivalence re-verified at **300/300 on 3.11, 3.12 and 3.13** —
+the broadened warnings are still say-lines only; no prompt, state or
+RNG surface moved.
+
+### Round 7 correction 2 (re-review)
+
+The re-review confirmed the ride-along regression and the calendar
+correction, and found one new blocker plus one boundary the first
+correction left uncovered. Design revision 4 (§8) records all of it.
+
+- **The payment-time snapshot rewarded action ordering.** Rev. 3 froze
+  chair eligibility inside `_pay_debt` — and explicitly protected a
+  post-payment over-wash. The reviewer reproduced the exploit through
+  the real night ordering: Case 65 → pay the final $1,000 → $10,000
+  over-wash → Case 85, debt zero, no arrest, both Case-gated chairs
+  preserved. The snapshot moves to **lock-up**: frozen when the player
+  leaves the settle-accounts menu, after every discretionary account
+  action, immediately before the rival and law phases — every voluntary
+  act counts, only the world's after-hours dice are excluded. Two
+  paired snapshot-integrity acceptance tests are now specified for P1
+  (§2.7): pay → over-wash → lock up closes the chairs at 85; pay → lock
+  up at 65 → forced world evidence to 85 leaves the offers standing,
+  arrest at 100 excepted. Paper-only, like the snapshot itself — the
+  binding tests land with the sit-down.
+- **A route that funds the payoff warned nobody.** With on-hand cash
+  short of the debt, the "one last run" that earns the final payoff
+  money fell outside the on-hand-only window — a player act with no
+  warning under any §2.7 arm. The route surface's reach test now counts
+  tonight's plausible take: on-hand + 2 × demand × gourmet ticket +
+  Σ units × district price × 1.5 ≥ debt, each term a supremum of its
+  runtime counterpart (sale price tops out at a 1.2 offer roll × 1.25
+  haggle; orders never exceed demand; no ticket beats gourmet; the
+  doubling absorbs a morning policy change). Overestimating only warns
+  early. Regression: cash $5, debt $2,000, twenty units aboard —
+  `payoff_in_reach` false, warning fires anyway.
+- **Raids re-measure at execution.** Service revenue can put payoff in
+  reach between scheduling and the job, so `night()` rechecks
+  immediately before `run_raid`; the plan records whether it already
+  warned, so the line prints once. Regression drives the real morning
+  and night: debt out of reach at planning, takings arrive, the warning
+  appears before the NIGHT JOB header; and a plan-time warning is not
+  repeated at execution. Both new positive regressions fail on the
+  rev. 3 engine (2 failures at 06dea64).
+- Wording aligned with the engine's transactional-planning semantics:
+  plans are intentions committed at service, so the criterion reads
+  "planned or taken," not "committed at plan time."
+
+After correction 2: 126 tests green on 3.11 and 3.12, ruff/mypy clean,
+equivalence re-verified at **300/300 on 3.11, 3.12 and 3.13**. The raid
+plan dict gained a transient `table_warned` key — never saved, never
+digested; prompts, state and RNG surfaces are untouched.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered
   Act I fork is now fully designed and merged as the decision record
   (`docs/ACT1_FORK_DESIGN.md`, PR #6); implementation follows the phased
-  plan there — this round's fix is P0's first item.
+  plan there. P0 is now complete — foundation (round 6) plus the §2.1
+  telegraph lines (round 7); P1 (the sit-down behind a feature flag) is
+  next, on the reviewer's go.
 - Heat still under-binds relative to the Case; needs local teeth without
   becoming a second global meter.
 - Event responsiveness beyond payday/heat-wave is now *provable* with the
