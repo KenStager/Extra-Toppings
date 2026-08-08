@@ -344,6 +344,38 @@ move:
 The gate holds for everything that follows: no fork content lands unless
 `analysis.equivalence check` stays at 300/300 for pre-fork play.
 
+### Round 6 correction (re-review)
+
+Independent re-review on Python 3.12 falsified the first 300/300 claim:
+`state.case` used built-in `sum()`, and 3.12 moved float summation to
+compensated (Neumaier) summation — 15 of 300 runs diverged from the
+sequential goldens (a fold of 61.50000000000001 sums compensated to
+61.5). Fixed with an explicit left-to-right fold, regression-tested with
+a concrete divergent sequence, and the gate now reproduces at **300/300
+on Python 3.11, 3.12 and 3.13**. The same pass hardened the rest of the
+gate per review:
+
+- **Action replay is a decision trace, not a prompt count.** The golden
+  record now digests every interaction — menu prompt, options and chosen
+  index; amount prompt, bounds, default and answer; confirmation and
+  result, in order. Two runs can no longer pass by answering the same
+  *number* of prompts. Goldens were regenerated from the pristine
+  pre-refactor engine (a worktree at `3d79d17` with only the harness and
+  the observation hook injected).
+- **Evidence taxonomy corrected at the remediation boundary.** The
+  solo-driver route arrest is classified *physical*: the record is
+  dominated by seizure and arrest-report evidence, which the design
+  declares permanently immune — a witness classification would have let
+  a future settlement soften it. Witness records now carry stable
+  `Employee.key` sources instead of display names.
+- **Arrest precedence matches §2.5.** The latch now *overrides* a
+  simultaneous lower-priority ending rather than deferring to it — Case
+  100 beats a success set moments earlier, tested.
+- **Save v3 finished rather than half-final.** Typed `BranchState`
+  (fields per the design's branch specs) persists on `State`, and
+  demand / delivery pool / legitimate revenue moved into `Shop` — the
+  second shop and the fork arrive as data, not as another migration.
+
 ## Still open (carried to the next design pass)
 
 - The midgame still resolves around day 12–15. The payoff-triggered
