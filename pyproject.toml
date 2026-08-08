@@ -9,6 +9,11 @@ description = "Build a pizza empire. Run the city's underground market. Keep the
 requires-python = ">=3.10"
 license = { text = "MIT" }
 
+[project.optional-dependencies]
+# Pinned so "ruff clean" means the same thing on every machine — 0.16
+# already enables new findings. Bump deliberately, with the fix commit.
+dev = ["ruff>=0.15,<0.16", "mypy>=1.8"]
+
 [project.scripts]
 extra-toppings = "extra_toppings.__main__:main"
 
