@@ -641,7 +641,7 @@ regression. The morning header notes what you turned down, once.
 | Straight | any other term failed | Half Measures (names the failed term) |
 | Partner | shops open, points current | The Operation (two ovens) |
 | Partner | shops open, one payment outstanding | On the Hook |
-| War | target strength ≤ 0 | The Harbor Is Yours |
+| War | target broken, the other rival still standing | The Harbor Is Yours |
 | War | both rivals broken | The Syndicate |
 | War | target still standing | A Long War |
 | Sale | (never reaches day 30 in-branch) | closes at fork+4 or reverts |
@@ -767,7 +767,7 @@ endgame "abandon the underground trade," so winding down is the point);
 (5) tycoon long loop — the Partner branch is canon's Act II verbatim;
 (6) raids emerge from the economy — war raids are campaign moves priced by
 alertness/pattern/carry, not missions; (7) telegraphed counterplay — the
-sit-down is telegraphed a night ahead, every gate is explained, war raids
+sit-down is telegraphed across Act I (§2.1), every gate is explained, war raids
 keep the 2-night warning, Burned Out requires two visible prior states;
 (8) explainable outcomes — the mark's terms, the chairs' gates, and the
 evidence ledger are all shown; (9) legal/illegal tension — points must be
@@ -849,7 +849,8 @@ the Case band and calendar shown beside each. One choice, confirmed twice.
 - **D18.** Payroll day math is the whole morning: counsel + advertising +
   five wages against pizza margins — clean $400 and falling. The exit
   readout (new night line): stock 0 · dirty $180 · Case 27 · rep 31 ·
-  witnesses content. Twelve days to make reputation 45 on margherita alone.
+  witnesses content · clean days 1 of the 5 the goal demands. Twelve days
+  to make reputation 45 on margherita alone.
 
 ### 3.2 Carmine's Partner, days 14–18
 
@@ -965,7 +966,7 @@ the Case band and calendar shown beside each. One choice, confirmed twice.
 | Straight Path | dispose / defend people / polish the shop | Disposal, counsel's queue, exit readout | Case & rep vs. day 30 | firing a witness to save wages |
 | Carmine's Partner | staff two addresses / earn points dirty | site cards, shop-2 block, points card | every 5th night | paying points from pizza margins |
 | Harbor War | tempo strikes / defend / pace alertness | war board, capture log | strength vs. Case | raiding on cooldown into *hardened* |
-| Quiet Sale | hold steady / hide everything / price the exit | broker's mark, diligence sheet | 4 marked days | one walk-through with stash on site |
+| Quiet Sale | hold steady / hide everything / price the exit | broker's mark, diligence sheet | 5 days, marked daily | one walk-through with stash on site |
 
 Same engine, four verbs sets, four clocks, four ways to lose. The
 walkthroughs share exactly one screen: the sit-down.
