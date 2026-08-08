@@ -1726,3 +1726,147 @@ the rev. 8 implementation exact in behavior but not in model:
    only conversion site and feeds the same validator, and the sole
    surviving first-incident discount is assigned, not accumulated.
    Malformed payloads are pinned through `state_from_dict`.
+
+**Revision 9** records the P2 authorization decisions (the Straight
+Path scope), made on paper before implementation — the §2.4.1 letter
+plus revision 2 item 4 is the spec; everywhere it is silent, the
+resolution below is proposed and flagged for review. Constants are
+placeholders in the §6.3 sense: structure is the decision, numbers are
+tuning, and any §2.7 miss is reported with its decomposition, never
+tuned away.
+
+1. **Randomness (the reserved-streams question, flagged first).** The
+   Straight Path draws no reserved stream: `sitdown` and `war` stay
+   provably undrawn, `brokers` stays the Sale's. Disposal runs ARE
+   routes — they draw the existing `routes` stream under full Act I
+   route rules, with the seller-without-a-network haircut replacing
+   the ordinary offer multiplier draw for draw (uniform 0.60–0.75
+   where Act I drew 0.85–1.20 riding along and 0.90–1.05 solo), so a
+   disposal run consumes exactly the dice an Act I route consumed.
+   Temptation-offer arrival and terms are world facts and draw a
+   per-day derived channel (`daily(day, "straight")` — pure in (seed,
+   day), incapable of perturbing any persistent stream). Player-facing
+   meeting dice — the fire-sale observation roll, the accepted-offer
+   observation roll — draw a NEW persistent `straight` stream,
+   mirroring brokers-for-the-Sale: reserved to the branch, drawn only
+   after the chair is taken, provably fresh in stand-pat and Act I
+   (both gates enforce it through the existing undrawn-streams
+   surface, schema-additive like `brokers` was).
+2. **The contest queue.** §2.3 prices counsel as "every 3rd retained
+   day, the oldest *paper* record is contested: magnitude −60%", and
+   §3.1 shows the over-ceiling record "first in the queue" even
+   though routine 0.5 ticks predate it — while §2.3 itself calls the
+   ticks "one rolling 'routine discrepancies' record". Resolution:
+   counsel contests *flagged* paper records (non-empty why) oldest
+   first, one contest each; the routine hum is contested once, as the
+   single rolling record §2.3 says it is (every flagless tick reduced
+   together, counted as one contest); when the queue is empty counsel
+   keeps enforcing the ceiling and says there is nothing left worth
+   arguing.
+3. **The cap and the floor, exactly.** The 25-point cap binds the
+   PAID verbs — contests and settlements — measured as points
+   actually removed; an event whose full relief exceeds the remaining
+   cap applies what room remains and the transcript says so. Free
+   retention dormancy (a current aware employee at morale ≥ 5 keeps
+   their own records dormant) is reversible — it lapses when morale
+   slips or the person leaves — so it spends no permanent budget and
+   is not counted against the cap. The floor: remediation verbs
+   refuse to fire at or below Case 10 (the file is as cold as they
+   will let it get, and the verbs say that rather than silently
+   no-op); when an event lands the sum below 10, the permanent
+   institutional-suspicion record ("they remember your name") is
+   written, or topped up in place, by exactly the difference — its
+   own evidence kind (`suspicion`), permanently immune to every verb,
+   so displayed Case ≡ the visible ledger holds at the floor too.
+   Arrest at 100 latched at accrual outranks all of this; every
+   remediation entry point is a no-op on a finished run.
+4. **Settlement mechanics.** A settlement is the letter's permanent
+   −50%: the target's witness-record magnitudes are halved by
+   mutation, once, capped per item 3; the reversible dormancy flag is
+   reserved for the retention case and reconciled nightly from the
+   roster. Targets: any *departed* aware employee (the §2.3 case) and
+   any *current* aware employee — §3.1 D15 settles Marcus out while
+   he is still on payroll: he leaves settled, quietly, with **no**
+   fired-knowing-everything record (severance instead of a witness —
+   the §2.6 paid-loyalty primitive in embryo). Cost ≈ 6× current
+   daily wage, clean cash only. `BranchState.settled_witnesses`
+   persists the keys for the no-hostile-unsettled-witness goal term.
+5. **Clean-days arithmetic.** `last_crime_day` None means no crime
+   since the fork: clean days = day − sit-down day + 1 (the sit-down
+   morning itself is clean day one); otherwise day − last_crime_day.
+   The day-30 goal needs ≥ 5, so the R = 5 boundary fork can still
+   earn the exit by staying clean throughout, and "all liquidation
+   must finish by day 25" is exactly the theorem §2.4.1 states.
+   Crimes: a disposal run (when it actually rolls, not when planned),
+   a fire-sale meeting, an accepted temptation offer, washing past
+   the ceiling. Tribute, truce money, settlements, burning and
+   under-ceiling washing never reset the clock.
+6. **Fire-sale terms.** One meeting a day; moves any chosen stock
+   from either stash (Sal's people bring the truck — §3.1 D14 sells
+   the warehouse oregano without an off-site step); 40% of base book
+   value, paid dirty; +8 Sal relation; observed at 20% (the
+   `straight` stream) for a +3 witness record. A crime.
+7. **Temptation offers.** While stock remains, ~30% of mornings (the
+   daily channel) a contact wants one held good at 1.4–1.7× base;
+   the card states the distinction verbatim — *new trade at full
+   margin, not disposal: accepting resets the clean-days clock and
+   spends no disposal run.* Accepting sells from the shop stash,
+   pays dirty, resets the clock, and is observed at 15% for +3
+   witness. Declining costs nothing and is never punished.
+8. **Advertising.** $300 clean buys a four-day campaign: +2
+   reputation a night and +15% demand while it runs; buying again
+   adds four more days. Canon's clean-money list finally gets its
+   entry; counsel and advertising both live in Improvements.
+9. **Verbs that leave.** The supplier van is gone in-branch — nothing
+   restocks, so "disposal runs sell only stock held at fork time"
+   holds by construction, with no fork-inventory bookkeeping to
+   drift. "Plan a night job" leaves the morning menu (the raid verb
+   is gone, rev. 2 item 4); "Plan tonight's route" becomes
+   **Disposal** with the counted `runs left: n` in its label. The
+   burn action reuses the P1b disposal primitive's effect (extracted
+   as an effect-only helper; escrow keeps its exact narration, the
+   Straight Path narrates Tony watching) — destruction, never
+   conversion, no crime.
+10. **Counsel.** $150/day, charged nightly alongside wages; a till
+    that cannot fund it loses counsel that night, out loud. Every 3rd
+    retained day contests per item 2. While retained, the wash prompt
+    is capped at tonight's ceiling — the "wash more anyway" branch is
+    simply not offered (§2.3 dual use).
+11. **Clean insolvency.** A consecutive-night counter on BranchState:
+    two consecutive nights with payroll short AND zero stock anywhere
+    AND zero dirty anywhere → the existing broke ending, with the
+    branch flavor §2.4.1 names (the cover business couldn't cover the
+    cover-up). Precedence per §2.5 — arrest still outranks it.
+12. **Ending ids.** `straight_exit` (the earned Legitimate Exit,
+    upgraded text), `almost_out`, `half_measures` — graded at the
+    day-30 boundary where stand-pat grades `survived`. Half Measures
+    names every failed term, not just one (invariant 8).
+13. **The siege.** Rivals smell retreat: each rival's nightly act
+    chance ×1.5 while the branch holds no stash anywhere. Searches
+    attack people: a law-phase squad-car visit costs one observant or
+    aware employee 1 morale in-branch (the §2.4.1 line: searches
+    attack the exit through people, not stash).
+14. **Measurement.** Covert-revenue share is tallied from the same
+    transcript a human reads (the `+$N dirty` lines), per day, by the
+    study bot; the ΔCase baseline is `case_at_lockup` (the value the
+    chair was priced at, stored and unambiguous); branch-good for the
+    §2.7 band and ablation is the earned Legitimate Exit alone —
+    Almost Out is a consolation, not a success. The ledger-
+    transparency row asserts nightly that displayed Case equals an
+    independently recomputed clamped sum of effective magnitudes, and
+    that Case never reads below 10 once any paid remediation exists.
+15. **The shared prefix iterator** (the fold_case docstring's debt)
+    lands now, before remediation multiplies the scans:
+    `models.case_prefix` yields the same left-to-right running total
+    as `fold_case`, dormancy-aware; `fold_case`, the Case-60
+    telegraph and the sit-down's gate-crossing record all consume it —
+    one arithmetic, bit-identical flag-off, regression-pinned on the
+    3.12-divergent sequence.
+16. **Scope note.** Counsel, settlements and dormancy unlock for the
+    Straight Path only in P2 — §2.3 grants them to all four active
+    branches, and the machinery is branch-agnostic, but each later
+    branch turns its verbs on in its own phase, under its own
+    studies. Sal's standing offer to buy the coded-customer book
+    stays prose for now (temptation offers carry the Dope Wars pull);
+    if review wants it as a distinct mechanic it lands in a
+    correction pass.
