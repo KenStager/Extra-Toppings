@@ -827,5 +827,53 @@ class TestEscrowPersistence(unittest.TestCase):
                 BranchState(diligence_day=1, points_missed=2))
 
 
+
+
+class TestSaleInsolvency(unittest.TestCase):
+    """Rev. 16 item 3: "every active branch" includes the sale — a
+    diligence week run on a till this empty ends before the buyer
+    signs anything. The narratively-tempting exemption was declined."""
+
+    def _skint(self):
+        state = in_escrow()
+        state.clean = 0
+        state.dirty = 0
+        state.shop_stash = {}
+        state.shop.ingredients = 0
+        state.warehouse = None
+        return state
+
+    def test_two_short_empty_nights_end_the_run_mid_diligence(self):
+        state = self._skint()
+        con = CaptureConsole([])
+        escrow.night_insolvency(state, con, payroll_short=True)
+        self.assertIsNone(state.game_over)
+        self.assertEqual(state.branch_state.insolvent_days, 1)
+        self.assertIsNotNone(con.find("won't survive"))
+        escrow.night_insolvency(state, con, payroll_short=True)
+        self.assertEqual(state.game_over, "broke")
+        self.assertIsNotNone(con.find("nothing left to sell him"))
+
+    def test_a_hidden_dollar_resets_the_counter(self):
+        state = self._skint()
+        con = CaptureConsole([])
+        escrow.night_insolvency(state, con, payroll_short=True)
+        state.dirty = 50
+        escrow.night_insolvency(state, con, payroll_short=True)
+        self.assertEqual(state.branch_state.insolvent_days, 0)
+        self.assertIsNone(state.game_over)
+
+    def test_insolvent_days_round_trips_and_validates(self):
+        state = self._skint()
+        escrow.night_insolvency(state, CaptureConsole([]),
+                                payroll_short=True)
+        d = save.state_to_dict(state)
+        restored = save.state_from_dict(d)
+        self.assertEqual(restored.branch_state.insolvent_days, 1)
+        d["branch_state"]["insolvent_days"] = -1
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+
+
 if __name__ == "__main__":
     unittest.main()

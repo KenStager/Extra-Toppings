@@ -896,5 +896,61 @@ class TestStraightStream(unittest.TestCase):
                          Streams(11).straight.getstate())
 
 
+
+
+class TestAccruedTruth(unittest.TestCase):
+    """Rev. 16 item 1: every record carries an immutable accrual
+    beside the mutable effective magnitude — remediation moves only
+    the effective value, and the institutional floor's top-up is
+    genuine accrual that moves both in lockstep."""
+
+    def test_a_contest_moves_effective_and_never_the_accrual(self):
+        state = straight_state()
+        state.branch_state.counsel_retained = True
+        state.clean = 2000
+        state.add_case(20, "the register claimed too much", kind="paper")
+        state.add_case(15, "prior seizure", kind="physical")
+        con = Quiet()
+        for _ in range(3):
+            ev.counsel_nightly(state, con)
+        record = state.evidence[0]
+        self.assertAlmostEqual(record.magnitude, 8.0)
+        self.assertAlmostEqual(record.accrued, 20.0)
+        self.assertAlmostEqual(state.evidence[1].accrued, 15.0)
+
+    def test_a_settlement_moves_effective_and_never_the_accrual(self):
+        state = straight_state()
+        e = next(x for x in state.employees if x.key == "e3")
+        e.aware = True
+        e.hired = False
+        e.morale = 3
+        state.add_case(8.0, f"{e.name} left knowing everything",
+                       kind="witness", source=e.key)
+        state.add_case(20, "ballast", kind="physical")
+        state.clean = 2000
+        ev.settle_witness(state, e, Quiet())
+        record = state.evidence[0]
+        self.assertAlmostEqual(record.magnitude, 4.0)
+        self.assertAlmostEqual(record.accrued, 8.0)
+
+    def test_the_floor_topup_is_accrual_and_moves_both(self):
+        state = straight_state()
+        e = next(x for x in state.employees if x.key == "e3")
+        e.aware = True
+        e.hired = False
+        e.morale = 3
+        state.add_case(8.0, f"{e.name} left knowing everything",
+                       kind="witness", source=e.key)
+        state.add_case(4.0, "ballast", kind="physical")
+        state.clean = 2000
+        # Case 12 → the halving takes it to 8, under the 10-point
+        # floor; the top-up is genuine accrual, so BOTH fields move.
+        ev.settle_witness(state, e, Quiet())
+        record = next(r for r in state.evidence
+                      if r.kind == "suspicion")
+        self.assertAlmostEqual(record.magnitude, 2.0)
+        self.assertAlmostEqual(record.accrued, 2.0)
+
+
 if __name__ == "__main__":
     unittest.main()

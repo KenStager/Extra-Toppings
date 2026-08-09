@@ -102,6 +102,9 @@ class StrategyBot(Console):
             return best
         if prompt.startswith(("Hit whom?", "The job:", "Read in whom?", "Applicants:")):
             return 0
+        if prompt.startswith("The manifest"):
+            # The rows were answered on the walk — confirm, don't loop.
+            return len(options) - 1
         if prompt.startswith("Crew ("):
             m = re.match(r"Crew \((\d+) picked", prompt)
             picked = int(m.group(1)) if m else 0
@@ -641,6 +644,261 @@ class KeepsStashBot(EscrowBot):
     entirely — the stash stays on premises all week, every week. If
     this bot's close rate doesn't crater, the pressure is decorative."""
     careful = False
+
+
+class WarBot(MarketBot):
+    """Minimal per-branch policy over the smart bot (§2.7 criterion 4):
+    declares on Vinnie at the table (the fixed study target, rev. 14),
+    reads the crew in, opens with sabotage to open the corner window,
+    runs routes into the target's turf while his ovens are cold, raids
+    only when the board's security word reads sleepy or wary and never
+    two nights running, hands the stolen ledger to the woman in the
+    gray suit, keeps Sal's insurance paid, pays tribute rather than
+    let a raid land on a hurt shop, retains counsel, and collects the
+    salvage. Reads the same transcript a human does — the war board
+    IS its intelligence."""
+
+    pace_raids = True      # CooldownRaiderBot flips: grind on cooldown
+    use_corners = True     # RaidOnlyBot flips corners AND the ledger off
+    use_law = True
+    use_counsel = True
+    keep_cover = True      # NeglectWarBot flips: no pantry, no cover
+
+    def __init__(self, rng: random.Random, verbose: bool = False) -> None:
+        super().__init__(rng, verbose)
+        self._tried_chair = False
+        self._at_war = False
+        self._security = ""
+        self._outage = False
+        self._has_ledger = False
+        self._live_target: str | None = None
+        self._fatal_ground = False
+        self._last_job_day = -9
+        self._read_ins = 0
+        self._hires = 0
+
+    def say(self, text: str = "") -> None:
+        s = text.strip()
+        if s.startswith("The war board goes up"):
+            self._at_war = True
+            self._entered_war = True         # latched for the harness
+        if self._at_war:
+            if "— MORNING" in text:
+                # Board state is MORNING-SCOPED (rev. 16 item 4): the
+                # old global broken flag outlived the first campaign
+                # and froze the second front — after declaring on Sal
+                # the bot stopped pursuing jobs and corners entirely.
+                self._live_target = None
+                self._security = ""
+                self._outage = False
+                self._has_ledger = False
+                self._fatal_ground = False
+            m = re.match(r"([A-Z]+) — strength [\d.]+ of [\d.]+, "
+                         r"security (\w+), ovens (intact|cold)", s)
+            if m:
+                self._live_target = m.group(1).capitalize()
+                self._security = m.group(2)
+                self._outage = m.group(3) == "cold"
+            if "ledger sits in your safe" in s:
+                self._has_ledger = True
+            if "woman in the gray suit reads" in s \
+                    or "envelope arrives by morning" in s:
+                self._has_ledger = False
+            if "The shop is already hurt" in s:
+                self._fatal_ground = True
+        super().say(text)
+
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        # Deterministic and RNG-free: try the war chair once; name
+        # Vinnie by label; every other scene menu progresses last.
+        if prompt == "Your chair:" and not self._tried_chair:
+            self._tried_chair = True
+            return 2
+        if prompt.startswith("Whose name goes on the table?"):
+            for i, o in enumerate(options):
+                if "Vinnie" in o:
+                    return i
+        return len(options) - 1
+
+    def _wants_job(self) -> bool:
+        if self._live_target is None:
+            return False
+        if not self.pace_raids:
+            # The grind, measured: a job EVERY night the cooldown
+            # allows, the security word never consulted.
+            return self.day - self._last_job_day >= 1
+        # Window-rational pacing (rev. 16 item 5): a full-price job
+        # whenever the window is OPEN — the two-night gap forgave
+        # open windows the world had already priced.
+        return self._security in ("sleepy", "wary") \
+            and self.day - self._last_job_day >= 1
+
+    def _score(self, label: str) -> float:
+        if self._at_war:
+            if "Plan a night job" in label:
+                return 30 if self._wants_job() and self._read_ins else -8
+            if "Plan tonight's route" in label:
+                if "Plan tonight's route" in self._done_today:
+                    return 0.5
+                return 25 if self.keep_cover or self.use_corners else 5
+            if "Send the wagon for the salvage" in label:
+                # Once a morning: the pickup can refuse (no fit driver,
+                # wagon spoken for) and must not be begged at all day.
+                return 60 if "Send the wagon" not in self._done_today \
+                    else -5
+            if "Name the next war" in label:
+                return 55
+            if "Talk to a rival" in label:
+                return 45 if self._has_ledger and self.use_law \
+                    and "Talk to a rival" not in self._done_today else -8
+            if "Retain counsel" in label:
+                return 14 if self.use_counsel else -8
+            if "Dismiss counsel" in label:
+                return -8
+            if "Improvements" in label:
+                return 6 if "Improvements" not in self._done_today else -4
+            if "Staff" in label:
+                return 15 if (self._read_ins < 4 or self._hires < 2) \
+                    and "Staff" not in self._done_today else -5
+            if label == "Hire":
+                # A war needs crew, and the bench comes first — a
+                # principled refusal must not be the only name the
+                # read-ins ever try.
+                return 22 if self._hires < 2 else -6
+            if "Read someone in" in label:
+                return 20 if self._read_ins < 4 else -5
+            if "Pay tribute" in label:
+                return 55 if self._fatal_ground else 35
+            if "Defend the shop" in label:
+                return 25
+            if "Empty the stash" in label:
+                return -10 if "ends the run" in label else 5
+            if "The war board" in label or "The case file" in label:
+                return -6                     # readouts; no churn
+            if not self.keep_cover and (
+                    "Buy ingredients" in label or "Kitchen policy" in label):
+                return -8
+            if label == "Back":
+                # Submenus (staff, improvements, negotiate) must exit
+                # once the war business in them is done — otherwise
+                # random-scored labels outrank leaving, forever.
+                return 2.5
+            if "Give a raise" in label or "Hire" in label \
+                    or "Let someone go" in label \
+                    or "Rent the harbor warehouse" in label:
+                return -6
+        return super()._score(label)
+
+    def menu(self, prompt: str, options: list[str]) -> int:
+        pick = super().menu(prompt, options)
+        if "Plan a night job" in options[pick]:
+            self._last_job_day = self.day
+        if "Read someone in" in options[pick]:
+            self._read_ins += 1
+        if options[pick] == "Hire":
+            self._hires += 1
+        # One visit a morning for the war's submenu one-shots — these
+        # labels are not MENU_PREFS keys, so mark them here.
+        for oneshot in ("Improvements", "Staff", "Send the wagon",
+                        "Talk to a rival"):
+            if oneshot in options[pick]:
+                self._done_today.add(oneshot)
+        return pick
+
+    def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
+        # In-branch only (rev. 15): the neglect ablation refuses cover
+        # AT WAR — its Act I must stay byte-identical to its siblings'.
+        if self._at_war and not self.keep_cover \
+                and prompt.startswith("Delivery orders to run"):
+            return lo
+        return super().ask_int(prompt, lo, hi, default)
+
+    def _special_menu(self, prompt: str, options: list[str]) -> int | None:
+        if self._at_war:
+            if prompt.startswith("The job:"):
+                # Sabotage opens the window; the ledger is leverage;
+                # stock jobs are the bread and butter inside it.
+                if not self._outage:
+                    return 2
+                if not self._has_ledger:
+                    return 1
+                return 0
+            if prompt.startswith("Run today's route where?"):
+                # Campaign-aware turf (rev. 16 item 4): the live
+                # target's name comes off the board, never a
+                # hardcoded rival.
+                turf = (f"{self._live_target}'s turf"
+                        if self._live_target else "")
+                turf_ok = self.use_corners and bool(turf)
+                best = None
+                for i, o in enumerate(options[:-1]):
+                    if "[RED]" in o:
+                        continue
+                    if turf_ok and turf in o:
+                        if self._outage:
+                            return i          # the window is open
+                        best = i if best is None else best
+                    elif not turf or turf not in o:
+                        if not turf_ok and best is None:
+                            best = i
+                if best is not None:
+                    return best
+                return super()._special_menu(prompt, options)
+            if prompt.startswith("Reach out to whom?"):
+                # The vendetta rival is the one at the bottom of the
+                # relation scale — the label carries the number.
+                best, best_rel = None, 999.0
+                for i, o in enumerate(options[:-1]):
+                    m = re.search(r"relation ([+-]\d+)", o)
+                    if m and float(m.group(1)) < best_rel:
+                        best, best_rel = i, float(m.group(1))
+                return best if best is not None else len(options) - 1
+            if "There is nothing to say" in prompt:
+                if self._has_ledger and self.use_law and len(options) > 1:
+                    return 1                  # the woman in the gray suit
+                if self._has_ledger and not self.use_law:
+                    return len(options) - 1   # ablation: spend nothing
+                return len(options) - 1
+            if prompt.startswith("Sal's insurance:"):
+                return 0                      # a merchant stays a merchant
+            if prompt.startswith("Send the wagon to"):
+                return 0
+            if prompt.startswith("Take the war to"):
+                return 0
+            if prompt.startswith("Whose quiet do you buy?"):
+                return len(options) - 1       # settlements aren't the war's row
+            if prompt.startswith("Read in whom?") and len(options) > 1:
+                # Cycle the pool: a principled refusal must not eat
+                # every later attempt on the same name.
+                return self._read_ins % (len(options) - 1)
+        return super()._special_menu(prompt, options)
+
+
+class RaidOnlyBot(WarBot):
+    """The anti-grind ablation (§2.7 war rows, defined by rev. 14
+    item 10): NO proactive non-job channel — no corner routes into the
+    turf, no ledger spend of either kind. Incidental defense damage
+    stays visible in the ledger. Must trail the mixed bot's success
+    rate by >= 15 points or the mixed campaign is decorative."""
+    use_corners = False
+    use_law = False
+
+
+class CooldownRaiderBot(WarBot):
+    """Criterion 5's branch-good ablation: raids on cooldown, ignoring
+    the security word — the grind alertness pricing was built to
+    punish. Must drop the branch-good rate by >= 20 points."""
+    pace_raids = False
+
+
+class NeglectWarBot(WarBot):
+    """The restaurant-neglect ablation (rev. 14 item 10): no pantry
+    care, no cover on the wagon — a war fought without the pizzeria.
+    Must trail the complete bot by >= 15 points or the tycoon half is
+    decorative. Every knob is consumed IN-BRANCH ONLY (rev. 15: the
+    round-10 study was invalid because cover_stops changed Act I —
+    ablations must enter the fork from state-hash-identical months)."""
+    keep_cover = False
 
 
 BOTS = {

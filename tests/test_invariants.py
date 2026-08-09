@@ -92,6 +92,212 @@ class TestDeterminism(unittest.TestCase):
         self.assertEqual(t1[0], t2[0])
 
 
+class TestRevision18Inventory(unittest.TestCase):
+    """Rev. 18 items 1-2: the manifest is the route's CANONICAL
+    inventory (strict parsing, validation before mutation, honest
+    revise bounds) and storage has one capacity authority."""
+
+    def test_malformed_plan_types_are_refused_not_coerced(self):
+        for bad in (True, 1.5, "3"):
+            with self.assertRaises(ValueError):
+                routes.RouteManifest.of_plan(
+                    {"cargo": {}, "legit": bad})
+        with self.assertRaises(ValueError):
+            routes.RouteManifest.of_plan(
+                {"cargo": {"oregano": 1.5}, "legit": 0})
+
+    def test_an_illegal_commit_mutates_nothing(self):
+        # The reviewer's repro: a 25-space plan committed - stash
+        # deducted, an ingredient burned - before resolution raised.
+        # Commit now validates FIRST; refusal leaves zero footprint.
+        state, _rng = fresh(2)
+        state.shop_stash = {"oregano": 12}
+        state.shop.ingredients = 30
+        state.delivery_pool = 20
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        plan = {"district": "university", "driver": rosa,
+                "ride_along": False, "legit": 1,
+                "cargo": {"oregano": 12}}          # 25 space in 24
+        con = ScriptedConsole([])
+        with self.assertRaises(ValueError):
+            phases._commit_route(state, plan, con)
+        self.assertEqual(state.shop_stash, {"oregano": 12})
+        self.assertEqual(state.shop.ingredients, 30)
+
+    def test_revising_cannot_offer_more_than_the_stash_owns(self):
+        # The reviewer's repro: 8 in the stash, load 8, revise - 12
+        # offered. Planned goods never leave the stash, so the stash
+        # is the ceiling: min(have, loaded + free // space).
+        state, rng = fresh(2)
+        state.delivery_pool = 0
+        state.shop_stash = {"oregano": 8}
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        con = ScriptedConsole([0, 0, False, 8, 0, 12, 1])
+        plan = routes.plan_route(state, con, rng)
+        self.assertEqual(plan["cargo"], {"oregano": 8})
+
+    def test_the_plan_is_typed_and_carries_one_manifest(self):
+        state, rng = fresh(2)
+        state.delivery_pool = 10
+        state.shop_stash = {"oregano": 4}
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 2, 4]),
+                                 rng)
+        self.assertIsInstance(plan, routes.RoutePlan)
+        self.assertIs(plan["cargo"], plan.manifest.cargo)
+        self.assertEqual(plan["legit"], plan.manifest.legit)
+
+    def test_the_warehouse_cap_binds_the_transfer(self):
+        # The reviewer's repro: one more oregano into a warehouse at
+        # 200/200 landed 202/200. The authority refuses whole.
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.warehouse = {"mushrooms": 200}       # exactly at cap
+        state.shop_stash = {"oregano": 1}
+        with self.assertRaises(ValueError):
+            models.move_goods(state, "shop", "warehouse", "oregano", 1)
+        self.assertEqual(state.shop_stash, {"oregano": 1})
+        self.assertEqual(state.warehouse, {"mushrooms": 200})
+        self.assertEqual(
+            models.units_that_fit(state, "warehouse", "oregano"), 0)
+
+    def test_storage_over_cap_is_refused_at_persistence(self):
+        state, _rng = fresh(2)
+        state.warehouse = {"mushrooms": 200}
+        d = save.state_to_dict(state)
+        d["warehouse"]["mushrooms"] = 202
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+        d["warehouse"]["mushrooms"] = 200
+        d["shops"][0]["stash"] = {"oregano": -1}
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+
+
+class TestRevision19Storage(unittest.TestCase):
+    """Rev. 19 items 1-2: the storage authority is SAFE (one shared
+    inventory-map validator, explicit locations) and the historical
+    ledgers bind to the actual mechanical domains."""
+
+    def test_the_authority_refuses_impossible_inventory(self):
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.warehouse = {}
+        state.shop_stash = {"oregano": 3}
+        for bad_units in (True, 1.5, -1):
+            with self.assertRaises(ValueError):
+                models.move_goods(state, "shop", "warehouse",
+                                  "oregano", bad_units)
+        with self.assertRaises(ValueError):
+            models.move_goods(state, "bogus", "warehouse", "oregano", 1)
+        with self.assertRaises(ValueError):
+            models.move_goods(state, "shop", "bogus", "oregano", 1)
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"oregano": True})
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"oregano": 1.5})
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"oregano": -2})
+        with self.assertRaises(ValueError):
+            models.space_used({"oregano": -2})
+        self.assertEqual(state.shop_stash, {"oregano": 3})
+        self.assertEqual(state.warehouse, {})
+
+    def test_rendering_consumes_the_one_arithmetic(self):
+        with self.assertRaises(ValueError):
+            routes.inventory_lines("The back room", {"oregano": -2}, 40)
+
+    def test_attempt_records_bind_to_the_planning_domains(self):
+        from extra_toppings.models import RaidAttemptRecord
+        with self.assertRaises(ValueError):
+            RaidAttemptRecord(day=15, rival="sal", outcome="succeeded",
+                              crew=100, damage_h=0)
+        with self.assertRaises(ValueError):
+            RaidAttemptRecord(day=15, rival="sal", outcome="succeeded",
+                              crew=1, damage_h=9999)
+        RaidAttemptRecord(day=15, rival="sal", outcome="succeeded",
+                          crew=3, damage_h=1200)     # the real ceiling
+
+    def test_route_records_bind_to_the_mechanical_domains(self):
+        from extra_toppings.models import RouteExecutionRecord
+        ok = {"day": 15, "district": "old_harbor", "heat_band": "cool",
+              "capacity_mult": 1.0, "units_sold": 5,
+              "corner_damage_h": 0, "contested": False}
+        RouteExecutionRecord(**ok)
+        for change in ({"heat_band": "cool", "capacity_mult": 0.5},
+                       {"heat_band": "amber", "capacity_mult": 1.0},
+                       {"heat_band": "red", "capacity_mult": 0.5},
+                       {"units_sold": 999},
+                       {"district": "university", "contested": True},
+                       {"contested": True, "corner_damage_h": 9999}):
+            with self.assertRaises(ValueError):
+                RouteExecutionRecord(**{**ok, **change})
+
+    def test_chronology_binds_at_persistence(self):
+        from extra_toppings.models import RaidAttemptRecord
+        state, _rng = fresh(2)
+        state.day = 10
+        state.raid_log = [RaidAttemptRecord(
+            day=20, rival="sal", outcome="failed", crew=1, damage_h=0)]
+        with self.assertRaises(ValueError):
+            save.state_to_dict(state) and save.state_from_dict(
+                save.state_to_dict(state))
+        state.day = 25
+        state.raid_log = [
+            RaidAttemptRecord(day=20, rival="sal", outcome="failed",
+                              crew=1, damage_h=0),
+            RaidAttemptRecord(day=18, rival="sal", outcome="failed",
+                              crew=1, damage_h=0)]
+        with self.assertRaises(ValueError):
+            save.state_from_dict(save.state_to_dict(state))
+
+
+class TestRevision20Storage(unittest.TestCase):
+    """Rev. 20 item 1: storage is transactionally safe — both
+    locations preflighted, complete allocation before one commit,
+    every refusal leaving every stash byte-identical."""
+
+    def test_an_invalid_source_refuses_the_move_whole(self):
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.warehouse = {}
+        for bad_source in ({"oregano": True}, {"oregano": 1.5},
+                           {"fake": 3}):
+            state.shop_stash = dict(bad_source)
+            frozen = dict(state.shop_stash)
+            with self.assertRaises(ValueError):
+                models.move_goods(state, "shop", "warehouse",
+                                  "oregano", 1)
+            self.assertEqual(state.shop_stash, frozen)
+            self.assertEqual(state.warehouse, {})
+
+    def test_place_haul_never_leaves_a_partial_placement(self):
+        # The reviewer's repro: 40 mushrooms landed in the shop, THEN
+        # the invalid warehouse was discovered — the partial mutation
+        # stayed. Preflight-then-commit refuses with zero footprint.
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.shop_stash = {}
+        state.warehouse = {"oregano": 1.5}          # invalid
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"mushrooms": 60})
+        self.assertEqual(state.shop_stash, {})
+        self.assertEqual(state.warehouse, {"oregano": 1.5})
+
+    def test_place_haul_refuses_an_over_cap_warehouse(self):
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.shop_stash = {}
+        state.warehouse = {"mushrooms": 250}        # already over cap
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"mushrooms": 5})
+        self.assertEqual(state.shop_stash, {})
+        self.assertEqual(state.warehouse, {"mushrooms": 250})
+
+
 class TestSharedCapacity(unittest.TestCase):
     def _plan(self, load_units):
         state, rng = fresh(2)
@@ -110,14 +316,48 @@ class TestSharedCapacity(unittest.TestCase):
         self.assertEqual(sum(plan["cargo"].values()), 12)
         self.assertEqual(plan["legit"], 0)
 
-    def test_empty_cargo_leaves_full_pizza_capacity(self):
+    def test_empty_cargo_frees_the_slots_for_pizzas(self):
         plan = self._plan(0)
         self.assertEqual(sum(plan["cargo"].values()), 0)
-        self.assertEqual(plan["legit"], 12)
+        self.assertEqual(plan["legit"], 12)     # the 12 is the REQUEST
 
     def test_partial_cargo_partial_cover(self):
         plan = self._plan(9)    # 18 slots used, 6 left
         self.assertEqual(plan["legit"], 6)
+
+    def test_a_pizza_only_route_loads_the_whole_wagon(self):
+        # Rev. 17 item 1: the unexplained 12-pizza cap is gone — 24
+        # real orders, ingredients and slots load 24.
+        state, rng = fresh(2)
+        state.delivery_pool = 30
+        state.shop.ingredients = 30
+        state.shop_stash = {}
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        con = ScriptedConsole([0, 0, False, 24])
+        plan = routes.plan_route(state, con, rng)
+        self.assertEqual(plan["legit"], 24)
+
+    def test_an_over_capacity_manifest_is_refused_at_resolution(self):
+        # Rev. 17 item 1: resolution refuses what planning should
+        # never have produced — unchecked dictionaries ran 52-slot
+        # loads through the 24-slot wagon.
+        state, rng = fresh(2)
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        plan = {"district": "university", "driver": rosa,
+                "ride_along": False, "legit": 10,
+                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}}
+        with self.assertRaises(ValueError):
+            routes.resolve_route(state, plan, ScriptedConsole([]), rng)
+
+    def test_the_manifest_counts_bulk_not_units(self):
+        m = routes.RouteManifest(cargo={"oregano": 12})   # bulk 2 each
+        self.assertEqual(m.bulk_used, 24)
+        self.assertEqual(m.free, 0)
+        m.legit = 1
+        with self.assertRaises(ValueError):
+            m.validate()
 
 
 class TestLaundering(unittest.TestCase):

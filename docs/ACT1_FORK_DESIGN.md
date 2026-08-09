@@ -323,7 +323,7 @@ Full branch specs are §2.4; this is the choice as the player sees it.
 | --- | --- | --- | --- |
 | Straight Path | Leave the trade; by day 30 be a real restaurant nobody can touch | Income collapses to pizza margins while payroll still carries every witness | The network: the supplier, the coded order board and raids are gone for good — three counted disposal runs are all that remains of the wheel; rivals stop fearing you |
 | Carmine's Partner | His $20k opens your second shop; you run both | Points: $2,500 to Carmine every 5 days, forever — equity, not debt | Independence: no payoff clears him; exit and sale endings are off the board |
-| Harbor War | Break a rival and take their trade | War pay, injuries, and a Case that only ratchets (pattern evidence never remediates) | Peace with the target: their relation locks at vendetta; no truce, ever |
+| Harbor War | Break a rival and take their trade | War pay, injuries, and a Case built mostly from evidence no verb can touch (rev. 14) | Peace with the target: their relation locks at vendetta; no truce, ever |
 | Quiet Sale | Four days of buyer diligence, then close at a marked price | The price wears every scar: Case, feuds, reputation | The shop, and with it the run — closing is an ending |
 | Stand pat | Keep the sandbox exactly as it is today | The flat back half this fork exists to fix | All four offers |
 
@@ -567,12 +567,14 @@ vendetta (≤ −60) costs nothing extra — they started it.
 
 **Unlocks:** the **war board** — a morning readout of target strength,
 alertness/security word, your crew's health, turf status per district, and
-a running ledger of *where their strength went* (jobs / ovens / corners /
-the law), so the mixed campaign is visible on screen, not implied in prose.
+a running ledger of *where their strength went* (jobs / corners / ovens /
+the ledger / defense — the five channels of the canonical damage ledger,
+rev. 19), so the mixed campaign is visible on screen, not implied in
+prose.
 
 **How a rival organization actually breaks.** Raids alone must not be the
 answer — that is the grinding alertness was built to prevent — so the
-branch specifies four damage channels, every one flowing through the
+branch specifies five damage channels, every one flowing through the
 existing simulation:
 
 - **Jobs** (existing): stock theft −12 strength, sabotage −10, ledger
@@ -595,6 +597,10 @@ existing simulation:
   case, not yours — but a cornered organization comes back meaner: their
   violence factor rises permanently. Leaning (−15, +$2,000, consumable)
   remains the greedy alternative. Either way the leverage is spent.
+- **Defense** (incidental): a repelled or landed counter-raid costs the
+  attacker strength through the same authority — never a strategy you
+  choose, always visible in the ledger (rev. 14: incidental damage is
+  a channel because the reconciliation oracle counts every hundredth).
 
 Victory arithmetic at the reference save (Vinnie, strength 58): one stock
 job (−12) and one sabotage (−10, plus ~−8 oven bleed over four days), ~45
@@ -609,12 +615,24 @@ at war — refusal routes through the existing payroll-short morale
 machinery); injuries from PR #3's scuffles compound (a three-person crew
 with two in bed is a lost tempo week); counter-raids arrive on the existing
 telegraph but bigger and more often (aggression multiplier while at war);
-and **the Case only ratchets here** — pattern evidence never remediates
-(§2.3), so the branch's real clock is whether you can finish the war before
-the file finishes you. Alertness economics (the $781 → $597 → $438 decline
-curve, FINDINGS round 4) make raid-spam self-defeating by construction —
-winning requires *pacing*, mixing routes-in-their-turf, sabotage windows,
-and raids on the days their security word says sleepy.
+and **the Case's gross accrual only ratchets here** — a war month books
+pattern, physical and external-witness evidence that no verb can touch
+(§2.3), while eligible paper and employee testimony remediate exactly as
+anywhere (rev. 14: the claim is the immune-heavy mix, not an absolute
+meter) — so the branch's real clock is whether you can finish the war
+before the file finishes you. Alertness economics (the $752 → $556 → $413 decline
+curve, FINDINGS round 5 — round 4's $781 → $597 → $438 was inflated by the
+issue-4 noise-timeout bug and superseded there; citation corrected rev. 13)
+make raid-spam a TRADE, not a free lunch — the honest thesis, certified
+at rev. 19's calendar-keyed experiment: grinding tries to buy tempo
+with twice the attempts and nearly three times the injuries; it does
+not outperform pacing (total damage statistically tied; efficiency
+0.55 vs 0.32 per committed person-night). Pacing preserves crew and
+improves damage efficiency, and must not worsen campaign outcomes
+(the §2.7 outcome bar). Mixing
+routes-in-their-turf, sabotage windows, and jobs on the days their
+security word says sleepy is how a campaign spends people it wants to
+keep.
 
 **Systems carry-forward:** *Clean money* keeps the shop alive under
 coupon-blitz siege — a war run that lets the restaurant die loses its
@@ -622,8 +640,11 @@ laundering, its cover, and then the war. *Dirty money* funds war pay and
 tribute-to-the-bystander. *The Case* is the doomsday clock; the ledger
 play is its one release valve (their case, not yours). *Heat* becomes
 territorial denial: raiding a district spikes its heat (+12 today), which
-suppresses *your* routes there — burn a neighborhood taking it and you've
-taken ash; heat is finally load-bearing per district (§2.6). *Rivals*:
+suppresses *your* routes there — burn a neighborhood taking it and the
+routes through it pay for it: heat is a LOCAL ROUTE TAX per district
+(§2.6, amended rev. 17-19 — enforced and priced at planning and at the
+route's own capacity and corner take; campaign-level load is unproven
+and stays an honest finding, never asserted by this paper). *Rivals*:
 alertness, relation, telegraphs, tribute, poaching — every existing wheel,
 spun to maximum, plus side-picking. *Raids*: the branch's spine —
 **gated on the issue #4 fix** (the noise-timeout branch currently awards
@@ -721,9 +742,10 @@ regression. The morning header notes what you turned down, once.
 
 1. **Arrest latch** — checked at evidence-accrual time (§2.3); beats
    everything, including a same-day branch success. One styling
-   exception: if the war target had already fallen when the latch fires,
-   the arrest prints as *Won the War, Lost the Verdict* — the same
-   terminal, a distinct text arm.
+   exception: if a campaign's capture transition had completed before
+   the latch fired (transition ordering, never mere calendar-day
+   equality — rev. 14), the arrest prints as *Won the War, Lost the
+   Verdict* — the same terminal, a distinct text arm.
 2. **Branch catastrophes** — Foreclosure (second missed payment, that
    night); Burned Out (successful raid on an already-damaged shop, that
    night).
@@ -743,9 +765,9 @@ regression. The morning header notes what you turned down, once.
 | Straight | any other term failed | Half Measures (names the failed term) |
 | Partner | points current | The Operation (two ovens) |
 | Partner | one payment outstanding | On the Hook |
-| War | target broken, the other rival still standing | The Harbor Is Yours |
-| War | both rivals broken | The Syndicate |
-| War | target still standing | A Long War |
+| War | no rival broken | A Long War |
+| War | one rival broken | The Harbor Is Yours (text variant when a second vendetta is open — rev. 14: a second war never erases the first victory) |
+| War | both rivals broken | The Syndicate (an explicit `syndicate` terminal — rev. 15 overturned the no-new-id ruling: an outcome matrix must not depend on generic epilogue ordering) |
 | Sale | (never reaches day 30 in-branch) | closes at fork+4 or reverts |
 | Stand-pat | as today | the existing survived grades |
 
@@ -842,12 +864,36 @@ seeds 24/39/8 remains the test of fun.
      below its fork-day value in ≥ 60% of runs: the first falling
      Case in the game's history, earned against the branch's own
      crime clock.
-   - *War bot:* median target strength at end ≤ 50% of its fork-day value;
-     pattern+physical evidence ≥ 50% of post-fork Case growth; **channel
-     mix:** in successful runs no single damage channel (jobs / corners /
-     ovens / the law) accounts for > 60% of strength destroyed; and a
-     raid-only ablation bot trails the mixed bot's success rate by ≥ 15
-     points — the anti-grind claim, tested directly.
+   - *War bot (amended rev. 14; letters replaced rev. 16-18):* median
+     target strength at end ≤ 50% of its fork-day value; **remediation
+     resistance on true accruals** — the median share of post-fork
+     ACCRUED evidence surviving as permanent residue ≥ 50%, and Case
+     above its fork-day value despite remediation in ≥ 60% of wars
+     (the retired pattern+physical kind-share ships as decomposition);
+     **the pacing letters** — at 500 seeds the alertness-aware full
+     policy must not trail the cooldown policy (the outcome bar), the
+     fleet comparison reported as a paired observational decomposition
+     under exact names (executed-job, executed person-night,
+     planned/committed efficiency), and the causal claim carried by a
+     state-matched fixed-opportunity experiment, calendar-keyed dice,
+     reported as measured; **channel mix:** in successful runs no single damage
+     channel (jobs / corners / ovens / ledger / defense) accounts for
+     > 60% of **applied damage in the broken campaign** (aggregate mix
+     across campaigns reported as a diagnostic); a raid-only ablation
+     bot — one that takes no proactive non-job channel, incidental
+     defense damage remaining visible in its ledger — trails the mixed
+     bot's success rate by ≥ 15 points, the anti-grind claim tested
+     directly; a **restaurant-neglect ablation** (no cover spend, no
+     pantry care) trails the complete bot in **unconditional
+     Syndicate-ending rate by ≥ 15 points, binding at 500 seeds**
+     (rev. 17: a hollow restaurant can win one street fight but
+     cannot sustain control of the city — the first-capture bar
+     measured the wrong dramatic outcome; second-front-to-capture
+     conversion, Burned Out, payroll failures and witness accrual are
+     the reported decomposition), or the tycoon half is decorative
+     and the branch fails review; and a nightly
+     reconciliation oracle: each campaign's starting strength minus the
+     rival's current strength equals its damage records exactly.
    - *Partner bot:* combined legit revenue ≥ 1.5× the stand-pat control's
      by fork+8; points paid on schedule in ≥ 80% of runs.
    - *Escrow bot:* every in-branch run either closes exactly at fork+4 or
@@ -892,10 +938,13 @@ seeds 24/39/8 remains the test of fun.
    rate lands in a 25–70% band (no auto-win, no hopeless chair), and
    removing the branch's stated counterplay drops it by ≥ 20 points:
    a Straight Path bot that never settles witnesses or retains counsel; a
-   War bot that raids on cooldown ignoring alertness; a Partner bot that
-   pays points from pizza margins only; an Escrow bot that keeps stash on
-   premises. If an ablation *doesn't* hurt, the pressure is decorative and
-   the branch fails review.
+   Partner bot that pays points from pizza margins only; an Escrow bot
+   that keeps stash on premises. (The war's cooldown ablation left this
+   clause by ruling — rev. 16 retired its arbitrary 20-point magnitude
+   and the pacing requirement lives in the §2.7 war letters above; the
+   war's ≥ 20-class ablation is the raid-only and empire rows.) If an
+   ablation *doesn't* hurt, the pressure is decorative and the branch
+   fails review.
 6. **The control stands — exactly, per seed (two-trace contract,
    rev. 5).** For every seed, a flag-on stand-pat run and a flag-off run
    must match — not a matching distribution, the same runs. The earlier
@@ -1076,7 +1125,8 @@ the Case band and calendar shown beside each. One choice, confirmed twice.
 ### 3.3 The Harbor War, days 14–18
 
 - **D14.** You name Vinnie at the table; Carmine keeps eating. The **war
-  board** replaces the market board's top panel: VINNIE — strength 58,
+  board** joins the market board's top panel (price intelligence stays —
+  choosing profitable corner routes is the Dope Wars half, rev. 14): VINNIE — strength 58,
   security *wary*, ovens intact; SAL — posture *merchant* (sells to both
   sides, tips no one yet); your crew — Rosa 6/10 morale, Angelo fit,
   Marcus shaky; war pay +$20/day × 3 read-in names, effective tonight.
@@ -2101,3 +2151,974 @@ prior results.
    paired bar must clear ≥ 60% fresh. If green, P2 opens as a PR;
    after merge, the Straight Path and the Quiet Sale activate
    together. No further design or tuning ruling is pending.
+
+**Revision 13** records the P3 authorization decisions (the Harbor War
+scope), made on paper before implementation — the §2.4.3 letter plus
+revision 2 item 5's channel numbers is the spec; everywhere it is
+silent, the resolution below is proposed and flagged, and rulings land
+before mechanics harden. Constants are placeholders in the §6.3 sense
+throughout: structure is the decision, numbers are tuning, and any
+§2.7 miss is reported with its decomposition, never tuned away.
+
+1. **Randomness (the reserved-streams question, flagged first —
+   rev. 9 item 1 precedent).** War jobs ARE raids: they draw the
+   existing `raids` stream draw for draw under PR #3's pricing,
+   exactly as disposal runs ride `routes`. Corner diversion adds no
+   dice at all — it is a deterministic function of units the route
+   already sold, so the `routes` stream is untouched. Rival behavior
+   at war (the target's aggression multiplier, the bystander's lane,
+   counter-raids, Sal's tips) stays on the `rivals` stream — the
+   in-branch draw sequence differs, which is branch-side by
+   definition; both identity gates keep every stream provably fresh
+   flag-off and stand-pat. Per-day world facts with nobody at the
+   table — the insurance offer's arrival cadence and amount — ride
+   `daily(day, "war")` derived channels, incapable of perturbing any
+   persistent stream. The reserved persistent `war` stream is claimed
+   for genuinely NEW player-facing war dice only, and P3 names
+   exactly one: the capture salvage haul (item 10). Any further draw
+   the implementation finds it wants goes back on paper first — the
+   stream is not a grab bag.
+2. **Target strength is the existing meter, and the killing blow is
+   owed to a channel.** `Rival.strength` exists (seeded 60 Sal / 70
+   Vinnie; jobs priced −12 stock / −10 sabotage / −8 ledger inside
+   `raids._payoff`; the oven bleed −2/day floored at 1 in
+   `rivals.py`). Adopted as the war's health bar, with two proposals:
+   (a) the oven-bleed floor at 1 STANDS — passive attrition softens
+   but never kills, so the finishing point must come from a job, a
+   corner night, the law, or a defended counter-raid; "raids alone
+   must not be the answer" stays honest at the last point of strength
+   too; (b) the hardcoded job prices and the lean's −15 move to named
+   canonical homes in `models` with values unchanged (the respell
+   rule: the war board's ledger must read the same numbers the payoff
+   writes).
+3. **The damage ledger and the war board.** `BranchState` grows
+   `damage_ledger` — every point of strength removed from the target
+   after declaration, keyed by canonical channel:
+   `models.WAR_CHANNELS = ("jobs", "corners", "ovens", "law",
+   "defense")`. Defense — the existing −10 for repelling their raid —
+   is a fifth source §2.4.3 never names; proposal: it is recorded and
+   displayed honestly, and the §2.7 channel-mix bar (no single
+   channel > 60% of strength destroyed) computes over ALL recorded
+   channels, defense included — folding it into "jobs" would cook the
+   very row it feeds. Flagged: counting five channels where the
+   criterion names four is a clarification the reviewer owns. The war
+   board itself is the §2.4.3 morning readout, replacing the market
+   panel in-branch: target strength and security word (the existing
+   `_security_word`), oven status, crew health and injuries, war-pay
+   status, per-district heat with the item-8 colors, and the ledger —
+   the mixed campaign visible on screen, not implied in prose. It is
+   a readout, not a menu; every menu P3 adds keeps non-destructive
+   last options with destructive options never last.
+4. **The four channels adopt rev. 2 item 5's numbers verbatim, as
+   placeholders.** *Corners:* the hook is the existing turf block in
+   `routes.resolve_route` — today the sole consumer of
+   `DISTRICTS[dk]["rival"]` (the −0.4/unit watcher relation penalty).
+   In-branch, units sold in a district the target owns remove
+   `min(CORNER_CAP, units × CORNER_RATE)` strength that night
+   (`CORNER_RATE = 0.15`, `CORNER_CAP = 4.0`); while the target's
+   ovens are wrecked, rate and cap double (−0.30/unit, cap −8) — the
+   outage window §2.4.3 makes sabotage's tempo. Watchers, heat,
+   patrols and the oversell glut all continue unchanged. *Ovens:* the
+   existing −2/day bleed is unchanged and books to the "ovens"
+   channel from declaration; the doubling window above is the new
+   mechanic. *The law:* the stolen ledger gains its second spend —
+   hand it to the woman in the gray suit: target strength
+   −`LEDGER_LAW_STRENGTH` (20), their aggression halved for
+   `LEDGER_LAW_CALM_DAYS` (4), their violence factor permanently
+   ×`VIOLENCE_RISE` (1.5, placeholder); no money, no Case on you —
+   it is their case. The existing lean (−15, +$2,000, consumable —
+   already exactly as rev. 2 item 5 left it in `rivals.negotiate`)
+   stays the greedy alternative; either spend consumes
+   `ledger_stolen`. Proposed in-branch only: §2.4.3 frames the law
+   option as a war move, so stand-pat and the other branches keep
+   today's lean alone — flagged. *Jobs:* exactly as PR #3 left them.
+   The per-rival war modifiers (aggression multiplier, calm window,
+   raised violence) are DERIVED at `rival_phase` from `BranchState` —
+   no new `Rival` fields, so the dead-fields doctrine holds and no
+   save surface widens beyond the branch payload.
+5. **The vendetta lock, and one canonical home for −60.** Declaring
+   sets the target's relation to `min(relation, VENDETTA_RELATION)`
+   and locks it: `rivals.negotiate` refuses the target permanently
+   (no truce, no tribute relief, no cannoli — the options are gone,
+   not greyed), and the nightly war tick clamps the target's relation
+   to ≤ `VENDETTA_RELATION` so no scattered `relation +=` site can
+   quietly thaw a vendetta. `models.VENDETTA_RELATION = −60.0`
+   becomes the one home: `straight.FEUD_RELATION` rebinds to it and
+   `sitdown.py`'s literal −60 reads it — values identical, so
+   flag-off arithmetic and the frozen scene prose move not one byte.
+   Escrow's `WAR_RELATION = −50.0` is NOT unified: it is the buyer's
+   deliberately looser clause, ruled in rev. 8's constants pass —
+   named here so a fourth spelling never appears. Declaring on a
+   rival already at ≤ −60 costs nothing extra, exactly as §2.1 says:
+   the lock and the clamp are the only mechanical price of vendetta,
+   and that rival has already paid it.
+6. **Side-picking is disposition, not dice.** The letter reads
+   deterministic and stays that way — the bystander's lane is a
+   function of who they are, and no RNG question arises. *Sal as
+   bystander* (war on Vinnie): posture merchant — his aggression
+   takes no war multiplier, and he raises insurance: a standing
+   offer of `INSURANCE_RATE` ($800/week, §3.3's number) payable from
+   dirty first; while paid he takes no hostile act, while declined
+   his tip chance in the existing action roll triples, and a war-time
+   Sal tip books `TIP_CASE` (3) as a *paper* record alongside its
+   heat — an anonymous report in the file, contestable, per rev. 10's
+   informant-tip taxonomy (flagged: §2.4.3 promises "Case pressure
+   from a man who never throws a punch", and today's planted tip is
+   heat-only; the paper record is the proposal). *Vinnie as
+   bystander* (war on Sal): posture opportunist — no insurance; while
+   your shop is damaged or any crew member is injured his act chance
+   takes ×`OPPORTUNIST_MULT` (1.25) and the violent share of his roll
+   rises — he raids opportunistically, exactly when you are weakest.
+   Tribute to the bystander stays available and dirty-funded,
+   unchanged.
+7. **War pay is the paid-loyalty primitive's third face** — the same
+   shape as settlements and severance, not a fourth flavor: one
+   canonical constant (`models.WAR_PAY_PER_HEAD = 20`/night),
+   affordability resolved before mutation, the refusal narrated
+   never silent, the outcome persisted in `BranchState` and
+   validated. It differs from the two clean-only faces in exactly
+   one letter-assigned way, flagged as such: §2.4.3 says dirty money
+   funds war pay, so the nightly charge (every hired, unarrested,
+   read-in — aware — crew member) draws dirty first, then clean.
+   A night that cannot cover it routes through the EXISTING
+   payroll-short consequence — the same "people notice" line and the
+   same roster-wide morale hit, not a new machine. Persisted:
+   `war_pay_paid` (cumulative, the §2.7 staff-spend component reads
+   it) and `war_pay_short_nights`. Refusing war pay is not offered
+   as a menu choice — the refusal IS the short night, exactly as a
+   short payroll already works.
+8. **Heat grows district teeth — the §2.6 ruling comes due, and it
+   lands branch-side.** Three named constants (placeholders):
+   `HEAT_AMBER = 50.0`, `HEAT_RED = 80.0`, `HEAT_SLOW_DECAY = 3.0`.
+   In-branch: (a) a district at heat ≥ AMBER halves covert appetite —
+   route drops and per-stop want ×0.5, which the corner channel
+   inherits: an overheated turf physically cannot deliver its cap —
+   "burn a neighborhood taking it and you've taken ash" becomes
+   arithmetic, since the raid's own +12 heat pushes the turf toward
+   AMBER; (b) at ≥ RED, route planning refuses the district, with
+   the reason stated on the menu (invariant 8) — nothing destructive,
+   nothing silent; (c) nightly decay in a district at ≥ AMBER slows
+   from 5 to `HEAT_SLOW_DECAY` — the city remembers where the
+   trouble was. The flag-off decay literal 5 moves to
+   `models.HEAT_DECAY` with its value untouched (bit-identical;
+   gate-verified). Flagged loudly, twice: (i) scope — P3 turns the
+   teeth on for the war branch only, each later branch adopting them
+   in its own phase under its own studies (rev. 9 item 16
+   precedent); the alternative (all active branches now) changes
+   merged Straight/Sale behavior mid-flight and their batteries
+   would have to re-clear — reviewer's call; (ii) the stand-pat
+   control keeps today's flat 5 by construction, so the teeth are
+   provably inert outside the fork.
+9. **Counter-raids scale; Burned Out is defined precisely.** While
+   at war the target's act chance takes ×`WAR_AGGRESSION` (1.5), the
+   violent share of the action roll takes ×`WAR_VIOLENT` (1.5), and
+   their raid's attack roll gains +`WAR_RAID_EDGE` (2.0) — bigger
+   and more often, still on the existing 2–3-night telegraph
+   (invariant 7 untouched). Burned Out: an incoming raid that LANDS
+   — the fight lost, or the emptied-stash decoy taken — while
+   `shop.damage_days > 0` at the moment it lands ends the run that
+   night (`burned_out`, §2.5 precedence 2). Repelling averts it;
+   tribute averts it; the two telegraphs are structural (the warning
+   countdown plus damage already visible on screen). Flagged: the
+   decoy counts as a landed raid under this definition — the shop
+   was hit and took its two damage days; what saves you is repelling
+   or averting, not misdirection. If the reviewer reads "successful
+   raid" as fight-loss only, one clause moves.
+10. **Capture-lite, per §6.4.** At target strength ≤ 0: the rival is
+    broken (the existing `alive` property), the key joins
+    `BranchState.captured`, and the district's underground — only
+    that — transfers: route drops and per-stop want in the target's
+    owned districts gain +`CAPTURE_UNDERGROUND` (0.5) to the
+    underground factor, and the watcher penalty dies with the
+    watcher. Salvage from their stockroom is a one-time haul drawn
+    on the reserved `war` stream — priced like a stock-theft payoff
+    (want roll, thinning at their terminal alertness, wagon carry
+    rules), which is the stream's single P3 draw (item 1). No second
+    shop (§6.4's recommendation adopted). Breaking BOTH rivals: the
+    morning after the target falls, the war board offers a second
+    declaration on the survivor — same vendetta lock, no new
+    sit-down; the §2.5 Syndicate cell keys on both broken. Flagged:
+    the second declaration is a §2.4.3 silence ("breaking both
+    rivals earns the existing Syndicate ending, now reachable on
+    purpose" implies a path but names none); the board offer is the
+    proposal. Also flagged: today The Syndicate lives in the
+    `survived` fallthrough keyed on `rivals_alive == 0` — the war
+    matrix claims that cell with upgraded text and NO new id, and
+    stand-pat keeps reaching the existing text exactly as today.
+11. **Remediation in the war — rev. 9 item 16's question, answered
+    on paper.** Proposal: counsel and settlements unlock in-branch,
+    per §2.3's letter (the verbs belong to all four active
+    branches). The reading: §2.4.3's "the Case only ratchets here —
+    pattern evidence never remediates (§2.3)" cites the
+    kind-immunity, not a verb lockout — a war month accrues pattern
+    premiums, gunfire, bodies, seizures and external witnesses,
+    almost all immune by taxonomy, so the file ratchets in practice
+    with counsel retained; that is the §2.7 war row's own claim
+    (the remediation-resistance letters, as replaced rev. 16-17). Turning the verbs
+    off would also orphan the dual-use counsel ceiling and make
+    retention dormancy — the §2.6 primitive war pay itself extends —
+    dead in the one branch that pays people the most.
+    `State.dormant_sources`' straight-only guard extends to war; the
+    war bot retains counsel when it can afford it. FLAGGED LOUDLY:
+    the letter genuinely reads both ways, and the war rows can pass
+    under either; if the ruling is verbs-off, the guard stays
+    straight-only and the bot drops counsel — nothing else moves.
+12. **Terminals and endings.** New ids: `harbor_yours` (target
+    broken, the other standing — graded by what's left of you),
+    `long_war` (day 30, target standing: graded by the strength
+    ratio and what remains of shop and crew; the epilogue says the
+    vendetta outlives the month), `burned_out` (item 9, precedence
+    2, set at incoming-raid resolution — before the broke check,
+    after the accrual-time arrest latch which continues to outrank
+    everything). The Syndicate: existing text upgraded, no new id
+    (item 10). Won the War, Lost the Verdict: a text arm on
+    `arrested` when the latch day ≥ `target_broken_day` — the same
+    terminal, styled for the player who earned both outcomes, per
+    §2.5's one styling exception. The epilogue dispatcher grows one
+    war arm; `_check_endings` keeps its ladder shape.
+13. **`BranchState` grows, and validation grows with it (the
+    standing rule).** `_BRANCH_FIELDS["war"]` extends to:
+    `damage_ledger`, `war_pay_paid`, `war_pay_short_nights`,
+    `captured`, `second_declared_day`, `law_calm_until`,
+    `violence_raised`, `insurance_paid_until`, `target_broken_day` —
+    all defaulted, so the P1a constructor contract holds. A
+    `_validate_war` arm joins the chain: `war_target` a real rival
+    key distinct from any in `captured` until broken; `declared_day`
+    ≥ 1; ledger keys ⊆ `WAR_CHANNELS` with finite, nonnegative
+    values; day-ordering sane (declared ≤ broken ≤ second
+    declaration). `validate_cross_state` binds the payload to the
+    world: every captured rival dead in the same save,
+    `target_broken_day` implies the target's strength ≤ 0, an
+    insurance grant only from a living merchant bystander. Malformed
+    payloads are refused, not repaired, with doctored-payload probes
+    in the P2 style. Save stays v3: additive fields with `.get`
+    defaults.
+14. **The war bot, its ablations, and the gate.** `WarBot` is a thin
+    policy over `MarketBot`, like its three siblings. Target:
+    VINNIE, fixed for the study (the §3.3 exemplar; his two owned
+    districts make the corner channel exercisable and his aggression
+    makes the defense game real) — flagged as a study constant, not
+    a product rule; the chair itself names either rival. Policy
+    sketch: sabotage when security reads sleepy/wary to open the
+    window; corner routes into target turf inside the window,
+    avoiding RED districts; jobs only when the security word and
+    cooldown say so (paced, never on cooldown alone); the ledger
+    goes to the law, not the lean; war pay every night it can;
+    counsel per item 11; tribute to the bystander when telegraphed;
+    decoy defense when the stash is light. Ablations: `RaidOnlyBot`
+    (jobs channel only — must trail the mixed bot's success rate by
+    ≥ 15 points) and `CooldownRaiderBot` (raids on cooldown ignoring
+    alertness — the pacing letters' comparison fleet, rev. 16-18).
+    The gate is the §2.7 war letter, nothing softened: median end
+    strength ≤ 50% of fork-day value; the remediation-resistance
+    letters; channel mix ≤ 60% in successful runs; the branch-good
+    band 25–70%; plus the standing rows — pairwise vectors, ledger
+    transparency, telegraphy, crash-freedom (a `ChaosWar` fleet),
+    reachability unchanged — and the raid-pricing decline curve
+    re-verified at war cadence: the `raids` study's three-attempt
+    probe rerun under war-branch conditions (war-scaled aggression,
+    the bot's actual attempt spacing), reported beside the round-5
+    numbers. The escrow and straight batteries rerun with all P3
+    code in the tree and must reproduce to the digit — the new
+    branch is provably inert outside its chair.
+15. **Corrections folded in, for the record.** (a) §2.4.3's
+    alertness-economics citation carried FINDINGS round 4's
+    $781 → $597 → $438 — numbers round 5 superseded ($752 → $556 →
+    $413) after the issue-4 fix showed round 4 inflated by
+    bug-awarded successes; the body text is amended in this
+    revision's commit. (b) The scene's commit path replaces exactly
+    the war arm of the loud failure; `partner` keeps raising
+    `NotImplementedError`, and the P1 probe test already probes
+    partner — it moves to partner-only naturally, as recorded.
+    (c) War does NOT join `RELEASED_BRANCHES` in P3's
+    implementation: the gate passing opens the PR, and activation is
+    its own reviewed commit after merge — the P2/activation
+    precedent, kept.
+16. **Held scope, confirmed.** No war declared from stand-pat
+    (§6.7 stays v1.1); no second shop from capture (§6.4); no
+    Straight/Sale constant moves; no flag-off or stand-pat surface
+    moves — both identity gates on 3.11 AND 3.12 remain the standing
+    bar, with the frozen scene schema at v1 (the war commit path is
+    branch-side: a stand-pat run never reaches it).
+
+**Revision 14** responds to the review of revision 13, which approved
+the campaign arc and the branch's story outright, verified the
+paper-only branch against merged main, ruled on every flagged
+question — and found the proposed model structurally one-war-shaped:
+revision 13 describes two sequential wars while proposing state,
+accounting and endings that represent only one. Recorded on paper
+before implementation; the corrections below are the review's rulings,
+and the amended body text (§2.2, §2.4.3, §2.5, §2.7, §3.3) lands in
+this revision's commit.
+
+1. **Four story corrections.** (a) The war board AUGMENTS the market
+   board, never replaces it — price intelligence is what makes a
+   corner route a choice, and removing it would weaken the Dope Wars
+   half (§3.3 D14 amended). (b) The ratchet thesis is restated:
+   gross war evidence ratchets upward and most of it is immune by
+   kind, but eligible paper and employee testimony remediate exactly
+   as anywhere — "nothing ever comes off" was an absolute meter
+   claim the design itself contradicts by enabling the verbs
+   (§2.4.3 and the §2.2 row amended). (c) Sal's insurance cannot be
+   both "standing $800/week" and randomly arriving: it is a
+   predictable protection invoice — offered when the war starts,
+   seven nights of coverage, renewable when it expires; fixed rate,
+   no dice anywhere. (d) A second war never erases the first
+   victory: one broken rival remains The Harbor Is Yours even with
+   the second vendetta unfinished; the epilogue may add that the
+   next war has begun (item 9).
+2. **Campaigns are represented per rival.** The flat fields of
+   rev. 13 item 13 — one target, one ledger, one broken day, one
+   calm timer — cannot represent a second declaration without
+   overwriting history. A typed **`WarCampaignState`** exists per
+   declared rival, carrying at least: the rival key; declaration
+   day and starting strength; broken day; the damage records; law
+   calm / violence-escalation state; capture and salvage state; and
+   whether the capture transition completed before the arrest latch.
+   `BranchState` retains only genuinely branch-wide facts
+   (cumulative war pay paid and shortfall among them), and no field
+   duplicates what a campaign can derive — `captured` alongside a
+   campaign's broken day was exactly that duplication, and it is
+   gone.
+3. **One rival-damage authority.** Strength is mutated directly
+   today in raids, sabotage, oven bleed, ledger leverage and
+   defense; writing ledger entries beside each subtraction would
+   drift inevitably. Every strength change flows through one
+   function that applies the correct passive floor, records the
+   ACTUAL damage applied net of overkill, attributes it to the
+   active campaign, detects capture exactly once, and preserves
+   flag-off behavior bit for bit. Damage records are **append-only
+   and typed**, never a mutable channel dict, and store **integer
+   hundredths of a strength point** so 0.15/unit corner damage
+   cannot recreate the project's floating-point scars. The
+   canonical channels are `("jobs", "corners", "ovens", "ledger",
+   "defense")` — **"ledger" covers both the prosecution and the
+   existing greedy lean (−15)**: calling the channel "law" while
+   silently omitting the lean would make the accounting false.
+4. **One rival-policy view.** Rival behavior is a threshold ladder;
+   multiplying "tip chance" or "violent share" inside it can make
+   later rungs unreachable or push probabilities past one. One
+   normalized policy view carries: act probability, action weights,
+   raid attack modifier, insurance suppression, law calm, permanent
+   violence escalation, and the opportunist modifiers — and the
+   SAME view drives execution and any player-facing explanation. A
+   factual premise of rev. 13 item 6 is corrected here: Sal's
+   planted tip is NOT heat-only — `_plant` already books a 4-point
+   paper record at 30% alongside the +12 heat. The war design
+   deliberately modifies that existing behavior; the proposed extra
+   3-point record is withdrawn (ruled: no, pending
+   reconciliation). The vendetta lock likewise becomes a
+   **relation-mutation authority**, not a nightly clamp — eventual
+   consistency is not a lock.
+5. **One territorial-demand view.** Heat suppression, event
+   multipliers, base underground demand and capture bonuses meet in
+   one route-market view consumed by interactive drops, automated
+   routes, per-stop demand, the market display, and corner damage.
+   The amber ambiguity in rev. 13 item 8 is resolved: **amber
+   halves the district's total nightly sale capacity, applied once
+   in the view** — never once per axis, which would quietly
+   compound toward a quarter. War-only heat teeth for P3 are
+   APPROVED, and the implementation must be one shared heat-policy
+   authority, never scattered `branch == "war"` checks; RED is
+   enforced at planning AND revalidated at service time.
+6. **A typed incoming-raid result.** `incoming_raid` returns a bare
+   boolean and mutates `damage_days` — checking Burned Out
+   afterward would make every lost fight look "already damaged"
+   because the raid itself just added the damage. The result now
+   carries: landed / repelled / averted; damage immediately BEFORE
+   impact; damage caused tonight; and defense damage dealt to the
+   attacker (which the damage authority books to the `defense`
+   channel). Burned Out reads the pre-impact value. The decoy
+   counts as landed (ruled, as proposed) — and the defense screen
+   must explicitly warn when a choice will end the run.
+7. **Salvage is a physical pickup.** A rival can fall to a route, a
+   prosecution, or a defended raid — an automatic stock-theft-style
+   haul has no well-defined crew, wagon or capacity at that moment.
+   Capture creates a **one-use salvage opportunity**: collecting it
+   occupies the wagon and appropriate crew, obeys carry and storage
+   limits, and is revalidated transactionally at execution. The
+   `war` stream owns a **fixed, tested draw budget per capture
+   pickup** — rev. 13's "exactly one draw in P3" is rejected: two
+   captures imply two pickups, and stock-theft-style generation
+   naturally draws more than once.
+8. **Shared machinery, never parallel copies.** Remediation stays
+   ON in the war (ruled — the reading of §2.3 stands, and the
+   crew-versus-Case tradeoff is wanted). But war must not call
+   Straight-specific wrappers or grow parallel twins: counsel
+   availability, laundering enforcement, witness settlement,
+   retention protection, validation and docket rendering answer to
+   **one branch-capability policy**. War pay is **one transactional
+   nightly obligation result**: base payroll and rent resolve
+   first; if base wages fail, no war bonus is paid while ordinary
+   wages bounce; war pay then draws dirty first, then clean;
+   affordability is checked before mutation; one short night
+   produces exactly ONE roster-wide morale penalty, never two; and
+   the actual amount paid and the shortfall persist separately.
+9. **Campaign scope, targeting, and the endings.** While a campaign
+   is live, outgoing jobs target the declared rival only — attacking
+   the bystander is a two-front-war mechanic, outside P3. A planned
+   raid revalidates at night: the service route may have broken the
+   target first. The second declaration is approved, one front at a
+   time, and the offer STAYS AVAILABLE after the first capture — a
+   standing war-board option, never a missable one-morning prompt.
+   The §2.5 matrix becomes campaign-count based (body amended):
+   zero rivals broken → A Long War; one broken → The Harbor Is
+   Yours, with a text variant when a second vendetta is open; two
+   broken → The Syndicate. *Won the War, Lost the Verdict* applies
+   only when a capture transition completed BEFORE the arrest
+   latch — transition ordering, never calendar-day equality (§2.5
+   precedence text amended).
+10. **The gate, amended before implementation (§2.7 body amended).**
+    Pattern+physical is measured as a share of **gross post-fork
+    evidence accrued**, not net Case growth after remediation.
+    Channel mix computes from **actual applied damage, per
+    campaign**, with the aggregate mix reported as a diagnostic.
+    `RaidOnlyBot` is defined as taking no proactive non-job
+    channel — incidental defense damage stays visible in its
+    ledger. A **restaurant-neglect ablation** joins the battery: a
+    no-cover/no-pantry war bot must trail the complete bot by ≥ 15
+    success points, or the Fast Food Tycoon half is decorative and
+    the branch fails review. A nightly reconciliation oracle
+    asserts each campaign's starting strength minus current
+    strength equals its damage records exactly (integer hundredths
+    make exactness meaningful). Pinned regressions must cover:
+    second-campaign save/load; overkill; a route that breaks the
+    target before a planned raid runs; the pre-impact Burned Out
+    state; arrest-before/after-capture ordering; and obligation
+    atomicity. Both identity gates and the Straight/Sale batteries
+    remain unchanged.
+11. **Rulings recorded, for the table.** War RNG ownership approved
+    with deterministic insurance and the per-pickup draw budget;
+    the defense channel approved as fifth, measured on applied
+    damage; remediation ON with the ratchet thesis rewritten;
+    war-only heat through the shared policy authority; the decoy
+    counts as landed, read pre-impact, with the fatal-choice
+    warning; the second declaration approved as a standing offer;
+    prosecutor option war-only; dirty-first war pay,
+    transactionally; the oven floor at 1 stands; Vinnie stays the
+    fixed study target; Sal's extra tip record withdrawn. With
+    these contracts recorded, P3 implementation begins from a model
+    that supports the whole campaign.
+
+**Revision 15** responds to the review of the P3 implementation at
+7b4e53a (FINDINGS round 10), which confirmed the mixed-war core —
+the legible damage ledger, jobs a minority of the damage, the
+raid-only collapse, the rival personalities, the campaign and
+mutation authorities — and found seven blocking defects, "mostly at
+system boundaries — the exact place where one-off patches would be
+dangerous." Recorded on paper before the correction pass; every
+correction below is the review's ruling.
+
+1. **The declared target takes no tribute.** `incoming_raid` offered
+   tribute from anyone — reproduced: Vinnie's raid averted for
+   $1,500 the same week the declaration closed his tribute door
+   forever. ONE incoming-raid policy: the declared target's raid
+   offers no tribute at all; the bystander's still does; the WarBot
+   pays only the bystander. Raid constants stay frozen until this
+   lands — closing the escape hatch may itself re-price the
+   cooldown grinder.
+2. **Night assignments and physical storage get shared
+   authorities.** Salvage shipped two regressions (both
+   reproduced): a driver could take the pickup at service and the
+   raid the same night, and the pickup stuffed 49 bulk into a
+   40-bulk stash while ignoring the warehouse; a planned pickup
+   also could not be cancelled. The structural fix, not another
+   reserved= list: ONE NightAssignments authority owns employee and
+   wagon reservations for routes, raids and salvage — planning and
+   execution revalidate the same view; ONE haul-placement authority
+   fills shop then warehouse then reports what stayed behind, and
+   the raid payoff and the salvage pickup both consume it (the raid
+   storage loop is extracted, never duplicated).
+3. **Post-payoff economic failure exists in every active branch.**
+   Clean insolvency was Straight-only scope (rev. 9 item 11); at
+   war, three empty payroll-short nights left game_over None — and
+   worse, Carmine still fronted groceries onto a PAID debt
+   (reproduced: zero pantry, zero debt → 40 pantry, $300 debt).
+   Corrections: Carmine's emergency credit exists only while the
+   Act I debt is genuinely alive — gated for ACTIVE Act II branches
+   (the sale loses mid-escrow fronting; recorded as an intentional
+   battery-moving change); flag-off Act I and stand-pat keep the
+   old behavior TO THE BYTE, because the golden and stand-pat
+   surfaces are frozen and stand-pat is the control — the carve-out
+   is stated here, not hidden. One shared post-payoff insolvency
+   transition (two consecutive payroll-short nights with no stock
+   and no dirty anywhere → broke) with one persistence contract,
+   consumed by Straight and War alike; arrest keeps precedence.
+   Straight and Sale batteries rerun and any movement is recorded,
+   never grandfathered.
+4. **The Syndicate becomes an explicit terminal (`syndicate`).**
+   Grading two captures as generic "survived" let the epilogue's
+   ordering print the legitimate-exit text over a two-capture war
+   (reproduced: both rivals broken, Case 0, net > $20k). The
+   earlier no-new-id ruling is OVERTURNED: the §2.5 cell now names
+   its own id (body amended). Also corrected: RaidResult's
+   damage_added reports the actual delta (damage 1 → 2 reported 2,
+   not 1).
+5. **The approved territorial route-market view gets built.** The
+   calculation stayed split across resolve_route, the per-stop
+   demand, corner_diversion and the display, and the market board
+   never explained capture demand or amber capacity. The promised
+   immutable view now drives the market display and route labels,
+   automated and interactive capacity, per-stop demand, the capture
+   bonus, the heat policy, and the corner terms — with flag-off
+   arithmetic exact (the frozen expressions move INTO the view
+   unchanged; every flag-off adjustment stays +0.0 / ×1.0 by
+   construction).
+6. **Insurance persistence completes.** Paying the invoice now
+   cancels an outstanding Sal raid warning, with narration ("seven
+   quiet nights" was a lie to a telegraphed raid); declaring on Sal
+   clears any remaining coverage; cross-state validation requires
+   paid insurance to belong to a living, undeclared-upon Sal — the
+   impossible payload is refused.
+7. **The law's calm is four rival phases, not five.** The spend
+   lands before that night's rival phase and the inclusive
+   day + 4 comparison suppressed five actions. The window is
+   restated as a phase count and pinned by counting actual
+   suppressed rival phases through real nights.
+
+Rulings on the round-10 misses, verbatim in substance: the
+pattern+physical bar stays FROZEN at ≥ 50 for the corrected-engine
+rerun — no reclassifying employee testimony (it is narratively
+correct), no artificially funded bot; if it still misses, the
+thesis is revised toward actual remediation resistance, not the
+taxonomy. The cooldown grinder remains blocking: no flat Case or
+injury constant; first close the tribute and assignment escape
+hatches, and only if grinding still wins does target alertness feed
+ONE visible war-pressure policy — declining job impact and rising
+target retaliation, so a failed attempt worsens the future
+campaign instead of merely failing tonight. The neglect study is
+INVALID as run: NeglectWarBot's cover_stops changed Act I (79 vs 76
+entries, seven divergent entry seeds) and Carmine's grocery credit
+subsidized it — every branch ablation must hold pre-fork state-hash
+equality per seed, asserted by the harness, with paired outcomes
+compared from identical entries (common-entry deltas read 14.9 at
+150 / 24.6 at 500, dispositive only after isolation is repaired).
+The raid-price "drift" is RETRACTED: round 5 ran 2,000 trials and
+current code reproduces it exactly at that depth ($752 → $556 →
+$413 consecutive; $752 → $675 → $607 at two quiet nights); the
+probe propagates one trial count and reports paired uncertainty. A
+causal heat report joins the study — amber/red exposures, lost
+target-turf capacity, and corner damage with the heat policy on
+versus off — because unit tests prove the formula exists, not that
+heat became load-bearing.
+
+The expected green after the pass: the full suite, lint and types;
+both identity gates exact; Straight/Sale batteries unchanged except
+where item 3 intentionally moves them, recorded; clean ablation
+entry identity; the corrected 2,000-trial raid comparison; the war
+gates rerun at 150 and 500; and no activation until the cooldown
+criterion genuinely passes.
+
+**Revision 16** responds to the re-review of the rev. 15 correction
+pass at e0c5bef, which reproduced every reported number and gate,
+accepted the fronting movement — and found four root contracts still
+false and two core mechanics not yet load-bearing. Recorded on paper
+before further work; the corrections below are the review's rulings.
+
+1. **Evidence grows an immutable accrual.** The study's "gross"
+   collector read records at the night hook, AFTER counsel and
+   settlements had mutated them (reproduced: 10.0 of paper accrued,
+   4.0 seen) — so the 46%/50% kind-share readings overestimate and
+   cannot decide any criterion. Root fix: every record carries an
+   immutable `accrued` magnitude beside the mutable effective one,
+   written at accrual (and moved in lockstep by the suspicion
+   record's top-ups, which are genuine accrual); validation binds
+   `0 ≤ effective ≤ accrued` at the persistence boundary; migration
+   loads absent `accrued` as the stored magnitude (pre-contest
+   values are unrecoverable, said plainly); the study reads accrued
+   values only.
+2. **The night-assignment view owns commitment AND execution —
+   really.** The night still recomputed
+   `wagon_free = plans.get("route") is None`, ignoring salvage
+   (reproduced: the pickup used the wagon at service and the raid
+   got it back after dark). The expression is replaced by the one
+   view, and the route/raid/salvage matrix is exhaustively pinned:
+   one employee executes at most one job; route and salvage are
+   mutually exclusive wagon owners; a raid gets the wagon only when
+   neither committed job owns it; scrubbing one job produces one
+   deterministic reassignment (a route scrubbed at commit frees the
+   wagon for the raid's carry — the flag-off behavior; a pickup
+   scrubbed at execution keeps its commitment — the wagon went out
+   and came back empty).
+3. **"Every active branch" includes the Quiet Sale.** Two empty
+   payroll-short escrow nights left game_over None and validation
+   accepted it. The sale gets the shared transition and the
+   persistence invariant (insolvent_days joins its field set); its
+   battery reruns and any movement is recorded. The
+   narratively-tempting exemption is declined, per the ruling.
+4. **The second campaign gets exercised, measured, and named.**
+   Zero Syndicate endings across every fleet at both depths traced
+   to two seams: the study still recognized the retired
+   survived-plus-two-broken form instead of the `syndicate`
+   terminal, and the bot carried one global broken flag plus a
+   hardcoded "Vinnie's turf" — after declaring on Sal it stopped
+   pursuing jobs and corners entirely. Corrections: terminal
+   classification gets one canonical vocabulary (war.GOOD_ENDINGS,
+   consumed by grade and the study); the bot derives its live
+   target, its turf and its board state from the morning board
+   each day (no stale globals); and the study adds longitudinal
+   rows — second-front declarations, salvage collections, second
+   captures, Syndicate endings.
+5. **The cooldown criterion is replaced on paper — the pacing
+   requirement stays, the arbitrary 20-point magnitude retires.**
+   The raid-only row validates channel diversity, not pacing; a
+   naive cooldown policy beating the paced one 55–36 means the
+   player lesson is still "attack whenever physically possible."
+   The new letter: (a) a controlled equal-opportunity comparison
+   must show paced attacks produce better applied strength damage
+   per committed crew-night and lower retaliation/injury exposure;
+   (b) at 500 seeds the alertness-aware full policy must NOT trail
+   the cooldown policy; (c) the war board shows the actual
+   job-impact and retaliation multipliers, not adjectives. Per the
+   ruling this needs a smarter expected-value pacing policy or a
+   positive quiet-window benefit, not another slope tweak — the
+   paced bot's two-night minimum gap (which forgoes open windows
+   the world already priced) is replaced by window-rational
+   raiding: full-price attacks whenever the security word says the
+   window is open, waiting only when it is shut.
+6. **The pattern+physical kind-share bar is replaced with actual
+   remediation resistance** (measured on true accruals, item 1;
+   the taxonomy is untouched — employee testimony is narratively
+   correct): (i) the median share of post-fork ACCRUED evidence
+   still effective at the ending, bar proposed ≥ 50% (permanent
+   mutations only — reversible retention dormancy is not
+   remediation and does not reduce "effective" here); (ii) the
+   proportion of war runs ending with the Case above its fork-day
+   value despite remediation, bar proposed ≥ 60%. Both proposed
+   values are flagged for confirmation; the structure is the
+   ruling's.
+7. **Heat's consequence flows through the customer pool.** With
+   teeth on/off the ending rates and corner-damage medians were
+   identical — the −4/night corner cap masks the halved capacity.
+   RouteMarket now applies the heat capacity multiplier to the
+   EFFECTIVE corner cap (amber halves tonight's divertible
+   custom, exactly as it halves the stops), heat stays war-local,
+   and the study measures target-turf units and corner damage on
+   exposure-matched seeds — never a noisy global ending-rate
+   swing.
+8. **The Syndicate epilogue renders from the damage ledger.** The
+   ending named the prosecutor even for a player who never spent a
+   ledger with the law; the text now names only the channels the
+   campaigns actually used, with the gray-suit clause keyed to a
+   prosecution (violence_raised), not to victory.
+
+Verification expected after the pass: the standing green (suite,
+lint, types, both identity gates exact), the Straight battery
+unchanged, the Sale battery rerun after truthful insolvency with
+movement recorded, ablation entry identity at zero, and the war
+gates rerun at both depths under the replaced criteria. No
+activation before the new pacing letter genuinely passes.
+
+**Revision 17** responds to the re-review of the rev. 16 pass at
+b4f4582, which independently confirmed every check and number —
+and ruled that several instruments and one core product contract
+encode the wrong model. The war's story is accepted; the
+corrections below are the review's rulings, recorded before any
+further implementation. Items 1–2 are CORE scope that precedes and
+underlies P3; items 3–6 are the blocking P3 findings; item 7
+replaces the neglect letter.
+
+1. **The wagon gets one coherent inventory model: RouteManifest.**
+   A player correctly reported that 12 Extra Oregano (bulk 2)
+   silently fills all 24 slots and the planner's disappearing
+   prompts make a full wagon look like the end of planning; review
+   confirmed and found the deeper incoherence — the route
+   calculations count FIVE incompatible quantities (capacity in
+   bulk slots; pizzas against a hard-coded 12; coded stops by
+   product categories; suspicion/lateness/heat by contraband
+   units; corner damage by units sold). Rulings, verbatim in
+   intent: the unexplained `min(12, …)` pizza cap is REMOVED — a
+   pizza-only route with 24 real orders, ingredients and oven
+   capacity loads 24 (README's "24 cargo slots shared between
+   pizzas and product" was always the contract; the test calling
+   12 "full pizza capacity" pinned a defect); if a stop-count
+   limit is ever wanted it becomes a separate, NAMED route-time
+   meter applied consistently to legitimate and covert stops, not
+   a buried constant; ONE typed `RouteManifest` owns cargo bulk,
+   pizza bulk, remaining capacity and validation; the sequential
+   disappearing prompts are replaced by an editable manifest where
+   every product stays visible — including disabled rows with
+   their reasons; inventory displays read units × bulk each =
+   bulk used at the shop, the warehouse and the wagon; and
+   over-capacity manifests are REFUSED at commit and at
+   resolution, never repaired and never merely prevented by UI.
+2. **The golden trace is deliberately versioned afterward.** The
+   flag-off golden has pinned the 12-pizza defect since P0;
+   preserving a known player-facing defect is not equivalence.
+   After the inventory correction lands with its own tests, the
+   golden is regenerated ONCE, as a recorded, versioned act — the
+   old checksum retired by name in FINDINGS, never silently — and
+   the never-regenerate rule resumes over the new trace. This is
+   the first and only sanctioned regeneration; the paired
+   stand-pat gate must hold across the change.
+3. **The heat probe must run a legal route.** The controlled
+   probe's injected cargo was 52 slots in a 24-slot wagon
+   (12 oregano = 24, 10 mushrooms, 8 honey, 10 pizzas) —
+   `resolve_route` accepted the unchecked dictionary, which is
+   itself the item-1 defect. The 15.8-vs-21.1 heat result is
+   WITHDRAWN and reruns through a legal RouteManifest. The
+   organic turf-units row is also contaminated: it read
+   `sold_yesterday`, which successful stock raids overwrite with
+   −8 shortage signals; actual route sales get their own result
+   field and the study reads that.
+4. **Outgoing raids get typed attempt records.** The pacing
+   comparison reported 12.8 strength damage per "committed
+   crew-night" when the strongest job applies at most 12 — the
+   denominator was successful `raids_led`, with the baseline
+   captured AFTER the first war night (a first-night success
+   vanishes), and entry-identical seeds are not an equal-
+   opportunity experiment once policies diverge. Root fix: an
+   append-only attempt record per outgoing job —
+   attempted/scrubbed/succeeded, crew committed, actual applied
+   damage — measured as damage per attempted job-night or per
+   person-night and NAMED as what it is; no honest-looking
+   number from a dishonest denominator.
+5. **"Still effective" measures the live ledger, not stored
+   magnitude.** Review reproduced a legal record with accrued 20,
+   Case and docket 10, harness "effective" 20 — the harness
+   ignored live retention (loyalty) relief. The 98% claim is
+   WITHDRAWN. The study reports three quantities from ONE
+   canonical ledger view (the docket's own): gross accrued;
+   permanent residue after contests and settlements; live
+   effective contribution after retention protection.
+6. **The night consults execution results, not morning
+   intentions.** A salvage driver lost before service prints
+   "scrubbed", draws nothing, collects nothing — and the
+   untouched plan still reserves the wagon against the raid,
+   though the wagon never departed. `run_salvage` returns a typed
+   result (wagon_used / scrubbed / collected); the night's wagon
+   question reads what actually happened.
+7. **The neglect letter is replaced: the restaurant sustains the
+   empire, not the street fight.** At 500 seeds neglect still
+   breaks its first rival but records zero double captures and
+   zero Syndicates — "a hollow restaurant can help win one street
+   fight, but it cannot sustain control of the city" is the
+   accepted hybrid thesis. New letter, binding at 500: the
+   maintained restaurant beats neglect in UNCONDITIONAL
+   Syndicate-ending rate by ≥ 15 points; second-front-to-capture
+   conversion, Burned Out, payroll failures and witness accrual
+   ship as decomposition. No constants are tuned to it. Heat may
+   stand as a local route consequence if the legal-manifest rerun
+   confirms it; its organic rarity remains an honest finding.
+
+Sequencing, per the ruling: the inventory/route model (items 1–2)
+is corrected first as its own core change with its own tests and
+the versioned golden; the P3 instruments (items 3–6) rerun on top
+of it; then the batteries rerun at both depths under item 7's
+letter. No PR, no activation, before the instruments are honest.
+
+**Revision 18** responds to the re-review of the rev. 17 pass at
+844992a, which reproduced every check, approved the Harbor War's
+story and macro-balance in principle — and found five remaining
+ROOT contracts (not tuning). Recorded before implementation; no
+balance constant moves in this pass.
+
+1. **RouteManifest becomes the route's actual canonical
+   inventory.** The rev. 17 planner built a manifest and then
+   returned parallel cargo/legit dictionaries; commitment consumed
+   the dictionary WITHOUT validating (reproduced: a 25-space plan
+   committed — stash deducted, an ingredient burned — and only
+   resolution raised); `of_plan` coerced `legit=True/1.5/"3"`
+   through `int()`; and the revise walk offered
+   `min(have + loaded, …)` when planned goods never leave the
+   stash during planning (reproduced: 8 in the stash, load 8,
+   revise, 12 offered, service silently clamped). Rulings: a typed
+   `RoutePlan` CARRIES the manifest — no parallel dictionaries,
+   ever; parsing is strict, no coercion, capacity fixed by the
+   model; commitment validates BEFORE any state mutation, then
+   produces the live, availability-revalidated committed manifest
+   and applies its inventory transaction atomically; the revise
+   bound is `min(have, loaded + free // bulk)`; pins cover
+   malformed types, zero-mutation rejection of an illegal commit,
+   and the 8→revise→12 repro.
+2. **Storage gets ONE capacity authority.** Shop→warehouse
+   transfer ignored WAREHOUSE_CAP (reproduced: 202/200), and
+   capacity arithmetic lives in four places (supplier, storage,
+   place_haul, routes). Rulings: one authority owns space used,
+   destination capacity, units-that-fit, transactional
+   transfer/placement, and the persistence validation; every
+   inventory prompt consumes it and STATES WHY its bound exists
+   ("Warehouse: 192/200 space used; 4 more units fit"); a short
+   route-loading card teaches the shared wagon ("The wagon holds
+   24 cargo-space units. Each pizza uses 1. Extra Oregano uses 2
+   per unit."); and the UI uses ONE term — "space" — retiring the
+   bulk/slots/wagon-space mixture.
+3. **The raid-attempt ledger becomes typed and append-only in
+   fact.** Rev. 17 appended a mutable dict as "failed" and edited
+   it to "succeeded"; the save round-tripped
+   `day="banana", crew=-7, damage_h=999999`. Rulings: a frozen,
+   validated `RaidAttemptRecord`, constructed locally and appended
+   EXACTLY ONCE after the outcome is known; scrubs book through
+   the same authority; persistence refuses invalid days, rivals,
+   outcomes, crew counts, damage, and inconsistent outcome/damage
+   combinations. The study renames its rows to what they measure —
+   executed-job and executed-person-night efficiency, with
+   planned/committed efficiency reported separately where scrubs
+   belong in the denominator — and the 8.7-vs-6.1 comparison is a
+   PAIRED OBSERVATIONAL DECOMPOSITION, never again labeled
+   "controlled": policies share only entry state and diverge. The
+   causal pacing claim gets a genuinely state-matched
+   fixed-opportunity experiment; the 500-seed "full policy must
+   not trail" outcome bar stays. Until both stand, the pacing gate
+   has not passed as written.
+4. **The organic heat cohort samples at execution time.** The
+   study read heat at the night hook — after rival moves, decay
+   and the day increment — and counted hot turf whether or not a
+   route ran there. Rulings: one typed route-execution record
+   carries the execution-time district, heat band and capacity
+   multiplier, sales and corner damage; the study counts an
+   exposure ONLY when a route actually executed on live target
+   turf under amber/red. The controlled legal-manifest probe
+   stands. Heat's narrative claim is amended: a LOCAL ROUTE TAX,
+   enforced and priced — "load-bearing" at campaign level is
+   unproven until organic play demonstrates it.
+5. **The golden's provenance must be true.** The active golden
+   still described itself as the pre-P0 v2 baseline @ 3d79d17,
+   engine untouched — false since the sanctioned regeneration.
+   Rulings: the artifact carries an explicit version, generation
+   commit, predecessor checksum and sanctioned-change reason, and
+   the harness ASSERTS that metadata; the rev. 17 golden is a
+   premature intermediate of the same sanctioned correction
+   (generated before the inventory contract was finished) — the
+   inventory model completes first, then the FINAL corrected
+   baseline is established, once, with honest provenance.
+
+Story ruling carried: the Harbor War is approved in principle
+(distinct rivals, a legible five-channel campaign, raid-only
+losing decisively, a real second front, the restaurant-to-empire
+thesis strongly supported, healthy ending diversity). After these
+five contracts close and both identity gates and the 150/500
+batteries rerun, P3 can proceed to a PR review. The chair stays
+unreleased until then.
+
+**Revision 19** responds to the re-review of the rev. 18 pass at
+8fdb243, which reproduced every check and the 150-seed battery,
+confirmed the planner genuinely fixes the player's 12-unit wall —
+and found four blocking root contracts plus one canonical
+story/spec reconciliation. Recorded before implementation; no
+balance constant moves and no feature expands.
+
+1. **Storage becomes one SAFE authority.** The rev. 18 authority
+   accepted impossible live inventory: `move_goods(..., True)`
+   moved one unit; `1.5` created fractional stock; an unknown
+   location ("bogus") silently ALIASED the warehouse; `place_haul`
+   accepted booleans, floats and negatives; `space_used({"g": -2})`
+   reported zero instead of refusing. Rulings: ONE shared
+   inventory-map validator — exact integers (`type(x) is int`),
+   known goods, no negatives — and explicit storage locations,
+   consumed by `space_used`, `units_that_fit`, `move_goods`,
+   `place_haul`, the rendering, and persistence. The vocabulary
+   contract finishes: player-facing inventory says only "space" —
+   the card's "cargo-space", escrow's "bulk", and README's "cargo
+   slots"/"bulk storage" all align.
+2. **The historical ledgers bind to the actual domains.** The
+   typed records accepted impossible history: a 100-person crew
+   (planning caps at three), damage 99.99 strength (the largest
+   job begins at 12), cool@0.5 and amber@1.0 band/multiplier
+   pairs, a successfully executed RED route (planning and commit
+   both refuse red), 999 units from a 24-space wagon, contested
+   turf at an ownerless district, corner damage past the −8
+   mechanical cap, future-dated and reverse-ordered logs.
+   Rulings: every field binds to its mechanical domain;
+   band↔multiplier consistency is enforced (and preferably BY
+   CONSTRUCTION from the authoritative RouteMarket view);
+   cross-state validation adds chronology — no record post-dates
+   the state's day, and each log's days are non-decreasing.
+   Studies must be unable to invent combinations gameplay cannot
+   produce.
+3. **The fixed-opportunity experiment is paired in fact.** Only
+   bot-choice RNG was keyed per night; raid-mechanics RNG was one
+   persistent stream per arm, so a skipped night shifted every
+   later night's dice — and the day was incremented before the
+   decay guard, diverging from production's transition. The
+   review's calendar-keyed diagnostic changed the conclusion
+   substantially (damage approximately TIED, efficiency and
+   injury advantages retained) — encouraging for the mechanic,
+   and proof the published 11.4-vs-12.4 is not certified;
+   WITHDRAWN. Rulings: extract the quiet-night alertness
+   transition into one canonical home used by production and the
+   experiment alike; key decision AND mechanics RNG by seed,
+   calendar day and channel; pin that skipping one night cannot
+   shift a later night's dice; rerun without tuning. The
+   full-policy outcome bar stands and currently passes.
+4. **The baseline contract is independent, not self-asserted.**
+   `check()` only required nonempty metadata — a golden mutated
+   to version −9, commit "banana", predecessor "garbage", seeds 1
+   still passed. Rulings: the harness carries an ACTIVE-BASELINE
+   contract of its own — exact version, generation commit,
+   predecessor checksum, reason identifier, seeds, bots, and the
+   active file's sha256 — asserted before any run comparison;
+   mutation tests alter every field independently and require
+   rejection.
+5. **The canonical text describes the current rules.** The body
+   still asserted the retired pattern+physical 50% bar, the
+   retired 20-point cooldown drop, "winning requires pacing",
+   campaign-load-bearing heat, and four damage channels. The
+   canonical sections themselves are updated (not amended): the
+   honest thesis — grinding buys tempo by spending bodies; pacing
+   preserves crew and improves damage efficiency, and must not
+   worsen campaign outcomes — replaces the retired claims; heat
+   is a local route tax; the ledger has five channels. The
+   "Harbor Is Yours" epilogue also derives and NAMES the actual
+   captured turf (Sal's fall captures Little Sicily; Vinnie's
+   captures Old Harbor and the Meadows) instead of one generic
+   district.
+
+After these corrections: both identity gates, the 150/500
+batteries, and the corrected pacing experiment rerun; the war
+chair stays unreleased; the new head returns for one final
+review. No balance movement, no feature expansion.
+
+**Revision 20** responds to the final-review hold at bdc52aa,
+which accepted the pacing and independent-baseline contracts,
+reproduced every number, and left two model-boundary contracts
+open plus stale status prose. A bounded pass; no constants, no
+mechanics, no features.
+
+1. **Storage becomes transactionally safe.** Rev. 19 validated the
+   REQUESTED quantity and destination but not the source inventory
+   it mutated: a source holding True moved; 1.5 became 0.5 after a
+   move; an unknown "fake" row mutated without refusal; place_haul
+   added 40 mushrooms to the shop, then discovered an invalid
+   warehouse and raised — leaving the partial mutation behind; an
+   already-over-cap warehouse was accepted. Rulings: ONE
+   storage-state preflight (map validity AND space_used ≤
+   space_cap); move_goods preflights BOTH locations before any
+   mutation; place_haul preflights every destination, computes the
+   complete allocation locally, then commits once; any refusal
+   leaves every stash byte-identical. Pins: invalid source maps,
+   invalid and over-cap warehouses, the partial-placement repro.
+2. **The ledgers validate the HISTORY they claim, not just their
+   rows.** Reproduced: capacity_mult=True passed as cool 1.0
+   (Boolean equality); amber accepted 800 corner hundredths though
+   amber halves the ceiling to 400; a contested Old Harbor route
+   loaded into an Act I state where no war ever existed; contested
+   routes predating the declaration; a raid claiming 12 damage
+   while the campaign records none; campaign jobs/corners damage
+   with no matching execution records; duplicate records on one
+   day despite one route and one raid per night. Ruling: a
+   `validate_execution_history(state)` reconciliation — canonical
+   multiplier TYPE (no Boolean satisfying float equality);
+   strictly increasing log days; contested derived from the
+   campaign's declared/broken interval; the heat-band-adjusted
+   corner ceiling; successful raid damage reconciled against
+   jobs-channel damage by day and rival, and route corner damage
+   against corners-channel damage by day and rival — both
+   directions. Test fixtures that fabricate impossible histories
+   become legal-history helpers (one job per night, records
+   booked, the calendar advanced).
+3. **The war-cadence probe simulates legal history.** Its
+   "consecutive" arm ran three jobs on one calendar day, and the
+   cadence arm applied the second quiet tick on the next attack's
+   own day. Corrected: each attempt takes a fresh calendar day;
+   quiet nights sit strictly between. The alertness arithmetic and
+   the reported curve are preserved (the decay count per gap is
+   unchanged); only the simulated calendar becomes legal.
+4. **The status prose tells the current truth.** The §2.4.3 thesis
+   sentence now reads the certified numbers (tied damage, ~2×
+   attempts, ~2.7× injured days); FINDINGS' "Still open" section
+   states P3's CURRENT result in place of the stale three-miss
+   status, without extending the archaeological chain.
+
+After the pass: the unchanged gates and the batteries rerun; the
+chair stays unreleased; the head returns for a short final review.

@@ -1,6 +1,6 @@
 """Game orchestration: the 30-day run and its endings."""
 
-from . import data, escrow, phases, sitdown, straight
+from . import data, escrow, phases, sitdown, straight, war
 from .config import GameConfig
 from .models import State, new_state
 from .rng import Streams
@@ -66,6 +66,10 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
         if state.branch == "straight":
             # §2.5 precedence 5: the branch's own day-30 matrix.
             state.game_over = straight.grade(state)
+        elif state.branch == "war":
+            # Campaign-count matrix (rev. 14 item 9); both broken lands
+            # on the existing Syndicate text through "survived".
+            state.game_over = war.grade(state)
         else:
             state.game_over = "survived" if state.debt <= 0 else "kneecaps"
     epilogue(state, con)
@@ -171,7 +175,19 @@ def epilogue(state: State, con: Console) -> None:
   Half in, half out — the most expensive place to stand.
   ENDING: Half Measures.""")
     elif e == "arrested":
-        con.say("""
+        if state.branch == "war" and war.won_then_lost(state):
+            # The §2.5 styling exception: the same terminal, a distinct
+            # text arm — the capture transition completed before the
+            # latch (rev. 14: transition ordering, never a calendar
+            # coincidence).
+            con.say("""
+  You broke him. The district was learning your name for a new reason —
+  and then they come at 6 a.m., politely, with a warrant that cites
+  your own register tapes. You won the war. The verdict goes the other
+  way. Both things stay true.
+  ENDING: The Case closed — on you. (Won the war. Lost the verdict.)""")
+        else:
+            con.say("""
   They come at 6 a.m., politely, with a warrant that cites your own
   register tapes. The pizza was never the problem. The paperwork was.
   ENDING: The Case closed — on you.""")
@@ -181,6 +197,78 @@ def epilogue(state: State, con: Console) -> None:
   You still owe {money(state.debt)}. The shop is his now; the recipes too.
   You keep your legs — a courtesy, he says, to your uncle.
   ENDING: The debt came due.""")
+    elif e == "syndicate":
+        # The ending renders from the campaign damage ledger (rev. 16
+        # item 8): it names only the channels this player actually
+        # used, and the prosecutor appears only when the prosecution
+        # happened.
+        used = {dr.channel for c in war.campaigns(state)
+                for dr in c.damage}
+        bits = [label for ch, label in (
+            ("jobs", "night jobs"), ("corners", "corner routes"),
+            ("ovens", "cold ovens"), ("defense", "a defended door"))
+            if ch in used]
+        if "ledger" in used:
+            bits.append("a woman in a gray suit who thinks you're a "
+                        "very lucky bystander"
+                        if any(c.violence_raised
+                               for c in war.campaigns(state))
+                        else "a stolen ledger spent to the last page")
+        how = ", ".join(bits[:-1]) + (" and " + bits[-1]
+                                      if len(bits) > 1 else
+                                      (bits[0] if bits else "patience"))
+        con.say(f"""
+  Moretti's is a mattress store now. Vinnie's is a parking lot. You
+  declared both wars at a breakfast table and finished both before the
+  month did — {how}. Every warmer bag in the
+  city rides in one of your wagons.
+  ENDING: The syndicate. Nothing moves without extra toppings.""")
+    elif e == "burned_out":
+        con.say("""
+  They warned you twice — once with cars in the mirror, once with the
+  boards already over the window. The second break-in finds a shop too
+  hurt to save, and by morning there is nothing on the corner but smoke
+  and a wagon with nowhere to park.
+  ENDING: Burned Out. The war came home.""")
+    elif e == "harbor_yours":
+        fallen = war.broken_keys(state)[0]
+        second = war.target_key(state)
+        # The ACTUAL captured turf, derived and named (rev. 19 item
+        # 5): Sal's fall captures Little Sicily; Vinnie's captures
+        # Old Harbor and the Meadows — never one generic district.
+        turf = [d["label"] for d in data.DISTRICTS.values()
+                if d["rival"] == fallen]
+        turf_s = " and ".join([", ".join(turf[:-1]), turf[-1]]
+                              if len(turf) > 1 else turf)
+        con.say(f"""
+  Day thirty. {data.RIVALS[fallen]['label']} is a name on old menus.
+  Their corners call your board, {turf_s} learned your number,
+  and the harbor knows exactly one operation that matters.""")
+        if second is not None:
+            con.say(f"  The second war — {data.RIVALS[second]['short']}'s —"
+                    f" has already begun. Victories don't retire you "
+                    f"here; they promote you.")
+        crew_standing = sum(1 for x in state.hired()
+                            if not x.arrested and not x.injured_days)
+        con.say(f"  What it cost is on the board too: Case "
+                f"{state.case:.0f}/100, {crew_standing} of "
+                f"{len(state.hired())} crew standing, and a shop that "
+                f"{'kept its ovens' if not state.shop.damage_days else 'is still limping'}.")
+        con.say("  ENDING: The Harbor Is Yours.")
+    elif e == "long_war":
+        camp = war.campaigns(state)[-1] if war.campaigns(state) else None
+        ratio = ""
+        if camp is not None and state.rivals[camp.rival_key].alive:
+            rv = state.rivals[camp.rival_key]
+            ratio = (f" He stands at {rv.strength:g} of the "
+                     f"{camp.starting_hundredths / 100:g} he started "
+                     f"with;")
+        con.say(f"""
+  Day thirty. The war is not won and it is not over — there is no over
+  anymore.{ratio} the truce door closed the morning you named him, and
+  it does not reopen. The vendetta outlives the month, the ledger of
+  damage outlives the vendetta, and the city settles in to watch.
+  ENDING: A Long War. You chose a war that will outlive the month.""")
     elif e == "broke":
         if state.branch == "straight":
             con.say("""

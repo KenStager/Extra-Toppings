@@ -1,9 +1,16 @@
-"""Legacy-equivalence harness: the P0 refactor must not move Act I.
+"""Legacy-equivalence harness: engine changes must not move Act I.
 
-The engine is being rebuilt underneath the game (typed evidence, the
-shops collection, save v3). This harness proves the rebuild is
-behavior-preserving, per seed, against golden baselines generated from
-the pre-refactor engine:
+Born in P0 to prove the rebuild (typed evidence, the shops
+collection, save v3) behavior-preserving against goldens generated
+from the pre-refactor engine. The ACTIVE baseline is versioned
+(rev. 18 item 5): golden_act1.json carries explicit provenance —
+version, generation commit, predecessor checksum, and the sanctioned
+reason it was regenerated — and `check` ASSERTS that metadata before
+comparing a single run. Regeneration happens only as a recorded,
+sanctioned act (one has occurred: the rev. 17–18 inventory-contract
+correction, which fixed a player-facing defect the old trace
+pinned); between such acts the never-regenerate rule binds. The
+mechanics compared per seed:
 
 - **legacy projection** — every night's state, rendered in the save-v2
   shape (explicit field list below), hashed. The projection reads only
@@ -76,7 +83,13 @@ def legacy_projection(state) -> dict:
         "warehouse": dict(state.warehouse) if state.warehouse is not None else None,
         "warehouse_cash": state.warehouse_cash,
         "employees": [asdict(e) for e in state.employees],
-        "districts": {k: asdict(d) for k, d in state.districts.items()},
+        # Districts project the EXPLICIT v2 fields — the projection is
+        # a fixed shape, so post-v2 additions (route_sold, rev. 17)
+        # must never leak into the digest.
+        "districts": {k: {"key": d.key, "heat": d.heat,
+                          "known_price_age": d.known_price_age,
+                          "sold_yesterday": dict(d.sold_yesterday)}
+                      for k, d in state.districts.items()},
         "rivals": {k: asdict(r) for k, r in state.rivals.items()},
         "prices": state.prices,
         "events": [{"id": e.spec["id"], "days_left": e.days_left}
@@ -179,7 +192,92 @@ def run_recorded(seed: int, bot_key: str,
             "night_facts": night_facts, "drawn_new_streams": drawn_new}
 
 
-def generate(seeds: int) -> None:
+REQUIRED_META = ("version", "engine", "generated_at_commit",
+                 "predecessor_sha256", "reason", "seeds", "bots")
+
+# THE active-baseline contract (rev. 19 item 4): the harness KNOWS
+# which baseline is sanctioned — exact version, generation commit,
+# predecessor checksum, reason, seeds, bots, and the active file's
+# own sha256. A golden mutated in any field, or swapped wholesale,
+# fails the gate before a single run is compared. Updated only as
+# part of a recorded, sanctioned regeneration.
+ACTIVE_BASELINE: dict = {
+    "version": 2,
+    "generated_at_commit": "57f2c4bf9e1d4731d8174225a865ab862ab46e7e",
+    "predecessor_sha256": "75d9199fdb5cda6c4b652f9ba0eec5269a6"
+                          "1a37952919e249914e7a40f090839",
+    "reason": "design rev. 17-18 sanctioned regeneration: the "
+              "RouteManifest inventory contract replaced the 12-pizza "
+              "planner defect the prior trace pinned; final baseline "
+              "established after the contract completed",
+    "seeds": 150,
+    "bots": ["greedy", "random"],
+    "file_sha256": "13d9eeba742aff279b149c16d42ffd3bfce"
+                   "7d28b029a7985ddde1b776e7828fd",
+}
+
+
+def validate_baseline(path: str = GOLDEN_PATH) -> list:
+    """Every way the active golden could lie, checked independently:
+    the file's own hash against the contract, then every metadata
+    field against its contracted value. Returns a list of failures
+    (empty = the baseline is the sanctioned one)."""
+    errors = []
+    try:
+        with open(path, "rb") as fb:
+            raw = fb.read()
+    except OSError as exc:
+        return [f"golden unreadable: {exc}"]
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != ACTIVE_BASELINE["file_sha256"]:
+        errors.append(f"file sha256 {actual[:12]}… is not the "
+                      f"sanctioned baseline "
+                      f"{ACTIVE_BASELINE['file_sha256'][:12]}…")
+    try:
+        meta = json.loads(raw).get("meta", {})
+    except ValueError as exc:
+        return errors + [f"golden unparseable: {exc}"]
+    for key in REQUIRED_META:
+        if not meta.get(key):
+            errors.append(f"missing metadata {key!r}")
+    for key in ("version", "generated_at_commit", "predecessor_sha256",
+                "reason", "seeds"):
+        if key in meta and meta.get(key) != ACTIVE_BASELINE[key]:
+            errors.append(f"metadata {key!r} = {meta.get(key)!r} does "
+                          f"not match the contract")
+    if sorted(meta.get("bots") or []) != ACTIVE_BASELINE["bots"]:
+        errors.append(f"metadata 'bots' = {meta.get('bots')!r} does "
+                      f"not match the contract")
+    return errors
+
+
+def _head_commit() -> str:
+    import subprocess
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True,
+            text=True, check=True,
+            cwd=os.path.dirname(__file__)).stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+def generate(seeds: int, reason: str | None = None) -> None:
+    """Write a NEW versioned baseline. Regeneration is a recorded,
+    sanctioned act (rev. 18 item 5): the artifact carries its
+    version, the commit it was generated at, the sha256 of the
+    baseline it retires, and the reason — and `check` asserts all of
+    it. Do not run this without a recorded ruling."""
+    predecessor, prior_version = "none", 0
+    if os.path.exists(GOLDEN_PATH):
+        with open(GOLDEN_PATH, "rb") as fb:
+            predecessor = hashlib.sha256(fb.read()).hexdigest()
+        try:
+            with open(GOLDEN_PATH) as fj:
+                prior_version = json.load(fj).get("meta", {}) \
+                    .get("version", 1)
+        except Exception:
+            prior_version = 1
     runs = {}
     for bot_key in BOTS:
         for seed in range(seeds):
@@ -190,19 +288,37 @@ def generate(seeds: int) -> None:
                           "night_facts"):
                 rec.pop(extra)
             runs[f"{bot_key}/{seed}"] = rec
-    payload = {
-        "meta": {"engine": "pre-P0 v2 baseline @ 3d79d17 "
-                           "(harness + on_night hook injected; "
-                           "engine files untouched)",
-                 "seeds": seeds, "bots": sorted(BOTS)},
+    payload: dict = {
+        "meta": {
+            "version": prior_version + 1,
+            "engine": "corrected-engine baseline (projection: the "
+                      "explicit v2 field list in legacy_projection)",
+            "generated_at_commit": _head_commit(),
+            "predecessor_sha256": predecessor,
+            "reason": reason or
+            "design rev. 17-18 sanctioned regeneration: the "
+            "RouteManifest inventory contract replaced the 12-pizza "
+            "planner defect the prior trace pinned; final baseline "
+            "established after the contract completed",
+            "seeds": seeds, "bots": sorted(BOTS)},
         "runs": runs,
     }
     with open(GOLDEN_PATH, "w") as f:
         json.dump(payload, f, sort_keys=True)
-    print(f"wrote {len(runs)} golden runs to {GOLDEN_PATH}")
+    print(f"wrote {len(runs)} golden runs to {GOLDEN_PATH} "
+          f"(version {payload['meta']['version']}, predecessor "
+          f"{predecessor[:12]})")
 
 
 def check(seeds: int | None) -> int:
+    # Provenance is part of the gate (rev. 18 item 5; independent
+    # contract per rev. 19 item 4): a golden that cannot prove it is
+    # THE sanctioned baseline fails before any run is compared.
+    problems = validate_baseline()
+    if problems:
+        for p in problems:
+            print(f"FAIL golden provenance: {p}")
+        return 1
     with open(GOLDEN_PATH) as f:
         golden = json.load(f)
     n = seeds or golden["meta"]["seeds"]

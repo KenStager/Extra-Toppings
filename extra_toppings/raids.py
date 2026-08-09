@@ -6,7 +6,7 @@ Violence works, and always costs more than it looks like it costs.
 
 import random
 
-from . import data
+from . import data, models, war
 from .models import State
 from .ui import Console, money
 
@@ -20,6 +20,16 @@ def plan_raid(state: State, con: Console, rng: random.Random,
         con.say("  The wagon is out on tonight's route — whatever the crew "
                 "takes, they carry on foot.")
     targets = [k for k, r in state.rivals.items() if r.alive]
+    if state.branch == "war":
+        # One front at a time (rev. 14 item 9): outgoing jobs go to the
+        # declared rival only — hitting the bystander is a two-front
+        # mechanic, and it is not in this game.
+        tk = war.target_key(state)
+        if tk is None:
+            con.say("  You're not at war with anyone tonight. Name the "
+                    "next war before you send crowbars anywhere.")
+            return None
+        targets = [tk]
     if not targets:
         con.say("  There's nobody left worth robbing.")
         return None
@@ -53,9 +63,10 @@ def plan_raid(state: State, con: Console, rng: random.Random,
 
     team: list = []
     pool = list(crew)
-    while pool and len(team) < 3:
+    while pool and len(team) < models.RAID_CREW_MAX:
         names = [f"{e.name} (nerve {e.nerve}, {e.trait})" for e in pool] + ["Enough"]
-        c = con.menu(f"Crew ({len(team)} picked, max 3):", names)
+        c = con.menu(f"Crew ({len(team)} picked, "
+                     f"max {models.RAID_CREW_MAX}):", names)
         if c == len(pool):
             break
         team.append(pool.pop(c))
@@ -81,14 +92,10 @@ def plan_raid(state: State, con: Console, rng: random.Random,
             "armed": armed, "table_warned": warned}
 
 
-def _security_word(alertness: float) -> str:
-    if alertness >= 7:
-        return "fortress"
-    if alertness >= 4:
-        return "hardened"
-    if alertness >= 2:
-        return "wary"
-    return "sleepy"
+# The security word moved to models.security_word so the war board can
+# read it without importing raids (raids imports war for the raid
+# edge). Same function, one home; this name stays for its callers.
+_security_word = models.security_word
 
 
 def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None:
@@ -97,6 +104,12 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
     obj = data.RAID_OBJECTIVES[plan["objective"]]
     layout = data.RAID_LAYOUTS[obj["layout"]]
     team = plan["team"]
+    # The attempt ledger (rev. 18 item 3): the record is constructed
+    # ONCE, after the outcome is known, and appended exactly once —
+    # never a mutable dict edited in flight. Crew is the committed
+    # crew; damage is the ACTUAL strength delta this job applied.
+    committed_crew = len(team)
+    strength_before_h = round(rival.strength * 100)
     guard_skill = 3 + rival.strength / 20 + rival.alertness * 0.3
     if rival.alertness >= 4:
         con.say("  New cameras. New locks. They've been expecting somebody.")
@@ -153,14 +166,21 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
 
     if aborted or not team:
         state.add_heat(rspec["home"], 8)
-        rival.relation -= 10
+        models.adjust_relation(state, rival.key, -10)
         rival.alertness = min(10.0, rival.alertness + 1.0)
         rival.last_raided_day = state.day
         con.say("  You got out with nothing but your skins.")
         con.say("  By morning their guards walk in pairs.")
+        state.raid_log.append(models.RaidAttemptRecord(
+            day=state.day, rival=plan["rival"], outcome="failed",
+            crew=committed_crew, damage_h=0))
         return
 
     _payoff(state, plan, rival, rspec, con, rng, noise < 1.0, team)
+    state.raid_log.append(models.RaidAttemptRecord(
+        day=state.day, rival=plan["rival"], outcome="succeeded",
+        crew=committed_crew,
+        damage_h=strength_before_h - round(rival.strength * 100)))
     # Even a ghost leaves a pattern: the same handwriting, night after night.
     if state.raids_led >= 1:
         premium = min(8.0, 1.5 * state.raids_led)
@@ -216,28 +236,13 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
                 carry_bulk -= take * bulk
         # Stolen goods still need somewhere to live: shop stash, then the
         # warehouse if rented — anything past that stays in their alley.
-        left_behind = 0
-        kept: dict = {}
-        for g, u in haul.items():
-            bulk = data.GOODS[g]["bulk"]
-            room = max(0, state.shop.stash_cap
-                       - state.stash_bulk(state.shop_stash)) // bulk
-            to_shop = min(u, room)
-            if to_shop:
-                state.shop_stash[g] = state.shop_stash.get(g, 0) + to_shop
-            rest = u - to_shop
-            if rest and state.warehouse is not None:
-                wh_room = max(0, data.WAREHOUSE_CAP
-                              - state.stash_bulk(state.warehouse)) // bulk
-                to_wh = min(rest, wh_room)
-                if to_wh:
-                    state.warehouse[g] = state.warehouse.get(g, 0) + to_wh
-                rest -= to_wh
-            left_behind += rest
-            if u - rest:
-                kept[g] = u - rest
-        rival.strength -= 12
-        rival.relation -= 25
+        # (THE placement authority, rev. 15 item 2 — the loop moved to
+        # models.place_haul verbatim; salvage consumes the same one.)
+        kept, left_behind = models.place_haul(state, haul)
+        models.apply_rival_damage(
+            state, rival.key, "jobs",
+            war.job_damage(state, rival.key, models.RAID_STOCK_STRENGTH))
+        models.adjust_relation(state, rival.key, -25)
         if kept:
             got = ", ".join(f"{u}x {data.GOODS[g]['label']}" for g, u in kept.items())
             con.say(f"  You take what hands and storage can hold: {got}.")
@@ -251,51 +256,107 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
             state.districts[rspec["home"]].sold_yesterday[g] = -8
     elif objective == "ledger":
         rival.ledger_stolen = True
-        rival.strength -= 8
-        rival.relation -= 15
+        models.apply_rival_damage(
+            state, rival.key, "jobs",
+            war.job_damage(state, rival.key, models.RAID_LEDGER_STRENGTH))
+        models.adjust_relation(state, rival.key, -15)
         con.say("  Forty pages of names, dates and numbers on film.")
         con.say("  Leverage now — or a gift to a prosecutor later.")
     else:  # sabotage
         rival.ovens_wrecked_days = 4
-        rival.strength -= 10
-        rival.relation -= 20
+        models.apply_rival_damage(
+            state, rival.key, "jobs",
+            war.job_damage(state, rival.key, models.RAID_SABOTAGE_STRENGTH))
+        models.adjust_relation(state, rival.key, -20)
         con.say("  Thermostats smashed, gas lines capped, deck stones cracked.")
         con.say(f"  {rspec['short']}'s shop serves nothing for days — no cover for his routes.")
 
     if not clean_exit:
         state.add_case(5, "witnesses describe your crew leaving the scene")
     state.add_heat(rspec["home"], 12)
+    if not rival.alive and models.vendetta_locked(state, rival.key):
+        con.say(f"  And that's the job that finishes it — "
+                f"{rspec['short']}'s organization is broken. The "
+                f"district changes hands by morning.")
 
 
 # ── defense ───────────────────────────────────────────────────────
 
+from dataclasses import dataclass  # noqa: E402  (defense section header)
+
+
+@dataclass(frozen=True)
+class RaidResult:
+    """The typed defense outcome (rev. 14 item 6): Burned Out must
+    read the damage the shop carried BEFORE tonight's impact — a
+    bare boolean plus mutation made every lost fight look 'already
+    damaged' the moment the raid itself added damage.
+
+      outcome         — "landed" / "repelled" / "averted"
+      damage_before   — shop.damage_days immediately before impact
+      damage_added    — what tonight's raid added
+      attacker_damage — strength the defense dealt them (the fifth
+                        channel books through the damage authority)
+    """
+    outcome: str
+    damage_before: int
+    damage_added: int
+    attacker_damage: float
+
+    @property
+    def landed(self) -> bool:
+        return self.outcome == "landed"
+
+
 def incoming_raid(state: State, rival_key: str, con: Console,
-                  rng: random.Random) -> bool:
+                  rng: random.Random) -> RaidResult:
     """A telegraphed rival raid arrives at your shop tonight. Returns
-    whether a raid actually LANDED (paid tribute averts it) — escrow
-    counts a landed raid as a repricing incident (§2.4.4)."""
+    the typed RaidResult (rev. 14 item 6). Escrow's incident semantics
+    are unchanged from the merged behavior: any raid that ARRIVES —
+    fought off or not — is a repricing incident, so escrow keys on
+    outcome != "averted" (the old boolean's exact truth table); only
+    Burned Out distinguishes "landed" from "repelled"."""
     rival = state.rivals[rival_key]
     rspec = data.RIVALS[rival_key]
     con.header(f"THEY'RE COMING — {rspec['short']}'s crew hits your shop tonight")
 
+    damage_before = state.shop.damage_days
+    fatal_ground = state.branch == "war" and damage_before > 0
+    # THE incoming-raid policy (rev. 15 item 1): a DECLARED rival's
+    # raid offers no tribute at all — the declaration closed that door
+    # forever, and money must not reopen it mid-raid. The bystander's
+    # raid keeps the option; flag-off nothing changes.
+    target_raid = models.vendetta_locked(state, rival_key)
     options = ["Defend the shop (your crew's nerve)",
-               "Empty the stash into the wagon and let them find crumbs",
-               f"Pay tribute ({money(rival.tribute_demanded or 1500)} dirty)"]
+               "Empty the stash into the wagon and let them find crumbs"]
+    if not target_raid:
+        options.append(
+            f"Pay tribute ({money(rival.tribute_demanded or 1500)} dirty)")
     has_guard = "guard" in state.shop.upgrades
     if has_guard:
         options[0] += " — night security helps"
+    if target_raid:
+        con.say("  There is no envelope for this one. He isn't "
+                "collecting — he's collecting on you.")
+    if fatal_ground:
+        # The explicit fatal-choice warning (rev. 14 item 6): Burned
+        # Out is always a risk knowingly accepted (invariant 7).
+        con.say("  The shop is already hurt. If they land tonight — a "
+                "lost fight, or the decoy's break-in — there will be "
+                "nothing left to reopen. The war comes home.")
+        options[1] += " — the break-in ends the run"
     choice = con.menu("The unfamiliar cars are circling. Your move:", options)
 
     tribute = rival.tribute_demanded or 1500
-    if choice == 2 and state.dirty >= tribute:
+    if not target_raid and choice == 2 and state.dirty >= tribute:
         state.dirty -= tribute
-        rival.relation += 15
+        models.adjust_relation(state, rival_key, 15)
         rival.raid_warning = 0
         con.say("  Money changes hands in a parking lot. The cars drive away.")
         con.say("  Everyone on your payroll knows you paid.")
         for e in state.hired():
             e.morale -= 1
-        return False
+        return RaidResult("averted", damage_before, 0, 0.0)
 
     if choice == 1:
         # The wagon holds a wagonload. Anything past that stays — and is found.
@@ -317,20 +378,26 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         else:
             con.say("  They wreck the front and find an empty walk-in. "
                     "Message received — both ways.")
-        rival.relation -= 5
+        models.adjust_relation(state, rival_key, -5)
         rival.raid_warning = 0
-        return True
+        return RaidResult("landed", damage_before,
+                          max(0, state.shop.damage_days - damage_before),
+                          0.0)
 
     # Fight.
     defenders = state.crew()
     strength = max([e.nerve for e in defenders], default=3) + (4 if has_guard else 0)
-    attack = 4 + rival.strength / 12 + rng.uniform(0, 4)
+    attack = 4 + rival.strength / 12 + rng.uniform(0, 4) \
+        + war.raid_edge(state, rival_key)
     if strength + rng.uniform(0, 4) >= attack:
         con.say("  It's loud and brief. They leave one man's jacket and all their nerve.")
-        rival.strength -= 10
-        rival.relation -= 20
+        dealt = models.apply_rival_damage(state, rival_key, "defense",
+                                          models.DEFENSE_STRENGTH)
+        models.adjust_relation(state, rival_key, -20)
         state.add_heat(data.HOME_DISTRICT, 15)
         state.add_case(3, "a brawl at your shop made the police blotter")
+        rival.raid_warning = 0
+        return RaidResult("repelled", damage_before, 0, dealt)
     else:
         lost_units = 0
         for g in list(state.shop_stash):
@@ -350,4 +417,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         state.add_heat(data.HOME_DISTRICT, 20)
         state.add_case(4, "an armed robbery at your address raised questions")
     rival.raid_warning = 0
-    return True
+    # damage_added is the ACTUAL delta (rev. 15 item 4): a shop already
+    # limping reports what tonight added, not tonight's absolute level.
+    return RaidResult("landed", damage_before,
+                      max(0, state.shop.damage_days - damage_before), 0.0)

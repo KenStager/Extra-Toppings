@@ -87,6 +87,48 @@ REMEDIATION_CAP = 25.0
 EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
                   "suspicion")
 
+# §2.3 grants the counterplay verbs to the active branches; each branch
+# turns them on in its own phase under its own studies (rev. 9 item 16;
+# the war joined by the rev. 14 ruling). THE branch-capability answer —
+# counsel availability, the laundering ceiling, settlements, retention
+# protection, hiring refusals, cross-state validation and the docket
+# all consume this one pair; never a scattered branch check.
+REMEDIATION_BRANCHES = frozenset({"straight", "war"})
+
+
+def remediation_unlocked(state: "State") -> bool:
+    return state.branch in REMEDIATION_BRANCHES \
+        and state.branch_state is not None
+
+
+# THE clean-insolvency contract (rev. 15 item 3): post-payoff economic
+# failure exists in every active branch — two consecutive
+# payroll-short nights with no stock anywhere and no dirty dollar
+# hidden anywhere end the run. One transition, one nightly rule; the
+# branches narrate it in their own voices.
+INSOLVENT_NIGHTS = 2
+
+
+def insolvency_tick(state: "State", payroll_short: bool) -> str | None:
+    """THE shared post-payoff insolvency transition. Returns None
+    (solvent tonight — counter reset), "warned" (one bad night on the
+    books), or "broke" (the run ends). The arrest latch keeps
+    precedence by construction: accrual set game_over first, and the
+    branch night ticks only run on live games."""
+    bs = state.branch_state
+    if bs is None:
+        raise ValueError("insolvency_tick called outside an active branch")
+    if payroll_short and state.total_stock_units() == 0 \
+            and state.unlaundered_total() == 0:
+        bs.insolvent_days += 1
+        if bs.insolvent_days >= INSOLVENT_NIGHTS:
+            if state.game_over is None:
+                state.game_over = "broke"
+            return "broke"
+        return "warned"
+    bs.insolvent_days = 0
+    return None
+
 
 def case_prefix(evidence: list):
     """THE shared prefix iterator (rev. 9 item 15): yields (record,
@@ -202,6 +244,18 @@ class Evidence:
     why: str
     source: str = ""          # Employee.key when a witness is attached
     contested: bool = False
+    # The immutable accrual (rev. 16 item 1): what this record was
+    # WORTH when it was booked. Contests and settlements mutate the
+    # effective magnitude; nothing but the suspicion record's own
+    # top-ups (genuine accrual, moved in lockstep) ever touches this.
+    # None fills from magnitude at construction — which is also the
+    # migration for pre-rev.16 payloads, whose pre-contest values are
+    # unrecoverable. Validation binds 0 <= magnitude <= accrued.
+    accrued: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.accrued is None:
+            self.accrued = self.magnitude
 
 
 @dataclass(frozen=True)
@@ -214,6 +268,105 @@ class SitdownSnapshot:
     payoff_day: int
     case_at_lockup: float
     evidence_count_at_lockup: int
+
+
+# ── The Harbor War: canonical constants (§2.4.3, rev. 13–14) ─────
+# THE damage channels. "ledger" covers both spends of the same
+# leverage — the prosecution AND the greedy lean — so the accounting
+# can never silently omit one (rev. 14 item 3). "defense" is the
+# fifth channel: repelling their raid already removes strength, and
+# folding it into "jobs" would cook the §2.7 mix row it feeds.
+WAR_CHANNELS = ("jobs", "corners", "ovens", "ledger", "defense")
+# Job prices exactly as PR #3 left them, moved to canonical homes so
+# the payoff and the war board's ledger read the same numbers
+# (rev. 13 item 2) — integers, because the flag-off arithmetic is
+# integer subtraction and must stay bit-identical.
+RAID_STOCK_STRENGTH = 12
+RAID_SABOTAGE_STRENGTH = 10
+RAID_LEDGER_STRENGTH = 8
+DEFENSE_STRENGTH = 10        # repelling their raid (the fifth channel)
+OVEN_BLEED = 2               # per day while their ovens are wrecked
+OVEN_BLEED_FLOOR = 1         # attrition softens but never kills (rev. 13)
+LEDGER_LEAN_STRENGTH = 15    # the greedy spend — existing behavior
+LEDGER_LAW_STRENGTH = 20     # the prosecution spend (war-only, §2.4.3)
+LEDGER_LAW_CALM_DAYS = 4     # their lawyers keep them busy
+# THE vendetta band (rev. 13 item 5): one home for −60 —
+# straight.FEUD_RELATION and the sit-down's scene line consume this.
+# Escrow's WAR_RELATION (−50) is deliberately NOT unified: it is the
+# buyer's looser clause, ruled in rev. 8's constants pass.
+VENDETTA_RELATION = -60.0
+# THE flat nightly heat cooling (flag-off letter) — an integer,
+# because the night phase always subtracted the literal 5.
+HEAT_DECAY = 5
+# District heat teeth (§2.6's ruling, taken in rev. 13-14: war-only
+# in P3, each later branch adopting them in its own phase). All three
+# are §6.3 placeholders.
+HEAT_AMBER = 50.0         # covert capacity halves: work it hot, work it thin
+HEAT_RED = 80.0           # the district cannot be worked at all
+HEAT_SLOW_DECAY = 3       # a hot district cools slower: the city remembers
+
+
+@dataclass(frozen=True)
+class HeatPolicy:
+    """THE district-heat policy view (rev. 14 item 5): one authority,
+    zero scattered branch checks — the branch condition lives here and
+    nowhere else. capacity_mult applies ONCE, to the nightly drops
+    count (never per axis: the ruling is half capacity, not a
+    quarter); plannable binds at planning AND at the service-time
+    revalidation; decay is tonight's cooling for this district."""
+    band: str                 # "cool" / "amber" / "red"
+    capacity_mult: float
+    plannable: bool
+    decay: float
+    note: str = ""
+
+
+def district_heat_policy(state: "State", dk: str) -> HeatPolicy:
+    if state.branch != "war":
+        return HeatPolicy("cool", 1.0, True, HEAT_DECAY)
+    heat = state.districts[dk].heat
+    if heat >= HEAT_RED:
+        return HeatPolicy(
+            "red", 0.5, False, HEAT_SLOW_DECAY,
+            note="crawling with patrols — nobody works it tonight")
+    if heat >= HEAT_AMBER:
+        return HeatPolicy(
+            "amber", 0.5, True, HEAT_SLOW_DECAY,
+            note="hot — corner customers stay home; take it hot and "
+                 "you take ash")
+    return HeatPolicy("cool", 1.0, True, HEAT_DECAY)
+
+
+@dataclass
+class DamageRecord:
+    """One applied strength reduction, in integer hundredths of a
+    point (rev. 14 item 3): 0.15/unit corner damage must never
+    recreate the project's floating-point scars. Append-only —
+    records are written once by the damage authority and never
+    mutated."""
+    day: int
+    channel: str          # WAR_CHANNELS
+    hundredths: int       # actual damage applied, net of overkill
+
+
+@dataclass
+class WarCampaignState:
+    """One declared war against one rival (rev. 14 item 2): the
+    campaign owns its own history, so a second declaration appends a
+    new campaign instead of overwriting the first. Strength
+    bookkeeping is integer hundredths; the §2.7 oracle asserts
+    nightly that starting strength minus current strength reconciles
+    exactly with the damage records."""
+    rival_key: str
+    declared_day: int
+    starting_hundredths: int          # rival strength at declaration
+    broken_day: int | None = None
+    damage: list = field(default_factory=list)   # DamageRecord, append-only
+    law_calm_until: int | None = None  # aggression halved through this day
+    violence_raised: bool = False      # the prosecution's permanent price
+    salvage_available: bool = False    # capture's one-use pickup, uncollected
+    salvage_day: int | None = None     # day collected; None if not/never
+    captured_pre_latch: bool = False   # capture completed on a live run
 
 
 @dataclass
@@ -237,9 +390,14 @@ class BranchState:
     points_due_day: int | None = None
     points_missed: int = 0
     vig_owed: int = 0
-    # The Harbor War
-    war_target: str | None = None
-    declared_day: int | None = None
+    # The Harbor War (rev. 14: campaigns per rival — flat one-war
+    # fields could not represent a second declaration without
+    # overwriting history). Only genuinely branch-wide facts live
+    # here; everything campaign-shaped is WarCampaignState.
+    campaigns: list = field(default_factory=list)   # WarCampaignState
+    war_pay_paid: int = 0             # bonuses actually paid, cumulative
+    war_pay_short_nights: int = 0     # nights the bonus bounced
+    insurance_paid_until: int | None = None  # bystander coverage through
     # The Quiet Sale
     diligence_day: int = 0
     escrow_mark: int = 0
@@ -268,8 +426,14 @@ class BranchState:
         return cls(points_due_day=points_due_day)
 
     @classmethod
-    def war(cls, *, war_target: str, declared_day: int) -> "BranchState":
-        return cls(war_target=war_target, declared_day=declared_day)
+    def war(cls, *, war_target: str, declared_day: int,
+            starting_strength: float) -> "BranchState":
+        """The declaration seats the first campaign (rev. 14 item 2);
+        starting strength is captured here, in hundredths, so the
+        reconciliation oracle has its baseline from night one."""
+        return cls(campaigns=[WarCampaignState(
+            rival_key=war_target, declared_day=declared_day,
+            starting_hundredths=round(starting_strength * 100))])
 
     @classmethod
     def quiet_sale(cls, *, diligence_day: int = 1,
@@ -298,10 +462,20 @@ _BRANCH_FIELDS = {
                  "counsel_days", "remediation_used", "settled_witnesses",
                  "ad_days_left", "insolvent_days"},
     "partner": {"points_due_day", "points_missed", "vig_owed"},
-    "war": {"war_target", "declared_day"},
+    "war": {"campaigns", "war_pay_paid", "war_pay_short_nights",
+            "insurance_paid_until",
+            # The shared remediation fields (rev. 14 item 8): the war
+            # unlocks the same verbs through the same machinery.
+            "counsel_retained", "counsel_days", "remediation_used",
+            "settled_witnesses",
+            # The shared insolvency counter (rev. 15 item 3).
+            "insolvent_days"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
                    "escrow_discount_pct", "severance_outcome",
-                   "severance_paid", "closing_headcount"},
+                   "severance_paid", "closing_headcount",
+                   # The shared insolvency counter (rev. 16 item 3:
+                   # "every active branch" includes the sale).
+                   "insolvent_days"},
 }
 SEVERANCE_OUTCOMES = ("pending", "paid", "declined", "unaffordable",
                       "not_applicable")
@@ -317,7 +491,7 @@ if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
 _BRANCH_REQUIRED = {
     "straight": (),
     "partner": ("points_due_day",),
-    "war": ("war_target", "declared_day"),
+    "war": (),                    # rev. 14: _validate_war owns the shape
     "quiet_sale": ("diligence_day",),
 }
 
@@ -356,8 +530,34 @@ def validate_branch_state(branch: str | None,
             raise ValueError("quiet_sale: the sit-down is diligence day 1")
         _validate_escrow_pricing(branch_state)
         _validate_severance(branch_state, game_over)
+        _validate_insolvency("quiet_sale", branch_state, game_over)
     elif branch == "straight":
         _validate_straight(branch_state, game_over)
+    elif branch == "war":
+        _validate_war(branch_state, game_over)
+
+
+def _validate_remediation_fields(branch: str, bs: "BranchState") -> None:
+    """The shared remediation contracts (rev. 14 item 8): the counsel
+    ledger, the paid budget and the settled roster bind identically in
+    every branch the capability policy unlocks."""
+    if not isinstance(bs.counsel_retained, bool):
+        raise ValueError(f"{branch}: counsel_retained must be a bool, "
+                         f"got {bs.counsel_retained!r}")
+    if type(bs.counsel_days) is not int or bs.counsel_days < 0:
+        raise ValueError(f"{branch}: counsel_days must be a non-negative "
+                         f"integer, got {bs.counsel_days!r}")
+    used = bs.remediation_used
+    if isinstance(used, bool) or not isinstance(used, (int, float)) \
+            or not 0 <= used <= REMEDIATION_CAP:
+        raise ValueError(f"{branch}: remediation_used must lie in "
+                         f"0..{REMEDIATION_CAP:.0f} points, got {used!r}")
+    names = bs.settled_witnesses
+    if not isinstance(names, list) \
+            or any(not isinstance(k, str) or not k for k in names) \
+            or len(set(names)) != len(names):
+        raise ValueError(f"{branch}: settled_witnesses must be a list of "
+                         f"unique employee keys, got {names!r}")
 
 
 def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
@@ -373,33 +573,142 @@ def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
             type(bs.last_crime_day) is not int or bs.last_crime_day < 1):
         raise ValueError(f"straight: last_crime_day must be None or a "
                          f"positive day, got {bs.last_crime_day!r}")
-    if not isinstance(bs.counsel_retained, bool):
-        raise ValueError(f"straight: counsel_retained must be a bool, "
-                         f"got {bs.counsel_retained!r}")
-    if type(bs.counsel_days) is not int or bs.counsel_days < 0:
-        raise ValueError(f"straight: counsel_days must be a non-negative "
-                         f"integer, got {bs.counsel_days!r}")
-    used = bs.remediation_used
-    if isinstance(used, bool) or not isinstance(used, (int, float)) \
-            or not 0 <= used <= REMEDIATION_CAP:
-        raise ValueError(f"straight: remediation_used must lie in "
-                         f"0..{REMEDIATION_CAP:.0f} points, got {used!r}")
-    names = bs.settled_witnesses
-    if not isinstance(names, list) \
-            or any(not isinstance(k, str) or not k for k in names) \
-            or len(set(names)) != len(names):
-        raise ValueError(f"straight: settled_witnesses must be a list of "
-                         f"unique employee keys, got {names!r}")
+    _validate_remediation_fields("straight", bs)
     if type(bs.ad_days_left) is not int or bs.ad_days_left < 0:
         raise ValueError(f"straight: ad_days_left must be a non-negative "
                          f"integer, got {bs.ad_days_left!r}")
+    _validate_insolvency("straight", bs, game_over)
+
+
+def _validate_insolvency(branch: str, bs: "BranchState",
+                         game_over: str | None) -> None:
+    """The shared insolvency persistence contract (rev. 15 item 3):
+    the counter binds identically in every active branch that runs
+    the transition."""
     days = bs.insolvent_days
     if type(days) is not int or days < 0:
-        raise ValueError(f"straight: insolvent_days must be a non-negative "
+        raise ValueError(f"{branch}: insolvent_days must be a non-negative "
                          f"integer, got {days!r}")
-    if days >= 2 and game_over != "broke":
-        raise ValueError("straight: two clean-insolvent nights end the run "
-                         "— a live run cannot carry them")
+    if days >= INSOLVENT_NIGHTS and game_over != "broke":
+        raise ValueError(f"{branch}: two clean-insolvent nights end the "
+                         f"run — a live run cannot carry them")
+
+
+def _validate_war(bs: "BranchState", game_over: str | None) -> None:
+    """The war's field contracts (rev. 14): campaigns are typed,
+    append-only-shaped and internally reconciled — a doctored payload
+    is refused, not repaired. Cross-world facts (the rival's actual
+    strength, the vendetta lock) bind in validate_cross_state."""
+    camps = bs.campaigns
+    if not isinstance(camps, list) or not camps:
+        raise ValueError("war: a declared war carries at least one "
+                         "campaign")
+    live = 0
+    seen_rivals: set = set()
+    prev_broken: int | None = None
+    for i, c in enumerate(camps):
+        if not isinstance(c, WarCampaignState):
+            raise ValueError(f"war: campaigns[{i}] is not a campaign "
+                             f"payload")
+        if c.rival_key not in data.RIVALS:
+            raise ValueError(f"war: campaigns[{i}] names unknown rival "
+                             f"{c.rival_key!r}")
+        if c.rival_key in seen_rivals:
+            raise ValueError(f"war: campaigns[{i}] re-declares on "
+                             f"{c.rival_key!r} — one campaign per rival")
+        seen_rivals.add(c.rival_key)
+        if type(c.declared_day) is not int or c.declared_day < 1:
+            raise ValueError(f"war: campaigns[{i}] declared_day must be "
+                             f"a positive day, got {c.declared_day!r}")
+        if type(c.starting_hundredths) is not int \
+                or c.starting_hundredths <= 0:
+            raise ValueError(f"war: campaigns[{i}] starting strength "
+                             f"must be a positive integer in hundredths, "
+                             f"got {c.starting_hundredths!r}")
+        if i > 0 and (prev_broken is None or c.declared_day < prev_broken):
+            raise ValueError(f"war: campaigns[{i}] declared before the "
+                             f"previous campaign broke — one front at a "
+                             f"time (rev. 14)")
+        prev_broken = c.broken_day
+        if c.broken_day is not None and (
+                type(c.broken_day) is not int
+                or c.broken_day < c.declared_day):
+            raise ValueError(f"war: campaigns[{i}] broken_day must be on "
+                             f"or after the declaration, got "
+                             f"{c.broken_day!r}")
+        if c.broken_day is None:
+            live += 1
+        total = 0
+        last_day = c.declared_day
+        if not isinstance(c.damage, list):
+            raise ValueError(f"war: campaigns[{i}] damage must be a list")
+        for j, r in enumerate(c.damage):
+            if not isinstance(r, DamageRecord):
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] is "
+                                 f"not a damage record")
+            if r.channel not in WAR_CHANNELS:
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] "
+                                 f"unknown channel {r.channel!r}")
+            if type(r.hundredths) is not int or r.hundredths <= 0:
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] must "
+                                 f"record a positive integer number of "
+                                 f"hundredths, got {r.hundredths!r}")
+            if type(r.day) is not int or r.day < last_day:
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] day "
+                                 f"{r.day!r} breaks append-only order")
+            last_day = r.day
+            total += r.hundredths
+        if total > c.starting_hundredths:
+            raise ValueError(f"war: campaigns[{i}] records more damage "
+                             f"than the rival had strength — overkill is "
+                             f"never recorded")
+        if c.broken_day is not None and total != c.starting_hundredths:
+            raise ValueError(f"war: campaigns[{i}] is broken but its "
+                             f"damage records do not reconcile to its "
+                             f"starting strength")
+        if c.broken_day is None and total == c.starting_hundredths:
+            raise ValueError(f"war: campaigns[{i}] records the rival at "
+                             f"zero with no capture recorded — the "
+                             f"authority detects capture exactly once")
+        if c.broken_day is None and (
+                c.salvage_available or c.salvage_day is not None
+                or c.captured_pre_latch):
+            raise ValueError(f"war: campaigns[{i}] carries capture state "
+                             f"without a capture")
+        if c.salvage_available and c.salvage_day is not None:
+            raise ValueError(f"war: campaigns[{i}] salvage cannot be both "
+                             f"waiting and collected")
+        if c.salvage_day is not None and (
+                type(c.salvage_day) is not int
+                or c.broken_day is None or c.salvage_day < c.broken_day):
+            raise ValueError(f"war: campaigns[{i}] salvage_day must be on "
+                             f"or after the capture, got {c.salvage_day!r}")
+        if c.law_calm_until is not None and (
+                type(c.law_calm_until) is not int
+                or c.law_calm_until < c.declared_day):
+            raise ValueError(f"war: campaigns[{i}] law_calm_until must be "
+                             f"a day on or after the declaration, got "
+                             f"{c.law_calm_until!r}")
+        if not isinstance(c.violence_raised, bool):
+            raise ValueError(f"war: campaigns[{i}] violence_raised must "
+                             f"be a bool")
+        if not isinstance(c.captured_pre_latch, bool):
+            raise ValueError(f"war: campaigns[{i}] captured_pre_latch "
+                             f"must be a bool")
+    if live > 1:
+        raise ValueError("war: at most one campaign may be live — one "
+                         "front at a time (rev. 14)")
+    for name in ("war_pay_paid", "war_pay_short_nights"):
+        v = getattr(bs, name)
+        if type(v) is not int or v < 0:
+            raise ValueError(f"war: {name} must be a non-negative "
+                             f"integer, got {v!r}")
+    ins = bs.insurance_paid_until
+    if ins is not None and (type(ins) is not int or ins < 1):
+        raise ValueError(f"war: insurance_paid_until must be None or a "
+                         f"positive day, got {ins!r}")
+    _validate_remediation_fields("war", bs)
+    _validate_insolvency("war", bs, game_over)
 
 
 def _validate_escrow_pricing(bs: "BranchState") -> None:
@@ -485,6 +794,13 @@ def validate_evidence(records: list) -> None:
                 or r.magnitude < 0:
             raise ValueError(f"evidence[{i}]: magnitude must be a "
                              f"non-negative number, got {r.magnitude!r}")
+        if isinstance(r.accrued, bool) \
+                or not isinstance(r.accrued, (int, float)) \
+                or r.accrued < 0 or r.magnitude > r.accrued:
+            raise ValueError(f"evidence[{i}]: accrued must be a number "
+                             f"with 0 <= effective <= accrued, got "
+                             f"effective {r.magnitude!r} of "
+                             f"{r.accrued!r} (rev. 16)")
         if not isinstance(r.contested, bool):
             raise ValueError(f"evidence[{i}]: contested must be a boolean")
         if r.contested and r.kind != "paper":
@@ -576,6 +892,117 @@ def validate_cross_state(state: "State") -> None:
     if len(keys) != len(all_keys):
         raise ValueError("employees: duplicate keys make witness "
                          "provenance ambiguous")
+    # The storage authority binds at persistence too (rev. 18 item 2;
+    # via the shared validator, rev. 19 item 1): a stash of unknown
+    # goods, inexact or negative counts, or over its space cap is
+    # refused — never repaired.
+    for where, stash in (("shop", state.shop_stash),
+                         ("warehouse", state.warehouse)):
+        if stash is None:
+            continue
+        validate_inventory_map(stash, f"{where} stash")
+        if space_used(stash) > space_cap(state, where):
+            raise ValueError(
+                f"{where} stash: {space_used(stash)} space used over "
+                f"the {space_cap(state, where)}-space cap")
+    validate_execution_history(state)
+    _validate_witnesses_and_campaigns(state)
+
+
+def validate_execution_history(state: "State") -> None:
+    """Rev. 20 item 2: the ledgers must BE the history they claim,
+    not merely well-typed rows. Chronology is strict (one route and
+    one raid per night); the capacity multiplier is the canonical
+    TYPE (Boolean equality satisfies nothing); contested is DERIVED
+    from the campaign's declared/broken interval, so a contested
+    route cannot predate its war or load into an Act I state; corner
+    damage sits under the band-adjusted ceiling; and the campaign
+    ledger reconciles against the execution records BOTH ways —
+    succeeded raid damage against jobs-channel damage, and route
+    corner damage against corners-channel damage, by day and rival.
+    Refused, never repaired."""
+    for name, log, kind in (("raid_log", state.raid_log,
+                             RaidAttemptRecord),
+                            ("route_log", state.route_log,
+                             RouteExecutionRecord)):
+        prev = 0
+        for i, rec in enumerate(log):
+            if not isinstance(rec, kind):
+                raise ValueError(f"{name}[{i}]: not a {kind.__name__}")
+            if rec.day > state.day:
+                raise ValueError(f"{name}[{i}]: day {rec.day} post-dates "
+                                 f"the state's day {state.day}")
+            if rec.day <= prev:
+                raise ValueError(f"{name}[{i}]: one job a night — days "
+                                 f"must strictly increase "
+                                 f"({prev} → {rec.day})")
+            prev = rec.day
+
+    camps = (state.branch_state.campaigns
+             if state.branch == "war" and state.branch_state is not None
+             else [])
+
+    def covered(rival_key: str, day: int) -> bool:
+        return any(c.rival_key == rival_key and c.declared_day <= day
+                   and (c.broken_day is None or day <= c.broken_day)
+                   for c in camps)
+
+    for i, rec in enumerate(state.route_log):
+        if type(rec.capacity_mult) is not float:
+            raise ValueError(f"route_log[{i}]: the capacity multiplier "
+                             f"is a float, got "
+                             f"{type(rec.capacity_mult).__name__}")
+        owner = data.DISTRICTS[rec.district]["rival"]
+        should = owner is not None and covered(owner, rec.day)
+        if rec.contested != should:
+            raise ValueError(f"route_log[{i}]: contested={rec.contested} "
+                             f"contradicts the campaign record for "
+                             f"{rec.district} on day {rec.day}")
+        ceiling = round(CORNER_DAMAGE_MAX_H * rec.capacity_mult)
+        if rec.corner_damage_h > ceiling:
+            raise ValueError(f"route_log[{i}]: corner damage "
+                             f"{rec.corner_damage_h} over the "
+                             f"{rec.heat_band}-band ceiling {ceiling}")
+
+    booked_jobs: dict = {}
+    booked_corners: dict = {}
+    for c in camps:
+        for dr in c.damage:
+            if dr.channel == "jobs":
+                key = (c.rival_key, dr.day)
+                booked_jobs[key] = booked_jobs.get(key, 0) + dr.hundredths
+            elif dr.channel == "corners":
+                key = (c.rival_key, dr.day)
+                booked_corners[key] = (booked_corners.get(key, 0)
+                                       + dr.hundredths)
+    claimed_jobs: dict = {}
+    for rec in state.raid_log:
+        if rec.outcome == "succeeded" and rec.damage_h \
+                and covered(rec.rival, rec.day):
+            key = (rec.rival, rec.day)
+            claimed_jobs[key] = claimed_jobs.get(key, 0) + rec.damage_h
+    if booked_jobs != claimed_jobs:
+        raise ValueError(f"execution history: campaign jobs damage "
+                         f"{booked_jobs} does not reconcile with the "
+                         f"raid ledger {claimed_jobs}")
+    claimed_corners: dict = {}
+    for rec in state.route_log:
+        if rec.corner_damage_h:
+            owner = data.DISTRICTS[rec.district]["rival"]
+            key = (owner, rec.day)
+            claimed_corners[key] = (claimed_corners.get(key, 0)
+                                    + rec.corner_damage_h)
+    if booked_corners != claimed_corners:
+        raise ValueError(f"execution history: campaign corners damage "
+                         f"{booked_corners} does not reconcile with "
+                         f"the route ledger {claimed_corners}")
+
+
+def _validate_witnesses_and_campaigns(state: "State") -> None:
+    """The roster/ledger/campaign coherence half of cross-state
+    validation (split for readability when the execution-history
+    reconciliation joined, rev. 20)."""
+    keys = {e.key for e in state.employees}
     aware = {e.key for e in state.employees if e.aware}
     hired = {e.key for e in state.employees if e.hired}
     for i, r in enumerate(state.evidence):
@@ -588,19 +1015,440 @@ def validate_cross_state(state: "State") -> None:
                                  f"{r.source!r} was never read in — they "
                                  f"cannot know what this record says "
                                  f"they know")
-    if state.branch == "straight" and state.branch_state is not None:
+    if remediation_unlocked(state) and state.branch_state is not None:
+        b = state.branch
         for k in state.branch_state.settled_witnesses:
             if k not in keys:
-                raise ValueError(f"straight: settled witness {k!r} names "
+                raise ValueError(f"{b}: settled witness {k!r} names "
                                  f"nobody on the roster")
             if k not in aware:
-                raise ValueError(f"straight: settled witness {k!r} was "
+                raise ValueError(f"{b}: settled witness {k!r} was "
                                  f"never read in — there is nothing to "
                                  f"have settled")
             if k in hired:
-                raise ValueError(f"straight: settled witness {k!r} is "
+                raise ValueError(f"{b}: settled witness {k!r} is "
                                  f"still on the payroll — settled-out "
                                  f"names cannot be rehired (rev. 11)")
+    if state.branch == "war" and state.branch_state is not None:
+        # The campaign payload must cohere with the WORLD it claims to
+        # describe (rev. 14): the reconciliation identity binds at the
+        # persistence boundary exactly as the nightly oracle asserts it
+        # in play, and the vendetta lock is a fact of the save, not a
+        # hope of the runtime.
+        for i, c in enumerate(state.branch_state.campaigns):
+            if c.rival_key not in state.rivals:
+                raise ValueError(f"war: campaigns[{i}] names a rival "
+                                 f"missing from the world")
+            rv = state.rivals[c.rival_key]
+            spent = sum(r.hundredths for r in c.damage)
+            if round(rv.strength * 100) != c.starting_hundredths - spent:
+                raise ValueError(
+                    f"war: campaigns[{i}] does not reconcile — "
+                    f"{c.rival_key!r} reads {rv.strength}, the records "
+                    f"say {(c.starting_hundredths - spent) / 100}")
+            if rv.relation > VENDETTA_RELATION:
+                raise ValueError(
+                    f"war: campaigns[{i}] rival {c.rival_key!r} sits "
+                    f"above the vendetta band — the lock is permanent")
+        ins = state.branch_state.insurance_paid_until
+        if ins is not None:
+            # Rev. 15 item 6: paid coverage belongs to a living,
+            # undeclared-upon Sal — anything else is an impossible
+            # payload, refused.
+            sal = state.rivals.get("sal")
+            if sal is None or not sal.alive:
+                raise ValueError("war: insurance held on a dead or "
+                                 "missing merchant")
+            if any(c.rival_key == "sal"
+                   for c in state.branch_state.campaigns):
+                raise ValueError("war: insurance cannot survive a "
+                                 "declaration on Sal")
+
+
+def security_word(alertness: float) -> str:
+    """The rival-security display bands (PR #3). One home: the raid
+    target menu and the war board describe the same guard with the
+    same word."""
+    if alertness >= 7:
+        return "fortress"
+    if alertness >= 4:
+        return "hardened"
+    if alertness >= 2:
+        return "wary"
+    return "sleepy"
+
+
+RAID_ATTEMPT_OUTCOMES = frozenset({"scrubbed", "failed", "succeeded"})
+RAID_CREW_MAX = 3          # planning's cap — one home (rev. 19 item 2)
+
+# ── The quiet-night alertness transition (rev. 19 item 3) ─────────
+ALERTNESS_DECAY = 0.34
+
+
+def alertness_decay_tick(rival, day: int) -> None:
+    """THE quiet-night transition, one home: guards get bored again,
+    slowly — but never on a night you hit them (the rival phase runs
+    after the raid, so a raid tonight blocks tonight's decay).
+    Production's rival phase AND the pacing experiment consume this
+    single function; the transition cannot drift between them."""
+    if rival.last_raided_day != day:
+        rival.alertness = max(0.0, rival.alertness - ALERTNESS_DECAY)
+# The corner channel's mechanical ceiling in hundredths: the -4/night
+# cap doubled by the outage window. war.py asserts this equals its
+# CORNER_CAP × OUTAGE_MULT at import, so the homes cannot drift.
+CORNER_DAMAGE_MAX_H = 800
+
+
+@dataclass(frozen=True)
+class RaidAttemptRecord:
+    """One outgoing job, booked once (rev. 18 item 3), bound to the
+    ACTUAL mechanical domains (rev. 19 item 2): constructed locally
+    AFTER the outcome is known, appended exactly once, frozen
+    thereafter. A 100-person crew or 99.99 strength of job damage is
+    history gameplay cannot produce, so persistence refuses it."""
+    day: int
+    rival: str
+    outcome: str            # scrubbed | failed | succeeded
+    crew: int
+    damage_h: int           # ACTUAL applied strength damage, hundredths
+
+    def __post_init__(self) -> None:
+        if type(self.day) is not int or self.day < 1:
+            raise ValueError(f"raid attempt: bad day {self.day!r}")
+        if self.rival not in data.RIVALS:
+            raise ValueError(f"raid attempt: unknown rival {self.rival!r}")
+        if self.outcome not in RAID_ATTEMPT_OUTCOMES:
+            raise ValueError(f"raid attempt: unknown outcome "
+                             f"{self.outcome!r}")
+        if type(self.crew) is not int \
+                or not 1 <= self.crew <= RAID_CREW_MAX:
+            raise ValueError(f"raid attempt: crew {self.crew!r} outside "
+                             f"the 1..{RAID_CREW_MAX} planning cap")
+        if type(self.damage_h) is not int or self.damage_h < 0 \
+                or self.damage_h > RAID_STOCK_STRENGTH * 100:
+            raise ValueError(f"raid attempt: damage {self.damage_h!r} "
+                             f"outside the strongest job's "
+                             f"{RAID_STOCK_STRENGTH}-strength ceiling")
+        if self.outcome != "succeeded" and self.damage_h != 0:
+            raise ValueError("raid attempt: only a succeeded job "
+                             "applies damage")
+
+
+# Only bands a route can actually EXECUTE under (rev. 19 item 2):
+# red is refused at planning AND at the commit revalidation, so an
+# executed red route is history that never happened. Each band pins
+# its policy multiplier.
+ROUTE_EXECUTED_BANDS = {"cool": 1.0, "amber": 0.5}
+
+
+@dataclass(frozen=True)
+class RouteExecutionRecord:
+    """One route night, booked at RESOLUTION (rev. 18 item 4), bound
+    to the actual mechanical domains (rev. 19 item 2): the
+    execution-time district, its band with the band's OWN policy
+    multiplier, units a 24-space wagon can actually move, corner
+    damage under the mechanical cap, and a contested flag only a
+    turf with an owner can carry. Prefer `of_market` — the record
+    built from the authoritative RouteMarket view — so no study can
+    invent a combination gameplay cannot produce."""
+    day: int
+    district: str
+    heat_band: str
+    capacity_mult: float
+    units_sold: int
+    corner_damage_h: int
+    contested: bool
+
+    def __post_init__(self) -> None:
+        if type(self.day) is not int or self.day < 1:
+            raise ValueError(f"route record: bad day {self.day!r}")
+        if self.district not in data.DISTRICTS:
+            raise ValueError(f"route record: unknown district "
+                             f"{self.district!r}")
+        if self.heat_band not in ROUTE_EXECUTED_BANDS:
+            raise ValueError(f"route record: a route cannot execute "
+                             f"under {self.heat_band!r}")
+        if self.capacity_mult != ROUTE_EXECUTED_BANDS[self.heat_band]:
+            raise ValueError(
+                f"route record: band {self.heat_band!r} carries "
+                f"multiplier {ROUTE_EXECUTED_BANDS[self.heat_band]}, "
+                f"got {self.capacity_mult!r}")
+        if type(self.units_sold) is not int \
+                or not 0 <= self.units_sold <= data.VEHICLE_CARGO:
+            raise ValueError(f"route record: {self.units_sold!r} units "
+                             f"from a {data.VEHICLE_CARGO}-space wagon")
+        if type(self.corner_damage_h) is not int \
+                or not 0 <= self.corner_damage_h <= CORNER_DAMAGE_MAX_H:
+            raise ValueError(f"route record: corner damage "
+                             f"{self.corner_damage_h!r} outside the "
+                             f"mechanical cap")
+        if type(self.contested) is not bool:
+            raise ValueError(f"route record: bad contested flag "
+                             f"{self.contested!r}")
+        if self.contested and data.DISTRICTS[self.district]["rival"] is None:
+            raise ValueError(f"route record: {self.district} has no "
+                             f"owner to contest")
+        if self.corner_damage_h and not self.contested:
+            raise ValueError("route record: corner damage on an "
+                             "uncontested turf is impossible")
+
+    @classmethod
+    def of_market(cls, day: int, rm, units_sold: int,
+                  corner_damage_h: int) -> "RouteExecutionRecord":
+        """The authoritative constructor: band, multiplier, district
+        and contested flag come from the RouteMarket view the route
+        actually ran on."""
+        return cls(day=day, district=rm.district,
+                   heat_band=rm.heat.band,
+                   capacity_mult=rm.heat.capacity_mult,
+                   units_sold=units_sold,
+                   corner_damage_h=corner_damage_h,
+                   contested=rm.corner_rate > 0.0)
+
+
+# ── THE storage capacity authority (rev. 18 item 2, made SAFE per
+# rev. 19 item 1) ─────────────────────────────────────────────────
+# One home for space arithmetic: space used, a destination's
+# capacity, the units that fit, and the transactional transfer.
+# Supplier purchases, the storage menu, haul placement, the route
+# planner, rendering and persistence validation all consume THESE —
+# and everything passes through ONE inventory-map validator first:
+# exact integers, known goods, no negatives, explicit locations.
+
+STORAGE_LOCATIONS = ("shop", "warehouse")
+
+
+def validate_inventory_map(stash: dict, where: str = "inventory") -> None:
+    """THE shared inventory-map validator (rev. 19 item 1): every
+    key a known good, every count an EXACT integer (True and 1.5
+    are refused, never coerced), never negative. Consumed by every
+    space computation, transfer, placement, render and persistence
+    read — impossible inventory is refused, not reported as zero."""
+    for g, u in stash.items():
+        if g not in data.GOODS:
+            raise ValueError(f"{where}: unknown good {g!r}")
+        if type(u) is not int:
+            raise ValueError(f"{where}: count for {g} must be an exact "
+                             f"integer, got {u!r}")
+        if u < 0:
+            raise ValueError(f"{where}: negative {g} count {u}")
+
+
+def space_used(stash: dict | None) -> int:
+    """Space units a stash occupies (units × space each). Refuses an
+    impossible map — never silently drops a negative row."""
+    if not stash:
+        return 0
+    validate_inventory_map(stash)
+    return sum(u * data.GOODS[g]["bulk"] for g, u in stash.items())
+
+
+def space_cap(state: "State", where: str) -> int:
+    """A destination's capacity in space units."""
+    if where == "shop":
+        return state.shop.stash_cap
+    if where == "warehouse":
+        return data.WAREHOUSE_CAP
+    raise ValueError(f"unknown storage location {where!r}")
+
+
+def _stash_at(state: "State", where: str) -> dict:
+    """Explicit locations only (rev. 19 item 1: an unknown name must
+    never alias a real stash)."""
+    if where == "shop":
+        return state.shop_stash
+    if where == "warehouse":
+        if state.warehouse is None:
+            raise ValueError("no warehouse is rented")
+        return state.warehouse
+    raise ValueError(f"unknown storage location {where!r}")
+
+
+def units_that_fit(state: "State", where: str, good: str) -> int:
+    """How many units of `good` the destination can still take."""
+    if good not in data.GOODS:
+        raise ValueError(f"unknown good {good!r}")
+    stash = _stash_at(state, where)
+    room = max(0, space_cap(state, where) - space_used(stash))
+    return room // data.GOODS[good]["bulk"]
+
+
+def storage_preflight(state: "State", where: str) -> dict:
+    """THE storage-state preflight (rev. 20 item 1): a location's
+    map is valid AND within its space cap, or the operation that
+    would touch it refuses before mutating anything. Returns the
+    stash for the caller."""
+    stash = _stash_at(state, where)
+    validate_inventory_map(stash, where)
+    if space_used(stash) > space_cap(state, where):
+        raise ValueError(f"{where}: {space_used(stash)} space used "
+                         f"over the {space_cap(state, where)}-space cap")
+    return stash
+
+
+def move_goods(state: "State", src: str, dst: str, good: str,
+               units: int) -> None:
+    """THE transactional transfer: BOTH locations preflighted before
+    any mutation (rev. 20 item 1 — a source holding True, 1.5 or an
+    unknown row refuses whole), never over a destination's capacity,
+    never a boolean, a fraction, or an unknown location. Any refusal
+    leaves every stash byte-identical."""
+    if type(units) is not int:
+        raise ValueError(f"cannot move {units!r} units — exact "
+                         f"integers only")
+    if good not in data.GOODS:
+        raise ValueError(f"unknown good {good!r}")
+    if units < 0:
+        raise ValueError(f"cannot move {units} units")
+    a = storage_preflight(state, src)
+    b = storage_preflight(state, dst)
+    if units == 0:
+        return
+    if a.get(good, 0) < units:
+        raise ValueError(f"only {a.get(good, 0)}x {good} at {src}")
+    if units > units_that_fit(state, dst, good):
+        raise ValueError(f"{units}x {good} does not fit at {dst}")
+    a[good] -= units
+    b[good] = b.get(good, 0) + units
+
+
+def place_haul(state: "State", haul: dict) -> tuple:
+    """THE haul-placement authority (rev. 15 item 2): stolen or
+    salvaged goods fill the shop stash first, then the warehouse if
+    rented, and anything past that stays where it was found. Returns
+    (kept, left_behind). Raid payoffs and the salvage pickup both
+    consume this — the loop lives once, its arithmetic is the
+    storage authority's, and space caps can never be quietly
+    skipped again. Preflight-then-commit (rev. 20 item 1): the haul
+    map AND every destination are validated first, the COMPLETE
+    allocation is computed locally, and only then does anything
+    mutate — a refusal leaves every stash byte-identical, never a
+    half-placed haul."""
+    validate_inventory_map(haul, "haul")
+    storage_preflight(state, "shop")
+    if state.warehouse is not None:
+        storage_preflight(state, "warehouse")
+    shop_room = space_cap(state, "shop") - space_used(state.shop_stash)
+    wh_room = (space_cap(state, "warehouse")
+               - space_used(state.warehouse)
+               if state.warehouse is not None else 0)
+    to_shop_all: dict = {}
+    to_wh_all: dict = {}
+    left_behind = 0
+    kept: dict = {}
+    for g, u in haul.items():
+        bulk = data.GOODS[g]["bulk"]
+        to_shop = min(u, max(0, shop_room) // bulk)
+        shop_room -= to_shop * bulk
+        rest = u - to_shop
+        to_wh = 0
+        if rest and state.warehouse is not None:
+            to_wh = min(rest, max(0, wh_room) // bulk)
+            wh_room -= to_wh * bulk
+            rest -= to_wh
+        if to_shop:
+            to_shop_all[g] = to_shop
+        if to_wh:
+            to_wh_all[g] = to_wh
+        left_behind += rest
+        if u - rest:
+            kept[g] = u - rest
+    for g, u in to_shop_all.items():             # the ONE commit
+        state.shop_stash[g] = state.shop_stash.get(g, 0) + u
+    if to_wh_all:
+        wh = state.warehouse
+        assert wh is not None                    # allocation implies rented
+        for g, u in to_wh_all.items():
+            wh[g] = wh.get(g, 0) + u
+    return kept, left_behind
+
+
+def live_campaign(state: "State",
+                  rival_key: str | None = None) -> "WarCampaignState | None":
+    """The one live (unbroken) war campaign, optionally only if it
+    targets rival_key. None outside the war branch — every consumer's
+    flag-off path is 'no campaign'."""
+    if state.branch != "war" or state.branch_state is None:
+        return None
+    for c in state.branch_state.campaigns:
+        if c.broken_day is None and (rival_key is None
+                                     or c.rival_key == rival_key):
+            return c
+    return None
+
+
+def apply_rival_damage(state: "State", rival_key: str, channel: str,
+                       amount: float, *,
+                       floor: float | None = None) -> float:
+    """THE rival-damage authority (rev. 14 item 3): every strength
+    reduction in the engine flows through here — jobs, the oven
+    bleed, both ledger spends, defense, and the war's corners.
+
+    Without a live campaign on this rival the arithmetic is the exact
+    subtraction the call sites always did, bit for bit (plain
+    subtraction, or max(floor, …) where the caller always had a
+    floor). With a live campaign, damage quantizes to integer
+    hundredths, overkill is cut at the floor (capture at zero; the
+    oven bleed's floor of 1 still binds above it), the applied amount
+    is appended to the campaign's ledger, and capture is detected
+    exactly once — the moment strength reaches zero. Returns the
+    damage actually applied."""
+    if channel not in WAR_CHANNELS:
+        raise ValueError(f"unknown damage channel {channel!r}")
+    rival = state.rivals[rival_key]
+    camp = live_campaign(state, rival_key)
+    if camp is None:
+        before = rival.strength
+        if floor is None:
+            rival.strength = before - amount
+        else:
+            rival.strength = max(floor, before - amount)
+        return before - rival.strength
+    before_h = round(rival.strength * 100)
+    floor_h = 0 if floor is None else round(floor * 100)
+    applied_h = max(0, min(round(amount * 100), before_h - floor_h))
+    if applied_h:
+        rival.strength = (before_h - applied_h) / 100
+        camp.damage.append(DamageRecord(
+            day=state.day, channel=channel, hundredths=applied_h))
+        if before_h - applied_h == 0:
+            # Capture, detected here and only here (rev. 14 item 3):
+            # the transition is recorded on whatever run state exists
+            # THIS moment — a latch that already fired means the
+            # verdict beat the victory (§2.5 precedence, rev. 14).
+            camp.broken_day = state.day
+            camp.salvage_available = True
+            camp.captured_pre_latch = state.game_over is None
+    return applied_h / 100
+
+
+def vendetta_locked(state: "State", rival_key: str) -> bool:
+    """A rival named by any war campaign — live or broken — is
+    vendetta-locked for the rest of the run (§2.4.3: no truce, ever)."""
+    return (state.branch == "war" and state.branch_state is not None
+            and any(c.rival_key == rival_key
+                    for c in state.branch_state.campaigns))
+
+
+def adjust_relation(state: "State", rival_key: str, delta: float) -> None:
+    """THE relation-mutation authority (rev. 14 item 4): every
+    relation write flows through here, so the vendetta lock is
+    enforced at the mutation site — never by an eventual-consistency
+    sweep. Flag-off the arithmetic is the exact `+=` it replaced."""
+    rival = state.rivals[rival_key]
+    rival.relation = rival.relation + delta
+    if vendetta_locked(state, rival_key):
+        rival.relation = min(rival.relation, VENDETTA_RELATION)
+
+
+def set_relation(state: "State", rival_key: str, value: float) -> None:
+    """Absolute-value sibling of adjust_relation (the truce's
+    max(relation, 25) is a set, not a delta); the lock binds here
+    identically."""
+    rival = state.rivals[rival_key]
+    rival.relation = value
+    if vendetta_locked(state, rival_key):
+        rival.relation = min(rival.relation, VENDETTA_RELATION)
 
 
 @dataclass
@@ -662,6 +1510,13 @@ class State:
     raids_led: int = 0
     kills: int = 0
     demand_shock: float = 1.0        # today's demand luck — rolled once, policy-independent
+    # Append-only TYPED execution logs (rev. 17 item 4, typed and
+    # validated per rev. 18 items 3–4): RaidAttemptRecord and
+    # RouteExecutionRecord, constructed once AFTER the outcome is
+    # known, appended exactly once, frozen thereafter. The honest
+    # denominators for every pacing and exposure claim.
+    raid_log: list = field(default_factory=list)
+    route_log: list = field(default_factory=list)
 
     # ── the shop, addressed as one while there is one ────────────
     @property
@@ -709,7 +1564,7 @@ class State:
         no reconciliation event, and no second derivation to forget
         what the authority knows — an arrest, a poach or a morale slip
         changes the display the moment it happens."""
-        if self.branch != "straight" or self.branch_state is None:
+        if not remediation_unlocked(self):
             return frozenset()
         return frozenset(
             e.key for e in self.employees
@@ -726,7 +1581,9 @@ class State:
 
     # ── derived ──────────────────────────────────────────────────
     def stash_bulk(self, stash: dict) -> int:
-        return sum(u * data.GOODS[g]["bulk"] for g, u in stash.items())
+        # Legacy name; the arithmetic lives in the one storage
+        # authority (rev. 18 item 2).
+        return space_used(stash)
 
     def hired(self) -> list:
         return [e for e in self.employees if e.hired]

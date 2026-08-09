@@ -1,10 +1,139 @@
 """Delivery routes: legit pizzas up front, coded orders in the warmer bag."""
 
 import random
+from dataclasses import dataclass, field
 
-from . import data, market, straight
+from . import data, market, models, straight, war
 from .models import Employee, State
 from .ui import Console, money
+
+
+@dataclass
+class RouteManifest:
+    """THE wagon inventory model (rev. 17 item 1, hardened rev. 18
+    item 1): one typed manifest owns cargo space, pizza space,
+    remaining capacity and validation. Every quantity says what it
+    counts — `cargo` maps good → UNITS (space priced per unit from
+    data.GOODS), `legit` counts pizza ORDERS at one box, one
+    cargo-space unit — and both share the wagon's capacity, which is
+    FIXED BY THE MODEL (rev. 18: no payload chooses its own wagon).
+    Parsing is strict — no coercion — and an over-capacity manifest
+    is REFUSED, at commit and at resolution, never repaired and
+    never merely prevented by a planning screen."""
+    cargo: dict = field(default_factory=dict)
+    legit: int = 0
+
+    @property
+    def capacity(self) -> int:
+        return data.VEHICLE_CARGO
+
+    @property
+    def cargo_bulk(self) -> int:
+        return sum(u * data.GOODS[g]["bulk"] for g, u in self.cargo.items())
+
+    @property
+    def pizza_bulk(self) -> int:
+        return self.legit
+
+    @property
+    def bulk_used(self) -> int:
+        return self.cargo_bulk + self.pizza_bulk
+
+    @property
+    def free(self) -> int:
+        return self.capacity - self.bulk_used
+
+    def validate(self) -> None:
+        # The shared inventory-map validator (rev. 19 item 1): exact
+        # integers, known goods, no negatives — one contract for the
+        # wagon, the stashes and persistence alike.
+        models.validate_inventory_map(self.cargo, "manifest")
+        if type(self.legit) is not int \
+                or self.legit < 0:
+            raise ValueError(f"manifest: bad pizza count {self.legit!r}")
+        if self.bulk_used > self.capacity:
+            raise ValueError(f"manifest: {self.bulk_used} space loaded "
+                             f"in a {self.capacity}-space wagon")
+
+    @classmethod
+    def of_plan(cls, plan) -> "RouteManifest":
+        """The reading of a route plan — a typed RoutePlan hands over
+        its own manifest; a legacy dictionary is parsed STRICTLY
+        (rev. 18 item 1: no int() coercion — True, 1.5 and "3" are
+        refused, not repaired) and refused if illegal."""
+        if isinstance(plan, RoutePlan):
+            plan.manifest.validate()
+            return plan.manifest
+        legit = plan.get("legit", 0)
+        m = cls(cargo=dict(plan.get("cargo") or {}),
+                legit=0 if legit is None else legit)
+        m.validate()
+        return m
+
+
+@dataclass
+class RoutePlan:
+    """THE typed route plan (rev. 18 item 1): the manifest IS the
+    inventory truth and rides inside — there are no parallel
+    cargo/legit dictionaries anywhere. Legacy plan["cargo"] reads
+    pass through to the one manifest; the only sanctioned writes
+    (the straight branch's disposal flag, commit's clamped pizza
+    count) go through the same door."""
+    district: str
+    driver: Employee
+    ride_along: bool
+    manifest: RouteManifest
+    disposal: bool = False
+
+    @property
+    def cargo(self) -> dict:
+        return self.manifest.cargo
+
+    @property
+    def legit(self) -> int:
+        return self.manifest.legit
+
+    _KEYS = ("district", "driver", "ride_along", "cargo", "legit",
+             "disposal")
+
+    def __getitem__(self, key):
+        if key in self._KEYS:
+            return getattr(self, key)
+        raise KeyError(key)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __setitem__(self, key, value) -> None:
+        if key == "legit":
+            self.manifest.legit = value
+        elif key == "disposal":
+            self.disposal = value
+        else:
+            raise KeyError(f"route plan field {key!r} is not writable")
+
+
+def inventory_lines(label: str, stash: dict, cap: int | None) -> list[str]:
+    """Inventory rendered as units × space each = space used (rev. 17
+    item 1; one term, rev. 18 item 2) — the same arithmetic
+    everywhere a stash is shown: the back room, the warehouse, and
+    the wagon manifest."""
+    total = models.space_used(stash)     # THE one arithmetic (rev. 19)
+    head = f"{label} — {total}" + (f" of {cap}" if cap is not None else "") \
+        + " space used:"
+    lines = [head]
+    for g, u in stash.items():
+        if u <= 0:
+            continue
+        b = data.GOODS[g]["bulk"]
+        lines.append(f"    {data.GOODS[g]['label']:<24} {u} × {b} space "
+                     f"= {u * b}")
+    if len(lines) == 1:
+        lines.append("    (empty)")
+    return lines
 
 
 def route_suspicion(covert: int, legit: int) -> float:
@@ -16,7 +145,7 @@ def route_suspicion(covert: int, legit: int) -> float:
 
 
 def plan_route(state: State, con: Console, rng: random.Random,
-               reserved: list | None = None) -> dict | None:
+               reserved: list | None = None) -> "RoutePlan | None":
     """Morning: pick district, driver, cargo, cover. Returns a route plan.
 
     `reserved` employees (tonight's raid crew) can't also drive the route —
@@ -35,62 +164,128 @@ def plan_route(state: State, con: Console, rng: random.Random,
         heat = state.heat(dk)
         owner = d["rival"]
         owner_s = f", {data.RIVALS[owner]['short']}'s turf" if owner else ""
-        labels.append(f"{d['label']} (heat {heat:.0f}{owner_s})")
+        rm = market.route_market(state, dk)
+        if rm.captured:
+            owner_s = ", your turf now"
+        band_s = f" [{rm.heat.band.upper()}]" if rm.heat.band != "cool" \
+            else ""
+        labels.append(f"{d['label']} (heat {heat:.0f}{owner_s}){band_s}")
     labels.append("Cancel — no route today")
     pick = con.menu("Run today's route where?", labels)
     if pick == len(dist_keys):
         return None
     dk = dist_keys[pick]
+    pol = models.district_heat_policy(state, dk)
+    if not pol.plannable:
+        # RED heat: the district cannot be worked (§2.6's teeth,
+        # rev. 14 item 5 — enforced at planning, revalidated at
+        # service).
+        con.say(f"  {data.DISTRICTS[dk]['label']} is {pol.note}.")
+        return None
 
     names = [f"{e.name} (drive {e.driving}, nerve {e.nerve}"
              f"{', not read in' if not e.aware else ''})" for e in drivers]
     driver = drivers[con.menu("Who drives?", names)]
     ride_along = con.confirm("Ride along yourself? (You can handle trouble — and be caught in it.)")
 
-    # Cargo: only read-in drivers carry product unless you're in the car.
-    # Pizzas and product share the same wagon — every box takes a slot.
-    cargo: dict[str, int] = {}
-    space = data.VEHICLE_CARGO
+    # The wagon manifest (rev. 17 item 1): pizzas and product share
+    # the wagon through ONE typed model. Every product stays on the
+    # board — including rows that can't load tonight, with their
+    # reasons — and the load can be revised until it's confirmed;
+    # nothing silently disappears when the wagon fills.
+    manifest = RouteManifest()
     can_carry = driver.aware or ride_along
-    if not can_carry:
-        con.say(f"  {driver.name} isn't read in — pizzas only unless you ride along.")
-    else:
+    # The route-loading card (rev. 18 item 2): one vocabulary,
+    # taught once per planning.
+    con.say(f"  The wagon holds {manifest.capacity} space. "
+            f"Each pizza uses 1. "
+            + ". ".join(f"{s['label']} uses {s['bulk']} per unit"
+                        for s in data.GOODS.values() if s["bulk"] > 1)
+            + ". Pizzas and coded goods share the same space.")
+    while True:
         for g, spec in data.GOODS.items():
             have = state.shop_stash.get(g, 0)
-            if have <= 0 or space <= 0:
-                continue
-            fit = min(have, space // spec["bulk"])
-            if fit <= 0:
-                continue
-            price = state.prices[dk][g] if state.districts[dk].known_price_age == 0 \
-                else None
+            loaded = manifest.cargo.get(g, 0)
+            unit = spec["bulk"]
+            price = state.prices[dk][g] \
+                if state.districts[dk].known_price_age == 0 else None
             hint = f" (~{money(price)}/u here)" if price is not None else ""
-            n = con.ask_int(f"Load {spec['label']}? have {have}, fits {fit}{hint}",
-                            0, fit, 0)
+            row = (f"{spec['label']} — loaded {loaded}, {unit} space "
+                   f"each, {have} in the stash{hint}")
+            if not can_carry:
+                con.say(f"  {row} [{driver.name} isn't read in — pizzas "
+                        f"only unless you ride along]")
+                continue
+            if have <= 0:
+                con.say(f"  {row} [none in the stash]")
+                continue
+            if loaded == 0 and manifest.free < unit:
+                con.say(f"  {row} [no room — {manifest.free} of "
+                        f"{manifest.capacity} space free]")
+                continue
+            # Revise bound (rev. 18 item 1): planned goods never left
+            # the stash, so the stash IS the ownership ceiling —
+            # min(have, loaded + free // space), never have + loaded.
+            top = min(have, loaded + manifest.free // unit)
+            n = con.ask_int(f"Load {spec['label']}? {unit} space each, "
+                            f"{manifest.free} space free{hint}",
+                            0, top, loaded)
             if n:
-                cargo[g] = n            # intention only — committed at service
-                space -= n * spec["bulk"]
-
-    # Cover has to be real: only customers who actually ordered delivery.
-    legit_cap = min(12, state.shop.ingredients, space, state.delivery_pool)
-    if state.delivery_pool <= 0:
-        con.say("  No delivery orders on the board — a busier, better-liked "
-                "shop would give you cover.")
-    legit = con.ask_int(
-        f"Delivery orders to run for cover ({state.delivery_pool} on the board, "
-        f"wagon space {space})",
-        0, legit_cap, min(8 if cargo else 4, legit_cap))
+                manifest.cargo[g] = n   # intention only — committed at service
+            else:
+                manifest.cargo.pop(g, None)
+        # Cover has to be real: only customers who actually ordered
+        # delivery — and every box takes a slot, all the way to a
+        # 24-order pizza wagon (the unexplained 12 cap is gone,
+        # rev. 17 item 1).
+        pool = state.delivery_pool
+        row = (f"Pizzas for cover — loaded {manifest.legit}, 1 space "
+               f"each ({pool} orders on the board)")
+        legit_top = min(state.shop.ingredients, pool,
+                        manifest.legit + manifest.free)
+        if pool <= 0:
+            con.say(f"  {row} [no delivery orders — a busier, better-liked "
+                    f"shop would give you cover]")
+        elif state.shop.ingredients <= 0:
+            con.say(f"  {row} [the pantry is empty]")
+        elif legit_top <= 0 and manifest.legit == 0:
+            con.say(f"  {row} [no room — 0 of {manifest.capacity} "
+                    f"space free]")
+        else:
+            manifest.legit = con.ask_int(
+                f"Delivery orders to run for cover ({pool} on the board, "
+                f"wagon space {manifest.free + manifest.legit})",
+                0, legit_top,
+                min(manifest.legit or (8 if manifest.cargo else 4),
+                    legit_top))
+        con.say(f"  The wagon — {manifest.bulk_used} of "
+                f"{manifest.capacity} space used:")
+        for g, u in manifest.cargo.items():
+            b = data.GOODS[g]["bulk"]
+            con.say(f"    {data.GOODS[g]['label']:<24} {u} × {b} space "
+                    f"= {u * b}")
+        if manifest.legit:
+            con.say(f"    {'Pizzas for cover':<24} {manifest.legit} × 1 "
+                    f"space = {manifest.legit}")
+        if not manifest.cargo and not manifest.legit:
+            con.say("    (empty)")
+        if con.menu(f"The manifest — {manifest.bulk_used} of "
+                    f"{manifest.capacity} space loaded:",
+                    ["Revise the load", "Confirm the manifest"]) == 1:
+            break
+    manifest.validate()
     # §2.1 same-night telegraph: a contraband route scheduled while
     # payoff is within tonight's reach can book bust evidence (up to
     # ~20 + 0.3/unit on a ride-along search) and slam a Case gate the
     # sit-down reads tomorrow. What it books depends on the night, so
     # the warning is unconditional in that window — a printed line only;
     # the plan can still be replanned or cancelled from the morning menu.
-    if cargo and _payoff_reachable_tonight(state, dk, cargo):
+    if manifest.cargo and _payoff_reachable_tonight(state, dk,
+                                                   manifest.cargo):
         con.say("  With the debt this close to settled, remember: a bad stop "
                 "tonight goes into the file tomorrow's table reads.")
-    return {"district": dk, "driver": driver, "ride_along": ride_along,
-            "cargo": cargo, "legit": legit}
+    return RoutePlan(district=dk, driver=driver, ride_along=ride_along,
+                     manifest=manifest)
 
 
 def _payoff_reachable_tonight(state: State, dk: str, cargo: dict) -> bool:
@@ -151,6 +346,9 @@ def _stop_risk(state: State, plan: dict) -> float:
 def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
     dk = plan["district"]
     driver: Employee = plan["driver"]
+    # Resolution-side refusal (rev. 17 item 1): the night runs no
+    # manifest the wagon could not carry, whoever built the dict.
+    RouteManifest.of_plan(plan)
     cargo = plan["cargo"]
     dspec = data.DISTRICTS[dk]
     report: dict = {"sold": 0, "cash": 0, "busted": False, "lines": []}
@@ -165,13 +363,21 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
             state.shop.reputation = max(0.0, state.shop.reputation - 3)
             report["lines"].append("Pizzas ran late around the extra stops. Two refunds, one review.")
 
+    # THE route-market view (rev. 15 item 5): every territorial factor
+    # composes in market.route_market, and this resolution consumes
+    # the view and nothing else. The view is read HERE, at execution —
+    # the typed record below carries its band and multiplier so no
+    # study samples exposure at the wrong time (rev. 18 item 4).
+    rm = market.route_market(state, dk)
+
     if not cargo:
         state.districts[dk].known_price_age = 0 if plan["ride_along"] else 1
         driver.routes_survived += 1
+        state.route_log.append(models.RouteExecutionRecord.of_market(
+            state.day, rm, 0, 0))
         return report
 
-    und_mult = dspec["underground"] * market.event_mult(state, dk, "underground")
-    drops = max(2, int((2 + 2 * len(cargo)) * und_mult))
+    drops = rm.drops(len(cargo))
 
     if plan["ride_along"]:
         _interactive_drops(state, plan, drops, con, rng, report)
@@ -181,16 +387,31 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
 
     # Rival turf: they notice volume moving through their neighborhood.
     owner = dspec["rival"]
+    corner_applied = 0.0
     if owner and report["sold"] > 0 and state.rivals[owner].alive:
-        state.rivals[owner].relation -= report["sold"] * 0.4
+        models.adjust_relation(state, owner, -(report["sold"] * 0.4))
         report["lines"].append(
             f"{data.RIVALS[owner]['short']}'s people watched the car all night.")
+        # The corner channel (§2.4.3): in the war, units sold in the
+        # target's turf divert their income through the one damage
+        # authority, priced by the same route-market view that shaped
+        # the night. A capture mid-route is detected by the authority.
+        corner_applied = war.corner_diversion(
+            state, dk, owner, report["sold"], report,
+            rate=rm.corner_rate, cap=rm.corner_cap)
+        if models.vendetta_locked(state, owner) \
+                and not state.rivals[owner].alive:
+            report["lines"].append(
+                f"{data.RIVALS[owner]['short']}'s organization broke "
+                f"tonight — the corners finished what the jobs started.")
 
     state.add_heat(dk, 2 + report["sold"] * 0.35
                    + route_suspicion(sum(cargo.values()), plan["legit"]) * 6)
     if not report["busted"]:
         driver.routes_survived += 1
         driver.familiarity[dk] = min(10, driver.familiarity.get(dk, 0) + 1)
+    state.route_log.append(models.RouteExecutionRecord.of_market(
+        state.day, rm, report["sold"], round(corner_applied * 100)))
     return report
 
 
@@ -226,8 +447,7 @@ def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
                            straight.DISPOSAL_HAIRCUT_HI) \
             if plan.get("disposal") else rng.uniform(0.85, 1.2)
         offer = int(base_price * mult)
-        top_want = max(2, int(4 * data.DISTRICTS[dk]["underground"]
-                              * market.event_mult(state, dk, "underground")))
+        top_want = market.route_market(state, dk).top_want()
         want = min(cargo[g], rng.randint(1, top_want))
         choice = con.menu(
             voice["stop"].format(n=stop + 1, want=want, label=spec["label"],

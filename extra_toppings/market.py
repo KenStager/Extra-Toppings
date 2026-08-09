@@ -1,8 +1,9 @@
 """Contraband market: daily prices, city events, rumors, oversell depression."""
 
 import random
+from dataclasses import dataclass
 
-from . import data
+from . import data, models, war
 from .models import ActiveEvent, State
 
 
@@ -22,6 +23,69 @@ def event_mult(state: State, dk: str, field: str) -> float:
         if ev.spec.get("district") in (None, dk):
             m *= ev.spec.get(field, 1.0)
     return m
+
+
+@dataclass(frozen=True)
+class RouteMarket:
+    """THE territorial route-market view (rev. 15 item 5): every
+    covert-demand factor for a district composes HERE — the base
+    underground, the event multiplier, the capture bonus, the heat
+    policy, and the corner terms — and every consumer reads this one
+    immutable view: the market display and route labels, automated
+    and interactive capacity (the drops count), per-stop demand, and
+    the corner damage. Flag-off exactness: the legacy expressions are
+    computed verbatim inside the methods, in their original operation
+    order, and the war adjustments are +0.0 / ×1.0 by construction
+    (the P0 bit-identity scar's rule)."""
+    district: str
+    base: float                  # the district's underground factor
+    event: float                 # today's event multiplier
+    bonus: float                 # capture bonus; 0.0 outside your turf
+    heat: models.HeatPolicy
+    owner: str | None            # the turf's owner, dead or alive
+    corner_rate: float           # tonight's diversion per unit (0.0 =
+    corner_cap: float            # no live campaign on this turf)
+
+    def drops(self, n_cargo: int) -> int:
+        """Tonight's stop count — the capacity axis. Amber halves it
+        exactly once, here and nowhere else (rev. 14 item 5)."""
+        stops_base = (2 + 2 * n_cargo) * (self.base * self.event)
+        stops_bonus = (2 + 2 * n_cargo) * self.bonus
+        return max(2, int((stops_base + stops_bonus)
+                          * self.heat.capacity_mult))
+
+    def top_want(self) -> int:
+        """Per-stop appetite — the demand axis; never capacity-halved."""
+        return max(2, int(4 * self.base * self.event + 4 * self.bonus))
+
+    @property
+    def captured(self) -> bool:
+        return self.bonus > 0.0
+
+
+def route_market(state: State, dk: str) -> RouteMarket:
+    dspec = data.DISTRICTS[dk]
+    owner = dspec["rival"]
+    heat = models.district_heat_policy(state, dk)
+    corner_rate = corner_cap = 0.0
+    if owner is not None and models.live_campaign(state, owner) is not None:
+        outage = state.rivals[owner].ovens_wrecked_days > 0
+        mult = war.OUTAGE_MULT if outage else 1
+        corner_rate = war.CORNER_RATE * mult
+        # Heat's consequence flows through the customer pool (rev. 16
+        # item 7): an amber turf has half the divertible custom, so
+        # the EFFECTIVE corner cap halves with the same capacity
+        # multiplier that halves the stops — the -4/night cap can no
+        # longer mask the burned neighborhood.
+        corner_cap = war.CORNER_CAP * mult * heat.capacity_mult
+    return RouteMarket(
+        district=dk,
+        base=dspec["underground"],
+        event=event_mult(state, dk, "underground"),
+        bonus=war.underground_bonus(state, dk),
+        heat=heat,
+        owner=owner,
+        corner_rate=corner_rate, corner_cap=corner_cap)
 
 
 def roll_prices(state: State, rng: random.Random) -> None:

@@ -7,13 +7,55 @@ by anything the player does. Player-facing dice use persistent streams.
 
 import random
 
-from . import data, escrow, market, raids, rivals, routes, shop, straight
+from . import (data, escrow, evidence, market, models, raids, rivals,
+               routes, shop, straight, war)
 from .config import GameConfig
 from .models import SitdownSnapshot, State, case_prefix
 from .rng import Streams
 from .ui import Console, money
 
 QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
+
+
+# ── THE night-assignment authority (rev. 15 item 2) ───────────────
+
+def night_reserved(plans: dict, but: str | None = None) -> list:
+    """Who is spoken for tonight by every job EXCEPT `but`. Routes and
+    the salvage pickup reserve their driver; the raid reserves its
+    team. Planning menus and the night's execution both consult this
+    one derivation — never another ad-hoc reserved= list."""
+    out: list = []
+    for job in ("route", "salvage", "raid"):
+        plan = plans.get(job)
+        if not plan or job == but:
+            continue
+        if job == "raid":
+            out.extend(plan["team"])
+        else:
+            out.append(plan["driver"])
+    return out
+
+
+def wagon_job(plans: dict, but: str | None = None) -> str | None:
+    """The wagon does one job a night: the route or the pickup."""
+    for job in ("route", "salvage"):
+        if job != but and plans.get(job):
+            return job
+    return None
+
+
+def wagon_used(plans: dict, service_report: dict) -> bool:
+    """Execution truth (rev. 17 item 6): by night the wagon jobs have
+    already run, so the raid's wagon question reads what HAPPENED —
+    not the continued existence of morning intentions. A pickup
+    scrubbed before departure never took the wagon out; absent an
+    execution record the commitment stands (fail toward the wagon
+    being busy, never toward a phantom grant)."""
+    job = wagon_job(plans)
+    if job == "salvage":
+        result = service_report.get("salvage")
+        return result is None or result.wagon_used
+    return job is not None
 
 
 # ══ MORNING ═══════════════════════════════════════════════════════
@@ -37,6 +79,8 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         _act1_telegraphs(state, con)
     elif state.branch == "straight":
         straight.morning_lines(state, con)
+    elif state.branch == "war":
+        war.morning_lines(state, con)
 
     con.say(f"  Order book: ~{state.demand_today} customers expected, "
             f"{state.delivery_pool} delivery orders on the board.")
@@ -52,10 +96,16 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
                                "a staff walkout mid-diligence")
 
     # Carmine won't let his investment starve: he fronts stock — onto
-    # the debt. On the Straight Path there is no investment left to
-    # protect: a starving pantry is the branch's own problem.
+    # the debt. His emergency credit exists only while the Act I debt
+    # is genuinely alive (rev. 15 item 3): once an active branch is
+    # chosen, the payoff ended his stake, and a starving pantry is the
+    # branch's own problem. Flag-off Act I and stand-pat keep the old
+    # behavior to the byte — the golden and stand-pat surfaces are
+    # frozen, and stand-pat is the control (the carve-out is recorded
+    # in rev. 15, not hidden here).
+    active_branch = state.branch is not None and state.branch != "stand_pat"
     if state.shop.ingredients < 10 and state.clean < 200 \
-            and state.branch != "straight":
+            and not active_branch:
         shop.stock_pantry(state, 40)
         state.debt += 40 * data.INGREDIENT_COST[state.shop.quality] + 100
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
@@ -77,6 +127,12 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         g = data.GOODS[supplier["good"]]
         con.bullet(f"SUPPLIER: {supplier['units']}x {g['label']} at "
                    f"{money(supplier['price'])}/unit, cash — he doesn't care whose.")
+
+    if state.branch == "war":
+        if war.insurance_due(state):
+            war.insurance_card(state, con)
+        _war_morning_menu(state, con, streams, plans, supplier)
+        return plans
 
     while True:
         c = con.menu("Morning at the shop:", [
@@ -103,18 +159,18 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         elif c == 5:
             _improvements(state, con)
         elif c == 6:
-            reserved = plans["raid"]["team"] if plans.get("raid") else []
-            plans["route"] = routes.plan_route(state, con, streams.routes,
-                                               reserved=reserved)
+            plans["route"] = routes.plan_route(
+                state, con, streams.routes,
+                reserved=night_reserved(plans, but="route"))
         elif c == 7:
             route = plans.get("route")
-            reserved = [route["driver"]] if route else []
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
-            plans["raid"] = raids.plan_raid(state, con, streams.raids,
-                                            reserved=reserved,
-                                            wagon_free=route is None)
+            plans["raid"] = raids.plan_raid(
+                state, con, streams.raids,
+                reserved=night_reserved(plans, but="raid"),
+                wagon_free=wagon_job(plans) is None)
         elif c == 8:
             break
     return plans
@@ -161,6 +217,109 @@ def _straight_morning_menu(state: State, con: Console, streams: Streams,
             straight.show_case_file(state, con)
         elif c == 8:
             break
+
+
+def _war_morning_menu(state: State, con: Console, streams: Streams,
+                      plans: dict, supplier: dict | None) -> None:
+    """The war's morning: the full market morning plus the board, the
+    salvage pickup, and the standing second-declaration offer
+    (rev. 14 item 9 — never a missable one-morning prompt). Entries
+    rebuild each pass because the war changes shape mid-morning;
+    'Open for service' stays last, and nothing destructive ever is."""
+    while True:
+        entries: list = [
+            ("Market board (prices you actually know)", "market"),
+            ("Kitchen policy (quality / menu prices)", "kitchen"),
+            ("Buy ingredients", "buy"),
+            ("Buy from today's supplier" if supplier
+             else "No supplier today", "supplier"),
+            ("Staff (hire, read in, raises)", "staff"),
+            ("Improvements & warehouse", "improve"),
+            ("Plan tonight's route", "route"),
+            ("Plan a night job (raid)", "raid"),
+            ("The war board", "board"),
+            ("The case file (counsel's docket)", "case"),
+        ]
+        next_front = _second_front(state)
+        if next_front:
+            entries.append(
+                (f"Name the next war — "
+                 f"{data.RIVALS[next_front]['label']} still stands",
+                 "declare"))
+        if plans.get("salvage"):
+            # A plan is an intention (rev. 15 item 2): the pickup can
+            # be recalled and the wagon freely replanned.
+            entries.append(("Recall the wagon — cancel tonight's pickup",
+                            "salvage_cancel"))
+        elif war.salvage_ready(state) is not None:
+            entries.append(("Send the wagon for the salvage", "salvage"))
+        entries.append(("Open for service →", "open"))
+        key = entries[con.menu("Morning at the shop:",
+                               [label for label, _k in entries])][1]
+        if key == "market":
+            _market_board(state, con)
+        elif key == "kitchen":
+            _kitchen_policy(state, con, plans)
+        elif key == "buy":
+            _buy_ingredients(state, con)
+        elif key == "supplier" and supplier:
+            supplier = _buy_supplier(state, supplier, con)
+        elif key == "staff":
+            _staff_menu(state, con, streams.staff)
+        elif key == "improve":
+            _improvements(state, con)
+        elif key == "route":
+            if wagon_job(plans, but="route") is not None:
+                con.say("  The wagon is spoken for tonight — the pickup "
+                        "has it. Recall it first if the route matters "
+                        "more.")
+                continue
+            plans["route"] = routes.plan_route(
+                state, con, streams.routes,
+                reserved=night_reserved(plans, but="route"))
+        elif key == "raid":
+            route = plans.get("route")
+            if route and route["ride_along"]:
+                con.say("  You'll be in the wagon tonight — the crew goes "
+                        "without you, and without your nerve.")
+            plans["raid"] = raids.plan_raid(
+                state, con, streams.raids,
+                reserved=night_reserved(plans, but="raid"),
+                wagon_free=wagon_job(plans) is None)
+        elif key == "board":
+            war.board(state, con)
+        elif key == "case":
+            evidence.show_case_file(state, con)
+        elif key == "declare" and next_front:
+            c = con.menu(
+                f"Take the war to {data.RIVALS[next_front]['short']}? "
+                f"Their relation locks at vendetta — no truce, ever.",
+                ["Declare — the second front opens this morning",
+                 "Not yet — one war at a time is expensive enough"])
+            if c == 0:
+                war.declare(state, next_front, con)
+        elif key == "salvage":
+            plans["salvage"] = war.plan_salvage(
+                state, con,
+                reserved=night_reserved(plans, but="salvage"),
+                wagon_taken=wagon_job(plans, but="salvage") is not None)
+        elif key == "salvage_cancel":
+            plans["salvage"] = None
+            con.say("  The wagon stays home tonight. The stockroom "
+                    "isn't going anywhere.")
+        else:
+            break
+
+
+def _second_front(state: State) -> str | None:
+    """The standing second-declaration offer: no live campaign, one
+    rival still standing and undeclared-upon."""
+    if models.live_campaign(state) is not None:
+        return None
+    for k, r in state.rivals.items():
+        if r.alive and war.campaign_for(state, k) is None:
+            return k
+    return None
 
 
 def _disposal_menu(state: State, con: Console, streams: Streams,
@@ -242,9 +401,27 @@ def _case_first_crossed_60_day(state: State) -> int | None:
 
 def _market_board(state: State, con: Console) -> None:
     con.say("")
+    # Inventory reads units × bulk each = bulk used, everywhere a
+    # stash is shown (rev. 17 item 1).
+    for line in routes.inventory_lines("The back room", state.shop_stash,
+                                       state.shop.stash_cap):
+        con.say(f"  {line}")
+    if state.warehouse is not None:
+        for line in routes.inventory_lines("The warehouse", state.warehouse,
+                                           data.WAREHOUSE_CAP):
+            con.say(f"  {line}")
     for dk, dspec in data.DISTRICTS.items():
         d = state.districts[dk]
         con.say(f"  {dspec['label']} — heat {d.heat:.0f}  ({dspec['flavor']})")
+        # The board explains the territory (rev. 15 item 5): capture
+        # demand and heat capacity come from the same route-market
+        # view the routes run on. Flag-off these lines never print.
+        rm = market.route_market(state, dk)
+        if rm.captured:
+            con.say("      your turf now — the coded customers call "
+                    "your board (covert demand up)")
+        if rm.heat.band != "cool":
+            con.say(f"      {rm.heat.band.upper()} — {rm.heat.note}")
         if d.known_price_age == 0:
             for g, p in state.prices[dk].items():
                 con.say(f"      {data.GOODS[g]['label']:<24} {money(p)}/unit")
@@ -307,8 +484,8 @@ def _supplier_offer(state: State, rng: random.Random) -> dict | None:
 
 
 def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
-    room = state.shop.stash_cap - state.stash_bulk(state.shop_stash)
-    fit = room // data.GOODS[offer["good"]]["bulk"]
+    # The storage authority prices the bound (rev. 18 item 2).
+    fit = models.units_that_fit(state, "shop", offer["good"])
     afford = (state.dirty + state.clean) // offer["price"]
     top = min(offer["units"], fit, afford)
     if top <= 0:
@@ -322,8 +499,9 @@ def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
         state.clean -= cost - from_dirty
         state.shop_stash[offer["good"]] = state.shop_stash.get(offer["good"], 0) + n
         offer["units"] -= n
-        con.say(f"  Boxes come in through the alley door. Stash: "
-                f"{state.stash_bulk(state.shop_stash)}/{state.shop.stash_cap} bulk.")
+        con.say(f"  Boxes come in through the alley door. The back room: "
+                f"{models.space_used(state.shop_stash)}/"
+                f"{models.space_cap(state, 'shop')} space used.")
     return offer if offer["units"] > 0 else None
 
 
@@ -375,11 +553,12 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                                 "Let someone go", "Back"])
         if c == 0:
             pool = [e for e in state.employees if not e.hired and not e.arrested]
-            if state.branch == "straight" and state.branch_state is not None:
+            if models.remediation_unlocked(state):
                 # Rev. 11: settled-out names never come back — the
                 # settlement was severance, not a sabbatical, and a
                 # rehire would reopen the witness problem the goal
-                # term already counted closed.
+                # term already counted closed. Capability-gated
+                # (rev. 14 item 8): the war settles too.
                 from .models import witness_status
                 pool = [e for e in pool
                         if not (e.aware and witness_status(state, e.key)
@@ -466,6 +645,10 @@ def _improvements(state: State, con: Console) -> None:
         if state.branch == "straight":
             extras = [("counsel", straight.counsel_label(state)),
                       ("advertise", straight.ad_label(state))]
+        elif models.remediation_unlocked(state):
+            # The war retains the same counsel (rev. 14 item 8);
+            # advertising stays the Straight Path's own verb.
+            extras = [("counsel", evidence.counsel_label(state))]
         keys = [k for k in data.UPGRADES if k not in owned]
         opts = [label for _key, label in extras]
         opts += [f"{data.UPGRADES[k]['label']} — {money(data.UPGRADES[k]['cost'])} clean. "
@@ -477,7 +660,7 @@ def _improvements(state: State, con: Console) -> None:
         c = con.menu(f"Improvements (clean {money(state.clean)}):", opts)
         if c < len(extras):
             if extras[c][0] == "counsel":
-                straight.toggle_counsel(state, con)
+                evidence.toggle_counsel(state, con)
             else:
                 straight.advertise(state, con)
             continue
@@ -523,6 +706,16 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
             con.bullet(line)
         if r["cash"]:
             con.say(f"  Route take: {money(r['cash'])} dirty, {r['sold']} units moved.")
+    if plans.get("salvage") and not state.game_over:
+        # The capture pickup rolls with the wagon at service — the
+        # reserved war stream's one draw per pickup (rev. 14 item 6),
+        # revalidated against the same assignment view that planned it.
+        # The typed execution result rides the service report so the
+        # night reads what happened, not the intention (rev. 17
+        # item 6).
+        report["salvage"] = war.run_salvage(
+            state, plans["salvage"], con, streams.war,
+            reserved=night_reserved(plans, but="salvage"))
     if state.branch == "quiet_sale":
         # The buyer's man walks the shop every diligence afternoon.
         escrow.walkthrough(state, con, streams)
@@ -538,22 +731,47 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
         con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
                    f"around to drive it.")
         return False
-    for g in list(plan["cargo"]):
+    pol = models.district_heat_policy(state, plan["district"])
+    if not pol.plannable:
+        # Service-time revalidation of the RED-heat refusal (rev. 14
+        # item 5): the district may have caught fire since the plan
+        # was made. Nothing has committed yet, so nothing is lost.
+        con.bullet(f"Tonight's route is scrubbed — "
+                   f"{data.DISTRICTS[plan['district']]['label']} is "
+                   f"{pol.note}.")
+        return False
+    # Rev. 18 item 1: the PLANNED manifest is validated BEFORE any
+    # state mutation — an illegal plan is refused with the stash and
+    # pantry untouched, never discovered mid-deduction.
+    planned = routes.RouteManifest.of_plan(plan)
+    # The live, availability-revalidated COMMITTED manifest is built
+    # first; only then does its inventory transaction apply, atomically.
+    committed = routes.RouteManifest()
+    for g, want in planned.cargo.items():
         have = state.shop_stash.get(g, 0)
-        take = min(plan["cargo"][g], have)
-        if take < plan["cargo"][g]:
+        take = min(want, have)
+        if take < want:
             con.bullet(f"Only {take}x {data.GOODS[g]['label']} left to load — "
                        f"the stash moved since this morning.")
-        plan["cargo"][g] = take
-        state.shop_stash[g] = have - take
+        if take:
+            committed.cargo[g] = take
     # Cover pizzas are real orders AND real oven time.
-    doable = min(plan["legit"], state.delivery_pool,
-                 state.shop.kitchen_cap, state.shop.ingredients)
-    if doable < plan["legit"]:
-        con.bullet(f"The kitchen fills {doable} of {plan['legit']} planned "
-                   f"delivery orders — orders, ovens and pantry set the limit.")
-    plan["legit"] = doable
-    state.shop.ingredients -= doable
+    committed.legit = min(planned.legit, state.delivery_pool,
+                          state.shop.kitchen_cap, state.shop.ingredients)
+    if committed.legit < planned.legit:
+        con.bullet(f"The kitchen fills {committed.legit} of "
+                   f"{planned.legit} planned delivery orders — orders, "
+                   f"ovens and pantry set the limit.")
+    committed.validate()
+    for g, take in committed.cargo.items():
+        state.shop_stash[g] = state.shop_stash.get(g, 0) - take
+    state.shop.ingredients -= committed.legit
+    if isinstance(plan, routes.RoutePlan):
+        plan.manifest = committed
+    else:                       # legacy dict plans (tests only)
+        plan["cargo"].clear()
+        plan["cargo"].update(committed.cargo)
+        plan["legit"] = committed.legit
     # A disposal run spends one of the three at the moment the wagon
     # actually loads product — a plan that scrubbed, or loaded nothing,
     # costs nothing (rev. 9 item 5: the crime is the run that rolls).
@@ -582,18 +800,41 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         state.shop.coupon_days -= 1
 
     raid_plan = plans.get("raid")
+    if raid_plan and not state.rivals[raid_plan["rival"]].alive:
+        # Rev. 14 item 9: the service route may have broken the target
+        # after the job was planned — corners can finish a war before
+        # the crowbars leave the shop.
+        con.say(f"  The night job is scrubbed — "
+                f"{data.RIVALS[raid_plan['rival']]['short']}'s "
+                f"organization broke before the crew left the kitchen.")
+        state.raid_log.append(models.RaidAttemptRecord(
+            day=state.day, rival=raid_plan["rival"], outcome="scrubbed",
+            crew=len(raid_plan["team"]), damage_h=0))
+        raid_plan = None
     if raid_plan:
         # The day happened between planning and doing: anyone arrested,
-        # injured or gone since morning is off the job.
-        team = [e for e in raid_plan["team"] if e.available]
+        # injured or gone since morning is off the job — and anyone
+        # the assignment view says another job owns tonight (rev. 15
+        # item 2: execution revalidates the same view planning used).
+        taken = night_reserved(plans, but="raid")
+        team = [e for e in raid_plan["team"]
+                if e.available and e not in taken]
         if not team:
             con.say("  The night job is scrubbed — the crew you picked this "
                     "morning didn't make it to nightfall intact.")
+            state.raid_log.append(models.RaidAttemptRecord(
+                day=state.day, rival=raid_plan["rival"],
+                outcome="scrubbed", crew=len(raid_plan["team"]),
+                damage_h=0))
         else:
             if len(team) < len(raid_plan["team"]):
                 con.say("  The crew is short tonight; the job goes ahead anyway.")
             raid_plan["team"] = team
-            raid_plan["wagon_free"] = plans.get("route") is None
+            # Execution truth for the wagon (rev. 17 item 6): the raid
+            # asks what actually happened tonight — a committed route
+            # or a pickup that DEPARTED holds the wagon; a pickup
+            # scrubbed before departure never took it out.
+            raid_plan["wagon_free"] = not wagon_used(plans, service_report)
             # §2.1 rev. 4: the day's takings can put payoff in reach
             # after the job was planned — recheck once, before it runs.
             if not raid_plan.get("table_warned") and state.payoff_in_reach():
@@ -604,11 +845,28 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
 
     for key, rival in state.rivals.items():
         if rival.alive and rival.raid_warning == 1:
-            landed = raids.incoming_raid(state, key, con, streams.raids)
-            if landed and state.branch == "quiet_sale" \
+            result = raids.incoming_raid(state, key, con, streams.raids)
+            # Escrow's truth table is the merged one: any raid that
+            # arrives — fought off or not — is an incident.
+            if result.outcome != "averted" and state.branch == "quiet_sale" \
                     and not state.game_over:
                 escrow.record_incident(state, con, streams,
                                        "a rival raid landing mid-diligence")
+            if state.branch == "war" and result.landed \
+                    and result.damage_before > 0 and not state.game_over:
+                # Burned Out (§2.5 precedence 2, rev. 14 item 6): a
+                # raid LANDING on a shop already damaged BEFORE impact
+                # destroys it. The arrest latch, checked at accrual
+                # inside the raid itself, has already had its chance —
+                # precedence 1 wins a shared night.
+                # Like the arrest latch, the terminal is set where it
+                # happens and the night runs itself out — the run loop
+                # reads it after close.
+                state.game_over = "burned_out"
+                con.say("")
+                con.say("  The fire crews give up on the kitchen by "
+                        "three. The war came home, and the shop that "
+                        "was the point of everything is gone.")
 
     payroll_short = _payroll_and_rent(state, con)
 
@@ -648,8 +906,13 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                 ("Pay Carmine (he prefers unmarked bills)", "debt"),
                 ("Move stash / cash (shop ↔ warehouse)", "storage"),
                 ("Talk to a rival", "rival"),
-                ("Lock up →", "lockup"),
             ]
+            if models.remediation_unlocked(state):
+                # The war settles witnesses through the same verb
+                # (rev. 14 item 8) — crew versus Case, priced nightly.
+                entries += [("Settle with a witness (clean cash buys "
+                             "quiet)", "settle")]
+            entries += [("Lock up →", "lockup")]
         key = entries[con.menu("Settle accounts:",
                                [label for label, _k in entries])][1]
         if key == "cash":
@@ -664,7 +927,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         elif key == "rival":
             rivals.negotiate(state, con, streams.rivals)
         elif key == "settle":
-            straight.settle_menu(state, con)
+            evidence.settle_menu(state, con)
         else:
             break
 
@@ -686,6 +949,11 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     # before the world's dice.
     if state.branch == "straight" and not state.game_over:
         straight.night_tick(state, con, payroll_short)
+    elif state.branch == "war" and not state.game_over:
+        war.night_obligation(state, con, payroll_short)
+        war.night_insolvency(state, con, payroll_short)
+    elif state.branch == "quiet_sale" and not state.game_over:
+        escrow.night_insolvency(state, con, payroll_short)
 
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))
@@ -693,9 +961,11 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     if state.branch == "straight":
         straight.exit_readout(state, con)
 
-    # The city cools a little overnight.
-    for d in state.districts.values():
-        d.heat = max(0.0, d.heat - 5)
+    # The city cools a little overnight — a hot district, slower (the
+    # heat-policy authority; flag-off the decay IS the old flat 5).
+    for dk, d in state.districts.items():
+        d.heat = max(0.0, d.heat
+                     - models.district_heat_policy(state, dk).decay)
     state.day += 1
 
 
@@ -735,9 +1005,10 @@ def _launder(state: State, remaining: int, con: Console) -> int:
         return 0
     # §2.3 dual use: while counsel is retained the believable ceiling
     # is enforced — the "wash more anyway" branch is simply not offered
-    # (counsel's office sees the tapes). Straight branch only; the
-    # flag-off prompt and bounds are untouched.
-    counsel = state.branch == "straight" and state.branch_state is not None \
+    # (counsel's office sees the tapes). Capability-gated (rev. 14
+    # item 8); the flag-off prompt and bounds are untouched.
+    counsel = models.remediation_unlocked(state) \
+        and state.branch_state is not None \
         and state.branch_state.counsel_retained
     top = min(state.dirty, remaining) if counsel else state.dirty
     if counsel and top <= 0:
@@ -843,9 +1114,16 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
         for g, u in list(state.shop_stash.items()):
             if u <= 0:
                 continue
-            n = con.ask_int(f"Move {data.GOODS[g]['label']} (have {u})", 0, u, u)
-            state.shop_stash[g] -= n
-            state.warehouse[g] = state.warehouse.get(g, 0) + n
+            # The storage authority prices the bound and says why
+            # (rev. 18 item 2): the warehouse has a cap too.
+            fits = models.units_that_fit(state, "warehouse", g)
+            n = con.ask_int(
+                f"Move {data.GOODS[g]['label']} (have {u}; warehouse "
+                f"{models.space_used(state.warehouse)}/"
+                f"{models.space_cap(state, 'warehouse')} space used; "
+                f"{fits} more units fit)",
+                0, min(u, fits), min(u, fits))
+            models.move_goods(state, "shop", "warehouse", g, n)
             moved += n
         if moved and state.branch == "quiet_sale":
             # A truck at the rolling door while the buyer's man watches
@@ -855,12 +1133,14 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
         for g, u in list(state.warehouse.items()):
             if u <= 0:
                 continue
-            room = (state.shop.stash_cap - state.stash_bulk(state.shop_stash)) \
-                // data.GOODS[g]["bulk"]
-            n = con.ask_int(f"Bring back {data.GOODS[g]['label']} (there {u}, fits {room})",
-                            0, min(u, room), 0)
-            state.warehouse[g] -= n
-            state.shop_stash[g] = state.shop_stash.get(g, 0) + n
+            fits = models.units_that_fit(state, "shop", g)
+            n = con.ask_int(
+                f"Bring back {data.GOODS[g]['label']} (there {u}; back "
+                f"room {models.space_used(state.shop_stash)}/"
+                f"{models.space_cap(state, 'shop')} space used; "
+                f"{fits} more units fit)",
+                0, min(u, fits), 0)
+            models.move_goods(state, "warehouse", "shop", g, n)
     elif c == 2:
         n = con.ask_int("Stash how much dirty cash off-site?", 0, state.dirty, 0)
         state.dirty -= n
