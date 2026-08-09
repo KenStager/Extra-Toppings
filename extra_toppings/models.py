@@ -852,6 +852,19 @@ def validate_cross_state(state: "State") -> None:
                     f"above the vendetta band — the lock is permanent")
 
 
+def security_word(alertness: float) -> str:
+    """The rival-security display bands (PR #3). One home: the raid
+    target menu and the war board describe the same guard with the
+    same word."""
+    if alertness >= 7:
+        return "fortress"
+    if alertness >= 4:
+        return "hardened"
+    if alertness >= 2:
+        return "wary"
+    return "sleepy"
+
+
 def live_campaign(state: "State",
                   rival_key: str | None = None) -> "WarCampaignState | None":
     """The one live (unbroken) war campaign, optionally only if it

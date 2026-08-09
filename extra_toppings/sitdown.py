@@ -23,7 +23,7 @@ with a schema version bump there.
 
 from dataclasses import dataclass
 
-from . import models, straight
+from . import data, models, straight
 from .config import GameConfig
 from .models import (BRANCH_ORDER, BranchState, SitdownSnapshot, State,
                      case_prefix, fold_case, validate_branch_state)
@@ -345,6 +345,50 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
             con.say("  A handshake, no papers yet. Today is diligence day "
                     "one of four; closing is the morning after day four, "
                     "and the register had better be boring all week.")
+            return
+        if chair == "war":
+            live_rivals = [k for k, r in state.rivals.items() if r.alive]
+            if not live_rivals:
+                con.say("  There is no war left to declare — the city's "
+                        "other operators are already gone.")
+                continue
+            con.say("  Carmine looks at the window, then at you. 'Name "
+                    "one. Not two — one. The other will pick a side "
+                    "by who he is.'")
+            # Target naming rides the scene channel like every other
+            # sit-down decision; every option but the first progresses,
+            # so the deterministic last-option bot always seats a war.
+            name_options = ["Reconsider"] + [
+                f"Name {data.RIVALS[k]['label']} — strength "
+                f"{state.rivals[k].strength:g}, "
+                f"{data.RIVALS[k]['style']}" for k in live_rivals]
+            named = con.scene_menu(NAMESPACE, "Whose name goes on the "
+                                   "table?", name_options)
+            if named == 0:
+                continue
+            target = live_rivals[named - 1]
+            confirmed = con.scene_menu(
+                NAMESPACE,
+                f"Declare the Harbor War on "
+                f"{data.RIVALS[target]['short']}? Their relation locks "
+                f"at vendetta — no truce, ever.",
+                ["Reconsider", "Declare — the war starts this morning"])
+            if confirmed == 0:
+                continue
+            branch_state = BranchState.war(
+                war_target=target, declared_day=state.day,
+                starting_strength=state.rivals[target].strength)
+            validate_branch_state("war", branch_state)
+            state.branch_state = branch_state
+            state.branch = "war"
+            state.act = 2
+            # The lock binds the moment the campaign exists (the
+            # relation authority reads the campaign list).
+            models.set_relation(
+                state, target, min(state.rivals[target].relation,
+                                   models.VENDETTA_RELATION))
+            from . import war as war_mod
+            war_mod.entry_scene(state, con)
             return
         # A branch both seated and enabled commits above — anything else
         # reaching here is a configuration error, and it fails loudly

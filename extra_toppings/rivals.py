@@ -206,6 +206,26 @@ def negotiate(state: State, con: Console, rng: random.Random) -> None:
     rival = state.rivals[key]
     spec = data.RIVALS[key]
 
+    if models.vendetta_locked(state, key):
+        # §2.4.3: no truce, no tribute, no cannoli — the peace verbs
+        # are GONE for a declared rival, not greyed. What remains is
+        # the ledger, if you hold it: the lean, or the woman in the
+        # gray suit (war-only per the rev. 14 ruling, and a
+        # vendetta-locked rival is war by construction).
+        opts = []
+        if rival.ledger_stolen:
+            opts = ["Lean on them with the ledger",
+                    "Hand the ledger to the woman in the gray suit "
+                    "(their case, not yours)"]
+        opts.append("Back")
+        c = con.menu(f"{spec['short']}: at war. There is nothing to "
+                     f"say — only things to spend.", opts)
+        if rival.ledger_stolen and c == 0:
+            _lean(state, key, rival, spec, con)
+        elif rival.ledger_stolen and c == 1:
+            war.spend_ledger_law(state, key, con)
+        return
+
     opts = [f"Send a peace offering ({money(1000)} dirty)",
             "Propose a truce (works best from strength)"]
     if rival.ledger_stolen:
@@ -227,12 +247,18 @@ def negotiate(state: State, con: Console, rng: random.Random) -> None:
             models.adjust_relation(state, key, -5)
             con.say(f"  {spec['short']} laughs. 'Come back when you own something.'")
     elif rival.ledger_stolen and c == 2:
-        models.apply_rival_damage(state, key, "ledger",
-                                  models.LEDGER_LEAN_STRENGTH)
-        models.adjust_relation(state, key, -10)
-        rival.tribute_demanded = 0
-        rival.ledger_stolen = False   # leverage used is leverage gone
-        state.dirty += 2000
-        con.say("  You read three names off page twelve. An envelope arrives by morning.")
-        con.say(f"  +{money(2000)} dirty. {spec['short']} will not forget this — "
-                f"and by next week those pages are worthless.")
+        _lean(state, key, rival, spec, con)
+
+
+def _lean(state: State, key: str, rival, spec: dict, con: Console) -> None:
+    """The greedy ledger spend — one implementation for the peaceful
+    menu and the war menu alike (the respell rule)."""
+    models.apply_rival_damage(state, key, "ledger",
+                              models.LEDGER_LEAN_STRENGTH)
+    models.adjust_relation(state, key, -10)
+    rival.tribute_demanded = 0
+    rival.ledger_stolen = False   # leverage used is leverage gone
+    state.dirty += 2000
+    con.say("  You read three names off page twelve. An envelope arrives by morning.")
+    con.say(f"  +{money(2000)} dirty. {spec['short']} will not forget this — "
+            f"and by next week those pages are worthless.")

@@ -7,7 +7,8 @@ by anything the player does. Player-facing dice use persistent streams.
 
 import random
 
-from . import data, escrow, market, models, raids, rivals, routes, shop, straight
+from . import (data, escrow, market, models, raids, rivals, routes, shop,
+               straight, war)
 from .config import GameConfig
 from .models import SitdownSnapshot, State, case_prefix
 from .rng import Streams
@@ -37,6 +38,8 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         _act1_telegraphs(state, con)
     elif state.branch == "straight":
         straight.morning_lines(state, con)
+    elif state.branch == "war":
+        war.morning_lines(state, con)
 
     con.say(f"  Order book: ~{state.demand_today} customers expected, "
             f"{state.delivery_pool} delivery orders on the board.")
@@ -77,6 +80,12 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         g = data.GOODS[supplier["good"]]
         con.bullet(f"SUPPLIER: {supplier['units']}x {g['label']} at "
                    f"{money(supplier['price'])}/unit, cash — he doesn't care whose.")
+
+    if state.branch == "war":
+        if war.insurance_due(state):
+            war.insurance_card(state, con)
+        _war_morning_menu(state, con, streams, plans, supplier)
+        return plans
 
     while True:
         c = con.menu("Morning at the shop:", [
@@ -161,6 +170,95 @@ def _straight_morning_menu(state: State, con: Console, streams: Streams,
             straight.show_case_file(state, con)
         elif c == 8:
             break
+
+
+def _war_morning_menu(state: State, con: Console, streams: Streams,
+                      plans: dict, supplier: dict | None) -> None:
+    """The war's morning: the full market morning plus the board, the
+    salvage pickup, and the standing second-declaration offer
+    (rev. 14 item 9 — never a missable one-morning prompt). Entries
+    rebuild each pass because the war changes shape mid-morning;
+    'Open for service' stays last, and nothing destructive ever is."""
+    while True:
+        entries: list = [
+            ("Market board (prices you actually know)", "market"),
+            ("Kitchen policy (quality / menu prices)", "kitchen"),
+            ("Buy ingredients", "buy"),
+            ("Buy from today's supplier" if supplier
+             else "No supplier today", "supplier"),
+            ("Staff (hire, read in, raises)", "staff"),
+            ("Improvements & warehouse", "improve"),
+            ("Plan tonight's route", "route"),
+            ("Plan a night job (raid)", "raid"),
+            ("The war board", "board"),
+        ]
+        next_front = _second_front(state)
+        if next_front:
+            entries.append(
+                (f"Name the next war — "
+                 f"{data.RIVALS[next_front]['label']} still stands",
+                 "declare"))
+        if war.salvage_ready(state) is not None \
+                and plans.get("salvage") is None:
+            entries.append(("Send the wagon for the salvage", "salvage"))
+        entries.append(("Open for service →", "open"))
+        key = entries[con.menu("Morning at the shop:",
+                               [label for label, _k in entries])][1]
+        if key == "market":
+            _market_board(state, con)
+        elif key == "kitchen":
+            _kitchen_policy(state, con, plans)
+        elif key == "buy":
+            _buy_ingredients(state, con)
+        elif key == "supplier" and supplier:
+            supplier = _buy_supplier(state, supplier, con)
+        elif key == "staff":
+            _staff_menu(state, con, streams.staff)
+        elif key == "improve":
+            _improvements(state, con)
+        elif key == "route":
+            if plans.get("salvage"):
+                con.say("  The wagon is spoken for tonight — the pickup "
+                        "has it.")
+                continue
+            reserved = plans["raid"]["team"] if plans.get("raid") else []
+            plans["route"] = routes.plan_route(state, con, streams.routes,
+                                               reserved=reserved)
+        elif key == "raid":
+            route = plans.get("route")
+            reserved = [route["driver"]] if route else []
+            if route and route["ride_along"]:
+                con.say("  You'll be in the wagon tonight — the crew goes "
+                        "without you, and without your nerve.")
+            plans["raid"] = raids.plan_raid(
+                state, con, streams.raids, reserved=reserved,
+                wagon_free=route is None and plans.get("salvage") is None)
+        elif key == "board":
+            war.board(state, con)
+        elif key == "declare" and next_front:
+            c = con.menu(
+                f"Take the war to {data.RIVALS[next_front]['short']}? "
+                f"Their relation locks at vendetta — no truce, ever.",
+                ["Declare — the second front opens this morning",
+                 "Not yet — one war at a time is expensive enough"])
+            if c == 0:
+                war.declare(state, next_front, con)
+        elif key == "salvage":
+            plans["salvage"] = war.plan_salvage(
+                state, con, route_planned=plans.get("route") is not None)
+        else:
+            break
+
+
+def _second_front(state: State) -> str | None:
+    """The standing second-declaration offer: no live campaign, one
+    rival still standing and undeclared-upon."""
+    if models.live_campaign(state) is not None:
+        return None
+    for k, r in state.rivals.items():
+        if r.alive and war.campaign_for(state, k) is None:
+            return k
+    return None
 
 
 def _disposal_menu(state: State, con: Console, streams: Streams,
@@ -523,6 +621,10 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
             con.bullet(line)
         if r["cash"]:
             con.say(f"  Route take: {money(r['cash'])} dirty, {r['sold']} units moved.")
+    if plans.get("salvage") and not state.game_over:
+        # The capture pickup rolls with the wagon at service — the
+        # reserved war stream's one draw per pickup (rev. 14 item 6).
+        war.run_salvage(state, plans["salvage"], con, streams.war)
     if state.branch == "quiet_sale":
         # The buyer's man walks the shop every diligence afternoon.
         escrow.walkthrough(state, con, streams)
@@ -591,6 +693,14 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         state.shop.coupon_days -= 1
 
     raid_plan = plans.get("raid")
+    if raid_plan and not state.rivals[raid_plan["rival"]].alive:
+        # Rev. 14 item 9: the service route may have broken the target
+        # after the job was planned — corners can finish a war before
+        # the crowbars leave the shop.
+        con.say(f"  The night job is scrubbed — "
+                f"{data.RIVALS[raid_plan['rival']]['short']}'s "
+                f"organization broke before the crew left the kitchen.")
+        raid_plan = None
     if raid_plan:
         # The day happened between planning and doing: anyone arrested,
         # injured or gone since morning is off the job.
@@ -613,11 +723,28 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
 
     for key, rival in state.rivals.items():
         if rival.alive and rival.raid_warning == 1:
-            landed = raids.incoming_raid(state, key, con, streams.raids)
-            if landed and state.branch == "quiet_sale" \
+            result = raids.incoming_raid(state, key, con, streams.raids)
+            # Escrow's truth table is the merged one: any raid that
+            # arrives — fought off or not — is an incident.
+            if result.outcome != "averted" and state.branch == "quiet_sale" \
                     and not state.game_over:
                 escrow.record_incident(state, con, streams,
                                        "a rival raid landing mid-diligence")
+            if state.branch == "war" and result.landed \
+                    and result.damage_before > 0 and not state.game_over:
+                # Burned Out (§2.5 precedence 2, rev. 14 item 6): a
+                # raid LANDING on a shop already damaged BEFORE impact
+                # destroys it. The arrest latch, checked at accrual
+                # inside the raid itself, has already had its chance —
+                # precedence 1 wins a shared night.
+                # Like the arrest latch, the terminal is set where it
+                # happens and the night runs itself out — the run loop
+                # reads it after close.
+                state.game_over = "burned_out"
+                con.say("")
+                con.say("  The fire crews give up on the kitchen by "
+                        "three. The war came home, and the shop that "
+                        "was the point of everything is gone.")
 
     payroll_short = _payroll_and_rent(state, con)
 
@@ -695,6 +822,8 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     # before the world's dice.
     if state.branch == "straight" and not state.game_over:
         straight.night_tick(state, con, payroll_short)
+    elif state.branch == "war" and not state.game_over:
+        war.night_obligation(state, con, payroll_short)
 
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))
