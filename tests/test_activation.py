@@ -1,8 +1,9 @@
-"""The joint activation (§7, on the P2 merge approval): the released
-branch set has one canonical home, the CLI flag consumes it, and
-exactly the Straight Path and the Quiet Sale become actionable — the
-unbuilt chairs still render with their true verdicts and refuse with
-the development-build marker."""
+"""The released-set activations (§7): the released branch set has one
+canonical home, the CLI flag consumes it, and exactly the released
+chairs are actionable — the Straight Path and the Quiet Sale together
+on the P2 merge approval, the Harbor War on the P3 merge disposition.
+The one unbuilt chair (Carmine's Partner) still renders with its true
+verdict and refuses with the development-build marker."""
 
 import os
 import unittest
@@ -45,7 +46,7 @@ def at_the_table():
 class TestTheReleasedSet(unittest.TestCase):
     def test_one_canonical_home(self):
         self.assertEqual(RELEASED_BRANCHES,
-                         frozenset({"straight", "quiet_sale"}))
+                         frozenset({"straight", "quiet_sale", "war"}))
         self.assertTrue(RELEASED_BRANCHES <= ACTIVE_BRANCHES)
 
     def test_the_cli_flag_consumes_it(self):
@@ -63,7 +64,7 @@ class TestTheReleasedSet(unittest.TestCase):
         self.assertEqual(config.enabled_branches, frozenset())
 
 
-class TestExactlyTwoChairsAreActionable(unittest.TestCase):
+class TestExactlyTheReleasedChairsAreActionable(unittest.TestCase):
     def _config(self):
         with mock.patch.dict(os.environ, {"EXTRA_TOPPINGS_FORK": "1"}):
             return _config_from_env()
@@ -80,15 +81,22 @@ class TestExactlyTwoChairsAreActionable(unittest.TestCase):
         self.assertEqual(state.branch, "quiet_sale")
         self.assertEqual(state.act, 2)
 
-    def test_partner_and_war_still_carry_the_dev_build_marker(self):
-        for chair_index in (1, 2):        # partner, war
-            state = at_the_table()
-            con = CaptureConsole([chair_index, 4, 1])   # refuse, stand pat
-            sitdown.run_scene(state, con, self._config())
-            self.assertIsNotNone(con.find("development build"),
-                                 msg=f"chair {chair_index}")
-            self.assertIsNone(con.find("That chair is empty"))
-            self.assertEqual(state.branch, "stand_pat")
+    def test_the_harbor_war_commits(self):
+        state = at_the_table()
+        # Chair, name the first live rival (0 reconsiders), declare.
+        sitdown.run_scene(state, CaptureConsole([2, 1, 1]), self._config())
+        self.assertEqual(state.branch, "war")
+        self.assertEqual(state.act, 2)
+        self.assertEqual(state.branch_state.campaigns[0].rival_key,
+                         [k for k, r in state.rivals.items() if r.alive][0])
+
+    def test_partner_still_carries_the_dev_build_marker(self):
+        state = at_the_table()
+        con = CaptureConsole([1, 4, 1])   # partner, refuse, stand pat
+        sitdown.run_scene(state, con, self._config())
+        self.assertIsNotNone(con.find("development build"))
+        self.assertIsNone(con.find("That chair is empty"))
+        self.assertEqual(state.branch, "stand_pat")
 
 
 if __name__ == "__main__":

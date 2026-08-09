@@ -446,12 +446,14 @@ class BranchState:
 # this one definition — nothing else may spell a branch id.
 BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
 ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
-# THE released set (§7: the fork reaches players once two active
-# branches exist — lifted together on the P2 merge approval). The CLI
-# flag consumes this; development builds may still enable other chairs
-# explicitly through GameConfig. Growing this set is each later
-# phase's own reviewed activation step.
-RELEASED_BRANCHES = frozenset({"straight", "quiet_sale"})
+# THE released set (§7): the Straight Path and the Quiet Sale lifted
+# together on the P2 merge approval; the Harbor War joined on the P3
+# merge disposition ("keep activation as a separate, minimal
+# post-merge change" — design rev. 15 item c). The CLI flag consumes
+# this; development builds may still enable other chairs explicitly
+# through GameConfig. Growing this set is each later phase's own
+# reviewed activation step.
+RELEASED_BRANCHES = frozenset({"straight", "quiet_sale", "war"})
 if not RELEASED_BRANCHES <= ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("RELEASED_BRANCHES out of step with BRANCH_ORDER")
 
