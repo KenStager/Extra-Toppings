@@ -987,20 +987,116 @@ stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11, 3.12
 and 3.13 with all P2 code in the tree — the branch and its machinery
 are provably inert unless entered.
 
+### Round 9 correction (review — design rev. 10)
+
+Review reproduced every round-9 number, accepted the branch's identity
+and the randomness ownership, ruled on all four flagged questions —
+and found two correctness defects and three design gaps; all corrected
+at the root, recorded as design revision 10 before implementation.
+
+- **The dormancy cache could lie at the worst moment.** The stored
+  `Evidence.dormant` flag was reconciled nightly BEFORE the rival and
+  law phases; the reviewer's repro — a protected 20-point record over
+  30 physical, morale 5 → 4 after the reconciliation — read Case 40
+  and graded `straight_exit` where the true file reads 50 and grades
+  `almost_out`. Doctored saves could plant dormant records with
+  nonexistent, departed or demoralized sources. The flag is GONE:
+  retention protection is derived from the live roster inside one
+  context-aware fold (`fold_case(evidence, dormant_sources)`, the set
+  computed by `State.case` at every read), with halvings allocated in
+  ledger order inside raw-total-minus-floor — so derived relief can
+  never display the sum below the floor at all, and no phase ordering
+  can stale it. The repro is pinned both ways, with the poach variant;
+  `validate_cross_state` now binds ledger, roster, settlements and
+  branch state as one payload (phantom witness sources, settlements
+  naming nobody, and settlements naming the never-read-in are all
+  refused).
+- **The promised ledger is now visible.** One `EvidenceLedgerView`
+  itemizes every record — kind, base and effective magnitude, source
+  name, disposition, contest status — plus the meter (same fold, same
+  context: identity by construction), the 25-point budget spent and
+  left, the floor, and counsel's next target. "The case file
+  (counsel's docket)" renders it from the branch morning menu; the
+  renderer infers no rules. `models.remediation_disposition` is the
+  one answer to what may touch a record; queue, verbs, docket and
+  validation all consume it.
+- **Settlements state both outcomes on every path.** The review's
+  Marcus exhibit (cap spent, $360 paid, "what they know goes quiet
+  for good", file unmoved) is pinned: the relational outcome and the
+  evidentiary outcome are separate sentences — applied, truncated at
+  the cap, cap-exhausted ("the engagement is settled; the evidence is
+  not"), floor-bound, locked-in-free, or nothing-in-the-file.
+- **The informant's tip is paper** (an intelligence report, not
+  testimony — §2.3 amended) and counsel can argue it; the patrolman
+  and the watchers stay witness records with external provenance,
+  labeled immune in the docket. In round-9's 500-seed runs the tip
+  was the dominant post-fork source-less accrual (286 records, 1,144
+  points in typical entries) — reclassification moves it into
+  counsel's reach, which shows up directly in the natural cohort's
+  paired numbers below.
+- **The burned book stays burned.** Route presentation is centralized
+  and branch-aware (`routes._route_voice`): a disposal run speaks of
+  cold buyers and one-use clearance contacts, never "coded orders on
+  the board." Grammar, dice and option lists untouched; both voices
+  pinned.
+
+**The corrected gate (rev. 10 item 8: two cohorts, no constants moved,
+no bar conditioned after the fact), 150 seeds, `--seeds 500` in
+parentheses:**
+
+| Cohort / row | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Natural: reachability | ≥ 55% | 57% (56%) | pass |
+| Natural: earned-exit band | 25–70% | 48% (43%) | pass |
+| Natural: covert share after fork+2 | < 5% | 0.0% (0.0%) | pass |
+| Natural: paired — remediation leaves the file lower | ≥ 60% | 55/85 = 65% (172/280 = 61%) | pass |
+| Natural: ledger + floor oracles, nightly | 0 bad | 0 (0) | pass |
+| Redemption: median ΔCase fork→end | ≤ −5 | **−10.0** (−10.0) | **pass** |
+| Redemption: Case strictly below entry | ≥ 60% | 148/150 = **99%** (497/500 = 99%) | **pass** |
+| Redemption: ablation drop | ≥ 20 pts | **80** (76) | **pass** |
+| Crash-freedom (both chaos fleets) | all | 300/300 (1000/1000) | pass |
+| Quiet Sale battery (all P2 code in tree) | round-8 rows | identical | pass |
+
+The redemption cohort is the frozen §3.1 reference entry (Case 31: an
+immune seizure, the routine hum, a flagged over-ceiling record, the
+informant's tip, and Marcus departed knowing everything), a
+harness-owned predeclared literal entered through the real scene
+across world seeds — `game.run` gained an injectable starting state so
+the cohort runs the one real loop, not a drifted copy. Its earned-exit
+rate reads 80% (76%) — above the 25–70 band, which per the ruling
+binds the natural cohort; reported, not judged, and the reference
+state was built to be redeemable. The natural cohort's absolute ΔCase
+medians remain positive (+3.1 / +3.5) with the full decomposition
+still printed — that is the cold-entry population the ruling
+deliberately measures by the paired bar instead. The dirty-month
+ecological confirmation moved with the taxonomy fix: lockup ≥ 20
+entries now run median ΔCase −4.9 (−4.5) with 21/25 (73/92) strictly
+below, ablation 17 (14) points.
+
+Two notes for the re-review, flagged not judged: the natural paired
+bar sits close to its floor at 500 seeds (61% against ≥ 60%), and the
+redemption cohort has no band bar of its own — if review wants one,
+it lands as a criterion amendment, not a tuning pass.
+
+After the correction: 316 tests green on 3.11 and 3.12 (11 new);
+ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11, 3.12 and 3.13; the escrow
+ensembles reproduce round 8 to the digit at 150 and 500 seeds. The
+Quiet Sale's flag remains down pending the re-review's explicit word.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0 and P1 are complete and merged
   (P0 foundation + telegraphs, rounds 6–7; P1a fork skeleton + P1b
   Quiet Sale, round 8 with corrections 1–6). **P2 — the Straight Path
-  — is implemented and measured (round 9)**: the earned-exit band,
-  covert-share collapse, crash-freedom and both nightly oracles pass;
-  the negative-ΔCase bars and the remediation ablation miss for the
-  structural reason decomposed above, and the question — condition the
-  bar, re-base the baseline, or strengthen the constants — is with
-  review, alongside the source-less-witness taxonomy question (§8 P2
-  notes). **The Quiet Sale's flag has NOT lifted**: §7 ties it to this
-  gate passing, and it has not passed. P3 (the Harbor War) waits on
-  the ruling.
+  — is implemented, measured (round 9), corrected under review
+  (rev. 10), and its two-cohort gate now passes** — natural-entry
+  rows green with the paired ≥ 60% bar, redemption cohort green on
+  the original letter (ΔCase −10.0 median, 99% strictly below,
+  76–80-point ablation). Awaiting the re-review's verdict on the
+  correction pass; **the Quiet Sale's flag has NOT lifted and no PR
+  is open** — both wait for the reviewer's explicit word, per the
+  disposition. P3 (the Harbor War) stays paused until then.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds

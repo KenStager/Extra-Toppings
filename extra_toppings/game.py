@@ -23,14 +23,18 @@ Keep the food good. Keep the books believable. Keep the rivals afraid.
 
 
 def run(seed: int | None, con: Console, max_days: int | None = None,
-        on_night=None, config: GameConfig | None = None) -> State:
+        on_night=None, config: GameConfig | None = None,
+        state: State | None = None) -> State:
     """`on_night(state, streams)` is an observation hook for the analysis
     harness — called after each completed day, it must not mutate.
     `config` is the immutable engine configuration; None means the
-    defaults (fork off)."""
+    defaults (fork off). `state` lets the harness inject a prepared
+    starting state (the rev. 10 redemption cohort runs a frozen
+    reference entry through this one loop rather than a drifted copy);
+    None — every ordinary caller — starts a fresh game."""
     config = config if config is not None else GameConfig()
     streams = Streams(seed)
-    state = new_state()
+    state = new_state() if state is None else state
     con.say(INTRO)
     con.pause()
 

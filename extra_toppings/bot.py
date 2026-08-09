@@ -258,7 +258,11 @@ class MarketBot(StrategyBot):
     # ── perception: everything comes in through say() ────────────
     def say(self, text: str = "") -> None:
         if "— MORNING" in text:
-            self.day += 1
+            # The calendar day, read off the header — identical to the
+            # old increment on any full run, and correct on harness
+            # runs that start mid-calendar (rev. 10 cohorts).
+            m0 = re.search(r"DAY (\d+) of", text)
+            self.day = int(m0.group(1)) if m0 else self.day + 1
             self._done_today = set()
             if self.signal_days > 0:
                 self.signal_days -= 1

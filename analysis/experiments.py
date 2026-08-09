@@ -419,6 +419,51 @@ def _display_case(state) -> float:
     return max(0.0, min(100.0, display))
 
 
+def _redemption_state():
+    """THE frozen redemption reference entry (rev. 10 item 8): a
+    §3.1-shaped month standing at the sit-down morning with Case 31 —
+    an immune seizure, the routine hum, a flagged over-ceiling record,
+    the informant's tip, and Marcus departed knowing everything,
+    hostile until settled. A harness-owned, predeclared literal (like
+    the frozen scene schema): the redemption cohort runs THIS entry
+    across world seeds, so the original ΔCase bars test what they
+    always meant — whether a file with something to redeem actually
+    falls."""
+    from extra_toppings.models import Evidence, SitdownSnapshot, new_state
+    state = new_state()
+    state.debt = 0
+    state.debt_paid_day = 13
+    state.day = 14
+    state.clean = 2500
+    state.dirty = 1200
+    state.shop.reputation = 40.0
+    state.shop.ingredients = 40
+    state.shop_stash = {"oregano": 8, "mushrooms": 6}
+    marcus = next(e for e in state.employees if e.key == "e3")
+    marcus.aware = True
+    marcus.hired = False
+    marcus.morale = 3
+    state.evidence = [
+        Evidence(day=5, magnitude=10.0, kind="physical",
+                 why="product seized in a traffic stop"),
+        *[Evidence(day=7, magnitude=0.5, kind="paper", why="")
+          for _ in range(6)],
+        Evidence(day=9, magnitude=8.0, kind="paper",
+                 why="the register claimed $3,000 beyond any plausible "
+                     "night's sales"),
+        Evidence(day=10, magnitude=4.0, kind="paper",
+                 why="an informant's tip put your shop in a file"),
+        Evidence(day=11, magnitude=6.0, kind="witness",
+                 why="Marcus Webb walked out knowing everything",
+                 source="e3"),
+    ]
+    # 10 + 3 + 8 + 4 + 6 = 31, the §3.1 number.
+    state.sitdown_snapshot = SitdownSnapshot(
+        payoff_day=13, case_at_lockup=31.0,
+        evidence_count_at_lockup=len(state.evidence))
+    return state
+
+
 def _fork_straight(seeds: int) -> None:
     """P2 acceptance rows (§2.7 criterion 4 straight rows + criterion
     5): covert-share collapse, the first falling Case, the earned-exit
@@ -443,7 +488,7 @@ def _fork_straight(seeds: int) -> None:
           f"{seeds - crashes}/{seeds} runs")
 
     # ── criteria 4 and 5: the branch bots ────────────────────────
-    def straight_run(bot_cls, seed):
+    def straight_run(bot_cls, seed, state_factory=None):
         bot = bot_cls(random.Random(seed))
         nights = []
         ledger_bad = floor_bad = 0
@@ -462,7 +507,8 @@ def _fork_straight(seeds: int) -> None:
             nights.append({"day": state.day - 1,
                            "legit": state.legit_revenue_today})
 
-        s = run(seed, bot, config=straight_on, on_night=on_night)
+        s = run(seed, bot, config=straight_on, on_night=on_night,
+                state=state_factory() if state_factory else None)
         entered = getattr(bot, "_entered_straight", False) \
             or s.branch == "straight"
         if not entered:
@@ -485,7 +531,7 @@ def _fork_straight(seeds: int) -> None:
                 "covert": covert, "legit": legit,
                 "ledger_bad": ledger_bad, "floor_bad": floor_bad}
 
-    def straight_rows(pairs, label_suffix=""):
+    def straight_rows(pairs, label_suffix="", state_factory=None):
         rates = {}
         per_seed = {}
         for name, cls in pairs:
@@ -497,7 +543,7 @@ def _fork_straight(seeds: int) -> None:
             ledger_bad = floor_bad = 0
             per_seed[name] = {}
             for seed in range(seeds):
-                r = straight_run(cls, seed)
+                r = straight_run(cls, seed, state_factory)
                 per_seed[name][seed] = r
                 if not r["entered"]:
                     continue
@@ -545,14 +591,17 @@ def _fork_straight(seeds: int) -> None:
                   f"nights (bar 0)")
         return rates, per_seed
 
+    print("— natural-entry cohort (the unmodified smart-bot baseline, "
+          "rev. 10 item 8) —")
     rates, per_seed = straight_rows((("straight", StraightBot),
                                      ("no-remediation", NoRemediationBot)))
-    print(f"ablation drop: straight {rates['straight']:.0%} → "
-          f"no-remediation {rates['no-remediation']:.0%} "
+    print(f"natural ablation (reported, not a bar in this cohort): "
+          f"straight {rates['straight']:.0%} → no-remediation "
+          f"{rates['no-remediation']:.0%} "
           f"({(rates['straight'] - rates['no-remediation']) * 100:.0f} "
-          f"points; bar ≥ 20)")
-    # The falling-Case claim as a matched-seed difference: the same
-    # month, remediated vs not — reported alongside the absolute bar.
+          f"points)")
+    # The natural cohort's paired bar (rev. 10): the same month,
+    # remediated vs not, seed by seed.
     matched = [s for s in range(seeds)
                if per_seed["straight"][s]["entered"]
                and per_seed["no-remediation"][s]["entered"]]
@@ -561,11 +610,23 @@ def _fork_straight(seeds: int) -> None:
                  - per_seed["no-remediation"][s]["delta_case"]
                  for s in matched]
         helped = sum(1 for d in diffs if d < 0)
-        print(f"matched counterfactual: {len(matched)} paired entries; "
+        print(f"natural paired bar: remediation left the file lower in "
+              f"{helped}/{len(matched)} matched entries "
+              f"({helped / len(matched):.0%}; bar ≥ 60%); "
               f"remediated-minus-unremediated ΔCase median "
-              f"{statistics.median(diffs):+.1f}; remediation left the "
-              f"file lower in {helped}/{len(matched)} "
-              f"({helped / len(matched):.0%}) — diagnostic, not a bar")
+              f"{statistics.median(diffs):+.1f}")
+
+    # ── the redemption cohort (rev. 10 item 8) ───────────────────
+    print("— redemption cohort (the frozen §3.1 reference entry, "
+          "Case 31, across world seeds; the original bars bind here) —")
+    red_rates, red_seed = straight_rows(
+        (("redemption", StraightBot),
+         ("redemption-no-remediation", NoRemediationBot)),
+        state_factory=_redemption_state)
+    print(f"redemption ablation drop: "
+          f"{red_rates['redemption']:.0%} → "
+          f"{red_rates['redemption-no-remediation']:.0%} "
+          f"({(red_rates['redemption'] - red_rates['redemption-no-remediation']) * 100:.0f} points; bar ≥ 20)")
 
     # ── diagnostic: the same branch policy over a dirty month ────
     # The §3.1 vignette enters the fork at Case 31; the market bot's
