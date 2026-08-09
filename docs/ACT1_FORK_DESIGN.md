@@ -3122,3 +3122,322 @@ mechanics, no features.
 
 After the pass: the unchanged gates and the batteries rerun; the
 chair stays unreleased; the head returns for a short final review.
+
+**Revision 21** records the P4 scope (Carmine's Partner — the last
+unbuilt chair), made on paper before implementation, on the P3
+precedent: the §2.4.2 and §3.2 letters plus the §2.7 partner letters
+are the spec; everywhere they are silent the resolution below is
+PROPOSED and flagged, and rulings land before mechanics harden.
+Constants are §6.3 placeholders throughout: structure is the
+decision, numbers are tuning, and any §2.7 miss is reported with its
+decomposition, never tuned away. This revision is paper only — no
+implementation accompanies it, and §7's P4 bullet is amended only
+once item 2's split is ruled.
+
+1. **Randomness — the reserved-streams question, flagged first
+   (rev. 9 item 1 / rev. 13 item 1 precedent).** The stream tuple IS
+   the save schema (`rng.PERSISTENT`, today eight names: `routes`,
+   `rivals`, `raids`, `staff`, `sitdown`, `brokers`, `war`,
+   `straight`), and **there is no reserved `partner` stream** — the
+   fork's reservation predates this branch. Proposal: P4 claims NO
+   new persistent stream. The branch's dice are of two kinds and both
+   have zero-cost homes. (a) *Shop 2's honest trade* is a world fact
+   with nobody at the table, so it rides a derived channel exactly as
+   the market and demand rolls do — see item 3, where the proposal is
+   that it draws no new dice at all. (b) *Site selection, build-out
+   and the points clock are deterministic by the letter* — §2.4.2
+   states construction is deterministic ("the capital is escrowed
+   with Carmine's own contractor"), the points cadence is a calendar,
+   and the site is a choice. If the implementation finds it wants a
+   genuinely new player-facing die, it goes back on paper first, and
+   the honest options are named now: grow `PERSISTENT` by one
+   (forward-compatible — `Streams.from_dict` already keeps a missing
+   stream's fresh seed-derived state, rng.py:48–57) or claim
+   `sitdown`, the one reserved persistent stream still provably
+   undrawn everywhere. **Flagged:** claiming `sitdown` would retire
+   the equivalence harness's cleanest undrawn-stream assertion, so
+   the recommendation is to grow the tuple if a die is ever needed,
+   and to need none.
+2. **The multi-shop foundation is its own reviewable PR, and it is a
+   refactor of the FLAG-OFF path — a first for this arc.** Every
+   prior phase added code provably inert unless entered; P4's
+   foundation edits `shop.py`, whose six functions run on every
+   flag-off night. Proposal: split P4 the way rev. 5 split P1.
+   *P4a — the foundation, zero player-visible change:* `shop.py`'s
+   functions take a `Shop` (today not one of the six does —
+   `stock_pantry` shop.py:27, `recompute_demand` shop.py:48,
+   `simulate_shift` shop.py:74, `believable_ceiling` shop.py:119 all
+   re-derive `state.shop`, and `recompute_demand` shop.py:49 plus
+   `simulate_shift` shop.py:107,109 additionally hardcode
+   `data.HOME_DISTRICT`); `cooks_skill` (shop.py:14) becomes
+   per-shop; rent, payroll and staff assignment learn the collection
+   (items 6–7). *P4b — the branch itself:* site selection, the
+   capital, the points clock, shop 2, endings, bots, study, FINDINGS.
+   **The P4a bar, stated honestly:** the regression-pin doctrine
+   cannot prove pre-fix failure for a pure refactor — there is no bug
+   to fail on. The proof is instead identity: bit-identical by
+   construction (preserved operation order, unchanged arithmetic),
+   both gates 300/300 on 3.11 and 3.12, AND all three merged branch
+   batteries byte-identical at 150 and 500 seeds. If P4a moves one
+   study digit, the refactor is wrong and is reworked, not accepted
+   with a note.
+3. **The order book is already shop-local; the seam is the alias
+   layer, and it should fail loudly rather than mean DiNapoli's.**
+   The P0 investment paid off exactly as §5 item 2 promised: `Shop`
+   already owns `district`, `stash`, `demand_today`, `delivery_pool`
+   and `legit_revenue_today` (models.py:1457–1473), and `save.py`
+   round-trips the collection in both directions (37–38, 105–109).
+   What remains is a five-property alias layer on `State` —
+   `shop`, `shop_stash`, `demand_today`, `delivery_pool`,
+   `legit_revenue_today`, all hard-indexing `shops[0]`
+   (models.py:1524–1558) — through which roughly ninety call sites
+   funnel. Proposal: P4a does NOT silently leave them meaning "shop
+   0". Each alias gains a guard that RAISES once `len(state.shops)
+   > 1`, so any un-migrated site is found by a test rather than by a
+   player quietly banking shop 2's takings in shop 1's till; the
+   aliases are then retired as their callers are migrated. This is
+   the codebase's own idiom — validation refuses, never repairs, and
+   sitdown.py:396 already prefers a loud `NotImplementedError` to a
+   quiet wrong answer. **Flagged:** the alternative (retire all five
+   in one act) is a far larger single diff with no intermediate
+   green; the guard is proposed because it makes the migration
+   incremental AND provably complete.
+4. **One city, one day's weather: the demand shock stays global.**
+   `state.demand_shock` is a single float rolled once each morning
+   (models.py:1514, `shop.roll_demand` shop.py:40). Proposal: it
+   STAYS one roll for the city; each shop's order book is then
+   deterministic in its own district traffic, reputation, price,
+   upgrades and coupon state (`recompute_demand`'s existing factors),
+   times that shared shock. This draws no new dice (item 1), changes
+   no save field, and is defensible in fiction — one day's weather
+   over one city. **Flagged:** the alternative (a per-shop shock)
+   would need a derived channel per address and would make the two
+   shops' luck independent; it is a fiction question as much as a
+   mechanical one, and the reviewer owns it.
+5. **THE BLOCKER, flagged loudest: two wagons collide with a merged
+   validator, and this is not a tuning question.** §2.4.2 buys "a
+   used second wagon" and §3.2's D17 shows a two-route morning. But
+   `validate_execution_history` (models.py:914–941) enforces
+   **strictly increasing days** on `route_log` and `raid_log` — "one
+   job a night" — and refuses the payload at save-load otherwise
+   (models.py:936–940). Two routes on one calendar day therefore do
+   not merely need a second wagon; they make every save in the
+   branch un-loadable, and that validator is what the war's damage
+   reconciliation stands on (rev. 20 item 2). Proposal, which is
+   exactly D17's letter: the branch runs **two wagons but at most ONE
+   covert route per night** — the second wagon runs cover-only
+   (pizzas, no cargo), producing legit revenue and delivery cover for
+   its address and writing no `RouteExecutionRecord`. The
+   one-covert-route-a-night rule, the record's keying and the war's
+   reconciliation all stand untouched. **Flagged with its
+   consequence stated:** if the reviewer wants D18's read-in second
+   driver to buy a genuinely simultaneous second covert run, then
+   `RouteExecutionRecord` must key by (day, wagon-or-shop) instead of
+   day alone, `validate_execution_history`'s chronology clause must
+   widen, and the war's by-(rival, day) reconciliation must be
+   re-derived — a change to merged, gate-protected code that belongs
+   in its own recorded act, not smuggled into P4b. The wagon itself
+   is likewise a new concept, not a bigger number: there is no wagon
+   object today, only `data.VEHICLE_CARGO = 24` and
+   `RouteManifest.capacity` (routes.py:26–28), plus the
+   one-job-a-night authorities `phases.wagon_job`/`wagon_used`
+   (phases.py:39–58).
+6. **Staff is the branch's binding constraint, and it needs the one
+   field it lacks.** `Employee` (models.py:8–41) has no location:
+   assignment today is transient, expressed only through the nightly
+   `plans` dict and read by the single authority
+   `phases.night_reserved` (phases.py:22–36). Proposal: employees
+   gain one persisted assignment (the shop they work), defaulted to
+   the home shop so every Act I payload is unchanged; "one person,
+   one job" then means one assignment plus the existing nightly
+   reservation, not a second scheduling system. Shop 2 requires a
+   named **manager** — an aware employee, per §2.4.2, whose loyalty
+   becomes load-bearing — persisted in `BranchState` and validated
+   against the live roster (item 12). `cooks_skill` (shop.py:14–16),
+   which today maxes over every hired cook in the game, becomes
+   per-shop: a shop with no cook assigned bakes at the floor, which
+   is what makes "the roster does not double" bite. Familiarity needs
+   nothing — it is already a per-district dict (models.py:26), so it
+   resets in the new district for free, exactly as §2.4.2 says.
+7. **Rent and payroll learn to count addresses.** `_payroll_and_rent`
+   (phases.py:972–991) charges `wages + data.RENT_PER_DAY` — a
+   single flat 80 (data.py:276) that is NOT multiplied by
+   `len(state.shops)`, and `Shop` carries no rent field. Proposal:
+   rent becomes per-open-shop at the same constant (double rent =
+   two addresses × 80), keeping one canonical home and never
+   respelling it; payroll is already roster-wide and needs no change
+   beyond the assignment of item 6. **Flagged:** whether shop 2's
+   rent should scale with its district (University Hill costing more
+   than The Meadows) is a §6.3 constants question the letter does not
+   raise; the proposal is a flat second rent for v1, and district
+   scaling is deferred, not designed. Partner must also adopt the
+   shared insolvency contract — `"insolvent_days"` joins
+   `_BRANCH_FIELDS["partner"]` and the branch narrates
+   `models.insolvency_tick` in its own voice, the one-line adoption
+   `quiet_sale` already made.
+8. **Two ceilings, one dirty pile: the believable ceiling sums.**
+   `shop.believable_ceiling(state, todays_legit)` (shop.py:117–120)
+   is the closest thing to already-parameterized — it takes the legit
+   figure as an argument and reads only `state.shop.upgrades` for the
+   `books` bonus — and it has exactly one production caller
+   (phases.py:875). Proposal: the nightly allowance becomes the SUM
+   of each open shop's ceiling, computed from that shop's own
+   `legit_revenue_today` and its own upgrades (so `books` is bought
+   per address and helps only the address that has it). Laundering
+   itself stays one action on one dirty pile — §2.4.2's "two
+   believable-revenue ceilings help launder" is thereby arithmetic
+   rather than prose, and the branch's trap survives: the ceiling
+   grows only as fast as the second shop's HONEST trade does.
+9. **The capital, its denomination, and the site.** $20,000 fronted,
+   itemized per §2.4.2 (build-out $9k, permits $1.5k, wagon $2.5k,
+   float $3k, reserve $4k) — one canonical breakdown constant, and
+   the ledger is shown, because §2.4.2's numbers are illustrative and
+   the player is owed the arithmetic (invariant 8). **Flagged: the
+   letter never says which money Carmine's $20k IS.** Proposal: it
+   arrives CLEAN — permits are paperwork and §2.4.2 assigns clean
+   money to permits, build-out and double payroll — while the points
+   go back dirty-first (item 10). That asymmetry IS the branch's
+   trap, stated mechanically: his clean money in, your dirty money
+   out, and only crime produces the dirty. Site selection is the
+   branch's first screen: any district but Old Harbor, opening on a
+   rival's turf costing a steep relation hit through the
+   `adjust_relation` authority (never a scattered `relation +=`), and
+   the safe pick remaining a real choice per §6.5.
+10. **The points clock is an obligation, and it gets a state
+    machine.** One canonical home for each constant
+    (`POINTS_PER_CYCLE = 2500`, `POINTS_CYCLE_DAYS = 5`,
+    `POINTS_VIG = 500` — §6.3 placeholders, §6.6 adopted), never
+    respelled by the card, the ledger or the epilogue. The payment
+    follows the paid-loyalty shape the codebase already uses five times:
+    compute what is due, resolve affordability BEFORE any mutation,
+    narrate the refusal rather than fail silently, persist the
+    outcome, validate it. Dirty-first, like war pay and tribute
+    (§2.4.2's "unmarked bills preferred"). The machine: current →
+    one missed (a warning, and `POINTS_VIG` added to the next) → two
+    missed, consecutive or not → **Foreclosure, that night**. Early
+    payoff (≤ day 10) defers the first cycle by one, his compliment.
+    Proposal: refusing to pay is not a menu option — the refusal IS
+    the missed payment, exactly as a short payroll already works
+    (phases.py:986–991). Since a fourth dirty-first site now exists,
+    P4 is the moment to hoist the idiom into one authority rather
+    than inline it a fourth time (compare `apply_rival_damage` and
+    `adjust_relation`); flagged as a small refactor of merged code,
+    to be ruled.
+11. **Heat's per-address teeth — §2.6's second instalment, on the
+    rev. 13 item 8 precedent.** `models.district_heat_policy`
+    (models.py:324–337) is gated `if state.branch != "war"`, so the
+    teeth are provably inert in every other branch and flag-off.
+    Proposal: partner adopts the SAME teeth at the SAME constants by
+    widening that gate to the branch — no retuning, no new meter.
+    Per-address heat then costs nothing to build: each shop already
+    carries its district, and district heat already exists, so "each
+    shop's district heat gates that shop's covert usefulness"
+    (§2.4.2) falls out of the existing meters exactly as §2.6 asked.
+    **Explicitly NOT touched:** whether heat should be
+    campaign-load-bearing rather than a local route tax remains the
+    open §6.3 constants question; P4 neither answers it nor tunes
+    toward it, and the partner rows will be reported at the current
+    constants whatever they say.
+12. **The always-open invariant is tested, not checked.** §2.4.2
+    declares that once funded the second shop opens and stays open —
+    construction deterministic, raid damage limping but never
+    shuttering, no partner event able to un-open an address, the only
+    losses being Foreclosure and arrest, both of which end the run.
+    Proposal: this binds in `validate_cross_state` (models.py:884)
+    as a payload invariant — a funded partner state with fewer than
+    two shops is refused, as is a second shop outside the branch, a
+    site district equal to `HOME_DISTRICT`, or a manager who is not
+    an aware, hired employee — and the day-30 matrix therefore
+    reduces to the points ledger alone, exactly as §2.5 says. A
+    third day-30 state cannot exist, and the validator is what makes
+    that a fact rather than a hope.
+13. **Terminals — and one flag the P3 arc earned.** `Foreclosure` is
+    a pre-day-30 catastrophe written where it happens, guarded
+    against an already-latched ending, exactly as `escrow` writes
+    `sold` and `phases` writes `burned_out`. The day-30 matrix comes
+    from a new `partner.grade(state)` joining the dispatch in
+    `game.py:65–74`, returning points-current or one-outstanding.
+    **Flagged, on rev. 15's own precedent:** §2.5's inventory calls
+    "The Operation (two ovens)" an UPGRADED text rather than a new
+    id — but rev. 15 item 4 overturned exactly that reasoning for
+    The Syndicate, ruling that an outcome matrix must not depend on
+    generic epilogue ordering (a two-capture war was printing the
+    legitimate-exit text). "The Operation" would ride the same
+    generic `survived` fallthrough (game.py:284–308). The proposal
+    is therefore an explicit `operation` terminal id alongside
+    `on_the_hook` and `foreclosure` — three new ids, not two plus a
+    hope — and the reviewer owns the overturn.
+14. **`BranchState` grows, and validation grows with it.** Partner
+    owns three fields today (`points_due_day`, `points_missed`,
+    `vig_owed` — models.py:466) and has NO validation arm at all:
+    `validate_branch_state` (models.py:530–539) dispatches only
+    quiet_sale, straight and war, so partner's entire contract today
+    is "`points_due_day` is not None". P4 adds the missing arm.
+    `_BRANCH_FIELDS["partner"]` extends to carry the site district,
+    the capital drawn, the manager key, the shop-2 opening day, the
+    points paid and the shared `insolvent_days` — all defaulted, so
+    the P1a constructor contract holds and `BranchState.partner()`
+    stays a keyword-only classmethod. `_validate_partner` binds:
+    site a real district and never `HOME_DISTRICT`; capital a
+    non-negative int matching the itemized breakdown; `points_missed`
+    in 0–1 unless the run ended in foreclosure (the terminal
+    invariant, in the shape `_validate_severance` and
+    `_validate_insolvency` already use); `vig_owed` an integer
+    multiple of `POINTS_VIG`, non-negative, zero while nothing is
+    missed; days ordered (funded ≤ opened ≤ first points due). Save
+    stays v3 — additive fields with `.get` defaults, and the shops
+    list already round-trips.
+15. **Remediation in the partner branch.** `REMEDIATION_BRANCHES`
+    (models.py:96) is the single branch-capability answer consumed by
+    counsel availability, the laundering ceiling, settlements,
+    retention protection, hiring refusals and cross-state validation.
+    Proposal: partner JOINS it, per §2.3's letter that the verbs
+    belong to the active branches, and because §2.4.2 says counsel
+    "is affordable here and busy" in as many words. That also keeps
+    counsel's dual-use edge live where it bites hardest — a retained
+    lawyer enforces the believable ceiling across BOTH ceilings of
+    item 8. The four remediation fields join
+    `_BRANCH_FIELDS["partner"]` and nothing else moves.
+16. **The bot, the ablation, and the gate — nothing softened.**
+    `PartnerBot` is a thin policy over `MarketBot`, like its three
+    siblings, latching on the branch's own entry header and reading
+    the shop-2 block as its intelligence. The §2.7 letters stand
+    exactly as recorded: **combined legit revenue ≥ 1.5× the
+    stand-pat control's by fork+8; points paid on schedule in ≥ 80%
+    of runs**; the criterion-5 ablation — a bot that pays points from
+    pizza margins only — must drop the branch-good rate by **≥ 20
+    points**, or the trap is decorative and the branch fails review.
+    Plus the standing rows: the branch-good band 25–70%, ledger
+    transparency asserted nightly, telegraphy, crash-freedom (a
+    `ChaosPartner` fleet answering chair index 1, per `BRANCH_ORDER`),
+    reachability unchanged, and the three merged batteries
+    reproducing to the digit with all P4 code in the tree. P4 is also
+    where **the full §2.7 battery finally runs**: the pairwise
+    eight-component profile vectors across all four branches — six
+    pairs, each required to differ by ≥ 0.25 in at least two
+    components — which every prior round has carried forward as the
+    P4 item, and for which the obligation-outflow component (points
+    and tribute) only becomes non-trivial now. §7's P4 gate also
+    names **human play on seeds 24/39/8**, the first branch to
+    require it; the Quiet Sale's untaken human verdict rides along
+    with it.
+17. **Activation is held, and the loud fallthrough stays.** Partner
+    does NOT join `RELEASED_BRANCHES` in P4's implementation: the
+    gate passing opens the PR, and activation is its own reviewed
+    commit after merge — the P2 and P3 precedent, now kept twice.
+    When partner's commit path lands, `sitdown.py:396`'s
+    `NotImplementedError` has no chair left to catch; it STAYS
+    regardless, as the defensive invariant for any future chair, and
+    the P1 probe test that pins it (tests/test_p1_foundation.py:361)
+    is retargeted rather than deleted — a build must never be able to
+    enable a chair that cannot commit.
+18. **Held scope, confirmed.** No calendar extension (§6.1 keeps day
+    30 for every branch); no second shop from war capture (§6.4
+    stands, and item 5's wagon ruling is another reason not to
+    unify); no war declared from stand-pat (§6.7 stays v1.1); no
+    Straight/Sale/War constant moves; no §6.3 heat re-weighting
+    (item 11); no flag-off or stand-pat surface moves — both identity
+    gates on 3.11 AND 3.12 remain the standing bar, with the frozen
+    scene schema at v1, and P4a is measured against them precisely
+    because it is the first phase whose refactor touches the
+    flag-off path at all.
