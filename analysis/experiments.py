@@ -19,7 +19,8 @@ from typing import ClassVar
 
 from extra_toppings import data, escrow, market, phases, raids
 from extra_toppings.bot import (BOTS, CrimeHeavyBot, EscrowBot, GreedyBot,
-                                KeepsStashBot, MarketBot, SloppyEscrowBot)
+                                KeepsStashBot, MarketBot, NoRemediationBot,
+                                SloppyEscrowBot, StraightBot)
 from extra_toppings.config import GameConfig
 from extra_toppings.game import run
 from extra_toppings.models import new_state
@@ -382,6 +383,198 @@ def fork(seeds: int) -> None:
               f"unconditioned)")
     else:
         print("valuation: no matched closes — study inconclusive")
+
+    _fork_straight(seeds)
+
+
+def _display_fold(evidence) -> float:
+    """The ledger-transparency oracle (§2.7 criterion 4): an
+    INDEPENDENT recomputation of what the visible records display —
+    left to right, dormant records at half weight, clamped — asserted
+    equal to the meter every night. Deliberately reimplemented here
+    rather than imported, the way the golden harness reimplements the
+    legacy projection."""
+    total = 0.0
+    for r in evidence:
+        total += r.magnitude * 0.5 if r.dormant else r.magnitude
+    return max(0.0, min(100.0, total))
+
+
+def _fork_straight(seeds: int) -> None:
+    """P2 acceptance rows (§2.7 criterion 4 straight rows + criterion
+    5): covert-share collapse, the first falling Case, the earned-exit
+    band, the no-remediation ablation, forced-branch crash-freedom, and
+    the nightly ledger-transparency and floor assertions."""
+    straight_on = GameConfig(fork_enabled=True,
+                             enabled_branches=frozenset({"straight"}))
+
+    # ── criterion 3: forced-straight chaos completes ─────────────
+    class ChaosStraight(BotConsole):
+        def scene_menu(self, namespace, prompt, options):
+            if prompt == "Your chair:" and not getattr(self, "_t", False):
+                self._t = True
+                return 0
+            return len(options) - 1
+    crashes = 0
+    for seed in range(seeds):
+        s = run(seed, ChaosStraight(random.Random(seed)), config=straight_on)
+        if s.game_over is None:
+            crashes += 1
+    print(f"crash-freedom: forced-straight chaos completes "
+          f"{seeds - crashes}/{seeds} runs")
+
+    # ── criteria 4 and 5: the branch bots ────────────────────────
+    def straight_run(bot_cls, seed):
+        bot = bot_cls(random.Random(seed))
+        nights = []
+        ledger_bad = floor_bad = 0
+
+        def on_night(state, streams):
+            nonlocal ledger_bad, floor_bad
+            if state.branch != "straight" or state.branch_state is None:
+                return
+            if state.case != _display_fold(state.evidence):
+                ledger_bad += 1
+            if state.branch_state.remediation_used > 0 \
+                    and state.case < 10.0:
+                floor_bad += 1
+            # night() has already advanced the calendar: the completed
+            # day is state.day - 1, and legit_revenue_today is its.
+            nights.append({"day": state.day - 1,
+                           "legit": state.legit_revenue_today})
+
+        s = run(seed, bot, config=straight_on, on_night=on_night)
+        entered = getattr(bot, "_entered_straight", False) \
+            or s.branch == "straight"
+        if not entered:
+            return {"entered": False}
+        fork_day = s.sitdown_snapshot.payoff_day + 1
+        covert = sum(take for day, take in bot.covert_by_day.items()
+                     if day >= fork_day + 2)
+        legit = sum(n["legit"] for n in nights
+                    if n["day"] >= fork_day + 2)
+        count = s.sitdown_snapshot.evidence_count_at_lockup
+        post = s.evidence[count:]
+        return {"entered": True, "ending": s.game_over,
+                "lockup": s.sitdown_snapshot.case_at_lockup,
+                "delta_case": s.case - s.sitdown_snapshot.case_at_lockup,
+                "post_accrual": sum(r.magnitude for r in post),
+                "remediation_used": s.branch_state.remediation_used
+                if s.branch_state else 0.0,
+                "settled": len(s.branch_state.settled_witnesses)
+                if s.branch_state else 0,
+                "covert": covert, "legit": legit,
+                "ledger_bad": ledger_bad, "floor_bad": floor_bad}
+
+    def straight_rows(pairs, label_suffix=""):
+        rates = {}
+        per_seed = {}
+        for name, cls in pairs:
+            entered = 0
+            endings: Counter = Counter()
+            deltas, lockups, used, accrued = [], [], [], []
+            settled = 0
+            covert = legit = 0
+            ledger_bad = floor_bad = 0
+            per_seed[name] = {}
+            for seed in range(seeds):
+                r = straight_run(cls, seed)
+                per_seed[name][seed] = r
+                if not r["entered"]:
+                    continue
+                entered += 1
+                endings[r["ending"]] += 1
+                deltas.append(r["delta_case"])
+                lockups.append(r["lockup"])
+                used.append(r["remediation_used"])
+                accrued.append(r["post_accrual"])
+                settled += r["settled"]
+                covert += r["covert"]
+                legit += r["legit"]
+                ledger_bad += r["ledger_bad"]
+                floor_bad += r["floor_bad"]
+            rates[name] = endings["straight_exit"] / entered \
+                if entered else 0.0
+            below = sum(1 for d in deltas if d < 0)
+            share = covert / (covert + legit) if covert + legit else 0.0
+            print(f"{name}{label_suffix}: entered {entered}/{seeds}, "
+                  f"endings {dict(endings)}")
+            print(f"  earned exits {endings['straight_exit']}/{entered} "
+                  f"({rates[name]:.0%}; band 25–70%)")
+            if deltas:
+                print(f"  ΔCase fork→end: median "
+                      f"{statistics.median(deltas):+.1f} (bar ≤ −5); "
+                      f"strictly below fork-day in {below}/{len(deltas)} "
+                      f"({below / len(deltas):.0%}; bar ≥ 60%)")
+                print(f"  decomposition: lockup Case median "
+                      f"{statistics.median(lockups):.1f} "
+                      f"(≥20 in {sum(1 for c in lockups if c >= 20)}"
+                      f"/{len(lockups)}); post-fork accrual median "
+                      f"+{statistics.median(accrued):.1f}; paid "
+                      f"remediation median {statistics.median(used):.1f} "
+                      f"of the 25 cap; settlements {settled}")
+                hot = [d for c, d in zip(lockups, deltas) if c >= 20]
+                if hot:
+                    print(f"  diagnostic (entries at lockup ≥ 20 only — "
+                          f"the bars stay unconditioned): median ΔCase "
+                          f"{statistics.median(hot):+.1f}, below fork-day "
+                          f"{sum(1 for d in hot if d < 0)}/{len(hot)}")
+            print(f"  covert revenue share after fork+2: ${covert:,} of "
+                  f"${covert + legit:,} ({share:.1%}; bar < 5%)")
+            print(f"  ledger transparency: {ledger_bad} bad nights "
+                  f"(bar 0); floor: {floor_bad} sub-floor remediated "
+                  f"nights (bar 0)")
+        return rates, per_seed
+
+    rates, per_seed = straight_rows((("straight", StraightBot),
+                                     ("no-remediation", NoRemediationBot)))
+    print(f"ablation drop: straight {rates['straight']:.0%} → "
+          f"no-remediation {rates['no-remediation']:.0%} "
+          f"({(rates['straight'] - rates['no-remediation']) * 100:.0f} "
+          f"points; bar ≥ 20)")
+    # The falling-Case claim as a matched-seed difference: the same
+    # month, remediated vs not — reported alongside the absolute bar.
+    matched = [s for s in range(seeds)
+               if per_seed["straight"][s]["entered"]
+               and per_seed["no-remediation"][s]["entered"]]
+    if matched:
+        diffs = [per_seed["straight"][s]["delta_case"]
+                 - per_seed["no-remediation"][s]["delta_case"]
+                 for s in matched]
+        helped = sum(1 for d in diffs if d < 0)
+        print(f"matched counterfactual: {len(matched)} paired entries; "
+              f"remediated-minus-unremediated ΔCase median "
+              f"{statistics.median(diffs):+.1f}; remediation left the "
+              f"file lower in {helped}/{len(matched)} "
+              f"({helped / len(matched):.0%}) — diagnostic, not a bar")
+
+    # ── diagnostic: the same branch policy over a dirty month ────
+    # The §3.1 vignette enters the fork at Case 31; the market bot's
+    # median entry is far colder. This variant plays a crime-heavy
+    # Act I (over-ceiling washes, read-in crew, night jobs), then the
+    # identical branch policy — separating "the mechanics can't lower
+    # the file" from "this baseline brings nothing to lower."
+    class DirtyMonthStraightBot(StraightBot):
+        launder_all = True
+        do_raids = True
+        cover_stops = 2
+        debt_float = 2500
+        MENU_PREFS: ClassVar = list(CrimeHeavyBot.MENU_PREFS)
+        AVOID: ClassVar = [a for a in CrimeHeavyBot.AVOID
+                           if a not in ("Improvements", "Talk to a rival",
+                                        "Market board")]
+
+    class DirtyMonthNoRemediation(DirtyMonthStraightBot):
+        remediates = False
+
+    print("— dirty-month diagnostic (crime-heavy Act I, same branch "
+          "policy; §3.1's entry profile) —")
+    dirty_rates, _ = straight_rows(
+        (("dirty-month", DirtyMonthStraightBot),
+         ("dirty-no-remediation", DirtyMonthNoRemediation)))
+    print(f"dirty-month ablation drop: {dirty_rates['dirty-month']:.0%} → "
+          f"{dirty_rates['dirty-no-remediation']:.0%} "
+          f"({(dirty_rates['dirty-month'] - dirty_rates['dirty-no-remediation']) * 100:.0f} points)")
 
 
 def main() -> None:
