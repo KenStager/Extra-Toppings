@@ -807,11 +807,9 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         con.say(f"  The night job is scrubbed — "
                 f"{data.RIVALS[raid_plan['rival']]['short']}'s "
                 f"organization broke before the crew left the kitchen.")
-        state.raid_log.append({"day": state.day,
-                               "rival": raid_plan["rival"],
-                               "outcome": "scrubbed",
-                               "crew": len(raid_plan["team"]),
-                               "damage_h": 0})
+        state.raid_log.append(models.RaidAttemptRecord(
+            day=state.day, rival=raid_plan["rival"], outcome="scrubbed",
+            crew=len(raid_plan["team"]), damage_h=0))
         raid_plan = None
     if raid_plan:
         # The day happened between planning and doing: anyone arrested,
@@ -824,11 +822,10 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         if not team:
             con.say("  The night job is scrubbed — the crew you picked this "
                     "morning didn't make it to nightfall intact.")
-            state.raid_log.append({"day": state.day,
-                                   "rival": raid_plan["rival"],
-                                   "outcome": "scrubbed",
-                                   "crew": len(raid_plan["team"]),
-                                   "damage_h": 0})
+            state.raid_log.append(models.RaidAttemptRecord(
+                day=state.day, rival=raid_plan["rival"],
+                outcome="scrubbed", crew=len(raid_plan["team"]),
+                damage_h=0))
         else:
             if len(team) < len(raid_plan["team"]):
                 con.say("  The crew is short tonight; the job goes ahead anyway.")

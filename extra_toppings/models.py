@@ -47,11 +47,6 @@ class District:
     heat: float = 10.0            # 0-100 immediate attention
     known_price_age: int = 99     # days since player had firsthand prices
     sold_yesterday: dict = field(default_factory=dict)   # good -> units (price depression)
-    # Actual route sales, today (rev. 17 item 3): its OWN field —
-    # sold_yesterday is a price-depression signal that stock raids
-    # legitimately overwrite with shortages, so no study or display
-    # may read it as sales. Reset with the price roll each morning.
-    route_sold: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -987,6 +982,94 @@ def security_word(alertness: float) -> str:
     return "sleepy"
 
 
+RAID_ATTEMPT_OUTCOMES = frozenset({"scrubbed", "failed", "succeeded"})
+
+
+@dataclass(frozen=True)
+class RaidAttemptRecord:
+    """One outgoing job, booked once (rev. 18 item 3): constructed
+    locally AFTER the outcome is known, appended exactly once, frozen
+    thereafter — never a mutable dict edited in flight. Validation
+    runs at construction, so persistence cannot round-trip
+    day="banana", crew=-7 or a failed job carrying damage."""
+    day: int
+    rival: str
+    outcome: str            # scrubbed | failed | succeeded
+    crew: int
+    damage_h: int           # ACTUAL applied strength damage, hundredths
+
+    def __post_init__(self) -> None:
+        if isinstance(self.day, bool) or not isinstance(self.day, int) \
+                or self.day < 1:
+            raise ValueError(f"raid attempt: bad day {self.day!r}")
+        if self.rival not in data.RIVALS:
+            raise ValueError(f"raid attempt: unknown rival {self.rival!r}")
+        if self.outcome not in RAID_ATTEMPT_OUTCOMES:
+            raise ValueError(f"raid attempt: unknown outcome "
+                             f"{self.outcome!r}")
+        if isinstance(self.crew, bool) or not isinstance(self.crew, int) \
+                or self.crew < 1:
+            raise ValueError(f"raid attempt: bad crew count {self.crew!r}")
+        if isinstance(self.damage_h, bool) \
+                or not isinstance(self.damage_h, int) \
+                or self.damage_h < 0 or self.damage_h > 10_000:
+            raise ValueError(f"raid attempt: bad damage {self.damage_h!r}")
+        if self.outcome != "succeeded" and self.damage_h != 0:
+            raise ValueError("raid attempt: only a succeeded job "
+                             "applies damage")
+
+
+ROUTE_HEAT_BANDS = frozenset({"cool", "amber", "red"})
+
+
+@dataclass(frozen=True)
+class RouteExecutionRecord:
+    """One route night, booked at RESOLUTION (rev. 18 item 4): the
+    execution-time district, heat band and capacity multiplier, the
+    units actually sold, the corner damage actually applied, and
+    whether the turf was contested (a live campaign owned it) — so
+    no study ever again reads exposure at the wrong time or from a
+    price-depression signal."""
+    day: int
+    district: str
+    heat_band: str
+    capacity_mult: float
+    units_sold: int
+    corner_damage_h: int
+    contested: bool
+
+    def __post_init__(self) -> None:
+        if isinstance(self.day, bool) or not isinstance(self.day, int) \
+                or self.day < 1:
+            raise ValueError(f"route record: bad day {self.day!r}")
+        if self.district not in data.DISTRICTS:
+            raise ValueError(f"route record: unknown district "
+                             f"{self.district!r}")
+        if self.heat_band not in ROUTE_HEAT_BANDS:
+            raise ValueError(f"route record: unknown band "
+                             f"{self.heat_band!r}")
+        if not isinstance(self.capacity_mult, (int, float)) \
+                or isinstance(self.capacity_mult, bool) \
+                or not 0.0 < float(self.capacity_mult) <= 1.0:
+            raise ValueError(f"route record: bad capacity multiplier "
+                             f"{self.capacity_mult!r}")
+        if isinstance(self.units_sold, bool) \
+                or not isinstance(self.units_sold, int) \
+                or self.units_sold < 0:
+            raise ValueError(f"route record: bad units {self.units_sold!r}")
+        if isinstance(self.corner_damage_h, bool) \
+                or not isinstance(self.corner_damage_h, int) \
+                or self.corner_damage_h < 0:
+            raise ValueError(f"route record: bad corner damage "
+                             f"{self.corner_damage_h!r}")
+        if not isinstance(self.contested, bool):
+            raise ValueError(f"route record: bad contested flag "
+                             f"{self.contested!r}")
+        if self.corner_damage_h and not self.contested:
+            raise ValueError("route record: corner damage on an "
+                             "uncontested turf is impossible")
+
+
 # ── THE storage capacity authority (rev. 18 item 2) ──────────────
 # One home for space arithmetic: space used, a destination's
 # capacity, the units that fit, and the transactional transfer.
@@ -1216,12 +1299,13 @@ class State:
     raids_led: int = 0
     kills: int = 0
     demand_shock: float = 1.0        # today's demand luck — rolled once, policy-independent
-    # Append-only outgoing-job attempt records (rev. 17 item 4):
-    # {"day", "rival", "outcome" ("scrubbed"|"failed"|"succeeded"),
-    # "crew", "damage_h"} — the honest denominator for any pacing
-    # claim. Primitives only; the night and the raid append, nothing
-    # ever edits.
+    # Append-only TYPED execution logs (rev. 17 item 4, typed and
+    # validated per rev. 18 items 3–4): RaidAttemptRecord and
+    # RouteExecutionRecord, constructed once AFTER the outcome is
+    # known, appended exactly once, frozen thereafter. The honest
+    # denominators for every pacing and exposure claim.
     raid_log: list = field(default_factory=list)
+    route_log: list = field(default_factory=list)
 
     # ── the shop, addressed as one while there is one ────────────
     @property

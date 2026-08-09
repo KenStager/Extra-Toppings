@@ -15,7 +15,8 @@ import json
 from dataclasses import asdict
 
 from . import data
-from .models import (ActiveEvent, BranchState, DamageRecord, District,
+from .models import (RaidAttemptRecord, RouteExecutionRecord,
+                     ActiveEvent, BranchState, DamageRecord, District,
                      Employee, Evidence, Rival, Shop, SitdownSnapshot, State,
                      WarCampaignState, validate_branch_state,
                      validate_cross_state, validate_evidence)
@@ -59,7 +60,8 @@ def state_to_dict(state: State) -> dict:
         # older v3 payloads load it as None (state_from_dict uses .get).
         "sitdown_snapshot": asdict(state.sitdown_snapshot)
         if state.sitdown_snapshot is not None else None,
-        "raid_log": [dict(e) for e in state.raid_log],
+        "raid_log": [asdict(e) for e in state.raid_log],
+        "route_log": [asdict(e) for e in state.route_log],
     }
 
 
@@ -125,7 +127,12 @@ def state_from_dict(d: dict) -> State:
         branch_state=_branch_state_from(d["branch_state"]),
         sitdown_snapshot=SitdownSnapshot(**d["sitdown_snapshot"])
         if d.get("sitdown_snapshot") is not None else None,
-        raid_log=[dict(e) for e in d.get("raid_log") or []],
+        # Typed, validated at construction (rev. 18 items 3-4):
+        # malformed or inconsistent log entries are refused, never
+        # round-tripped.
+        raid_log=[RaidAttemptRecord(**e) for e in d.get("raid_log") or []],
+        route_log=[RouteExecutionRecord(**e)
+                   for e in d.get("route_log") or []],
     )
     # A payload naming a branch must carry a coherent BranchState — a
     # mixed, impossible, or terminally-contradictory combination is

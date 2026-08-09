@@ -364,15 +364,22 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
             state.shop.reputation = max(0.0, state.shop.reputation - 3)
             report["lines"].append("Pizzas ran late around the extra stops. Two refunds, one review.")
 
+    # THE route-market view (rev. 15 item 5): every territorial factor
+    # composes in market.route_market, and this resolution consumes
+    # the view and nothing else. The view is read HERE, at execution —
+    # the typed record below carries its band and multiplier so no
+    # study samples exposure at the wrong time (rev. 18 item 4).
+    rm = market.route_market(state, dk)
+
     if not cargo:
         state.districts[dk].known_price_age = 0 if plan["ride_along"] else 1
         driver.routes_survived += 1
+        state.route_log.append(models.RouteExecutionRecord(
+            day=state.day, district=dk, heat_band=rm.heat.band,
+            capacity_mult=rm.heat.capacity_mult, units_sold=0,
+            corner_damage_h=0, contested=rm.corner_rate > 0.0))
         return report
 
-    # THE route-market view (rev. 15 item 5): every territorial factor
-    # composes in market.route_market, and this resolution consumes
-    # the view and nothing else.
-    rm = market.route_market(state, dk)
     drops = rm.drops(len(cargo))
 
     if plan["ride_along"]:
@@ -383,6 +390,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
 
     # Rival turf: they notice volume moving through their neighborhood.
     owner = dspec["rival"]
+    corner_applied = 0.0
     if owner and report["sold"] > 0 and state.rivals[owner].alive:
         models.adjust_relation(state, owner, -(report["sold"] * 0.4))
         report["lines"].append(
@@ -391,8 +399,9 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
         # target's turf divert their income through the one damage
         # authority, priced by the same route-market view that shaped
         # the night. A capture mid-route is detected by the authority.
-        war.corner_diversion(state, dk, owner, report["sold"], report,
-                             rate=rm.corner_rate, cap=rm.corner_cap)
+        corner_applied = war.corner_diversion(
+            state, dk, owner, report["sold"], report,
+            rate=rm.corner_rate, cap=rm.corner_cap)
         if models.vendetta_locked(state, owner) \
                 and not state.rivals[owner].alive:
             report["lines"].append(
@@ -404,6 +413,11 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     if not report["busted"]:
         driver.routes_survived += 1
         driver.familiarity[dk] = min(10, driver.familiarity.get(dk, 0) + 1)
+    state.route_log.append(models.RouteExecutionRecord(
+        day=state.day, district=dk, heat_band=rm.heat.band,
+        capacity_mult=rm.heat.capacity_mult, units_sold=report["sold"],
+        corner_damage_h=round(corner_applied * 100),
+        contested=rm.corner_rate > 0.0))
     return report
 
 
@@ -415,10 +429,6 @@ def _sell(state: State, dk: str, good: str, units: int, price_mult: float,
     report["sold"] += units
     report["cash"] += cash
     market.record_sales(state, dk, good, units)
-    # Actual sales in their own field (rev. 17 item 3) — never the
-    # price-depression signal, which raids overwrite with shortages.
-    d = state.districts[dk].route_sold
-    d[good] = d.get(good, 0) + units
 
 
 def _interactive_drops(state: State, plan: dict, drops: int, con: Console,

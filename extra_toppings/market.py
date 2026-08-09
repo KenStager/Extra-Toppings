@@ -101,7 +101,6 @@ def roll_prices(state: State, rng: random.Random) -> None:
             row[g] = max(5, int(price))
         state.prices[dk] = row
         dist.sold_yesterday = {}
-        dist.route_sold = {}
         dist.known_price_age += 1
     state.districts[data.HOME_DISTRICT].known_price_age = 0
 

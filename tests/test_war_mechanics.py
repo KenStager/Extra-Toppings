@@ -1055,13 +1055,17 @@ class TestRevision17Instruments(unittest.TestCase):
                        Streams(7).raids)
         self.assertEqual(len(state.raid_log), 1)
         entry = state.raid_log[0]
-        self.assertIn(entry["outcome"], ("succeeded", "failed"))
-        self.assertEqual(entry["crew"], 2)
-        self.assertEqual(entry["day"], state.day)
+        self.assertIn(entry.outcome, ("succeeded", "failed"))
+        self.assertEqual(entry.crew, 2)
+        self.assertEqual(entry.day, state.day)
         actual = before - round(state.rivals["sal"].strength * 100)
-        self.assertEqual(entry["damage_h"], actual
-                         if entry["outcome"] == "succeeded" else 0)
-        self.assertLessEqual(entry["damage_h"], 1200)
+        self.assertEqual(entry.damage_h, actual
+                         if entry.outcome == "succeeded" else 0)
+        self.assertLessEqual(entry.damage_h, 1200)
+        # Frozen: the record cannot be edited after the fact
+        # (rev. 18 item 3 — no more dict mutated in flight).
+        with self.assertRaises(Exception):
+            entry.outcome = "succeeded"
 
     def test_a_dead_target_scrub_is_booked(self):
         state, rosa, marcus = self._two_front_war()
@@ -1071,9 +1075,9 @@ class TestRevision17Instruments(unittest.TestCase):
                           "team": [marcus], "armed": False,
                           "table_warned": True}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
-        scrubs = [e for e in state.raid_log if e["outcome"] == "scrubbed"]
+        scrubs = [e for e in state.raid_log if e.outcome == "scrubbed"]
         self.assertEqual(len(scrubs), 1)
-        self.assertEqual(scrubs[0]["damage_h"], 0)
+        self.assertEqual(scrubs[0].damage_h, 0)
 
     def test_ledger_quantities_reads_live_relief(self):
         # The reviewer's legal record: accrued 20, Case contribution
@@ -1091,19 +1095,90 @@ class TestRevision17Instruments(unittest.TestCase):
         self.assertAlmostEqual(q["effective"], 10.0)
 
     def test_route_sales_survive_the_raid_shortage_signal(self):
-        # Rev. 17 item 3: sold_yesterday is a price signal that stock
-        # raids overwrite with -8 shortages; actual sales live in
-        # their own field and no study reads the poisoned one.
+        # Rev. 17 item 3 / rev. 18 item 4: sold_yesterday is a price
+        # signal that stock raids overwrite with -8 shortages; actual
+        # sales live in the typed route record and no study reads the
+        # poisoned signal.
         import random as _random
         from extra_toppings import market, routes
         state, rosa, _marcus = self._two_front_war()
         market.roll_prices(state, _random.Random(3))
-        report = {"sold": 0, "cash": 0, "lines": []}
-        routes._sell(state, "old_harbor", "mushrooms", 5, 1.0, report)
-        state.districts["old_harbor"].sold_yesterday["mushrooms"] = -8
-        self.assertEqual(
-            state.districts["old_harbor"].route_sold["mushrooms"], 5)
-        del _random
+        plan = {"district": "little_sicily", "driver": rosa,
+                "ride_along": False, "legit": 0,
+                "cargo": {"mushrooms": 6}}
+        report = routes.resolve_route(state, plan, Quiet(),
+                                      _random.Random(4))
+        state.districts["little_sicily"].sold_yesterday["mushrooms"] = -8
+        record = state.route_log[-1]
+        self.assertEqual(record.units_sold, report["sold"])
+        self.assertEqual(record.district, "little_sicily")
+
+    def test_the_route_record_reads_the_band_at_execution(self):
+        # Rev. 18 item 4: the record carries the band the route RAN
+        # under — heat moving later that night cannot rewrite it.
+        import random as _random
+        from extra_toppings import market, routes
+        state, rosa, _marcus = self._two_front_war()
+        market.roll_prices(state, _random.Random(3))
+        state.districts["little_sicily"].heat = 60.0     # amber now
+        plan = {"district": "little_sicily", "driver": rosa,
+                "ride_along": False, "legit": 0,
+                "cargo": {"mushrooms": 6}}
+        routes.resolve_route(state, plan, Quiet(), _random.Random(4))
+        state.districts["little_sicily"].heat = 0.0      # cools after
+        record = state.route_log[-1]
+        self.assertEqual(record.heat_band, "amber")
+        self.assertEqual(record.capacity_mult, 0.5)
+        self.assertTrue(record.contested)                # Sal's live turf
+
+    def test_malformed_attempt_payloads_are_refused(self):
+        # The reviewer's repro: day="banana", crew=-7, damage 999999
+        # round-tripped. Typed records refuse at construction, so
+        # persistence refuses too (rev. 18 item 3).
+        from extra_toppings import save
+        state, _rosa, _marcus = self._two_front_war()
+        d = save.state_to_dict(state)
+        for bad in ({"day": "banana", "rival": "sal",
+                     "outcome": "succeeded", "crew": 1, "damage_h": 0},
+                    {"day": 15, "rival": "nobody",
+                     "outcome": "succeeded", "crew": 1, "damage_h": 0},
+                    {"day": 15, "rival": "sal", "outcome": "won-ish",
+                     "crew": 1, "damage_h": 0},
+                    {"day": 15, "rival": "sal", "outcome": "succeeded",
+                     "crew": -7, "damage_h": 0},
+                    {"day": 15, "rival": "sal", "outcome": "succeeded",
+                     "crew": 1, "damage_h": 999999},
+                    {"day": 15, "rival": "sal", "outcome": "failed",
+                     "crew": 1, "damage_h": 100}):
+            d2 = dict(d)
+            d2["raid_log"] = [bad]
+            with self.assertRaises(ValueError):
+                save.state_from_dict(d2)
+
+    def test_malformed_route_payloads_are_refused(self):
+        from extra_toppings import save
+        state, _rosa, _marcus = self._two_front_war()
+        d = save.state_to_dict(state)
+        for bad in ({"day": 15, "district": "nowhere",
+                     "heat_band": "cool", "capacity_mult": 1.0,
+                     "units_sold": 0, "corner_damage_h": 0,
+                     "contested": False},
+                    {"day": 15, "district": "old_harbor",
+                     "heat_band": "lava", "capacity_mult": 1.0,
+                     "units_sold": 0, "corner_damage_h": 0,
+                     "contested": False},
+                    {"day": 15, "district": "old_harbor",
+                     "heat_band": "cool", "capacity_mult": 1.0,
+                     "units_sold": -1, "corner_damage_h": 0,
+                     "contested": False},
+                    {"day": 15, "district": "old_harbor",
+                     "heat_band": "cool", "capacity_mult": 1.0,
+                     "units_sold": 5, "corner_damage_h": 100,
+                     "contested": False}):
+            d2 = dict(d)
+            d2["route_log"] = [bad]
+            with self.assertRaises(ValueError):
+                save.state_from_dict(d2)
 
 
 if __name__ == "__main__":

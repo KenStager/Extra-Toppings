@@ -103,12 +103,11 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
     obj = data.RAID_OBJECTIVES[plan["objective"]]
     layout = data.RAID_LAYOUTS[obj["layout"]]
     team = plan["team"]
-    # The attempt record (rev. 17 item 4): every outgoing job books
-    # its committed crew and its ACTUAL applied strength damage,
-    # append-only — succeeded or failed, the night happened.
-    attempt = {"day": state.day, "rival": plan["rival"], "outcome": "failed",
-               "crew": len(team), "damage_h": 0}
-    state.raid_log.append(attempt)
+    # The attempt ledger (rev. 18 item 3): the record is constructed
+    # ONCE, after the outcome is known, and appended exactly once —
+    # never a mutable dict edited in flight. Crew is the committed
+    # crew; damage is the ACTUAL strength delta this job applied.
+    committed_crew = len(team)
     strength_before_h = round(rival.strength * 100)
     guard_skill = 3 + rival.strength / 20 + rival.alertness * 0.3
     if rival.alertness >= 4:
@@ -171,11 +170,16 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
         rival.last_raided_day = state.day
         con.say("  You got out with nothing but your skins.")
         con.say("  By morning their guards walk in pairs.")
+        state.raid_log.append(models.RaidAttemptRecord(
+            day=state.day, rival=plan["rival"], outcome="failed",
+            crew=committed_crew, damage_h=0))
         return
 
     _payoff(state, plan, rival, rspec, con, rng, noise < 1.0, team)
-    attempt["outcome"] = "succeeded"
-    attempt["damage_h"] = strength_before_h - round(rival.strength * 100)
+    state.raid_log.append(models.RaidAttemptRecord(
+        day=state.day, rival=plan["rival"], outcome="succeeded",
+        crew=committed_crew,
+        damage_h=strength_before_h - round(rival.strength * 100)))
     # Even a ghost leaves a pattern: the same handwriting, night after night.
     if state.raids_led >= 1:
         premium = min(8.0, 1.5 * state.raids_led)

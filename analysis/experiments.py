@@ -731,8 +731,7 @@ def _fork_war(seeds: int) -> None:
         # rival's warning; injury exposure is crew-nights spent hurt;
         # turf units are the day's sales on live-campaign turf.
         prev_warn: dict = {}
-        exposure = {"retal": 0, "injury": 0, "turf_units": 0,
-                    "turf_amber": 0}
+        exposure = {"retal": 0, "injury": 0}
 
         def on_night(state, streams):
             nonlocal recon_bad, ledger_bad
@@ -756,18 +755,6 @@ def _fork_war(seeds: int) -> None:
                 prev_warn[k] = rv.raid_warning
             exposure["injury"] += sum(
                 1 for e in state.hired() if e.injured_days > 0)
-            for c in state.branch_state.campaigns:
-                if c.broken_day is not None:
-                    continue
-                for dk, dspec in data.DISTRICTS.items():
-                    if dspec["rival"] == c.rival_key:
-                        # Actual route sales, from their OWN field
-                        # (rev. 17 item 3) — sold_yesterday is a
-                        # price signal that raids overwrite.
-                        exposure["turf_units"] += sum(
-                            state.districts[dk].route_sold.values())
-                        if district_heat_policy(state, dk).band != "cool":
-                            exposure["turf_amber"] += 1
             if seen["n"] is None:
                 # First war night: everything before the lock-up count
                 # is pre-fork by construction (the scene adds nothing).
@@ -826,12 +813,17 @@ def _fork_war(seeds: int) -> None:
         good = s.game_over in war_mod.GOOD_ENDINGS
         corner_h = sum(dr.hundredths for c in camps for dr in c.damage
                        if dr.channel == "corners")
-        # The attempt ledger (rev. 17 item 4): every post-fork
+        # The TYPED attempt ledger (rev. 18 item 3): every post-fork
         # outgoing job by its day — the first war night included, the
         # denominator honest about scrubs, crews and actual damage.
-        attempts = [e for e in s.raid_log
-                    if e["day"] >= first.declared_day]
-        ran = [e for e in attempts if e["outcome"] != "scrubbed"]
+        attempts = [e for e in s.raid_log if e.day >= first.declared_day]
+        ran = [e for e in attempts if e.outcome != "scrubbed"]
+        # Route exposure at EXECUTION time (rev. 18 item 4): the typed
+        # route records carry the band the route actually ran under —
+        # an exposure is a route that executed on live target turf
+        # past cool, nothing else counts.
+        contested = [r for r in s.route_log if r.contested]
+        exposed = [r for r in contested if r.heat_band != "cool"]
         return {"entered": True, "ending": s.game_over, "ratio": ratio,
                 "broken": len(broken), "mixes": mixes, "agg": agg,
                 "pp_share": pp / g_total if g_total else None,
@@ -847,8 +839,9 @@ def _fork_war(seeds: int) -> None:
                     1 for c in camps if c.salvage_day is not None),
                 "attempts": len(attempts), "ran": len(ran),
                 "scrubbed": len(attempts) - len(ran),
-                "attempt_damage": sum(e["damage_h"] for e in ran) / 100,
-                "crew_nights": sum(e["crew"] for e in ran),
+                "attempt_damage": sum(e.damage_h for e in ran) / 100,
+                "crew_nights": sum(e.crew for e in ran),
+                "committed_crew_nights": sum(e.crew for e in attempts),
                 "good": good, "recon_bad": recon_bad,
                 "ledger_bad": ledger_bad, "pre_hash": seen["pre"],
                 "amber_nights": amber_nights["n"],
@@ -856,8 +849,11 @@ def _fork_war(seeds: int) -> None:
                 "jobs_damage": agg.get("jobs", 0) / 100,
                 "retal_raids": exposure["retal"],
                 "injury_nights": exposure["injury"],
-                "turf_units": exposure["turf_units"],
-                "turf_amber": exposure["turf_amber"],
+                "turf_units": sum(r.units_sold for r in contested),
+                "turf_amber": len(exposed),
+                "exposed_units": sum(r.units_sold for r in exposed),
+                "exposed_corner": sum(r.corner_damage_h
+                                      for r in exposed) / 100,
                 "war_pay": s.branch_state.war_pay_paid,
                 "short": s.branch_state.war_pay_short_nights}
 
@@ -1021,17 +1017,18 @@ def _fork_war(seeds: int) -> None:
           f"{n_synd:.0%} ({(m_synd - n_synd) * 100:.0f} points; "
           f"bar ≥ 15)")
 
-    # The pacing letter (rev. 16 item 5, denominators corrected per
-    # rev. 17 item 4): pacing proves itself in a CONTROLLED
-    # equal-opportunity comparison on entry-identical seeds, measured
-    # from the append-only attempt ledger — applied strength damage
-    # per ATTEMPTED job-night and per person-night, scrubs counted,
-    # the first war night included; and at 500 seeds the
-    # alertness-aware full policy must not trail the cooldown policy.
+    # The pacing rows (rev. 18 item 3): the fleet comparison is a
+    # PAIRED OBSERVATIONAL DECOMPOSITION — the policies share only
+    # entry state and diverge after — reported under exact names:
+    # executed-job efficiency, executed person-night efficiency, and
+    # planned/committed efficiency (scrubs in the denominator). The
+    # CAUSAL claim lives in the fixed-opportunity experiment below;
+    # the 500-seed outcome bar keeps the last word.
     med = statistics.median
     cool_seed = fleets["cooldown"][1]
     per_job: dict = {"paced": [], "cooldown": []}
     per_pn: dict = {"paced": [], "cooldown": []}
+    per_cm: dict = {"paced": [], "cooldown": []}
     retal: dict = {"paced": [], "cooldown": []}
     injury: dict = {"paced": [], "cooldown": []}
     for seed in range(seeds):
@@ -1044,20 +1041,27 @@ def _fork_war(seeds: int) -> None:
             if r["crew_nights"]:
                 per_pn[label].append(r["attempt_damage"]
                                      / r["crew_nights"])
+            if r["committed_crew_nights"]:
+                per_cm[label].append(r["attempt_damage"]
+                                     / r["committed_crew_nights"])
             retal[label].append(r["retal_raids"])
             injury[label].append(r["injury_nights"])
     if per_job["paced"] and per_job["cooldown"]:
-        print(f"pacing, controlled [equal-opportunity seeds, attempt "
-              f"ledger]: applied strength damage per attempted "
-              f"job-night — paced {med(per_job['paced']):.1f} vs "
-              f"cooldown {med(per_job['cooldown']):.1f}; per "
-              f"person-night — paced {med(per_pn['paced']):.1f} vs "
-              f"cooldown {med(per_pn['cooldown']):.1f} (paced must "
-              f"not trail); retaliation raids telegraphed per war — "
-              f"paced {med(retal['paced']):g} vs cooldown "
+        print(f"pacing, paired observational decomposition "
+              f"[entry-identical seeds, then divergent play]: "
+              f"executed-job efficiency — paced "
+              f"{med(per_job['paced']):.1f} vs cooldown "
+              f"{med(per_job['cooldown']):.1f} strength/job; executed "
+              f"person-night efficiency — {med(per_pn['paced']):.1f} "
+              f"vs {med(per_pn['cooldown']):.1f}; planned/committed "
+              f"person-night efficiency (scrubs in the denominator) — "
+              f"{med(per_cm['paced']):.1f} vs "
+              f"{med(per_cm['cooldown']):.1f}; retaliation telegraphs "
+              f"per war — {med(retal['paced']):g} vs "
               f"{med(retal['cooldown']):g}; injured-crew nights per "
-              f"war — paced {med(injury['paced']):g} vs cooldown "
-              f"{med(injury['cooldown']):g} (paced must run cooler)")
+              f"war — {med(injury['paced']):g} vs "
+              f"{med(injury['cooldown']):g}")
+    _pacing_fixed_opportunity(trials=800)
     trail = "holds" if mixed >= cooldown else "TRAILS"
     print(f"the full policy vs cooldown [binding at 500 seeds]: "
           f"{mixed:.0%} vs {cooldown:.0%} — must not trail ({trail})")
@@ -1082,27 +1086,32 @@ def _fork_war(seeds: int) -> None:
           f"nights, median corner damage "
           f"{med(off_corner) if off_corner else 0:g}, branch-good "
           f"{off_rate:.0%}")
-    # Exposure-matched (rev. 16 item 7): the same seeds paired ON/OFF,
-    # restricted to wars whose LIVE TARGET TURF actually spent nights
-    # past cool — heat's consequence read where the exposure was
-    # (target-turf custom and the effective corner take), not demanded
-    # of a noisy global ending rate.
+    # Exposure-matched (rev. 16 item 7, sampled at EXECUTION time per
+    # rev. 18 item 4): the same seeds paired ON/OFF, restricted to
+    # wars where a route ACTUALLY EXECUTED on live target turf under
+    # amber/red — the typed route records carry the band the wagon
+    # ran under, so no cooled-off or route-less hot night counts.
     exp = [(war_seed[s], off_seed[s]) for s in range(seeds)
            if war_seed[s]["entered"] and off_seed[s]["entered"]
            and war_seed[s]["turf_amber"] > 0]
     if exp:
-        print(f"heat, exposure-matched [{len(exp)} turf-amber seeds, "
+        n_exposed = sum(a["turf_amber"] for a, _ in exp)
+        print(f"heat, exposure-matched [{len(exp)} wars with "
+              f"{n_exposed} routes executed on live turf past cool, "
               f"paired ON/OFF]: target-turf units sold "
               f"{med([a['turf_units'] for a, _ in exp]):g} vs "
-              f"{med([b['turf_units'] for _, b in exp]):g}; corner "
+              f"{med([b['turf_units'] for _, b in exp]):g}; units on "
+              f"the exposed routes themselves (ON arm) "
+              f"{med([a['exposed_units'] for a, _ in exp]):g}; corner "
               f"damage {med([a['corner_damage'] for a, _ in exp]):g} vs "
               f"{med([b['corner_damage'] for _, b in exp]):g} — the "
               f"burned neighborhood must cost custom (ON at or below "
               f"OFF)")
     else:
-        print("heat, exposure-matched: no turf-amber seeds at this "
-              "depth — the controlled probe below carries the causal "
-              "claim")
+        print("heat, exposure-matched: no routes executed on live "
+              "turf past cool at this depth — the controlled probe "
+              "below carries the causal claim; heat stays a local "
+              "route tax")
 
     _heat_exposure_probe(trials=400)
     _raid_decline_at_war_cadence(trials=2000)
@@ -1189,6 +1198,101 @@ def _heat_exposure_probe(trials: int = 400) -> None:
           f"corner damage {m(on_corner):.2f} vs {m(off_corner):.2f} — "
           f"the halved customer pool must cost custom and cap the "
           f"corner take")
+
+
+def _pacing_fixed_opportunity(trials: int = 800) -> None:
+    """The CAUSAL pacing experiment (rev. 18 item 3): a genuinely
+    state-matched, fixed-opportunity rollout. Both arms start from
+    the IDENTICAL declared-war state (same seed, same crew, same
+    prices), face the same 12-night horizon, and share per-night bot
+    seeds — the only difference is the policy: the grinder attempts a
+    job every night its crew stands; the paced arm attempts only
+    when the security word says the window is open (alertness under
+    the hardened band), waiting while it is shut. Total ACTUAL
+    strength damage over the horizon, attempts, and injury-days are
+    measured per arm; the paired difference carries the causal
+    claim. (Attack-side only — retaliation is not simulated here;
+    the injury ledger prices the fights the jobs themselves buy.)"""
+    from extra_toppings.models import (BranchState, VENDETTA_RELATION,
+                                       set_relation)
+    HORIZON = 12
+
+    def rollout(seed, paced):
+        rng = random.Random(seed)
+        st = new_state()
+        market.roll_prices(st, rng)
+        st.warehouse = {}
+        st.day = 15
+        st.debt = 0
+        st.debt_paid_day = 14
+        st.act = 2
+        st.branch = "war"
+        st.branch_state = BranchState.war(
+            war_target="vinnie", declared_day=15,
+            starting_strength=st.rivals["vinnie"].strength)
+        set_relation(st, "vinnie", min(st.rivals["vinnie"].relation,
+                                       VENDETTA_RELATION))
+        crew = st.employees[:3]
+        for e in crew:
+            e.hired = e.aware = True
+        rival = st.rivals["vinnie"]
+        start_h = round(rival.strength * 100)
+        attempts = injury_days = person_nights = 0
+        for night in range(HORIZON):
+            team = [e for e in crew if e.available]
+            window_open = rival.alertness < 4.0     # the security word
+            if team and rival.alive and (not paced or window_open):
+                plan = {"rival": "vinnie", "objective": "steal_stock",
+                        "team": team, "armed": False,
+                        "wagon_free": True, "table_warned": True}
+                person_nights += len(team)
+                raids.run_raid(
+                    st, plan,
+                    BotConsole(random.Random(seed * 31 + night)), rng)
+                attempts += 1
+            st.day += 1
+            if rival.last_raided_day != st.day:
+                rival.alertness = max(0.0, rival.alertness - 0.34)
+            for e in crew:
+                if e.injured_days > 0:
+                    injury_days += 1
+                    e.injured_days -= 1
+        damage = (start_h - round(rival.strength * 100)) / 100
+        return damage, attempts, injury_days, person_nights
+
+    rows: dict = {True: [], False: []}
+    for seed in range(trials):
+        for paced in (True, False):
+            rows[paced].append(rollout(seed, paced))
+
+    def mean_se(vals):
+        m = statistics.fmean(vals)
+        se = (statistics.stdev(vals) / (len(vals) ** 0.5)
+              if len(vals) > 1 else 0.0)
+        return m, se
+
+    p_d, g_d = ([r[0] for r in rows[True]], [r[0] for r in rows[False]])
+    paired = [a - b for a, b in zip(p_d, g_d)]
+    pm, pse = mean_se(p_d)
+    gm, gse = mean_se(g_d)
+    dm, dse = mean_se(paired)
+    p_eff = (sum(r[0] for r in rows[True])
+             / max(1, sum(r[3] for r in rows[True])))
+    g_eff = (sum(r[0] for r in rows[False])
+             / max(1, sum(r[3] for r in rows[False])))
+    print(f"pacing, fixed-opportunity [CAUSAL: state-matched arms, "
+          f"{trials} paired trials, {HORIZON}-night horizon]: total "
+          f"applied strength damage — window-paced {pm:.1f}±{pse:.1f} "
+          f"vs every-night {gm:.1f}±{gse:.1f} (paired Δ "
+          f"{dm:+.1f}±{dse:.1f}); per committed person-night — "
+          f"{p_eff:.2f} vs {g_eff:.2f}; jobs attempted "
+          f"{statistics.fmean(r[1] for r in rows[True]):.1f} vs "
+          f"{statistics.fmean(r[1] for r in rows[False]):.1f}; "
+          f"injured-crew days "
+          f"{statistics.fmean(r[2] for r in rows[True]):.1f} vs "
+          f"{statistics.fmean(r[2] for r in rows[False]):.1f} "
+          f"[attack-side only; the 500-seed outcome bar is the "
+          f"arbiter of the whole trade]")
 
 
 def _raid_decline_at_war_cadence(trials: int = 2000) -> None:
