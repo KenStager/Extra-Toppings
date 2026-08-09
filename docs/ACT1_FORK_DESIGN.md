@@ -2878,3 +2878,87 @@ is corrected first as its own core change with its own tests and
 the versioned golden; the P3 instruments (items 3–6) rerun on top
 of it; then the batteries rerun at both depths under item 7's
 letter. No PR, no activation, before the instruments are honest.
+
+**Revision 18** responds to the re-review of the rev. 17 pass at
+844992a, which reproduced every check, approved the Harbor War's
+story and macro-balance in principle — and found five remaining
+ROOT contracts (not tuning). Recorded before implementation; no
+balance constant moves in this pass.
+
+1. **RouteManifest becomes the route's actual canonical
+   inventory.** The rev. 17 planner built a manifest and then
+   returned parallel cargo/legit dictionaries; commitment consumed
+   the dictionary WITHOUT validating (reproduced: a 25-space plan
+   committed — stash deducted, an ingredient burned — and only
+   resolution raised); `of_plan` coerced `legit=True/1.5/"3"`
+   through `int()`; and the revise walk offered
+   `min(have + loaded, …)` when planned goods never leave the
+   stash during planning (reproduced: 8 in the stash, load 8,
+   revise, 12 offered, service silently clamped). Rulings: a typed
+   `RoutePlan` CARRIES the manifest — no parallel dictionaries,
+   ever; parsing is strict, no coercion, capacity fixed by the
+   model; commitment validates BEFORE any state mutation, then
+   produces the live, availability-revalidated committed manifest
+   and applies its inventory transaction atomically; the revise
+   bound is `min(have, loaded + free // bulk)`; pins cover
+   malformed types, zero-mutation rejection of an illegal commit,
+   and the 8→revise→12 repro.
+2. **Storage gets ONE capacity authority.** Shop→warehouse
+   transfer ignored WAREHOUSE_CAP (reproduced: 202/200), and
+   capacity arithmetic lives in four places (supplier, storage,
+   place_haul, routes). Rulings: one authority owns space used,
+   destination capacity, units-that-fit, transactional
+   transfer/placement, and the persistence validation; every
+   inventory prompt consumes it and STATES WHY its bound exists
+   ("Warehouse: 192/200 space used; 4 more units fit"); a short
+   route-loading card teaches the shared wagon ("The wagon holds
+   24 cargo-space units. Each pizza uses 1. Extra Oregano uses 2
+   per unit."); and the UI uses ONE term — "space" — retiring the
+   bulk/slots/wagon-space mixture.
+3. **The raid-attempt ledger becomes typed and append-only in
+   fact.** Rev. 17 appended a mutable dict as "failed" and edited
+   it to "succeeded"; the save round-tripped
+   `day="banana", crew=-7, damage_h=999999`. Rulings: a frozen,
+   validated `RaidAttemptRecord`, constructed locally and appended
+   EXACTLY ONCE after the outcome is known; scrubs book through
+   the same authority; persistence refuses invalid days, rivals,
+   outcomes, crew counts, damage, and inconsistent outcome/damage
+   combinations. The study renames its rows to what they measure —
+   executed-job and executed-person-night efficiency, with
+   planned/committed efficiency reported separately where scrubs
+   belong in the denominator — and the 8.7-vs-6.1 comparison is a
+   PAIRED OBSERVATIONAL DECOMPOSITION, never again labeled
+   "controlled": policies share only entry state and diverge. The
+   causal pacing claim gets a genuinely state-matched
+   fixed-opportunity experiment; the 500-seed "full policy must
+   not trail" outcome bar stays. Until both stand, the pacing gate
+   has not passed as written.
+4. **The organic heat cohort samples at execution time.** The
+   study read heat at the night hook — after rival moves, decay
+   and the day increment — and counted hot turf whether or not a
+   route ran there. Rulings: one typed route-execution record
+   carries the execution-time district, heat band and capacity
+   multiplier, sales and corner damage; the study counts an
+   exposure ONLY when a route actually executed on live target
+   turf under amber/red. The controlled legal-manifest probe
+   stands. Heat's narrative claim is amended: a LOCAL ROUTE TAX,
+   enforced and priced — "load-bearing" at campaign level is
+   unproven until organic play demonstrates it.
+5. **The golden's provenance must be true.** The active golden
+   still described itself as the pre-P0 v2 baseline @ 3d79d17,
+   engine untouched — false since the sanctioned regeneration.
+   Rulings: the artifact carries an explicit version, generation
+   commit, predecessor checksum and sanctioned-change reason, and
+   the harness ASSERTS that metadata; the rev. 17 golden is a
+   premature intermediate of the same sanctioned correction
+   (generated before the inventory contract was finished) — the
+   inventory model completes first, then the FINAL corrected
+   baseline is established, once, with honest provenance.
+
+Story ruling carried: the Harbor War is approved in principle
+(distinct rivals, a legible five-channel campaign, raid-only
+losing decisively, a real second front, the restaurant-to-empire
+thesis strongly supported, healthy ending diversity). After these
+five contracts close and both identity gates and the 150/500
+batteries rerun, P3 can proceed to a PR review. The chair stays
+unreleased until then.
