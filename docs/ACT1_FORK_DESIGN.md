@@ -487,6 +487,20 @@ combined net and the second shop's reputation. This is canon's Act II made
 playable, and it deliberately ends the month *mid-story*: the ending text
 points at Act III.
 
+**The grade is two questions, not one** (rev. 23 item 1). Arrears
+decides *which terminal* the run reaches — `operation` or
+`on_the_hook` — and the tycoon half decides *how good an `operation`
+is*. Keeping Carmine current while running two hollow fronts must not
+read as a win: that would let the branch be completed by paying a man,
+which is the exact opposite of the north star's question. So
+`operation` carries explicit **operational tiers** derived from
+combined net and shop 2's reputation, and one canonical **Partner
+grading view** owns that arithmetic and every consumer of it — the
+status card, the ending text, the epilogue, the bot studies and the
+human-play report all read the same view, so a tier can never mean one
+thing on screen and another in FINDINGS. Tier thresholds are §6.3
+placeholders; the terms, the tiers and the view are not.
+
 **The deal:** Carmine fronts $20,000 (breakdown: build-out $9k, permits
 $1.5k — clean, permits are paperwork — used second wagon $2.5k, opening
 float $3k, reserve $4k). **The capital is never a spendable $20,000
@@ -543,9 +557,15 @@ here and busy. *Heat* becomes two-front: each shop's district heat gates
 that shop's covert usefulness; the law phase watches both addresses.
 *Rivals*: expansion reads as territorial threat (canon Act II) — the
 neighbor of your chosen district responds in kind (Sal politically, Vinnie
-physically); tribute demands can now name either address. *Raids*: yours
-unchanged; theirs may target the softer of your two shops — defense is now
-an allocation question. **That promise is operationalized, not implied**
+physically); tribute demands can now name either address. *Raids*:
+**raid grammar, objectives and RNG remain unchanged; logistics become
+addressed** (rev. 23 item 2 — "yours unchanged" was false the moment
+inventory became address-local, since a raid crew must now come back
+to *somewhere*). A
+raid takes a named wagon or goes on foot, and it names its return shop;
+the haul is placed at that destination and nowhere else. Theirs may
+target the softer of your two shops — defense is now an allocation
+question. **That promise is operationalized, not implied**
 (rev. 22 item 5): one address-target authority chooses which address a
 rival moves against, a telegraphed raid **persists the address it
 named** so a save cannot retarget it mid-warning, and every
@@ -825,7 +845,7 @@ regression. The morning header notes what you turned down, once.
 | Straight | all goal terms met | The Legitimate Exit (earned) |
 | Straight | all met except Case 46–99 | Almost Out |
 | Straight | any other term failed | Half Measures (names the failed term) |
-| Partner | arrears zero | The Operation (two ovens) — an explicit `operation` terminal (rev. 22 item 3) |
+| Partner | arrears zero | The Operation (two ovens) — an explicit `operation` terminal (rev. 22 item 3), **graded into operational tiers** by combined net and shop 2's reputation through the one Partner grading view (rev. 23 item 1) |
 | Partner | arrears outstanding (necessarily one strike) | On the Hook |
 | War | no rival broken | A Long War |
 | War | one rival broken | The Harbor Is Yours (text variant when a second vendetta is open — rev. 14: a second war never erases the first victory) |
@@ -835,9 +855,13 @@ regression. The morning header notes what you turned down, once.
 
 Partner's second shop is open at day 30 by tested invariant (§2.4.2), so
 its matrix is the points ledger alone — a third state cannot exist, and
-the discriminator is **arrears**, not the strike count (rev. 22 item 7):
-a player who missed once and paid the catch-up bill reaches day 30 with
-one strike and zero arrears, and has earned The Operation.
+the terminal discriminator is **arrears**, not the strike count
+(rev. 22 item 7): a player who missed once and paid the catch-up bill
+reaches day 30 with one strike and zero arrears, and has earned The
+Operation. Which *kind* of Operation is a second, independent question,
+answered by the tiers of §2.4.2 — the terminal id is not the grade, and
+"branch-good" in §2.7 means the healthy tier, never merely the id
+(rev. 23 item 1).
 Pre-day-30 terminals: arrest (any branch, via the latch); Foreclosure
 (Partner); Burned Out (War); clean insolvency (any branch — the Straight
 Path is where it lives); the escrow close — Sold, in three tiers with the
@@ -981,7 +1005,13 @@ seeds 24/39/8 remains the test of fun.
      dirty cash *inherited* from before the fork is reported as its
      own line, since a bot can pay early points from a pre-fork stash
      without ever committing a post-fork crime, and that is precisely
-     the confound the old wording hid.
+     the confound the old wording hid. **"Branch-good" for Partner
+     means the healthy `operation` tier** (rev. 23 item 1), read from
+     the one Partner grading view — never every run whose terminal id
+     happens to be `operation`. The 25–70% band of criterion 5 is
+     measured on that tier, and the id-level rate is reported beside
+     it so the gap between "paid the man" and "built the business" is
+     visible rather than hidden inside one number.
    - *Escrow bot:* every in-branch run either closes exactly at fork+4 or
      reverts to stand-pat; closes in ≥ 70% of seeds. **Valuation is
      decision-sensitive, not formula-implied:** on matched seeds, a
@@ -1023,10 +1053,21 @@ seeds 24/39/8 remains the test of fun.
 5. **Stakes are real (ablations).** Each branch bot's branch-good ending
    rate lands in a 25–70% band (no auto-win, no hopeless chair), and
    removing the branch's stated counterplay drops it by ≥ 20 points:
-   a Straight Path bot that never settles witnesses or retains counsel; a
-   Partner bot that takes **no post-fork covert revenue** (rev. 22
-   item 10, replacing "pays points from pizza margins only"); an Escrow
-   bot that keeps stash on premises.
+   a Straight Path bot that never settles witnesses or retains counsel;
+   an Escrow bot that keeps stash on premises. **Partner carries two
+   ablations, and they prove opposite halves of the hybrid** (rev. 23
+   item 1): a bot that takes **no post-fork covert revenue** (rev. 22
+   item 10, replacing "pays points from pizza margins only") proves the
+   criminal half is load-bearing, and a matched **restaurant-neglect**
+   bot — no cover spend, no pantry care, at either address — must
+   materially reduce **healthy-`operation`** outcomes, **binding at 500
+   seeds** with a recommended bar of **≥ 15 points**, proving the tycoon
+   half is load-bearing too. Neither substitutes for the other: without
+   the neglect row a player could pay Carmine out of two hollow fronts
+   and the branch would still pass its battery, which is precisely the
+   failure this row exists to catch (the war's own
+   restaurant-neglect row, rev. 17, is the precedent — the same
+   hollow-restaurant question, asked of the other branch).
    (The war's cooldown ablation left this
    clause by ruling — rev. 16 retired its arbitrary 20-point magnitude
    and the pacing requirement lives in the §2.7 war letters above; the
@@ -1330,7 +1371,7 @@ walkthroughs share exactly one screen: the sit-down.
 | R6 | Multi-shop refactor blast radius: demand/cover/laundering pipeline is `HOME_DISTRICT`-hardcoded and invariant-tested — and, measured in rev. 21–22, so are raids, rival actions, coupons, stash seizure and law searches | tech | H | H | Ship Partner branch **last** (§7); refactor to a shop *collection* with shop-local state, schema landing in save v3 during P0 as a list of one (§5) so Act III adds elements, not migrations — **the schema half of this landed and held**, leaving P4a a call-site and identity problem rather than a data-model one; P4a is its own behavior-neutral PR gated on identity across three Python versions and both battery depths (rev. 22 item 2); War-branch capture deliberately does *not* reuse multi-shop (§6.4) |
 | R7 | Save v3 churn and determinism across branches | tech | M | M | Field-completeness guard already forces coverage; new persistent streams (`sitdown`, `brokers`, `war`) keep world channels untouched; no player-facing saves exist yet (`save.py` docstring), so no migration burden |
 | R8 | Issue #4 (noise-timeout awards objectives) poisons the War branch economy | tech | H | H | Hard prerequisite: fix + regression through the actual raid path before War work starts (§7 P0) |
-| R9 | Ending combinatorics: 8 new IDs × branch flavors bloat `epilogue` | tech | L | M | One dispatcher arm per branch; graded text inside one ending ID where possible (Sold tiers, the Won-the-War arrest arm) |
+| R9 | Ending combinatorics: the new IDs × branch flavors bloat `epilogue` — count and census live in §2.5's terminal inventory, which is canonical and cited rather than restated here, so this row cannot drift out of step with it again (rev. 23 item 3; it had said "8" while §2.5 said ten) | tech | L | M | One dispatcher arm per branch; graded text inside one ending ID where possible (Sold tiers, the Partner operational tiers, the Won-the-War arrest arm) |
 | R10 | Bot fleet cost: 4 branch bots + ablations + control ≈ 10 conditions × 150 seeds per study round | tech | M | M | Branch bots are thin policies over the existing smart bot; post-fork days only; `fork` study runs branches independently |
 | R11 | Late-payoff players never see Act II and call it missing content | product | M | L | The scene says why the chairs are empty; FINDINGS shows median payoff is day 12–15, so the median player forks |
 | R12 | Escrow's 5-day runs skew aggregate stats (net worth, arrests) if pooled naively | tech | M | L | Report per-branch tables; never pool across branches in FINDINGS |
@@ -1406,12 +1447,31 @@ Ordered roughly by blast radius, smallest first:
    pipeline must pass parameterized before a second entry ever exists
    (the schema itself already landed in P0, items 2–3), and the whole
    pass is behavior-neutral while one shop exists.
-9. **`bot.py` / `bench.py` / `analysis/experiments.py`** — four branch
+9. **The vehicle boundary — one assignment authority for every wagon**
+   (rev. 23 item 2). Today occupancy is a single global answer
+   (`phases.wagon_job`/`wagon_used`, and the `wagon_free` /
+   `wagon_taken` booleans threaded into `raids.plan_raid` and
+   `war.plan_salvage`), and `models.place_haul(state, haul)` takes no
+   destination at all — it fills the home stash, then the warehouse
+   (models.py:1317). Under address-local inventory both are wrong: a
+   raid haul would teleport to DiNapoli's whichever address the crew
+   drove back to. One authority therefore owns every stable wagon
+   across all four consumers — routes, outgoing raids, salvage, and
+   the incoming-raid decoy — answering *which* wagons are free rather
+   than *whether* the wagon is. `place_haul` takes an explicit
+   destination. A raid names its wagon (or goes on foot) and its
+   return shop. The decoy defense requires an actually free wagon and
+   empties the **warned address's** stash — today it is offered
+   unconditionally (raids.py:332) and can promise a wagon that is out
+   on a route. Planning, commitment, execution and save-load all
+   validate the same assignments, so a payload cannot describe a night
+   the engine could not have run.
+10. **`bot.py` / `bench.py` / `analysis/experiments.py`** — four branch
    policies, the `fork` study (divergence, ablations, control), per-branch
    FINDINGS tables.
-10. **`docs/canon/README.md`** — record the accepted deviation (§2.8) when
-    approved.
-11. **New module `acts.py`** — the sit-down scene, chair gating, branch
+11. **`docs/canon/README.md`** — record the accepted deviation (§2.8)
+    when approved.
+12. **New module `acts.py`** — the sit-down scene, chair gating, branch
     state constructors; keeps `game.py` from swallowing the fork.
 
 ## 6. Unresolved product decisions (with recommendations)
@@ -3752,3 +3812,95 @@ raid cannot today name — let alone persist — a target address.
     P4a is measured against them on three Python versions precisely
     because it is the first refactor in this arc to touch the
     flag-off path at all.
+
+**Revision 23** responds to the re-review of revision 22, which
+accepted every earlier ruling and returned two blocking design
+contracts plus one canonical cleanup. Revisions 21 and 22 are
+preserved unedited; this revision amends §2.4.2, §2.5, §2.7, §4's R9
+row and §5, and records the rulings here. Still paper only, and P4
+implementation does not begin: the head returns for a short
+re-review.
+
+**Both blocking findings were reproduced in code before being
+recorded.** For item 1 the conflict is between the design's own
+sections: §2.4.2 grades Partner on "combined net and the second
+shop's reputation", while §2.5's matrix reduced the whole exhaustive
+outcome to arrears — so a player could reach `operation` by keeping
+one man current while running two hollow fronts, and the §2.7 battery
+would have certified it. For item 2: `models.place_haul(state, haul)`
+takes no destination (models.py:1317) and fills the home stash then
+the warehouse; both call sites pass none (raids.py:241, war.py:545);
+occupancy is a single global answer (`phases.wagon_job`/`wagon_used`,
+phases.py:39–58, threaded as the `wagon_free`/`wagon_taken` booleans
+into raids.py:16–19 and war.py:463–473); and the decoy option "Empty
+the stash into the wagon" is offered unconditionally (raids.py:332)
+by a function that receives no wagon information at all, so it can
+promise a wagon already out on a route.
+
+1. **One canonical Partner grading view, and a tycoon half that is
+   load-bearing.** Arrears still selects the terminal id — `operation`
+   or `on_the_hook`, and no additional id is created. What changes is
+   that `operation` is no longer a single outcome: it carries explicit
+   **operational tiers** derived from combined net and shop 2's
+   reputation. **The view owns the arithmetic** — one derivation
+   feeding the status card, the ending text, the epilogue, the bot
+   studies and the human-play report, in the shape `RouteMarket`,
+   `HeatPolicy` and `MarkBreakdown` already establish, so a tier
+   cannot mean one thing on screen and another in FINDINGS. **"Branch-
+   good" is redefined to mean the healthy tier**, never every run
+   whose id happens to be `operation`; the 25–70% band is measured on
+   the tier, with the id-level rate reported beside it so the distance
+   between "paid the man" and "built the business" stays visible.
+   **A matched restaurant-neglect ablation** joins the battery — no
+   cover spend, no pantry care, at either address — and must reduce
+   healthy-`operation` outcomes materially, **binding at 500 seeds**,
+   recommended bar **≥ 15 points**. It stands *beside* the
+   no-post-fork-covert-revenue ablation, never instead of it: the two
+   prove opposite halves of the hybrid, and the war's own
+   restaurant-neglect row (rev. 17) is the precedent for asking the
+   hollow-restaurant question of a branch that could otherwise win
+   without a kitchen. Tier thresholds and the 15-point bar are §6.3
+   tuning constants; the terms, the tiers, the view and the acceptance
+   contract exist before any code.
+2. **The vehicle boundary is ruled whole — raids included.** "Raids:
+   yours unchanged" was false the moment inventory became
+   address-local, because a crew must now return *somewhere*; the
+   letter becomes **"raid grammar, objectives and RNG remain
+   unchanged; logistics become addressed"**, which is exactly the
+   scope: no objective, no die and no combat rule moves. **One
+   assignment authority owns every stable wagon** across all four
+   consumers — routes, outgoing raids, salvage, and the incoming-raid
+   decoy — and answers *which* wagons are free rather than *whether*
+   the wagon is, replacing the global boolean. A raid **selects a
+   wagon or goes on foot and names its return shop**; `place_haul`
+   takes that destination explicitly, so a haul can no longer land at
+   DiNapoli's because that is where the function has always put
+   things. The **decoy defense requires an actually free wagon** and
+   empties the **warned address's** stash; with no wagon free the
+   option is rendered **visibly disabled with its reason**, never
+   silently absent — the standing menu rule. **Planning, commitment,
+   execution and save-load validate the same assignments**, so a
+   payload cannot describe a night the engine could not have run.
+   Finally, the persisted warning becomes **one typed, atomically
+   validated value carrying both the countdown and the target shop**,
+   rather than two independently valid fields that can disagree —
+   today `Rival.raid_warning` is a bare integer (models.py:57) with
+   no address at all, so this is a new typed record in the shape of
+   `RaidAttemptRecord` and `RouteExecutionRecord`, validated at
+   construction.
+3. **R9 stops carrying its own census.** The row said "8 new IDs"
+   while §2.5 said ten — the same drift rev. 22 item 10 had just
+   corrected once. Rather than change the number again, R9 now
+   **cites §2.5's terminal inventory as canonical** and states no
+   count of its own, so the two cannot diverge a third time. Its
+   mitigation also picks up the Partner operational tiers as another
+   instance of graded text inside one id.
+4. **Held scope, unchanged.** Heat weighting (§6.3) and the Quiet
+   Sale and war human-play verdicts stay outside Partner's scope. No
+   calendar extension (§6.1); no second shop from war capture (§6.4);
+   no war from stand-pat (§6.7); no Straight/Sale/War constant moves;
+   no flag-off or stand-pat surface moves. P4a remains
+   behavior-neutral with one shop and gated on identity across 3.11,
+   3.12 and 3.13 plus all three merged batteries at both depths —
+   and item 2's authority is squarely inside it, since the vehicle
+   boundary must be addressed before a second address exists.
