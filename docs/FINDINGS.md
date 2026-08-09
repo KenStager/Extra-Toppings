@@ -1237,20 +1237,154 @@ agrees); flag-off golden 300/300 and paired stand-pat 300/300
 (expected 82 / held 82, schema v1) on all three — the gates run their
 own explicit configs, so the CLI's lift moves no identity surface.
 
+## Round 10 — P3: the Harbor War, and the grind that would not lose
+
+The war branch is in whole (`extra_toppings/war.py` + the campaign
+model, the two mutation authorities, the three shared views, and the
+shared remediation capability), built to the rev. 13–14 contracts:
+one typed `WarCampaignState` per declared rival with append-only
+integer-hundredth damage records; every strength change through ONE
+damage authority (floor applied, overkill never recorded, capture
+detected exactly once, flag-off bit-identical); every relation write
+through ONE authority carrying the vendetta lock; rival behavior,
+district heat and territorial demand each derived in one view that
+drives execution and explanation alike; war pay as the paid-loyalty
+primitive's third face (transactional, dirty-first, one penalty per
+short night); Sal's insurance as a fixed seven-night invoice; the
+prosecution spend beside the lean; the typed defense result with
+Burned Out reading pre-impact damage; salvage as a wagon pickup with
+a pinned one-die draw budget; the standing second front; and
+campaign-count endings with the Won-the-War arrest arm keyed to
+transition ordering. Remediation is ON in-branch through
+`models.remediation_unlocked` — no straight wrappers, no parallel
+copies. The chair remains UNRELEASED.
+
+All numbers reproduce via `python3 -m analysis.experiments fork`
+(150 seeds; WarBot and three ablations over the market bot) and
+`--seeds 500`.
+
+| Criterion (war rows, rev. 14 amendments) | Bar | Measured, 150 (500) | Verdict |
+| --- | --- | --- | --- |
+| Reachability (unchanged) | ≥ 55% | 57% (56%) | pass |
+| Crash-freedom (forced-war chaos) | all | 150/150 (500/500) | pass |
+| Median end strength vs fork-day | ≤ 50% | **5%** (2%) | pass |
+| Pattern+physical share of gross accrual | ≥ 50% | **47%** (48%) | **miss** |
+| Channel mix (successful runs > 60%) | 0 | 0, median worst 40% (0, 40%) | pass |
+| Branch-good band | 25–70% | 31/79 = 39% (115/258 = 45%) | pass |
+| Raid-only trails mixed | ≥ 15 pts | **32 pts** (32) | pass |
+| Cooldown-ignoring-alertness drop | ≥ 20 pts | **−18 pts** (**−16**: 45% → 60%) | **miss** |
+| Restaurant-neglect trails mixed | ≥ 15 pts | 14 pts (**24** at 500) | **miss at 150 / pass at 500** |
+| Reconciliation oracle (nightly, all fleets) | 0 bad | 0 (0) | pass |
+| Ledger transparency (nightly, all fleets) | 0 bad | 0 (0) | pass |
+| Straight + Sale batteries (all P3 code in tree) | round-9 rows | identical at both depths | pass |
+
+Identity: 443 tests green on 3.11 and 3.12; ruff 0.15.x + mypy
+clean; flag-off golden 300/300 AND paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11 and 3.12 with the whole
+branch in the tree.
+
+**What passes, passes hard.** The mixed campaign breaks its target
+to a median 5% (2% at 500) of fork-day strength; no successful
+campaign's mix lets any channel past the cap (aggregate: jobs 44% /
+ledger 28% / ovens 22% / corners 6% / defense 2% — §2.4.3's "jobs a
+minority of the damage" holds); and the raid-only ablation collapses
+by 32 points at both depths, its broken campaigns violating the 60%
+cap 5 (21) times — the anti-grind thesis is true for a bot with ONLY
+crowbars. The war stream's salvage die, the reconciliation identity
+and the ledger oracle never miss across four fleets at both depths.
+
+**The three misses are findings, and the middle one is the real
+one.**
+
+1. *Pattern+physical 47% (48%) against ≥ 50 — the war bleeds
+   people, and people are remediable.* Gross-accrual decomposition
+   (printed per fleet): pattern 11% / physical 34% / paper 12–14% /
+   witness 35–36%. The immune-share diagnostic (pattern + physical
+   + external witness) reads the same number — external testimony
+   barely registers; the witness bulk is EMPLOYEE-sourced: 95 (339)
+   short war-pay nights across the fleet drop morale, morale
+   invites the bystander's poaching, and every departure books
+   "left for a rival knowing everything" (+8, settleable). The
+   criterion imagined a file built from what the city saw; the
+   measured war also runs on what your own crew carries out the
+   door — the §2.6 paid-loyalty tradeoff doing exactly its job,
+   colliding with the ratchet claim. Resolutions for the ruling,
+   none taken: restate the bar as the remediation-immune share
+   (measures the §2.4.3 thesis directly, and today reads the same
+   47–48%); keep the kind-mix letter and treat the people-bleed as
+   the branch's second axis (the bar then binds the war-pay
+   economy, not the taxonomy); or fund war pay harder in the bot (a
+   policy question the instrument rule cuts against).
+2. *The cooldown grinder does not lose — it wins, at both depths.*
+   The ablation §2.7 expects to crater (raids on cooldown, ignoring
+   the security word) reaches 57% (60%) branch-good against the
+   paced bot's 39% (45%) — a −18 (−16) "drop" where the bar demands
+   ≥ +20. Decomposition: the grinder leads a median 3 post-fork
+   jobs to the paced bot's 2; its pattern share doubles (11% → 20%)
+   and it eats double the arrests — the costs exist, they just do
+   not bind in sixteen days. Alertness prices the HAUL (the decline
+   rows below), but a war job's strength damage is flat per
+   success, an aborted job costs no strength and almost nothing
+   else, and hardened security still leaks successes; at war
+   cadence the option to keep swinging is nearly free. Criterion
+   5's own words apply: the pressure is decorative as priced, and
+   the branch fails review on it. Candidate levers for the ruling,
+   none pulled: failure costs at war (injuries or evidence on
+   aborts), alertness scaling the strength damage a job can do,
+   counter-raid aggression coupling to alertness, or a recorded
+   criterion change if review reads the raid-only row as the
+   binding anti-grind claim and this row as mis-aimed. Nothing
+   moved without the ruling.
+3. *Restaurant-neglect trails by 14 at 150 — one point under the
+   letter — and by 24 at 500.* The ablation hurts as designed (its
+   war pay bounces 142 (494) nights against the mixed bot's 95
+   (339), its witness share climbs to 46% (44%), and its
+   branch-good rate falls to 25% (21%)); the standing 150-seed
+   protocol reads the margin one point short and the confirmation
+   depth clears it by nine. Reported as the pair; whether the
+   150-seed letter stands or the row reads at depth is review's
+   call, not the harness's.
+
+**The decline curve, re-verified at war cadence — with a drift
+found on the way.** The war-posture probe at spacing 0 reproduces
+the flag-off probe bit for bit at every depth tried (100 and 300
+trials) — seating the war changes nothing about raid pricing.
+Spacing two quiet nights between attempts recovers value
+($616 → $437 → $533 consecutive becomes $616 → $527 → $720 paced;
+success 16/12/17% becomes 16/14/22%): patience is repaid, which is
+the § 2.4.3 pacing claim — the cooldown finding above says the
+repayment is not yet a requirement. And an honesty item: today's
+flag-off probe no longer reproduces round 5's recorded
+$752 → $556 → $413 — verified NOT to be P3 (the probe runs
+identically at merge-base 627cee7) — the drift happened somewhere
+in P0–P2, invisible to the golden gates because the probe
+hand-builds states rather than replaying runs. Flagged for review;
+per-success value still falls monotonically ($3,850 → $3,539 →
+$3,200).
+
+**Consequence honored:** the war rows do not pass, so the Harbor
+War's chair does not activate — `RELEASED_BRANCHES` is untouched
+and the fork still seats only the two released chairs. The three
+misses and the probe drift go to review with their decompositions;
+the pairwise eight-component vectors remain the P4 full-battery
+item per §7.
+
 ## Still open (carried to the next design pass)
 
-- The payoff-triggered Act I fork: P0 and P1 are complete and merged
-  (P0 foundation + telegraphs, rounds 6–7; P1a fork skeleton + P1b
-  Quiet Sale, round 8 with corrections 1–6). **P2 — the Straight Path
-  — is implemented, measured (round 9), corrected three times under
-  review (rev. 10–12: derived retention, the monotone closed-form
-  ledger, the arrest-aware witness authority), and its two-cohort
-  gate passes with nothing grandfathered** (natural paired 65%/61%
-  against ≥ 60%; redemption −10.0 median, 99% strictly below,
-  80/76-point ablation). **The PR is open per the rev. 12 ruling;
-  merge waits on the reviewer's explicit word**, and the Straight
-  Path + Quiet Sale flags activate together AFTER the merge, as
-  their own step. P3 (the Harbor War) stays paused until then.
+- The payoff-triggered Act I fork: P0–P2 complete, merged and
+  ACTIVATED (the Straight Path and the Quiet Sale seat together
+  behind `EXTRA_TOPPINGS_FORK=1` since the round-9 coda). **P3 — the
+  Harbor War — is implemented whole to the rev. 13–14 contracts and
+  measured (round 10): seven war rows pass, three miss** —
+  pattern+physical 47%/48% vs ≥ 50 (the war bleeds settleable
+  people, not just immune records), the cooldown ablation WINS by
+  18/16 points where it must lose by 20 (raid failure is priced too
+  cheap to make pacing matter in sixteen days), and
+  restaurant-neglect trails by 14 at the 150-seed letter while
+  clearing by 24 at 500. The misses are decomposed, nothing was tuned, the
+  chair stays unreleased, and the ruling is the reviewer's. The
+  round-5 decline-curve citation is also found drifted (pre-P3,
+  probe-only, gates blind to it) and flagged.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds

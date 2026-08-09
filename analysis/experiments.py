@@ -18,11 +18,12 @@ from collections import Counter, defaultdict
 from typing import ClassVar
 
 from extra_toppings import data, escrow, market, phases, raids
-from extra_toppings.bot import (BOTS, CounselOnlyBot, CrimeHeavyBot,
-                                EscrowBot, GreedyBot, KeepsStashBot,
-                                MarketBot, NoRemediationBot,
+from extra_toppings.bot import (BOTS, CooldownRaiderBot, CounselOnlyBot,
+                                CrimeHeavyBot, EscrowBot, GreedyBot,
+                                KeepsStashBot, MarketBot, NeglectWarBot,
+                                NoRemediationBot, RaidOnlyBot,
                                 SettlementOnlyBot, SloppyEscrowBot,
-                                StraightBot)
+                                StraightBot, WarBot)
 from extra_toppings.config import GameConfig
 from extra_toppings.game import run
 from extra_toppings.models import new_state
@@ -387,6 +388,7 @@ def fork(seeds: int) -> None:
         print("valuation: no matched closes — study inconclusive")
 
     _fork_straight(seeds)
+    _fork_war(seeds)
 
 
 def _display_case(state) -> float:
@@ -684,6 +686,270 @@ def _fork_straight(seeds: int) -> None:
           f"{dirty_rates['dirty-month']:.0%} → "
           f"{dirty_rates['dirty-no-remediation']:.0%} "
           f"({(dirty_rates['dirty-month'] - dirty_rates['dirty-no-remediation']) * 100:.0f} points)")
+
+
+def _fork_war(seeds: int) -> None:
+    """P3 acceptance rows (§2.7 war rows as amended by rev. 14):
+    median end strength, the gross-accrual evidence share, the
+    per-campaign applied-damage channel mix, the branch-good band,
+    three ablations, forced-war chaos, and the nightly reconciliation
+    and ledger-transparency oracles — plus the raid-pricing decline
+    curve re-verified at war cadence."""
+    war_on = GameConfig(fork_enabled=True,
+                        enabled_branches=frozenset({"war"}))
+
+    print("— the Harbor War (§2.7 war rows, rev. 14 amendments) —")
+
+    # ── criterion 3: forced-war chaos completes ──────────────────
+    class ChaosWar(BotConsole):
+        def scene_menu(self, namespace, prompt, options):
+            if prompt == "Your chair:" and not getattr(self, "_t", False):
+                self._t = True
+                return 2
+            return len(options) - 1
+    crashes = 0
+    for seed in range(seeds):
+        s = run(seed, ChaosWar(random.Random(seed)), config=war_on)
+        if s.game_over is None:
+            crashes += 1
+    print(f"crash-freedom: forced-war chaos completes "
+          f"{seeds - crashes}/{seeds} runs")
+
+    def war_run(bot_cls, seed):
+        bot = bot_cls(random.Random(seed))
+        recon_bad = ledger_bad = 0
+        gross: Counter = Counter()
+        seen = {"n": None}
+
+        def on_night(state, streams):
+            nonlocal recon_bad, ledger_bad
+            if state.branch != "war" or state.branch_state is None:
+                return
+            if seen["n"] is None:
+                # First war night: everything before the lock-up count
+                # is pre-fork by construction (the scene adds nothing).
+                seen["n"] = state.sitdown_snapshot.evidence_count_at_lockup
+                seen["raids0"] = state.raids_led
+            # Gross accrual, captured at first sight (rev. 14 item 10:
+            # BEFORE remediation can halve it). Suspicion top-ups are
+            # remediation bookkeeping, not accrual — excluded. External
+            # witness records (empty source) are tallied separately:
+            # they are as immune as physical, and the thesis-level
+            # immune share [diagnostic] wants them counted.
+            for r in state.evidence[seen["n"]:]:
+                if r.kind != "suspicion":
+                    gross[r.kind] += r.magnitude
+                    if r.kind == "witness" and not r.source:
+                        gross["witness_ext"] += r.magnitude
+            seen["n"] = len(state.evidence)
+            # The reconciliation oracle: campaign starting strength
+            # minus current strength equals its records, exactly.
+            for c in state.branch_state.campaigns:
+                spent = sum(dr.hundredths for dr in c.damage)
+                if round(state.rivals[c.rival_key].strength * 100) \
+                        != c.starting_hundredths - spent:
+                    recon_bad += 1
+            if state.case != _display_case(state):
+                ledger_bad += 1
+
+        s = run(seed, bot, config=war_on, on_night=on_night)
+        entered = getattr(bot, "_entered_war", False) or s.branch == "war"
+        if not entered or not s.branch_state or not s.branch_state.campaigns:
+            return {"entered": False}
+        camps = s.branch_state.campaigns
+        first = camps[0]
+        ratio = (round(s.rivals[first.rival_key].strength * 100)
+                 / first.starting_hundredths)
+        broken = [c for c in camps if c.broken_day is not None]
+        mixes = []
+        for c in broken:
+            spent: Counter = Counter()
+            for dr in c.damage:
+                spent[dr.channel] += dr.hundredths
+            total = sum(spent.values())
+            mixes.append({ch: n / total for ch, n in spent.items()})
+        agg: Counter = Counter()
+        for c in camps:
+            for dr in c.damage:
+                agg[dr.channel] += dr.hundredths
+        pp = gross.get("pattern", 0.0) + gross.get("physical", 0.0)
+        g_total = sum(v for k, v in gross.items() if k != "witness_ext")
+        immune = pp + gross.get("legacy", 0.0) + gross.get("witness_ext",
+                                                           0.0)
+        good = s.game_over == "harbor_yours" or (
+            s.game_over == "survived" and len(broken) >= 2)
+        return {"entered": True, "ending": s.game_over, "ratio": ratio,
+                "broken": len(broken), "mixes": mixes, "agg": agg,
+                "pp_share": pp / g_total if g_total else None,
+                "immune_share": immune / g_total if g_total else None,
+                "gross": dict(gross), "g_total": g_total,
+                "post_raids": s.raids_led - seen.get("raids0", s.raids_led),
+                "good": good, "recon_bad": recon_bad,
+                "ledger_bad": ledger_bad,
+                "war_pay": s.branch_state.war_pay_paid,
+                "short": s.branch_state.war_pay_short_nights}
+
+    def war_rows(name, cls, note):
+        entered = 0
+        endings: Counter = Counter()
+        ratios, pp_shares = [], []
+        goods = 0
+        mix_worst = []
+        agg: Counter = Counter()
+        recon_bad = ledger_bad = 0
+        pay_tot = short_tot = 0
+        kind_shares: dict = defaultdict(list)
+        post_raids = []
+        for seed in range(seeds):
+            r = war_run(cls, seed)
+            if not r["entered"]:
+                continue
+            entered += 1
+            endings[r["ending"]] += 1
+            ratios.append(r["ratio"])
+            if r["pp_share"] is not None:
+                pp_shares.append(r["pp_share"])
+                kind_shares["immune"].append(r["immune_share"])
+                for kind in ("pattern", "physical", "paper", "witness",
+                             "witness_ext"):
+                    kind_shares[kind].append(
+                        r["gross"].get(kind, 0.0) / r["g_total"])
+            post_raids.append(r["post_raids"])
+            goods += r["good"]
+            for m in r["mixes"]:
+                mix_worst.append(max(m.values()))
+            agg.update(r["agg"])
+            recon_bad += r["recon_bad"]
+            ledger_bad += r["ledger_bad"]
+            pay_tot += r["war_pay"]
+            short_tot += r["short"]
+        rate = goods / entered if entered else 0.0
+        print(f"{name}: entered {entered}/{seeds}, endings {dict(endings)}"
+              f"  ({note})")
+        if not entered:
+            return rate
+        print(f"  branch-good (target broken by day 30) {goods}/{entered} "
+              f"({rate:.0%})")
+        print(f"  median end strength vs fork-day "
+              f"{statistics.median(ratios):.0%}")
+        if pp_shares:
+            print(f"  pattern+physical share of gross post-fork accrual: "
+                  f"median {statistics.median(pp_shares):.0%}")
+            kinds = " / ".join(
+                f"{k} {statistics.median(v):.0%}"
+                for k, v in kind_shares.items() if v and k != "immune")
+            print(f"  gross accrual by kind, median shares "
+                  f"[decomposition]: {kinds}")
+            print(f"  remediation-immune share (pattern + physical + "
+                  f"external witness) [diagnostic]: median "
+                  f"{statistics.median(kind_shares['immune']):.0%}")
+        if post_raids:
+            print(f"  post-fork jobs led: median "
+                  f"{statistics.median(post_raids):.0f} "
+                  f"[decomposition]")
+        if mix_worst:
+            over = sum(1 for w in mix_worst if w > 0.60)
+            print(f"  channel mix: worst single-channel share of applied "
+                  f"damage per broken campaign, median "
+                  f"{statistics.median(mix_worst):.0%}, max "
+                  f"{max(mix_worst):.0%}; campaigns over 60%: {over}")
+        total = sum(agg.values())
+        if total:
+            mix = " / ".join(f"{ch} {n / total:.0%}"
+                             for ch, n in sorted(agg.items()))
+            print(f"  aggregate mix [diagnostic]: {mix}")
+        print(f"  war pay paid ${pay_tot:,} across the fleet; "
+              f"{short_tot} short nights")
+        print(f"  reconciliation oracle: {recon_bad} bad nights (bar 0); "
+              f"ledger transparency: {ledger_bad} bad nights (bar 0)")
+        return rate
+
+    mixed = war_rows("war", WarBot, "the mixed campaign — bars bind here")
+    raid_only = war_rows("raid-only", RaidOnlyBot,
+                         "ablation: no proactive non-job channel")
+    cooldown = war_rows("cooldown", CooldownRaiderBot,
+                        "ablation: raids on cooldown ignoring alertness")
+    neglect = war_rows("neglect", NeglectWarBot,
+                       "ablation: no cover, no pantry")
+    print(f"raid-only trails mixed: {mixed:.0%} → {raid_only:.0%} "
+          f"({(mixed - raid_only) * 100:.0f} points; bar ≥ 15)")
+    print(f"cooldown ablation drop: {mixed:.0%} → {cooldown:.0%} "
+          f"({(mixed - cooldown) * 100:.0f} points; bar ≥ 20)")
+    print(f"restaurant-neglect trails mixed: {mixed:.0%} → {neglect:.0%} "
+          f"({(mixed - neglect) * 100:.0f} points; bar ≥ 15)")
+
+    _raid_decline_at_war_cadence()
+
+
+def _raid_decline_at_war_cadence(trials: int = 300) -> None:
+    """The §7 P3 gate's last row: the alertness decline curve
+    re-verified AT WAR CADENCE — the same three-job probe as the
+    `raids` study, but seated in a declared war (the target's
+    aggression scaled, the raid edge live) and paced like the war
+    bot actually raids: two quiet nights of alertness decay between
+    attempts. Reported beside the round-5 consecutive numbers."""
+    from extra_toppings.models import BranchState, VENDETTA_RELATION
+    from extra_toppings.models import set_relation
+
+    def probe(spacing_nights):
+        # The raid_roi decline probe's exact setup — same crew, same
+        # storage removal, same stock-value metric, same per-attempt
+        # bot seeds — seated in a declared war.
+        totals = [0.0, 0.0, 0.0]
+        succ = [0, 0, 0]
+        for seed in range(trials):
+            rng = random.Random(seed)
+            st = new_state()
+            market.roll_prices(st, rng)
+            st.warehouse = {}
+            st.day = 15
+            st.debt = 0
+            st.debt_paid_day = 14
+            st.act = 2
+            st.branch = "war"
+            st.branch_state = BranchState.war(
+                war_target="vinnie", declared_day=15,
+                starting_strength=st.rivals["vinnie"].strength)
+            set_relation(st, "vinnie",
+                         min(st.rivals["vinnie"].relation,
+                             VENDETTA_RELATION))
+            crew = st.employees[:3]
+            for e in crew:
+                e.hired = e.aware = True
+            rival = st.rivals["vinnie"]
+            for attempt in range(3):
+                def stock_value(s):
+                    total = sum(u * data.GOODS[g]["base"]
+                                for g, u in s.shop_stash.items())
+                    return total + sum(u * data.GOODS[g]["base"]
+                                       for g, u in (s.warehouse or {}).items())
+                before = stock_value(st)
+                plan = {"rival": "vinnie", "objective": "steal_stock",
+                        "team": [e for e in crew if e.available],
+                        "armed": False, "wagon_free": True}
+                if not plan["team"]:
+                    break
+                raids.run_raid(
+                    st, plan, BotConsole(random.Random(seed * 3 + attempt)),
+                    rng)
+                gained = stock_value(st) - before
+                totals[attempt] += gained
+                succ[attempt] += gained > 0
+                for e in crew:
+                    e.injured_days = 0
+                for _ in range(spacing_nights):
+                    st.day += 1
+                    if rival.last_raided_day != st.day:
+                        rival.alertness = max(0.0, rival.alertness - 0.34)
+        return totals, succ
+
+    for spacing, label in ((0, "consecutive (the round-5 comparison)"),
+                           (2, "war cadence (two quiet nights between)")):
+        totals, succ = probe(spacing)
+        row = " → ".join(f"${totals[i] / trials:,.0f}" for i in range(3))
+        rates = " / ".join(f"{succ[i] / trials:.0%}" for i in range(3))
+        print(f"raid decline at war posture, {label}: expected $/attempt "
+              f"{row} (success {rates})")
 
 
 def main() -> None:
