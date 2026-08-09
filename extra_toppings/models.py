@@ -282,6 +282,14 @@ class BranchState:
 # this one definition — nothing else may spell a branch id.
 BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
 ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
+# THE released set (§7: the fork reaches players once two active
+# branches exist — lifted together on the P2 merge approval). The CLI
+# flag consumes this; development builds may still enable other chairs
+# explicitly through GameConfig. Growing this set is each later
+# phase's own reviewed activation step.
+RELEASED_BRANCHES = frozenset({"straight", "quiet_sale"})
+if not RELEASED_BRANCHES <= ACTIVE_BRANCHES:      # import-time consistency
+    raise RuntimeError("RELEASED_BRANCHES out of step with BRANCH_ORDER")
 
 # Which BranchState fields are live per active branch; everything else
 # must sit at its dataclass default or the payload is a cross-branch mix.

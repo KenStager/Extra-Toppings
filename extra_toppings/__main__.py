@@ -7,16 +7,20 @@ import random
 from .bot import GreedyBot
 from .config import GameConfig
 from .game import run
+from .models import RELEASED_BRANCHES
 from .ui import BotConsole, Console
 
 
 def _config_from_env() -> GameConfig:
     """The CLI is the only place the environment is read; the engine
     takes an explicit GameConfig (design §8 rev. 5). EXTRA_TOPPINGS_FORK=1
-    turns the sit-down trigger on (development builds — no branch is
-    actionable until its phase lands)."""
+    turns the sit-down trigger on with the RELEASED chairs actionable
+    (§7: the Straight Path and the Quiet Sale, activated together on
+    the P2 merge approval) — the canonical set lives in models.py, and
+    the flag consumes it rather than spelling its own."""
     if os.environ.get("EXTRA_TOPPINGS_FORK") == "1":
-        return GameConfig(fork_enabled=True)
+        return GameConfig(fork_enabled=True,
+                          enabled_branches=RELEASED_BRANCHES)
     return GameConfig()
 
 
