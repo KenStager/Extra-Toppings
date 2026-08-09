@@ -1,9 +1,16 @@
-"""Legacy-equivalence harness: the P0 refactor must not move Act I.
+"""Legacy-equivalence harness: engine changes must not move Act I.
 
-The engine is being rebuilt underneath the game (typed evidence, the
-shops collection, save v3). This harness proves the rebuild is
-behavior-preserving, per seed, against golden baselines generated from
-the pre-refactor engine:
+Born in P0 to prove the rebuild (typed evidence, the shops
+collection, save v3) behavior-preserving against goldens generated
+from the pre-refactor engine. The ACTIVE baseline is versioned
+(rev. 18 item 5): golden_act1.json carries explicit provenance —
+version, generation commit, predecessor checksum, and the sanctioned
+reason it was regenerated — and `check` ASSERTS that metadata before
+comparing a single run. Regeneration happens only as a recorded,
+sanctioned act (one has occurred: the rev. 17–18 inventory-contract
+correction, which fixed a player-facing defect the old trace
+pinned); between such acts the never-regenerate rule binds. The
+mechanics compared per seed:
 
 - **legacy projection** — every night's state, rendered in the save-v2
   shape (explicit field list below), hashed. The projection reads only
@@ -185,7 +192,37 @@ def run_recorded(seed: int, bot_key: str,
             "night_facts": night_facts, "drawn_new_streams": drawn_new}
 
 
-def generate(seeds: int) -> None:
+REQUIRED_META = ("version", "engine", "generated_at_commit",
+                 "predecessor_sha256", "reason", "seeds", "bots")
+
+
+def _head_commit() -> str:
+    import subprocess
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True,
+            text=True, check=True,
+            cwd=os.path.dirname(__file__)).stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+def generate(seeds: int, reason: str | None = None) -> None:
+    """Write a NEW versioned baseline. Regeneration is a recorded,
+    sanctioned act (rev. 18 item 5): the artifact carries its
+    version, the commit it was generated at, the sha256 of the
+    baseline it retires, and the reason — and `check` asserts all of
+    it. Do not run this without a recorded ruling."""
+    predecessor, prior_version = "none", 0
+    if os.path.exists(GOLDEN_PATH):
+        with open(GOLDEN_PATH, "rb") as fb:
+            predecessor = hashlib.sha256(fb.read()).hexdigest()
+        try:
+            with open(GOLDEN_PATH) as fj:
+                prior_version = json.load(fj).get("meta", {}) \
+                    .get("version", 1)
+        except Exception:
+            prior_version = 1
     runs = {}
     for bot_key in BOTS:
         for seed in range(seeds):
@@ -196,21 +233,39 @@ def generate(seeds: int) -> None:
                           "night_facts"):
                 rec.pop(extra)
             runs[f"{bot_key}/{seed}"] = rec
-    payload = {
-        "meta": {"engine": "pre-P0 v2 baseline @ 3d79d17 "
-                           "(harness + on_night hook injected; "
-                           "engine files untouched)",
-                 "seeds": seeds, "bots": sorted(BOTS)},
+    payload: dict = {
+        "meta": {
+            "version": prior_version + 1,
+            "engine": "corrected-engine baseline (projection: the "
+                      "explicit v2 field list in legacy_projection)",
+            "generated_at_commit": _head_commit(),
+            "predecessor_sha256": predecessor,
+            "reason": reason or
+            "design rev. 17-18 sanctioned regeneration: the "
+            "RouteManifest inventory contract replaced the 12-pizza "
+            "planner defect the prior trace pinned; final baseline "
+            "established after the contract completed",
+            "seeds": seeds, "bots": sorted(BOTS)},
         "runs": runs,
     }
     with open(GOLDEN_PATH, "w") as f:
         json.dump(payload, f, sort_keys=True)
-    print(f"wrote {len(runs)} golden runs to {GOLDEN_PATH}")
+    print(f"wrote {len(runs)} golden runs to {GOLDEN_PATH} "
+          f"(version {payload['meta']['version']}, predecessor "
+          f"{predecessor[:12]})")
 
 
 def check(seeds: int | None) -> int:
     with open(GOLDEN_PATH) as f:
         golden = json.load(f)
+    # Provenance is part of the gate (rev. 18 item 5): a golden that
+    # cannot say what it is, where it came from and why it exists is
+    # not a baseline.
+    meta = golden.get("meta", {})
+    missing = [k for k in REQUIRED_META if not meta.get(k)]
+    if missing:
+        print(f"FAIL golden provenance: missing metadata {missing}")
+        return 1
     n = seeds or golden["meta"]["seeds"]
     failures = 0
     checked = 0
