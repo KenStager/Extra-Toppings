@@ -487,12 +487,29 @@ combined net and the second shop's reputation. This is canon's Act II made
 playable, and it deliberately ends the month *mid-story*: the ending text
 points at Act III.
 
-**The deal:** Carmine fronts $20,000 (illustrative breakdown: build-out
-$9k, permits $1.5k — clean, permits are paperwork — used second wagon
-$2.5k, opening float $3k, reserve $4k). The obligation is **points, not
-debt**: $2,500 to Carmine every 5 days, unmarked bills preferred, forever.
-No amount pays him off; it is equity. Early payoff (≤ day 10) defers the
-first points cycle by one — his compliment.
+**The deal:** Carmine fronts $20,000 (breakdown: build-out $9k, permits
+$1.5k — clean, permits are paperwork — used second wagon $2.5k, opening
+float $3k, reserve $4k). **The capital is never a spendable $20,000
+deposit** (rev. 22 item 8): accepting the deal commits $13,000 —
+build-out, permits and the wagon — atomically, to Carmine's own
+contractor, in the same transaction that creates the second address;
+only the $7,000 float and reserve enter clean cash. Nothing about the
+build is left to hope that later spending consumes the right money.
+The obligation is **points, not debt**: $2,500 to Carmine every 5 days,
+unmarked bills preferred, forever. No amount pays him off; it is equity.
+Early payoff (≤ day 10) defers the first points cycle by one — his
+compliment.
+
+**Points keep two separate books** (rev. 22 item 7), because "two
+misses, consecutive or not" and "one payment currently outstanding" are
+different facts and one counter cannot carry both. *Arrears* is what is
+owed right now; a *strike* is a miss that happened and never unhappens.
+A missed $2,500 stays owed: the next cycle's bill is prior arrears +
+the new $2,500 + a $500 vig. Paying that bill clears the arrears and
+leaves the strike standing, so the second strike — at any later cycle,
+consecutive or not — forecloses. Day-30 grading reads **arrears**: zero
+is The Operation, nonzero (necessarily carrying the one strike) is On
+the Hook.
 
 **Site selection** (the branch's first screen): any district but Old
 Harbor. University Hill — volume, students, no owner; Little Sicily —
@@ -501,12 +518,18 @@ city, Vinnie's floor. Opening on a rival's turf is a commercial declaration
 (steep relation hit, their counterplay intensifies there); the safe pick is
 a real choice, not the only one.
 
-**Pressure replacing the debt:** the points clock (miss one: a warning and
-$500 vig added to the next; miss two — consecutive or not: foreclosure,
-§below), double payroll, double rent, and **the roster does not double**:
-eight employees, two addresses, one-person-one-job. The wagon count is two
-but read-in drivers are however many you've made — a second covert route
-needs a second person you trust with your life. Two believable-revenue
+**Pressure replacing the debt:** the points clock (miss one: a warning,
+the amount stays owed, and $500 vig rides the next bill; miss two —
+consecutive or not: foreclosure, §below), double payroll, double rent,
+and **the roster does not double**: eight employees, two addresses,
+one-person-one-job. The wagon count is two and both wagons run real
+routes — honest or covert, simultaneously, one per address per night
+(rev. 22 items 1 and 4; the cover-only second wagon proposed in rev. 21
+was rejected, and the letter below was always the stronger reading).
+Read-in drivers are however many you've made: a second covert route
+needs a second person you trust with your life, and that person is the
+branch's central mechanical payoff, not a convenience. Two
+believable-revenue
 ceilings help launder, but points must be *earned*: pizza margins alone pay
 Carmine by starving growth, which is the branch's trap — his money keeps
 you criminal. (Canon, verbatim: "A second branch increases laundering
@@ -522,7 +545,20 @@ that shop's covert usefulness; the law phase watches both addresses.
 neighbor of your chosen district responds in kind (Sal politically, Vinnie
 physically); tribute demands can now name either address. *Raids*: yours
 unchanged; theirs may target the softer of your two shops — defense is now
-an allocation question. *Reputation/demand/pantry* run **per shop**: shop
+an allocation question. **That promise is operationalized, not implied**
+(rev. 22 item 5): one address-target authority chooses which address a
+rival moves against, a telegraphed raid **persists the address it
+named** so a save cannot retarget it mid-warning, and every
+consequence lands on the named shop — coupons, guards, damage days,
+stash seizure, reputation loss, the heat it raises, and the law's
+searches alike. Staff assigned to an address are that address's defense
+allocation. *Inventory is local and never teleports* (rev. 22 item 9):
+every purchase, improvement, storage move and route names an address;
+pantry, stash and upgrades belong to their shop; warehouse transfers
+name a source and a destination; there is no free shop-to-shop
+transfer. Clean and dirty cash stay global — one till for the operator,
+an abstraction stated here rather than left to be inferred.
+*Reputation/demand/pantry* run **per shop**: shop
 2 opens at reputation ~20 with its district's traffic and its own pantry;
 neglect at either address strips that address's cover (the FINDINGS chain,
 now twice). *Staff*: the branch's binding constraint — assignments per
@@ -530,22 +566,48 @@ shop, a named manager for shop 2 (an aware employee; their loyalty is now
 load-bearing), familiarity resets in the new district, and poaching one
 roster across two addresses is how rivals fight you here.
 
-**An invariant, declared and tested:** once funded, the second shop opens
-and stays open. Construction is deterministic (the capital is escrowed
-with Carmine's own contractor), raid damage limps a shop but never
-shutters it, and no Partner-branch event can un-open an address — the only
-ways to lose shop 2 are Foreclosure and arrest, both of which end the run.
-"Both shops open" is therefore not a day-30 condition to check but an
-invariant to test; the day-30 matrix reduces to the points ledger.
+**An invariant, declared and tested — in three recorded phases**
+(rev. 22 item 8, reconciling the invariant with §3.2's D14–D16, where
+the shop is manifestly not yet serving customers). (1) *Accepted:* the
+second `Shop` record exists from the moment the deal is struck — it is
+created by the same atomic transaction that commits the $13,000, so
+there is no window in which the branch is funded and the address does
+not exist. (2) *Under construction:* it stands until its **recorded
+opening day**, deterministically (Carmine's own contractor, no dice),
+serving nothing, earning nothing, carrying no order book. (3) *Open:*
+from the opening day onward it cannot close. Raid damage limps a shop
+but never shutters it, and no Partner-branch event can un-open an
+address — the only ways to lose shop 2 are Foreclosure and arrest, both
+of which end the run. "Both shops open" is therefore not a day-30
+condition to check but an invariant to test; the day-30 matrix reduces
+to the points ledger alone.
 
-**Failure states / endings:** *"The Operation (two ovens)"* — day 30,
-points current; upgraded operation-holds text, explicit Act III hook. *"On the Hook"* (new) — day 30 with exactly one missed payment
-outstanding: both ovens burn, but the vig is compounding and Carmine owns
-your schedule now; a survival ending graded below Two Ovens, whose Act III
-hook reads very differently. *"Foreclosure"* (new) — a second missed
-payment, whenever it happens (consecutive or not): Carmine protects his
-investment; he takes the second shop, the wagons, and the month's dignity —
-the kneecaps ending's polite cousin, and the run ends that night. Arrest at
+**The manager, and the vacancy that is gameplay** (rev. 22 item 6).
+Shop 2 runs under a named manager — an aware employee, their loyalty
+load-bearing. But a manager can be arrested, poached, fired, or can
+resign, and every one of those is legitimate play, so **a vacancy is a
+valid state, never an invalid save**: the post empties (recorded as
+such, with the day it emptied), the address stays open under Carmine's
+nephew, and while it is vacant that shop runs at a reduced kitchen
+capacity and a reduced believable ceiling. The player has a stated
+window to appoint another qualified manager before the penalty bites
+at its full weight; appointing one clears it. A validator that demanded
+a living, hired, aware manager at all times would refuse saves the
+player reached by playing the game correctly — the precise failure this
+design forbids.
+
+**Failure states / endings** — three explicit terminal ids, none of them
+riding a generic fallthrough (rev. 22 item 3, on rev. 15's precedent):
+*"The Operation (two ovens)"* (`operation`, **new id**, not an upgraded
+`survived` text) — day 30, arrears zero; the operation-holds text with
+an explicit Act III hook. *"On the Hook"* (`on_the_hook`, new) — day 30
+with arrears outstanding: both ovens burn, but the vig is compounding
+and Carmine owns your schedule now; a survival ending graded below Two
+Ovens, whose Act III hook reads very differently. *"Foreclosure"*
+(`foreclosure`, new) — the second strike, whenever it happens
+(consecutive or not): Carmine protects his investment; he takes the
+second shop, the wagons, and the month's dignity — the kneecaps
+ending's polite cousin, and the run ends that night. Arrest at
 Case 100 carries branch flavor: he is embarrassed, and the epilogue implies
 what that means. Full matrix and precedence: §2.5.
 
@@ -763,8 +825,8 @@ regression. The morning header notes what you turned down, once.
 | Straight | all goal terms met | The Legitimate Exit (earned) |
 | Straight | all met except Case 46–99 | Almost Out |
 | Straight | any other term failed | Half Measures (names the failed term) |
-| Partner | points current | The Operation (two ovens) |
-| Partner | one payment outstanding | On the Hook |
+| Partner | arrears zero | The Operation (two ovens) — an explicit `operation` terminal (rev. 22 item 3) |
+| Partner | arrears outstanding (necessarily one strike) | On the Hook |
 | War | no rival broken | A Long War |
 | War | one rival broken | The Harbor Is Yours (text variant when a second vendetta is open — rev. 14: a second war never erases the first victory) |
 | War | both rivals broken | The Syndicate (an explicit `syndicate` terminal — rev. 15 overturned the no-new-id ruling: an outcome matrix must not depend on generic epilogue ordering) |
@@ -772,7 +834,10 @@ regression. The morning header notes what you turned down, once.
 | Stand-pat | as today | the existing survived grades |
 
 Partner's second shop is open at day 30 by tested invariant (§2.4.2), so
-its matrix is the points ledger alone — a third state cannot exist.
+its matrix is the points ledger alone — a third state cannot exist, and
+the discriminator is **arrears**, not the strike count (rev. 22 item 7):
+a player who missed once and paid the catch-up bill reaches day 30 with
+one strike and zero arrears, and has earned The Operation.
 Pre-day-30 terminals: arrest (any branch, via the latch); Foreclosure
 (Partner); Burned Out (War); clean insolvency (any branch — the Straight
 Path is where it lives); the escrow close — Sold, in three tiers with the
@@ -780,14 +845,19 @@ Path is where it lives); the escrow close — Sold, in three tiers with the
 are **not** terminals: they revert to stand-pat and the run continues to
 day 30 under the stand-pat matrix.
 
-**Inventory.** Existing seven retained (kneecaps unreachable post-payoff —
-the debt is zero; stand-pat reaches all seven exactly as today). New IDs:
-Almost Out, Half Measures, On the Hook, Foreclosure, The Harbor Is Yours,
-A Long War, Burned Out, Sold (one ID with graded tiers and the
-reclassification). Won the War, Lost the Verdict is a text arm of
-arrested, not a new ID. Upgraded texts (not new logic): the earned
-Legitimate Exit, The Operation (two ovens), The Syndicate. Net: eight new
-ending IDs, one new arrest text arm, three upgraded texts.
+**Inventory** (restated rev. 22 item 3; the earlier count went stale the
+moment rev. 15 promoted The Syndicate from an upgraded text to an
+explicit id, and that promotion was never folded back into this line).
+Existing seven retained (kneecaps unreachable post-payoff — the debt is
+zero; stand-pat reaches all seven exactly as today). New IDs, **ten**:
+Almost Out, Half Measures, On the Hook, Foreclosure, The Operation, The
+Syndicate, The Harbor Is Yours, A Long War, Burned Out, Sold (one ID
+with graded tiers and the reclassification). Won the War, Lost the
+Verdict is a text arm of arrested, not a new ID. Upgraded text (not new
+logic), **one**: the earned Legitimate Exit. Net: ten new ending IDs,
+one new arrest text arm, one upgraded text. The governing rule, learned
+twice: an outcome named in a day-30 matrix gets its own terminal id and
+never depends on generic epilogue ordering.
 `_check_endings` becomes the precedence ladder above; the epilogue
 dispatcher grows one arm per branch.
 
@@ -894,8 +964,24 @@ seeds 24/39/8 remains the test of fun.
      and the branch fails review; and a nightly
      reconciliation oracle: each campaign's starting strength minus the
      rival's current strength equals its damage records exactly.
-   - *Partner bot:* combined legit revenue ≥ 1.5× the stand-pat control's
-     by fork+8; points paid on schedule in ≥ 80% of runs.
+   - *Partner bot (letters made unambiguous, rev. 22 item 10):*
+     **combined legit revenue** — both addresses, measured as
+     *cumulative* legit revenue from the fork through fork+8, paired
+     against the same seed's stand-pat control; the **median per-seed
+     ratio must be ≥ 1.5**, and the absolute dollar difference is
+     reported alongside so a ratio inflated by a tiny denominator
+     cannot pass unnoticed. **Points on schedule** — defined as
+     **zero missed cycles**, in ≥ 80% of entered runs that reach at
+     least one due date (runs foreclosed, arrested or ended before a
+     first due date are excluded from the denominator and reported
+     separately, never silently dropped). The criterion-5 ablation is
+     **no post-fork covert revenue** — a bot that runs no covert route
+     and takes no dirty income after the fork — rather than the
+     mechanically ambiguous "pays points from pizza margins only";
+     dirty cash *inherited* from before the fork is reported as its
+     own line, since a bot can pay early points from a pre-fork stash
+     without ever committing a post-fork crime, and that is precisely
+     the confound the old wording hid.
    - *Escrow bot:* every in-branch run either closes exactly at fork+4 or
      reverts to stand-pat; closes in ≥ 70% of seeds. **Valuation is
      decision-sensitive, not formula-implied:** on matched seeds, a
@@ -938,8 +1024,10 @@ seeds 24/39/8 remains the test of fun.
    rate lands in a 25–70% band (no auto-win, no hopeless chair), and
    removing the branch's stated counterplay drops it by ≥ 20 points:
    a Straight Path bot that never settles witnesses or retains counsel; a
-   Partner bot that pays points from pizza margins only; an Escrow bot
-   that keeps stash on premises. (The war's cooldown ablation left this
+   Partner bot that takes **no post-fork covert revenue** (rev. 22
+   item 10, replacing "pays points from pizza margins only"); an Escrow
+   bot that keeps stash on premises.
+   (The war's cooldown ablation left this
    clause by ruling — rev. 16 retired its arbitrary 20-point magnitude
    and the pacing requirement lives in the §2.7 war letters above; the
    war's ≥ 20-class ablation is the raid-only and empire rows.) If an
@@ -996,7 +1084,11 @@ seeds 24/39/8 remains the test of fun.
 
 Against the ten invariants (`01-north-star-brief.md`): (1) shared
 resources — sharpened everywhere: two shops on one roster, wagon contested
-three ways, war pay vs. payroll; (2) functional shop — the Straight Path
+three ways, war pay vs. payroll (in Partner the wagon is contested *per
+address* rather than globally — two wagons, but two addresses, distinct
+drivers and at most one owner ride-along, so the scarcity moves to the
+people rather than dissolving, rev. 22 item 1);
+(2) functional shop — the Straight Path
 and the Quiet Sale make the restaurant the *goal*, not just the cover;
 (3) coupling — each branch is a coupling turned into a campaign (raid
 damage ↔ cover in the War; demand ↔ price in the Sale); (4) Dope Wars fast
@@ -1097,21 +1189,33 @@ the Case band and calendar shown beside each. One choice, confirmed twice.
   underground / patrol / owner. University Hill: volume and no owner.
   Little Sicily: reputation country, Sal's porch. The Meadows: the best
   covert demand in the city, and Vinnie's floor. You take University Hill.
-  The capital ledger posts: $20,000, itemized. Points card: $2,500 due day
-  19, then every 5th day, unmarked preferred.
-- **D15.** Permits ($1,500, clean — paperwork is always clean) and
-  build-out begin. Staffing screen for two addresses: Rosa anchors Old
+  The capital ledger posts $20,000, itemized — and settles in the same
+  breath (rev. 22 item 8): $13,000 goes straight to Carmine's
+  contractor for build-out, permits and the wagon, the University Hill
+  address exists from this moment as a shop under construction, and
+  $7,000 in float and reserve lands in clean cash. You never hold his
+  build money. Points card: $2,500 due day 19, then every 5th day,
+  unmarked preferred.
+- **D15.** Permits and build-out are already paid and under way; the
+  contractor's schedule names the opening day, and nothing you do
+  moves it. Staffing screen for two addresses: Rosa anchors Old
   Harbor; Marcus will drive University Hill — which means reading no one
   new in yet means shop 2 runs *straight* at first. Priya's résumé is on
   the counter (ambitious, two-star kitchen): shop 2 needs a cook.
-- **D16.** Opening day. Shop 2's own morning block appears: reputation 20,
-  University traffic, its own pantry (standard), its own order book — and
-  its own believable ceiling, currently tiny. Carmine's nephew eats a free
-  slice and looks at the register. First cross-shop decision: the second
-  wagon exists, but a *covert* University route needs a read-in driver you
-  don't have there.
-- **D17.** Two-route morning: Rosa runs Meadows product (concert tail),
-  Marcus runs University pizzas-only — cover building, no cargo. Sal's
+- **D16.** The contractor's recorded opening day. Shop 2 stops being a
+  building site and starts being a business: its own morning block
+  appears — reputation 20, University traffic, its own pantry
+  (standard), its own order book — and its own believable ceiling,
+  currently tiny. From this morning it can never close again (§2.4.2's
+  three phases). Carmine's nephew eats a free slice and looks at the
+  register. First cross-shop decision: the second wagon exists, but a
+  *covert* University route needs a read-in driver you don't have there.
+- **D17.** Two-route morning — two wagons, two addresses, both routes
+  real and both recorded (rev. 22 item 1): Rosa runs Meadows product
+  (concert tail) out of Old Harbor, Marcus runs University pizzas — no
+  cargo tonight, but a genuine route building genuine cover, not an
+  exception carved out of the ledger. Distinct drivers, and you can
+  ride along with only one of them. Sal's
   voice on the phone, friendly: expansion is noticed. A University
   crackdown rumor: patrol 15 would land on your new address. Points due in
   two days; dirty on hand $610.
@@ -1223,7 +1327,7 @@ walkthroughs share exactly one screen: the sit-down.
 | R3 | Hard fork reads as railroading / "pick your DLC" | design | M | M | State-dependent chairs, explained gates, stand-pat null branch, temptation offers keeping other lives visible |
 | R4 | Branch balance unknowable on paper; a chair dominates or is hopeless | design | H | M | §2.7 bands (25–70%) + ablations are falsification bars before human tuning; bots stay instruments |
 | R5 | Straight Path is boring (no routes, no raids) | design | M | H | Disposal pricing, temptation offers, witness economy, rival siege, advertising race — verified by the ablation: if skipping its verbs doesn't hurt, it *is* boring and fails review |
-| R6 | Multi-shop refactor blast radius: demand/cover/laundering pipeline is `HOME_DISTRICT`-hardcoded and invariant-tested | tech | H | H | Ship Partner branch **last** (§7); refactor to a shop *collection* with shop-local state, schema landing in save v3 during P0 as a list of one (§5) so Act III adds elements, not migrations; War-branch capture deliberately does *not* reuse multi-shop (§6.4) |
+| R6 | Multi-shop refactor blast radius: demand/cover/laundering pipeline is `HOME_DISTRICT`-hardcoded and invariant-tested — and, measured in rev. 21–22, so are raids, rival actions, coupons, stash seizure and law searches | tech | H | H | Ship Partner branch **last** (§7); refactor to a shop *collection* with shop-local state, schema landing in save v3 during P0 as a list of one (§5) so Act III adds elements, not migrations — **the schema half of this landed and held**, leaving P4a a call-site and identity problem rather than a data-model one; P4a is its own behavior-neutral PR gated on identity across three Python versions and both battery depths (rev. 22 item 2); War-branch capture deliberately does *not* reuse multi-shop (§6.4) |
 | R7 | Save v3 churn and determinism across branches | tech | M | M | Field-completeness guard already forces coverage; new persistent streams (`sitdown`, `brokers`, `war`) keep world channels untouched; no player-facing saves exist yet (`save.py` docstring), so no migration burden |
 | R8 | Issue #4 (noise-timeout awards objectives) poisons the War branch economy | tech | H | H | Hard prerequisite: fix + regression through the actual raid path before War work starts (§7 P0) |
 | R9 | Ending combinatorics: 8 new IDs × branch flavors bloat `epilogue` | tech | L | M | One dispatcher arm per branch; graded text inside one ending ID where possible (Sold tiers, the Won-the-War arrest arm) |
@@ -1277,12 +1381,31 @@ Ordered roughly by blast radius, smallest first:
    sales in owned turf, with the nightly cap and the oven-outage doubling,
    plus the ledger-to-the-law option; capture-on-strength-0 effects
    (district underground transfer).
-8. **`shop.py`** — the big one, deferred to the Partner branch phase:
-   every function takes a `Shop` entry from the collection instead of
-   reading the module-level `HOME_DISTRICT` and a single `state.shop`;
-   demand, ceiling, shift and reputation become shop-local. Every canon
-   invariant test on the pipeline must pass parameterized before a second
-   entry ever exists (the schema itself already landed in P0, items 2–3).
+8. **The address-bound systems** — the big one, deferred to the Partner
+   branch phase and **broader than `shop.py` alone** (rev. 22 item 2,
+   on review's ruling). Shops and wagons first gain **stable identity
+   keys** — list position is not an identity, and employee assignments,
+   route origins, raid targets, storage locations and manager ownership
+   all reference the key. Then every address-bound system is
+   parameterized by it: `shop.py` (demand, ceiling, shift, reputation —
+   today all reading `state.shop` and the module-level `HOME_DISTRICT`);
+   inventory and storage (`STORAGE_LOCATIONS` is a two-string tuple
+   today); routes and the night's service; upgrades; staff assignment;
+   rent; rival actions; incoming raids; and the law's searches. Today
+   `raids.py`, `rivals.py` and `phases.py` each hard-code DiNapoli's —
+   damage, guard, stash seizure, reputation loss, coupons, the heat
+   raised and the search swept all resolve against the one shop, and
+   `Rival.raid_warning` is a bare countdown carrying no address at all.
+   One **address-target authority** replaces those hard-codes, and a
+   telegraphed raid persists the address it named.
+   `RouteExecutionRecord` carries its origin shop; route chronology
+   becomes ordered by day with uniqueness on (day, origin shop) —
+   Partner permitting one route per
+   address per day, every other branch one route in total, and raid
+   chronology staying one per day. Every canon invariant test on the
+   pipeline must pass parameterized before a second entry ever exists
+   (the schema itself already landed in P0, items 2–3), and the whole
+   pass is behavior-neutral while one shop exists.
 9. **`bot.py` / `bench.py` / `analysis/experiments.py`** — four branch
    policies, the `fork` study (divergence, ablations, control), per-branch
    FINDINGS tables.
@@ -1361,8 +1484,21 @@ Ordered roughly by blast radius, smallest first:
   *Gate: war rows of 4–5; raid-pricing decline curve re-verified at war
   cadence.*
 - **P4** — Carmine's Partner (multi-shop refactor last, alone in its
-  phase). *Gate: full §2.7 battery + human play on seeds 24/39/8, written
-  up honestly in FINDINGS.*
+  phase). **Split into two reviewable PRs (rev. 22 item 2):** *P4a* —
+  the address-bound foundation of §5 item 8: stable shop and wagon
+  identity keys, then every address-bound system parameterized by them
+  (shop.py, inventory/storage, routes, service, upgrades, staff, rent,
+  rival actions, incoming raids, law searches), **behavior-neutral
+  while one shop exists**. Because this is the first phase whose
+  refactor touches the FLAG-OFF path, its gate is identity rather than
+  a regression pin — there is no bug to fail on: both identity gates
+  300/300 on **3.11, 3.12 AND 3.13**, plus all three merged branch
+  batteries byte-identical **at both depths (150 and 500)**. One moved
+  digit means rework, not a note. *P4b* — the branch itself: site
+  selection, the atomic capital, the construction window, the points
+  ledger, the manager and its vacancy, the address-level threat model,
+  endings, bots, study. *Gate: full §2.7 battery + human play on seeds
+  24/39/8, written up honestly in FINDINGS.*
 
 Each phase ends with the standing workflow: tests + ruff + mypy, the
 relevant studies rerun, FINDINGS updated (including retractions if the
@@ -3440,4 +3576,179 @@ once item 2's split is ruled.
     gates on 3.11 AND 3.12 remain the standing bar, with the frozen
     scene schema at v1, and P4a is measured against them precisely
     because it is the first phase whose refactor touches the
+    flag-off path at all.
+
+**Revision 22** responds to the review of revision 21, which accepted
+the Partner thesis — Carmine's legitimate-looking capital creates
+scale while the recurring points force the player to keep earning
+dirty — and returned three rulings plus seven structural corrections
+before implementation. Revision 21 is preserved unedited so the review
+effect stays visible; this revision amends the canonical sections
+(§2.4.2, §2.5, §2.7, §2.8, §3.2, §4 R6, §5, §7) as well as recording
+the rulings here. Still paper only: no implementation accompanies it,
+and none begins until this corrected paper is reviewed.
+
+**Every reviewer claim was reproduced in code before being recorded**,
+per the standing rule. Three reproductions are worth stating because
+they decide items 1 and 5: (a) a cargo-less route already writes a
+`RouteExecutionRecord` — `routes.py:376–377`, `units_sold=0`,
+`corner_damage_h=0` — so revision 21's "cover-only route writes no
+record" would have contradicted both the ledger's behavior and its
+claim that every executed route is recorded; (b) `raids.py`,
+`rivals.py` and `phases.py` each hard-code DiNapoli's (damage, guard,
+stash overflow and seizure, reputation loss and home heat at
+raids.py:323–423; the coupon and the 12 points of home heat at
+rivals.py:160,192; the damage/coupon tick-down at phases.py:797–800
+and the search sweep reading only home heat and the home stash at
+phases.py:1156–1170); (c) `Rival.raid_warning` is a bare integer
+countdown (models.py:57) carrying no address at all, so a telegraphed
+raid cannot today name — let alone persist — a target address.
+
+1. **Two genuine simultaneous routes; the cover-only exception is
+   withdrawn (ruling on rev. 21 item 5).** The second wagon and the
+   second trusted driver are the branch's central mechanical payoff,
+   not a convenience, and §2.4.2's own letter always said so ("a
+   second covert route needs a second person you trust with your
+   life"). Both wagons run real routes — honest or covert — and both
+   are recorded. The chronology problem is solved by identity rather
+   than by exemption (item 2): route chronology becomes ordered by
+   day with uniqueness on **(day, origin shop)**, Partner permitting
+   one route per address per night and every other branch exactly one
+   in total, so the merged one-route-a-night behavior is preserved
+   everywhere it exists today. Raid chronology stays strictly one per
+   day. The planning model gains four rules: distinct drivers; at
+   most one owner ride-along; local orders, pantry, ovens, stash and
+   upgrades; and wagon availability resolved **per address** instead
+   of the single global boolean `phases.wagon_job`/`wagon_used`
+   express today.
+2. **Stable identities for shops and wagons — list position is not an
+   identity.** Every address gains a stable key, and employee
+   assignments, route origins, raid targets, storage locations and
+   manager ownership all reference the key rather than an index.
+   `RouteExecutionRecord` carries its origin shop, which is what makes
+   item 1's uniqueness clause expressible at all, and what keeps the
+   war's by-(rival, day) reconciliation intact — a war route and a
+   Partner route are then distinguishable by origin, not merely by
+   date. Derived world dice keyed to an address key by that stable key
+   too (item 6), so no roll depends on the order shops happen to sit
+   in a list.
+3. **P4a is approved and broadened (ruling on rev. 21 item 2).** The
+   foundation is not `shop.py` alone: it parameterizes every
+   address-bound system — inventory and storage, routes, service,
+   upgrades, staff, rent, rival actions, incoming raids and law
+   searches — and it stays behavior-neutral while one shop exists.
+   Its gate is identity, because a pure refactor has no bug to fail
+   on: both gates 300/300 on **3.11, 3.12 AND 3.13**, plus all three
+   merged branch batteries byte-identical **at both depths**. §5
+   item 8 and §7's P4 bullet are amended accordingly.
+4. **The address-level threat model is operationalized.** One
+   **address-target authority** decides which address a rival moves
+   against — replacing the hard-codes catalogued above — and a
+   telegraphed raid **persists the address it named**, so a save or
+   reload cannot retarget a warning that is already on the board
+   (today it could not even name one). Every consequence follows the
+   named shop: coupons, guards, damage days, stash seizure,
+   reputation loss, the heat raised, and the law's searches. Staff
+   assigned to an address constitute that address's defense
+   allocation, which is what makes "theirs may target the softer of
+   your two shops" a decision rather than a line of prose.
+5. **A vacant manager's post is valid gameplay, never an invalid
+   save.** Revision 21 proposed validating that the manager is always
+   a hired, aware employee; that would refuse saves the player
+   reached by playing correctly, since a manager can be arrested,
+   poached, fired or can resign. The persisted state is therefore a
+   **vacancy** — no manager, plus the day the post emptied — and the
+   address stays open under Carmine's nephew at a reduced kitchen
+   capacity and reduced believable ceiling, with a stated window to
+   appoint a qualified replacement before the penalty reaches full
+   weight. The window's length and the penalty's size are §6.3
+   placeholders, named on paper here **before** any validator is
+   written, which is the point of the correction: the validator
+   encodes a designed state machine rather than inventing one.
+6. **Randomness, tightened.** No new persistent RNG stream is
+   approved — `rng.PERSISTENT` is unchanged, and revision 21's
+   proposal to claim none is upheld rather than merely permitted. The
+   demand shock stays **citywide**, one roll for one day's weather
+   (rev. 21 item 4, confirmed). Address-specific world rolls — critic
+   visits, law checks and their kin — ride **derived daily channels
+   keyed by the stable shop key** (item 2), never by list order, so
+   no world fact depends on the sequence in which addresses were
+   opened. This keeps the world action-independent, which is the
+   invariant the whole equivalence harness rests on.
+7. **Points keep two books, and the ledger is typed.** One
+   `points_missed` counter cannot mean both "how many times this has
+   happened" and "what is outstanding right now". The branch persists
+   four facts — a **lifetime strike count**, **current arrears**, the
+   **next due day**, and **cumulative points paid** — behind a typed,
+   append-only **cycle ledger**, one record per cycle, in the shape
+   the war's `DamageRecord` and the execution logs already use. The
+   arithmetic: a missed $2,500 stays owed; the next bill is prior
+   arrears + $2,500 + $500 vig; paying it clears arrears and leaves
+   the strike; a second strike at any later cycle forecloses that
+   night. Day-30 grading reads **arrears** — zero is `operation`,
+   nonzero (necessarily one strike) is `on_the_hook` — so a player
+   who missed once and caught up has earned the good ending, which is
+   both the fairer reading and the one the ledger can prove.
+8. **The capital transaction is atomic, and construction has three
+   recorded phases.** Accepting the deal commits **$13,000** —
+   build-out, permits and the wagon — in one transaction to Carmine's
+   contractor, creating the second `Shop` record in the same breath;
+   only the **$7,000** float and reserve enter clean cash. No
+   spendable $20,000 is ever deposited in the hope that later
+   spending consumes it correctly. The address then exists (accepted)
+   → stands under deterministic construction until its **recorded
+   opening day** → is open and cannot close except through a terminal
+   outcome. That is what reconciles §3.2's D14–D16, where the shop is
+   plainly not yet serving customers, with the always-open invariant:
+   the invariant binds from the opening day, not from the signature.
+9. **Inventory is local, and the cash abstraction is stated.** Every
+   purchase, improvement, storage action and route names an address.
+   Supplier purchases choose their delivery address; pantry, stash and
+   upgrades stay local; warehouse transfers name a source and a
+   destination shop; **no free shop-to-shop transfer** exists —
+   goods move by wagon or they do not move. Clean and dirty cash
+   remain global, and §2.4.2 now says so explicitly rather than
+   leaving a reader to infer it: one operator, one pocket, two
+   addresses.
+10. **The Operation gets its own terminal (ruling on rev. 21
+    item 13).** `operation` joins `on_the_hook` and `foreclosure` as
+    an explicit id; no Partner outcome rides the generic `survived`
+    ordering. §2.5's inventory is restated in the same act, and the
+    restatement records that the old count was already stale: rev. 15
+    promoted The Syndicate from an upgraded text to an explicit id
+    and the inventory line was never updated. The corrected census is
+    **ten new ids, one new arrest text arm, one upgraded text**, with
+    the governing rule stated so it is not learned a third time — an
+    outcome named in a day-30 matrix gets its own terminal id.
+11. **Acceptance language made unambiguous (§2.7 amended).** Combined
+    legit revenue is **cumulative** across both addresses from the
+    fork through fork+8, paired per seed against the stand-pat
+    control, with the **median per-seed ratio ≥ 1.5** and the
+    absolute dollar difference reported beside it so a small
+    denominator cannot manufacture a pass. "On schedule" means
+    **zero missed cycles**, in ≥ 80% of entered runs that reach at
+    least one due date, with excluded runs reported rather than
+    silently dropped. The criterion-5 ablation becomes **no
+    post-fork covert revenue**, with inherited pre-fork dirty cash
+    reported as its own line — the old "pays from pizza margins
+    only" was mechanically ambiguous and hid exactly that confound.
+12. **What revision 21 carries forward unchanged**, having survived
+    review: the alias-layer guard that raises rather than silently
+    mean DiNapoli's (item 3 there — now the migration net for a
+    broader P4a); the citywide demand shock; per-shop `cooks_skill`
+    and the staff assignment field; rent counting addresses; the
+    summed per-shop believable ceiling; heat's teeth extending to
+    Partner at unchanged constants; Partner joining
+    `REMEDIATION_BRANCHES`; the validation arm the branch has never
+    had; activation held for its own reviewed commit after merge;
+    and the loud `NotImplementedError` fallthrough retained with its
+    probe retargeted rather than deleted.
+13. **Held scope, confirmed.** Heat weighting (§6.3) and the Quiet
+    Sale and war human-play verdicts stay explicitly outside
+    Partner's scope. No calendar extension (§6.1); no second shop
+    from war capture (§6.4); no war from stand-pat (§6.7); no
+    Straight/Sale/War constant moves; no flag-off or stand-pat
+    surface moves — both identity gates remain the standing bar, and
+    P4a is measured against them on three Python versions precisely
+    because it is the first refactor in this arc to touch the
     flag-off path at all.
