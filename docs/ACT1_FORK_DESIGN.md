@@ -2056,3 +2056,48 @@ before the correction pass:
    reported context; every dirty-month line is labeled diagnostic.
    Counsel-only and settlement-only redemption runs are added as
    labeled diagnostics (the review's suggestion), not bars.
+
+**Revision 12** responds to the re-review of revision 11, which
+approved the story and gameplay design, reproduced every number, and
+found two remaining model-level blockers — the last pass before the
+merge disposition, recorded on paper first. No balance constants or
+criteria change; the existing gates rerun WITHOUT grandfathering the
+prior results.
+
+1. *Arrested witnesses stop receiving loyalty relief.* witness_status
+   correctly answered beyond_reach, but dormant_sources re-derived
+   protection independently (hired ∧ aware ∧ morale ∧ unsettled) and
+   forgot the arrest — a real route bust arrests a driver WITHOUT
+   taking them off payroll, so an arrested Rosa's records stayed
+   halved while the docket said, in the same breath, that her loyalty
+   holds the record down and that the statement is the state's. The
+   root correction inverts the dependency: **protection is derived
+   inside witness_status** (settled beats arrested beats protected
+   beats reachable — one ordered matrix), and dormant_sources
+   consumes only the employees whose status IS protected. The
+   complete status matrix is pinned, plus a regression through the
+   REAL route-arrest transition: the bust itself must raise the
+   displayed Case the moment the cuffs close.
+2. *The relief allocator honors its closed-form contract.* Two
+   violations inside the accepted model: a legal zero-magnitude
+   protected record made the allocator BREAK instead of skip
+   (reducing a 0.6 record to 0 jumped the Case 10.6 → 20.3 as every
+   later cut was abandoned), and sequential per-cut subtraction let a
+   floor-bound display land one ulp under 10 (10.0 →
+   9.999999999999998 on accrual). The contract is now closed-form:
+   **relief = min(total halvable, max(0, raw − floor))**; a
+   floor-bound display canonicalizes to EXACTLY the floor; ledger
+   order survives only for allocating that relief across displayed
+   records (skipping zero-halving records, breaking only when the
+   allowance is exhausted). The harness oracle computes the closed
+   form independently rather than repeating the allocator's loop —
+   it certifies the contract, not the implementation. Property
+   coverage moves from single named examples to deterministic
+   GENERATED sweeps over accepted magnitudes including zero:
+   monotone accrual, monotone remediation, monotone protection both
+   ways, docket-sums-to-meter, and exact-10 floor binding.
+3. *The path forward, per the ruling.* After this bounded correction:
+   rerun both identity gates and both study depths; the natural
+   paired bar must clear ≥ 60% fresh. If green, P2 opens as a PR;
+   after merge, the Straight Path and the Quiet Sale activate
+   together. No further design or tuning ruling is pending.
