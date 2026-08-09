@@ -15,9 +15,10 @@ def _config_from_env() -> GameConfig:
     """The CLI is the only place the environment is read; the engine
     takes an explicit GameConfig (design §8 rev. 5). EXTRA_TOPPINGS_FORK=1
     turns the sit-down trigger on with the RELEASED chairs actionable
-    (§7: the Straight Path and the Quiet Sale, activated together on
-    the P2 merge approval) — the canonical set lives in models.py, and
-    the flag consumes it rather than spelling its own."""
+    (§7: the Straight Path and the Quiet Sale on the P2 merge
+    approval; the Harbor War on the P3 merge disposition) — the
+    canonical set lives in models.py, and the flag consumes it rather
+    than spelling its own."""
     if os.environ.get("EXTRA_TOPPINGS_FORK") == "1":
         return GameConfig(fork_enabled=True,
                           enabled_branches=RELEASED_BRANCHES)

@@ -2034,14 +2034,41 @@ hundredths", "malformed campaign payload" — so each rejection is
 caused by the mutation under test and nothing else. Test-only; no
 engine file moved.
 
+### Round 10 coda — the war activation (post-merge)
+
+PR #14 merged on the reviewer's explicit disposition ("Merge PR #14.
+Keep activation as a separate, minimal post-merge change"). Per that
+disposition and design rev. 15 item (c), the Harbor War activates in
+one separate commit on the P2 precedent: the canonical released set
+widens (`models.RELEASED_BRANCHES = {"straight", "quiet_sale",
+"war"}`, still checked against BRANCH_ORDER at import), the CLI flag
+consumes it unchanged (`EXTRA_TOPPINGS_FORK=1` now seats three
+released chairs), and it is pinned that exactly those three are
+actionable — the war chair commits through the real scene (target
+named, campaign seated, vendetta locked), while Carmine's Partner
+still renders with its true verdict and refuses with the
+development-build marker. No economic constants moved; no engine
+line beyond the set and two docstrings. Pin-proof: against the
+pre-activation engine the activation tests fail 2 of 7 (the
+canonical-home equality and the war-commit path). Verification on
+the activation commit: 530 tests green on 3.11 and 3.12; ruff and
+mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11, 3.12 AND 3.13 against
+the unchanged contract-asserted baseline; the fork batteries at 150
+and 500 seeds byte-identical to their pre-activation outputs (the
+studies pass explicit configs, so the CLI's lift moves no study
+row).
+
 ## Still open (carried to the next design pass)
 
-- The payoff-triggered Act I fork: P0–P2 complete, merged and
-  ACTIVATED (the Straight Path and the Quiet Sale seat together
-  behind `EXTRA_TOPPINGS_FORK=1` since the round-9 coda). **P3 — the
-  Harbor War — CURRENT STATUS (through design rev. 20, the round-10
-  corrections 1–6): story and macro-balance approved by review;
-  every §2.7 war letter passes at both depths** — branch-good 57%
+- The payoff-triggered Act I fork: P0–P3 complete, merged and
+  ACTIVATED (the Straight Path and the Quiet Sale since the round-9
+  coda; the Harbor War since the round-10 coda — three chairs seat
+  behind `EXTRA_TOPPINGS_FORK=1`). **P3 — the Harbor War — FINAL
+  STATUS (through design rev. 20, the round-10 corrections 1–6):
+  story and macro-balance approved by review; PR #14 merged on the
+  reviewer's disposition; every §2.7 war letter passes at both
+  depths** — branch-good 57%
   at 500 within the 25–70 band; the empire letter 26 points
   (maintained 26% Syndicate rate vs neglect 0%, bar ≥ 15);
   raid-only trails by 45; the full policy does not trail cooldown
@@ -2055,9 +2082,10 @@ engine file moved.
   load unproven and stated as such). The engine carries the typed,
   domain-bound, history-reconciled execution ledgers; storage and
   the wagon share one validated space authority; the golden
-  baseline is contract-asserted with true provenance. The war
-  chair stays UNRELEASED and no P3 PR is open — both await the
-  reviewer's word.
+  baseline is contract-asserted with true provenance. What remains
+  of the arc is P4 — Carmine's Partner, the last unbuilt chair —
+  and the P4 full-battery item (the pairwise eight-component
+  vectors, per §7).
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
