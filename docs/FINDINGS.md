@@ -1966,51 +1966,86 @@ UNCHANGED sanctioned baseline, now contract-asserted; stand-pat
 82/82. The chair stays unreleased; the head returns for the final
 review.
 
+### Round 10 correction 6 (final-review hold — design rev. 20)
+
+Review accepted the pacing and independent-baseline contracts,
+reproduced every number, and held the PR on two model-boundary
+contracts plus stale status prose. A bounded pass per revision 20:
+no constants, no mechanics, no features. Nine new pins; eight fail
+on the pre-fix engine (the ninth pins a legal history round-tripping
+clean on both).
+
+**1. Storage is transactionally safe.** One storage-state preflight
+(map validity AND space within cap) runs before any mutation:
+`move_goods` preflights BOTH locations — a source holding True, 1.5
+or an unknown "fake" row refuses whole with every stash
+byte-identical; `place_haul` preflights every destination, computes
+its COMPLETE allocation locally, and commits once — the reviewer's
+partial-placement repro (40 mushrooms landed, then the invalid
+warehouse discovered) refuses with zero footprint, and an
+already-over-cap warehouse is refused outright. All pinned.
+
+**2. The ledgers validate the history they claim.**
+`validate_execution_history(state)` binds at cross-state validation:
+the capacity multiplier must be the canonical TYPE (Boolean equality
+satisfies nothing); log days strictly increase (one route, one raid
+per night); contested is DERIVED from the campaign's declared/broken
+interval — a contested Old Harbor route cannot load into an Act I
+state or predate its declaration; corner damage sits under the
+band-adjusted ceiling (amber halves it to 400 hundredths); and the
+campaign ledger reconciles against the execution records BOTH ways —
+succeeded raid damage against jobs-channel damage, route corner
+damage against corners-channel damage, by day and rival. Test
+fixtures that fabricated impossible histories became legal-history
+helpers (one job per night, the attempt booked, the calendar
+advanced). Every reviewer counterexample is a pinned refusal, and a
+legal history round-trips clean.
+
+**3. The war-cadence probe simulates legal history.** Each attempt
+now takes a fresh calendar day, with quiet nights strictly between —
+and the decay count per gap is unchanged (the canonical tick is
+blocked on raid nights), so the curve reproduces to the byte:
+consecutive $752±35 → $556±29 → $413±24; war cadence
+$752 → $675±32 → $607±30; paired repayment +$120±15 / +$194±18.
+
+**4. The prose tells the current truth.** §2.4.3's thesis sentence
+now reads the certified numbers — grinding tries to buy tempo with
+twice the attempts and nearly three times the injuries; it does not
+outperform pacing — and FINDINGS' "Still open" entry states P3's
+CURRENT status (every letter passing, the chair awaiting the word)
+in place of the archaeological chain.
+
+Verification: 529 tests, ruff and mypy clean on 3.11 and 3.12; both
+identity gates 300/300 on 3.11, 3.12 AND 3.13 against the unchanged
+contract-asserted baseline; stand-pat 82/82; the batteries
+byte-identical at both depths (the validators refuse only what
+gameplay never produces). The chair stays unreleased; the head
+returns for the short final review.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P2 complete, merged and
   ACTIVATED (the Straight Path and the Quiet Sale seat together
   behind `EXTRA_TOPPINGS_FORK=1` since the round-9 coda). **P3 — the
-  Harbor War — is implemented whole to the rev. 13–14 contracts and
-  measured (round 10): seven war rows pass, three miss** —
-  pattern+physical 47%/48% vs ≥ 50 (the war bleeds settleable
-  people, not just immune records), the cooldown ablation WINS by
-  18/16 points where it must lose by 20 (raid failure is priced too
-  cheap to make pacing matter in sixteen days), and
-  restaurant-neglect trails by 14 at the 150-seed letter while
-  clearing by 24 at 500. **The rev. 15 correction pass then closed
-  seven boundary defects (round 10 correction): the target's tribute
-  door, the night-assignment and haul-placement authorities, the
-  post-payoff fronting gate with shared insolvency, the explicit
-  syndicate terminal, the real route-market view, completed
-  insurance persistence, and the four-phase law calm — with the
-  sanctioned alertness pressure policy landed (knee at the hardened
-  band), the "drift" claim retracted (round 5 was 2,000 trials;
-  reproduced exactly at depth), ablation entry identity asserted at
-  zero divergence, and the causal heat report showing the teeth
-  enforced but not yet outcome-load-bearing.** **The rev. 16 pass
-  (round 10 correction 2) then corrected the four remaining root
-  contracts — immutable accrued evidence, the wagon owned by the one
-  assignment view at execution, sale insolvency, the exercised and
-  measured second front — and replaced the two letters: the pacing
-  criterion passes at 500 (full policy 57% vs cooldown 53%, better
-  damage per crew-night, fewer injuries) via window-rational raiding
-  with no new constant, and the remediation-resistance bars pass at
-  98%/100% on true accruals.** One row misses: restaurant-neglect
-  trails by 11 against ≥ 15 (decomposed — window-rational jobs
-  lifted every fleet; the shop's load now binds at the second front,
-  where neglect completes zero double captures, not at the one-target
-  bar). **The rev. 17 pass (correction 3) then fixed the core
-  inventory model (one typed RouteManifest, the 12-pizza cap gone,
-  the golden deliberately versioned — the one sanctioned
-  regeneration) and made the instruments honest: pacing from the
-  attempt ledger (8.7 vs 6.1 per attempted job-night at 500), the
-  three evidence quantities from one canonical view (98% permanent
-  residue), heat on a legal manifest (12.0 vs 17.5 units), the
-  night's wagon reading execution results — and the replaced empire
-  letter passes (Syndicate-rate gap 26 points at 500 vs bar ≥ 15).
-  Every gameplay battery row is byte-identical through the change.**
-  The chair stays unreleased; the rulings are the reviewer's.
+  Harbor War — CURRENT STATUS (through design rev. 20, the round-10
+  corrections 1–6): story and macro-balance approved by review;
+  every §2.7 war letter passes at both depths** — branch-good 57%
+  at 500 within the 25–70 band; the empire letter 26 points
+  (maintained 26% Syndicate rate vs neglect 0%, bar ≥ 15);
+  raid-only trails by 45; the full policy does not trail cooldown
+  (57% vs 53%); remediation resistance 98% permanent residue /
+  100% above fork-day; channel mix, reconciliation and
+  transparency oracles clean; ablation entry identity zero. The
+  certified causal pacing result: window-paced damage ties the
+  grind on half the attempts with a third of the injuries —
+  grinding buys tempo by spending bodies. Heat is a local route
+  tax (priced at the route's capacity and corner take; campaign
+  load unproven and stated as such). The engine carries the typed,
+  domain-bound, history-reconciled execution ledgers; storage and
+  the wagon share one validated space authority; the golden
+  baseline is contract-asserted with true provenance. The war
+  chair stays UNRELEASED and no P3 PR is open — both await the
+  reviewer's word.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
