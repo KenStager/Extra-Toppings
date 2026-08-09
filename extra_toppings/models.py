@@ -47,6 +47,11 @@ class District:
     heat: float = 10.0            # 0-100 immediate attention
     known_price_age: int = 99     # days since player had firsthand prices
     sold_yesterday: dict = field(default_factory=dict)   # good -> units (price depression)
+    # Actual route sales, today (rev. 17 item 3): its OWN field —
+    # sold_yesterday is a price-depression signal that stock raids
+    # legitimately overwrite with shortages, so no study or display
+    # may read it as sales. Reset with the price roll each morning.
+    route_sold: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -1144,6 +1149,12 @@ class State:
     raids_led: int = 0
     kills: int = 0
     demand_shock: float = 1.0        # today's demand luck — rolled once, policy-independent
+    # Append-only outgoing-job attempt records (rev. 17 item 4):
+    # {"day", "rival", "outcome" ("scrubbed"|"failed"|"succeeded"),
+    # "crew", "damage_h"} — the honest denominator for any pacing
+    # claim. Primitives only; the night and the raid append, nothing
+    # ever edits.
+    raid_log: list = field(default_factory=list)
 
     # ── the shop, addressed as one while there is one ────────────
     @property

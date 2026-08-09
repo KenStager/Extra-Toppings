@@ -120,6 +120,27 @@ class EvidenceLedgerView:
     next_contest: str
 
 
+def ledger_quantities(state: State, start: int = 0,
+                      exclude: tuple = ("suspicion",)) -> dict:
+    """THE three evidence quantities (rev. 17 item 5), one canonical
+    source: `accrued` — gross accrual, immutable; `residue` — the
+    permanent record after contests and settlements (stored
+    magnitude; reversible retention dormancy untouched); `effective`
+    — tonight's live contribution after retention protection, priced
+    by the SAME dormant_relief allocation the docket displays. Summed
+    over the ledger slice [start:], excluded kinds skipped. Any study
+    or display wanting these numbers reads them here."""
+    cuts = dict(dormant_relief(state.evidence, state.dormant_sources()))
+    q = {"accrued": 0.0, "residue": 0.0, "effective": 0.0}
+    for i, r in enumerate(state.evidence):
+        if i < start or r.kind in exclude:
+            continue
+        q["accrued"] += r.accrued or 0.0
+        q["residue"] += r.magnitude
+        q["effective"] += r.magnitude - cuts.get(i, 0.0)
+    return q
+
+
 def build_ledger_view(state: State) -> EvidenceLedgerView:
     cuts = dict(dormant_relief(state.evidence, state.dormant_sources()))
     by_key = {e.key: e for e in state.employees}

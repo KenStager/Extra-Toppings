@@ -965,5 +965,146 @@ class TestRevision16Boundaries(unittest.TestCase):
         self.assertIsNone(bot._live_target)
 
 
+
+
+class TestRevision17Instruments(unittest.TestCase):
+    """Rev. 17 items 3-6: the night reads execution results, outgoing
+    jobs book typed attempts, the ledger's three quantities come from
+    one canonical view, and route sales have their own field."""
+
+    def _two_front_war(self):
+        state = war_state()
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        marcus = next(e for e in state.employees
+                      if e.name.startswith("Marcus"))
+        rosa.hired = marcus.hired = True
+        break_target(state, "vinnie")
+        war.declare(state, "sal", Quiet())
+        return state, rosa, marcus
+
+    def test_a_scrubbed_pickup_frees_the_wagon_for_the_raid(self):
+        # The rev. 17 item 6 repro: the pickup scrubbed before
+        # departure never took the wagon out — the untouched PLAN must
+        # not reserve it against the raid.
+        state, rosa, marcus = self._two_front_war()
+        plans = {"route": None,
+                 "raid": {"rival": "sal", "objective": "steal_stock",
+                          "team": [marcus], "armed": False,
+                          "table_warned": True},
+                 "salvage": {"rival": "vinnie", "driver": rosa}}
+        report = {"salvage": war.SalvageResult(outcome="scrubbed",
+                                               wagon_used=False)}
+        phases.night(state, plans, report, Scripted([6]), Streams(11))
+        self.assertIs(plans["raid"]["wagon_free"], True)
+
+    def test_a_departed_pickup_still_holds_the_wagon(self):
+        state, rosa, marcus = self._two_front_war()
+        plans = {"route": None,
+                 "raid": {"rival": "sal", "objective": "steal_stock",
+                          "team": [marcus], "armed": False,
+                          "table_warned": True},
+                 "salvage": {"rival": "vinnie", "driver": rosa}}
+        report = {"salvage": war.SalvageResult(outcome="collected",
+                                               wagon_used=True,
+                                               collected_units=5)}
+        phases.night(state, plans, report, Scripted([6]), Streams(11))
+        self.assertIs(plans["raid"]["wagon_free"], False)
+
+    def test_no_execution_record_fails_toward_a_busy_wagon(self):
+        state, rosa, marcus = self._two_front_war()
+        plans = {"route": None,
+                 "raid": {"rival": "sal", "objective": "steal_stock",
+                          "team": [marcus], "armed": False,
+                          "table_warned": True},
+                 "salvage": {"rival": "vinnie", "driver": rosa}}
+        phases.night(state, plans, {}, Scripted([6]), Streams(11))
+        self.assertIs(plans["raid"]["wagon_free"], False)
+
+    def test_run_salvage_returns_scrubbed_without_departing(self):
+        state, rosa, _marcus = self._two_front_war()
+        rosa.injured_days = 3
+        result = war.run_salvage(state, {"rival": "vinnie",
+                                         "driver": rosa},
+                                 Quiet(), Streams(21).war)
+        self.assertEqual(result.outcome, "scrubbed")
+        self.assertIs(result.wagon_used, False)
+        camp = next(c for c in state.branch_state.campaigns
+                    if c.rival_key == "vinnie")
+        self.assertTrue(camp.salvage_available)   # still waiting
+
+    def test_a_collected_pickup_reports_the_departure(self):
+        state, rosa, _marcus = self._two_front_war()
+        result = war.run_salvage(state, {"rival": "vinnie",
+                                         "driver": rosa},
+                                 Quiet(), Streams(21).war)
+        self.assertEqual(result.outcome, "collected")
+        self.assertIs(result.wagon_used, True)
+
+    def test_the_attempt_ledger_books_crew_and_actual_damage(self):
+        # Rev. 17 item 4: the denominator's record — committed crew
+        # and ACTUAL applied strength damage, never more than the
+        # strongest job can apply.
+        state, rosa, marcus = self._two_front_war()
+        before = round(state.rivals["sal"].strength * 100)
+        plan = {"rival": "sal", "objective": "steal_stock",
+                "team": [rosa, marcus], "armed": False,
+                "table_warned": True, "wagon_free": True}
+        # Guard prompts answered by script; an exhausted script
+        # aborts the job — either way the attempt is booked.
+        raids.run_raid(state, plan, Scripted([1, 1, 1, 1]),
+                       Streams(7).raids)
+        self.assertEqual(len(state.raid_log), 1)
+        entry = state.raid_log[0]
+        self.assertIn(entry["outcome"], ("succeeded", "failed"))
+        self.assertEqual(entry["crew"], 2)
+        self.assertEqual(entry["day"], state.day)
+        actual = before - round(state.rivals["sal"].strength * 100)
+        self.assertEqual(entry["damage_h"], actual
+                         if entry["outcome"] == "succeeded" else 0)
+        self.assertLessEqual(entry["damage_h"], 1200)
+
+    def test_a_dead_target_scrub_is_booked(self):
+        state, rosa, marcus = self._two_front_war()
+        break_target(state, "sal")
+        plans = {"route": None, "salvage": None,
+                 "raid": {"rival": "sal", "objective": "steal_stock",
+                          "team": [marcus], "armed": False,
+                          "table_warned": True}}
+        phases.night(state, plans, {}, Scripted([6]), Streams(11))
+        scrubs = [e for e in state.raid_log if e["outcome"] == "scrubbed"]
+        self.assertEqual(len(scrubs), 1)
+        self.assertEqual(scrubs[0]["damage_h"], 0)
+
+    def test_ledger_quantities_reads_live_relief(self):
+        # The reviewer's legal record: accrued 20, Case contribution
+        # 10 under live retention protection — the canonical view
+        # reports all three quantities, and "effective" means LIVE.
+        from extra_toppings import evidence as ev
+        state, rosa, _marcus = self._two_front_war()
+        rosa.aware = True
+        rosa.morale = 8
+        state.add_case(20.0, f"{rosa.name} saw all of it",
+                       kind="witness", source=rosa.key)
+        q = ev.ledger_quantities(state)
+        self.assertAlmostEqual(q["accrued"], 20.0)
+        self.assertAlmostEqual(q["residue"], 20.0)
+        self.assertAlmostEqual(q["effective"], 10.0)
+
+    def test_route_sales_survive_the_raid_shortage_signal(self):
+        # Rev. 17 item 3: sold_yesterday is a price signal that stock
+        # raids overwrite with -8 shortages; actual sales live in
+        # their own field and no study reads the poisoned one.
+        import random as _random
+        from extra_toppings import market, routes
+        state, rosa, _marcus = self._two_front_war()
+        market.roll_prices(state, _random.Random(3))
+        report = {"sold": 0, "cash": 0, "lines": []}
+        routes._sell(state, "old_harbor", "mushrooms", 5, 1.0, report)
+        state.districts["old_harbor"].sold_yesterday["mushrooms"] = -8
+        self.assertEqual(
+            state.districts["old_harbor"].route_sold["mushrooms"], 5)
+        del _random
+
+
 if __name__ == "__main__":
     unittest.main()

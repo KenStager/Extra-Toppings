@@ -103,6 +103,13 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
     obj = data.RAID_OBJECTIVES[plan["objective"]]
     layout = data.RAID_LAYOUTS[obj["layout"]]
     team = plan["team"]
+    # The attempt record (rev. 17 item 4): every outgoing job books
+    # its committed crew and its ACTUAL applied strength damage,
+    # append-only — succeeded or failed, the night happened.
+    attempt = {"day": state.day, "rival": plan["rival"], "outcome": "failed",
+               "crew": len(team), "damage_h": 0}
+    state.raid_log.append(attempt)
+    strength_before_h = round(rival.strength * 100)
     guard_skill = 3 + rival.strength / 20 + rival.alertness * 0.3
     if rival.alertness >= 4:
         con.say("  New cameras. New locks. They've been expecting somebody.")
@@ -167,6 +174,8 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
         return
 
     _payoff(state, plan, rival, rspec, con, rng, noise < 1.0, team)
+    attempt["outcome"] = "succeeded"
+    attempt["damage_h"] = strength_before_h - round(rival.strength * 100)
     # Even a ghost leaves a pattern: the same handwriting, night after night.
     if state.raids_led >= 1:
         premium = min(8.0, 1.5 * state.raids_led)

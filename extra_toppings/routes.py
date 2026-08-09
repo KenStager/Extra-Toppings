@@ -349,6 +349,10 @@ def _sell(state: State, dk: str, good: str, units: int, price_mult: float,
     report["sold"] += units
     report["cash"] += cash
     market.record_sales(state, dk, good, units)
+    # Actual sales in their own field (rev. 17 item 3) — never the
+    # price-depression signal, which raids overwrite with shortages.
+    d = state.districts[dk].route_sold
+    d[good] = d.get(good, 0) + units
 
 
 def _interactive_drops(state: State, plan: dict, drops: int, con: Console,

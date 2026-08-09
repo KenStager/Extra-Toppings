@@ -486,8 +486,20 @@ def plan_salvage(state: State, con: Console, reserved: list,
     return {"rival": camp.rival_key, "driver": drivers[pick]}
 
 
+@dataclass(frozen=True)
+class SalvageResult:
+    """What the pickup ACTUALLY did (rev. 17 item 6) — the night's
+    wagon question reads this, never the morning's intention. outcome:
+    "collected" (the wagon went out), "scrubbed" (driver lost before
+    departure — the wagon never left), "gone" (nothing waiting)."""
+    outcome: str
+    wagon_used: bool
+    collected_units: int = 0
+
+
 def run_salvage(state: State, plan: dict, con: Console,
-                rng: random.Random, reserved: list | None = None) -> None:
+                rng: random.Random,
+                reserved: list | None = None) -> SalvageResult:
     """Service: the pickup rolls. Revalidated transactionally against
     the SAME assignment view that planned it (rev. 15 item 2) — the
     driver must still be standing and still unclaimed by any other
@@ -496,15 +508,15 @@ def run_salvage(state: State, plan: dict, con: Console,
     then warehouse, then left behind) exactly as a raid haul does.
     Draw budget: EXACTLY ONE draw on the war stream per pickup (the
     want roll, §2.7-pinned); the split across goods is deterministic
-    value-first."""
+    value-first. Returns the typed execution result."""
     camp = campaign_for(state, plan["rival"])
     driver = plan["driver"]
     if camp is None or not camp.salvage_available:
-        return
+        return SalvageResult(outcome="gone", wagon_used=False)
     if not driver.available or driver in (reserved or []):
         con.bullet(f"The pickup is scrubbed — {driver.name} isn't "
                    f"free to drive it after all.")
-        return
+        return SalvageResult(outcome="scrubbed", wagon_used=False)
     rival = state.rivals[camp.rival_key]
     spec = data.RIVALS[camp.rival_key]
     camp.salvage_available = False
@@ -540,6 +552,8 @@ def run_salvage(state: State, plan: dict, con: Console,
     if left_behind:
         con.say(f"  {left_behind} unit(s) stay behind — the wagon holds "
                 f"a wagonload.")
+    return SalvageResult(outcome="collected", wagon_used=True,
+                         collected_units=sum(kept.values()))
 
 
 # ── Day 30 (§2.5, campaign-count per rev. 14 item 9) ──────────────

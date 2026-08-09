@@ -76,7 +76,13 @@ def legacy_projection(state) -> dict:
         "warehouse": dict(state.warehouse) if state.warehouse is not None else None,
         "warehouse_cash": state.warehouse_cash,
         "employees": [asdict(e) for e in state.employees],
-        "districts": {k: asdict(d) for k, d in state.districts.items()},
+        # Districts project the EXPLICIT v2 fields — the projection is
+        # a fixed shape, so post-v2 additions (route_sold, rev. 17)
+        # must never leak into the digest.
+        "districts": {k: {"key": d.key, "heat": d.heat,
+                          "known_price_age": d.known_price_age,
+                          "sold_yesterday": dict(d.sold_yesterday)}
+                      for k, d in state.districts.items()},
         "rivals": {k: asdict(r) for k, r in state.rivals.items()},
         "prices": state.prices,
         "events": [{"id": e.spec["id"], "days_left": e.days_left}

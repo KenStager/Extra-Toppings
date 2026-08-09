@@ -44,6 +44,20 @@ def wagon_job(plans: dict, but: str | None = None) -> str | None:
     return None
 
 
+def wagon_used(plans: dict, service_report: dict) -> bool:
+    """Execution truth (rev. 17 item 6): by night the wagon jobs have
+    already run, so the raid's wagon question reads what HAPPENED —
+    not the continued existence of morning intentions. A pickup
+    scrubbed before departure never took the wagon out; absent an
+    execution record the commitment stands (fail toward the wagon
+    being busy, never toward a phantom grant)."""
+    job = wagon_job(plans)
+    if job == "salvage":
+        result = service_report.get("salvage")
+        return result is None or result.wagon_used
+    return job is not None
+
+
 # ══ MORNING ═══════════════════════════════════════════════════════
 
 def morning(state: State, con: Console, streams: Streams) -> dict:
@@ -695,8 +709,12 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
         # The capture pickup rolls with the wagon at service — the
         # reserved war stream's one draw per pickup (rev. 14 item 6),
         # revalidated against the same assignment view that planned it.
-        war.run_salvage(state, plans["salvage"], con, streams.war,
-                        reserved=night_reserved(plans, but="salvage"))
+        # The typed execution result rides the service report so the
+        # night reads what happened, not the intention (rev. 17
+        # item 6).
+        report["salvage"] = war.run_salvage(
+            state, plans["salvage"], con, streams.war,
+            reserved=night_reserved(plans, but="salvage"))
     if state.branch == "quiet_sale":
         # The buyer's man walks the shop every diligence afternoon.
         escrow.walkthrough(state, con, streams)
@@ -772,6 +790,11 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         con.say(f"  The night job is scrubbed — "
                 f"{data.RIVALS[raid_plan['rival']]['short']}'s "
                 f"organization broke before the crew left the kitchen.")
+        state.raid_log.append({"day": state.day,
+                               "rival": raid_plan["rival"],
+                               "outcome": "scrubbed",
+                               "crew": len(raid_plan["team"]),
+                               "damage_h": 0})
         raid_plan = None
     if raid_plan:
         # The day happened between planning and doing: anyone arrested,
@@ -784,16 +807,20 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         if not team:
             con.say("  The night job is scrubbed — the crew you picked this "
                     "morning didn't make it to nightfall intact.")
+            state.raid_log.append({"day": state.day,
+                                   "rival": raid_plan["rival"],
+                                   "outcome": "scrubbed",
+                                   "crew": len(raid_plan["team"]),
+                                   "damage_h": 0})
         else:
             if len(team) < len(raid_plan["team"]):
                 con.say("  The crew is short tonight; the job goes ahead anyway.")
             raid_plan["team"] = team
-            # The assignment view answers at execution exactly as it
-            # did at planning (rev. 16 item 2): the wagon belongs to
-            # the raid only when NEITHER committed wagon job owns it —
-            # a route scrubbed at commit freed it; a salvage plan
-            # holds it all night.
-            raid_plan["wagon_free"] = wagon_job(plans) is None
+            # Execution truth for the wagon (rev. 17 item 6): the raid
+            # asks what actually happened tonight — a committed route
+            # or a pickup that DEPARTED holds the wagon; a pickup
+            # scrubbed before departure never took it out.
+            raid_plan["wagon_free"] = not wagon_used(plans, service_report)
             # §2.1 rev. 4: the day's takings can put payoff in reach
             # after the job was planned — recheck once, before it runs.
             if not raid_plan.get("table_warned") and state.payoff_in_reach():
