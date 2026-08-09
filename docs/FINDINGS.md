@@ -1765,6 +1765,112 @@ versioned golden; ablation entry identity zero; the decline curve
 unchanged. The chair remains unreleased and no PR is opened — the
 instruments are honest now, and the rulings are the reviewer's.
 
+### Round 10 correction 4 (re-review — design rev. 18)
+
+Review reproduced every rev. 17 check, approved the Harbor War's
+story and macro-balance in principle, and found five remaining root
+contracts. All five are closed, paper-first (revision 18), across
+three commits with every reviewer repro landed as a
+failing-then-passing pin (23 new pins; 21 fail on their pre-fix
+engines). No balance constant moved.
+
+**1. The manifest is the route's canonical inventory — in fact.** A
+typed `RoutePlan` carries the manifest; `plan_route` returns it and
+no parallel cargo/legit dictionaries exist (legacy `plan["cargo"]`
+reads pass through to the one manifest). Parsing is strict —
+`legit=True/1.5/"3"` are refused, never `int()`-coerced — and
+capacity is fixed by the model. `_commit_route` validates the
+planned manifest BEFORE any state mutation (the reviewer's 25-space
+commit now refuses with the stash and pantry untouched — pinned),
+then builds the live, availability-revalidated committed manifest
+and applies its inventory transaction atomically. The revise bound
+is `min(have, loaded + free // space)` — planned goods never leave
+the stash, so the stash is the ceiling (8→revise→12 pinned at 8).
+
+**2. Storage has one capacity authority.** `models.space_used /
+space_cap / units_that_fit / move_goods` own the arithmetic;
+the storage menu, supplier purchases, haul placement and
+persistence validation consume it. The 202/200 warehouse repro is
+now a refused transfer AND a refused payload (negative stash units
+refused too). Prompts state why their bounds exist ("warehouse
+192/200 space used; 4 more units fit"), the route-loading card
+teaches the shared wagon once per planning, and the UI speaks one
+term — "space" — retiring the bulk/slots/wagon-space mixture.
+
+**3. The attempt ledger is typed and append-only in fact.**
+`RaidAttemptRecord` is frozen and validated at construction,
+constructed locally and appended EXACTLY ONCE after the outcome is
+known (the dict edited from "failed" to "succeeded" in flight is
+gone — mutation now raises); scrubs book through the same
+authority; persistence refuses `day="banana"`, unknown rivals,
+`"won-ish"`, `crew=-7`, `damage_h=999999`, and a failed job
+carrying damage — all pinned. The study renamed its rows to what
+they measure: **executed-job efficiency 8.7 vs 6.1 strength/job,
+executed person-night efficiency 4.3 vs 3.7, planned/committed
+person-night efficiency 4.3 vs 3.7** (scrub counts are negligible
+for these fleets), labeled a PAIRED OBSERVATIONAL DECOMPOSITION.
+The causal claim moved to a genuinely state-matched
+fixed-opportunity rollout (identical declared-war states, shared
+per-night seeds, 12-night horizon, 800 paired trials) — and it
+reports the honest, unflattering truth: **window-paced raiding
+trails the grind in raw total damage (11.4±0.4 vs 12.4±0.4,
+paired Δ −1.0±0.2) while winning efficiency (0.58 vs 0.42 per
+committed person-night) and safety (5.5 vs 10.4 injured-crew
+days)**. Pacing buys efficiency and crew, not throughput — the
+attack-side probe cannot price retaliation or the other jobs a
+standing crew works, which is exactly why the ruling keeps the
+500-seed outcome bar as arbiter: **the full policy does not trail
+(57% vs 53% at 500; 53% vs 51% at 150)**. Reported as measured;
+nothing tuned.
+
+**4. The organic heat cohort samples at execution time.**
+`RouteExecutionRecord` books every route at resolution with the
+execution-time district, band, capacity multiplier, units sold,
+corner damage and contested flag (`District.route_sold` removed —
+one home); heat moving later that night cannot rewrite a record
+(pinned). An exposure is a route that ACTUALLY EXECUTED on live
+target turf past cool: at 500 that is 18 wars and 45 route-nights
+(the mistimed rev. 17 cohort claimed 59 wars). On the corrected
+cohort the local tax is now faintly visible organically: corner
+damage **8.775 ON vs 9.45 OFF** at the median (units 39 vs 39 —
+cargo, not capacity, still binds the sales axis). The controlled
+legal-manifest probe stands (12.0 vs 17.5 units, 1.63 vs 2.62
+corner damage). Heat's claim is amended per the ruling: a LOCAL
+ROUTE TAX, enforced and priced; campaign-level load-bearing is
+unproven and stays an honest finding.
+
+**5. The golden's provenance is true.** `generate()` writes an
+explicit version, generation commit, predecessor sha256 and the
+sanctioned reason; `check()` asserts that metadata before comparing
+a single run — a golden that cannot say where it came from is not a
+baseline. The chain, recorded: v1 was the pre-P0 baseline @ 3d79d17
+(md5 9c8222969adc365cebb0889658e28b57); the rev. 17 regeneration
+(md5 c8764f46077e99d1dee05dc1713014f3, sha256 75d9199fdb5c…) is
+retired as the PREMATURE INTERMEDIATE of the same sanctioned act —
+generated before the inventory contract finished; the FINAL
+corrected baseline is version 2 (md5
+0b7d4f8a24a749c29e9f7a02ddd48c80), generated once after RoutePlan
+and the storage authority landed, its predecessor named by
+checksum. The never-regenerate rule resumes over it.
+
+**The batteries moved in what they measure, nothing else — again.**
+Every gameplay row at both depths is byte-identical to the rev. 17
+run (5 changed output lines at each depth, all instrument
+renames/readings): the bots' policies never read the changed prompt
+texts or bounds, and the revise-bound fix only constrains requests
+no bot ever made. All rev. 17 letters hold under the corrected
+instruments: the empire letter 26 points at 500 (22 at 150) against
+≥ 15; branch-good 57%; raid-only trails by 45; permanent-residue
+98% / above-fork 100%; reconciliation and transparency 0; the
+decline curve byte-unchanged.
+
+Verification: 507 tests, ruff and mypy clean on 3.11 and 3.12;
+both identity gates 300/300 on 3.11, 3.12 AND 3.13 against the
+provenance-carrying final baseline (stand-pat 82/82 across the
+change). The five contracts are closed; per the ruling P3 can
+proceed to a PR review on the reviewer's word. The chair stays
+unreleased until then.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P2 complete, merged and
