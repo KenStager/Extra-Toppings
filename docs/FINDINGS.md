@@ -891,19 +891,116 @@ held 82, schema v1) on 3.11, 3.12 and 3.13; both ensembles unchanged —
 150 seeds: flips 27/60 = 45%, median $2,370; 500 seeds: 81/188 = 43%,
 median $2,444.
 
+## Round 9 — P2: the Straight Path, and the file that had nothing to fall from
+
+The clean-exit branch is in (`extra_toppings/straight.py` +
+`evidence.py` + the scene commit path), behind the same flag, drawing
+only its reserved dice: disposal runs ride the routes stream draw for
+draw, temptation arrival is a per-day world channel, and the meeting
+dice draw the new persistent `straight` stream — first drawn only
+after the chair is taken (rev. 9 item 1, flagged for ruling). The
+remediation machinery is the §2.3 letter under the rev. 9 arithmetic:
+counsel contests flagged paper first and the routine hum as the one
+rolling record; settlements halve a witness's records permanently and
+settle a current witness OUT with no firing record; retention keeps a
+content current witness's records dormant for free, reversibly; the
+25-point cap binds the paid verbs and truncates out loud; the
+institutional-suspicion record tops up in place by exactly the
+difference, and displayed Case ≡ the visible ledger every night. The
+shared prefix iterator the fold_case docstring owed since rev. 6 is
+real (`models.case_prefix`), consumed by the fold, the Case-60
+telegraph and the gate-crossing record.
+
+All numbers below reproduce via `python3 -m analysis.experiments fork`
+(150 seeds; StraightBot and its no-remediation ablation over the
+market bot, the criterion's named baseline) and `--seeds 500`.
+
+| Criterion (straight rows) | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Reachability (unchanged) | ≥ 55% | 85/150 = 57% | pass |
+| Crash-freedom (forced-straight chaos) | 150/150 | 150/150 | pass |
+| Covert revenue share after fork+2 | < 5% | $0 = 0.0% | pass |
+| Earned-exit band | 25–70% | 40/85 = 47% | pass |
+| Ledger transparency (nightly, both bots) | 0 bad | 0 | pass |
+| Suspicion floor (once paid remediation exists) | never < 10 | 0 bad | pass |
+| Median ΔCase fork→end | ≤ −5 | **+4.0** | **miss** |
+| Case strictly below fork-day | ≥ 60% | 9/85 = **11%** | **miss** |
+| Ablation drop (never settles / no counsel) | ≥ 20 pts | **0** | **miss** |
+| Quiet Sale battery (all P2 code in tree) | round-8 rows | identical | pass |
+
+The 500-seed confirmation: entered 280/500 (56%), earned exits 42%,
+ΔCase median +4.5, strictly below 11%, covert 0.0%, ablation −1
+point, crash-free 1000/1000 across both chaos fleets; the escrow rows
+reproduce round 8 exactly (careful 93%, ablation 85 points, valuation
+median $2,444, flips 81/188 = 43%).
+
+**The three misses are one finding, and it is structural.** The
+decomposition (printed by the harness, per row):
+
+- **The file arrives cold.** Median lock-up Case at entry: 6.0 (150
+  seeds), 5.5 (500) — BELOW the 10-point institutional floor, where
+  the design says the file cannot fall at all. Only 16/85 entries
+  (46/280) reach lock-up ≥ 20. The §3.1 exemplar walks in at Case 31;
+  the named smart-bot baseline pays Carmine by day 10–11 and brings
+  almost nothing to redeem. A bar demanding −5 from a median entry of
+  6 is arithmetically unreachable regardless of mechanics.
+- **The settlement verb has no lawful target the entire study.** The
+  market bot reads nobody in, so no witness record it accrues carries
+  an Employee source — settlements measured: 0 in 85 entries, 0 in
+  280. What the siege books post-fork (median +4.6/+4.9) is largely
+  the informant's tip and the patrolman's memory — witness-kind
+  records with NO source, structurally as immune as physical. Whether
+  those two P0-era call sites are mis-kinded is now a live design
+  question (§8 P2 notes, item 3).
+- **The mechanism itself works, measured three ways.** Matched-seed
+  counterfactual: remediation leaves the file lower in 55/85 = 65%
+  (172/280 = 61%) of paired entries, median −1.0. The dirty-month
+  diagnostic (crime-heavy Act I, identical branch policy — the §3.1
+  entry profile): settlements 39 (165 at 500 seeds), remediated
+  ΔCase +3.2 against +12.5 unremediated — a nine-point pull — with
+  the lockup ≥ 20 population at median −0.1 (−0.9 at 500) and 13/25
+  (53/92) strictly below, against 0 without remediation; its
+  ablation drop is 13–14 points. Every diagnostic is labeled in the
+  harness and none conditions a bar.
+
+So: not the bots (the policy exercises every verb the baseline's
+month gives it), not the mechanics (the counterfactuals separate
+cleanly), but a criterion whose premise — a redemption-shaped entry —
+the named baseline almost never produces. Three resolutions are on
+the table for review, none taken unilaterally: condition or restate
+the bar (e.g. the matched-seed counterfactual IS the falling-Case
+claim, unconditioned); re-base the straight rows on the dirty-month
+profile the branch was written for; or strengthen the remediation
+constants against the siege — a §6.3 constants decision that needs
+its ruling recorded first. The source-less-witness taxonomy question
+rides along.
+
+**Consequence honored:** §7 lifts the Quiet Sale's flag when THIS
+gate passes. It has not passed; no flag moved. The fork still
+reaches no player until the ruling lands.
+
+Verification: 305 tests green on 3.11 and 3.12 (68 new across
+`tests/test_remediation.py` and `tests/test_straight_path.py`,
+driving the real scene, mornings, commits, resolutions and nights);
+ruff 0.15.x + mypy clean; flag-off golden 300/300 AND paired
+stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11, 3.12
+and 3.13 with all P2 code in the tree — the branch and its machinery
+are provably inert unless entered.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0 and P1 are complete and merged
   (P0 foundation + telegraphs, rounds 6–7; P1a fork skeleton + P1b
   Quiet Sale, round 8 with corrections 1–6). **P2 — the Straight Path
-  (§2.4.1) — is next**, per the §7 phasing; its gate is the
-  negative-ΔCase study and its ablation, and its passing lifts the
-  Quiet Sale's flag for players (the fork reaches players only once
-  two active branches exist). P2 carry-ins: the sit-down commit path
-  for `straight` currently raises NotImplementedError by design; the
-  shared prefix iterator noted on `models.fold_case` becomes real work
-  when evidence remediation lands; remediation must respect the
-  evidence taxonomy (physical/pattern permanently immune, §2.3).
+  — is implemented and measured (round 9)**: the earned-exit band,
+  covert-share collapse, crash-freedom and both nightly oracles pass;
+  the negative-ΔCase bars and the remediation ablation miss for the
+  structural reason decomposed above, and the question — condition the
+  bar, re-base the baseline, or strengthen the constants — is with
+  review, alongside the source-less-witness taxonomy question (§8 P2
+  notes). **The Quiet Sale's flag has NOT lifted**: §7 ties it to this
+  gate passing, and it has not passed. P3 (the Harbor War) waits on
+  the ruling.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds

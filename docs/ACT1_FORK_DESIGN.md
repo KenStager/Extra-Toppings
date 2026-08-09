@@ -1873,3 +1873,38 @@ tuned away.
     stays prose for now (temptation offers carry the Dope Wars pull);
     if review wants it as a distinct mechanic it lands in a
     correction pass.
+
+**P2 implementation notes (pre-review).** The branch landed whole and
+its §2.7 rows ran; three bars miss structurally and the decomposition
+goes to review with the data (FINDINGS round 9). Judgment calls made
+in flight, recorded for ruling:
+
+1. *A settlement below the floor signs but relieves nothing* — item
+   3's blanket verb-refusal would have made the no-hostile-witness
+   goal term unreachable at a cold file; the money buys the goal term
+   and the witness's peace, the arithmetic stays where the floor put
+   it, out loud. (Amended in item 3 before implementation.)
+2. *The ΔCase bars miss for a structural reason, not a mechanical
+   one.* The named smart-bot baseline enters the fork at a median
+   lock-up Case of 6 — below the 10-point floor, where the file
+   cannot fall at all — with nobody read in, so the settlement verb
+   has no lawful target the entire study. The §3.1 exemplar enters at
+   Case 31. Whether the criterion is conditioned, the baseline
+   re-based, or the constants strengthened is a review decision;
+   the diagnostics that separate the hypotheses (matched-seed
+   counterfactual, the lockup ≥ 20 population, a dirty-month variant
+   with its own ablation) ship in the harness, labeled, without
+   conditioning any bar.
+3. *Source-less witness records are structurally immune.* Two P0-era
+   call sites book witness evidence attached to no employee (the
+   informant's tip, the patrolman on the take); §2.3's taxonomy
+   attaches witness records to persons and its settlement verb keys
+   on Employee sources, so these records are as untouchable as
+   physical — and they are the siege's main post-fork accrual.
+   Intended pressure, or a mis-kinding to correct? Flagged, not
+   changed: re-kinding alters remediation reach and needs the ruling
+   first.
+4. *The Quiet Sale's flag stays down.* §7's letter — the flag lifts
+   when THIS gate passes — is honored over the phase boundary: with
+   the ΔCase study missing its bars, no flag moves until the ruling
+   lands.
