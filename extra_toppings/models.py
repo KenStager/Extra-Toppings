@@ -244,6 +244,43 @@ VENDETTA_RELATION = -60.0
 # THE flat nightly heat cooling (flag-off letter) — an integer,
 # because the night phase always subtracted the literal 5.
 HEAT_DECAY = 5
+# District heat teeth (§2.6's ruling, taken in rev. 13-14: war-only
+# in P3, each later branch adopting them in its own phase). All three
+# are §6.3 placeholders.
+HEAT_AMBER = 50.0         # covert capacity halves: work it hot, work it thin
+HEAT_RED = 80.0           # the district cannot be worked at all
+HEAT_SLOW_DECAY = 3       # a hot district cools slower: the city remembers
+
+
+@dataclass(frozen=True)
+class HeatPolicy:
+    """THE district-heat policy view (rev. 14 item 5): one authority,
+    zero scattered branch checks — the branch condition lives here and
+    nowhere else. capacity_mult applies ONCE, to the nightly drops
+    count (never per axis: the ruling is half capacity, not a
+    quarter); plannable binds at planning AND at the service-time
+    revalidation; decay is tonight's cooling for this district."""
+    band: str                 # "cool" / "amber" / "red"
+    capacity_mult: float
+    plannable: bool
+    decay: float
+    note: str = ""
+
+
+def district_heat_policy(state: "State", dk: str) -> HeatPolicy:
+    if state.branch != "war":
+        return HeatPolicy("cool", 1.0, True, HEAT_DECAY)
+    heat = state.districts[dk].heat
+    if heat >= HEAT_RED:
+        return HeatPolicy(
+            "red", 0.5, False, HEAT_SLOW_DECAY,
+            note="crawling with patrols — nobody works it tonight")
+    if heat >= HEAT_AMBER:
+        return HeatPolicy(
+            "amber", 0.5, True, HEAT_SLOW_DECAY,
+            note="hot — corner customers stay home; take it hot and "
+                 "you take ash")
+    return HeatPolicy("cool", 1.0, True, HEAT_DECAY)
 
 
 @dataclass

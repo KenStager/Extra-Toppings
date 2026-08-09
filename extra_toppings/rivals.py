@@ -1,14 +1,109 @@
 """Rival syndicates: two families, two strategies, long memories."""
 
 import random
+from dataclasses import dataclass
 
-from . import data, models, straight
+from . import data, models, straight, war
 from .models import State
 from .ui import Console, money
 
 
+@dataclass(frozen=True)
+class RivalPolicy:
+    """THE rival-policy view (rev. 14 item 4): one normalized answer
+    to how this rival behaves tonight — act probability, the action
+    ladder's cut points, the raid edge, and whether they act at all.
+    rival_phase EXECUTES this view and the war board EXPLAINS it; the
+    two can never disagree because there is only one derivation.
+
+    Flag-off (no war campaign anywhere) every number is the exact
+    expression the old ladder inlined — same floats, same order. War
+    modifiers compose inside the view and nowhere else, and the raid
+    rung is capped (RAID_RUNG_CAP) so no multiplier can swallow the
+    ladder or push a threshold past one."""
+    act_chance: float
+    price_war_t: float
+    poach_t: float
+    extort_t: float
+    raid_t: float          # tip rung is the remainder to 1.0
+    raid_edge: float       # added to their raid's attack roll
+    hostile: bool          # False: no hostile act tonight (insurance)
+    notes: tuple           # player-facing explanation, war board
+
+
+def rival_policy(state: State, key: str) -> RivalPolicy:
+    rival = state.rivals[key]
+    spec = data.RIVALS[key]
+    grudge = max(0.0, -rival.relation) / 100      # 0..1
+    act_chance = spec["aggression"] * 0.5 + grudge * 0.6
+    if state.branch == "straight" and state.total_stock_units() == 0:
+        # Rivals smell retreat: a shop that no longer scares anyone
+        # (§2.4.1, rev. 9 item 13).
+        act_chance *= straight.RETREAT_AGGRESSION
+    violent = spec["violence"] * (0.5 + grudge)
+    price_war_t, poach_t, extort_t = 0.30, 0.50, 0.68
+    raid_t = 0.68 + violent * 0.25
+    hostile = True
+    notes: list = []
+
+    tk = war.target_key(state)
+    if tk == key:
+        camp = models.live_campaign(state, key)
+        act_chance *= war.WAR_AGGRESSION
+        notes.append("at war — they come bigger and more often")
+        if camp is not None and camp.law_calm_until is not None \
+                and state.day <= camp.law_calm_until:
+            act_chance *= war.LAW_CALM_ACT
+            notes.append("their lawyers have them busy — aggression "
+                         "halved for now")
+        violent_mult = war.WAR_VIOLENT
+        if camp is not None and camp.violence_raised:
+            violent_mult *= war.VIOLENCE_RISE
+            notes.append("cornered by the prosecution, they come back "
+                         "meaner — permanently")
+        raid_t = min(0.68 + violent * violent_mult * 0.25,
+                     war.RAID_RUNG_CAP)
+    elif tk is not None and key == war.bystander_key(state):
+        if key == "sal":
+            if war.insurance_paid(state):
+                hostile = False
+                notes.append("insurance holds — Sal sells to both sides "
+                             "and stays a merchant")
+            else:
+                # The merchant's price for going uninsured (rev. 14
+                # item 4): the EXISTING tip behavior — heat +12, a 30%
+                # chance of a 4-point paper record — fires three times
+                # as often. The rung widens; _plant itself is
+                # unchanged, so no second record is layered on top.
+                tip_width = min(war.TIP_RUNG_MAX,
+                                (1.0 - raid_t) * war.TIP_RUNG_MULT)
+                scale = (1.0 - tip_width) / raid_t
+                price_war_t *= scale
+                poach_t *= scale
+                extort_t *= scale
+                raid_t *= scale
+                notes.append("uninsured — the man who never throws a "
+                             "punch keeps the precinct's number handy")
+        elif rival.raid_warning == 0 and (
+                state.shop.damage_days > 0
+                or any(e.injured_days for e in state.hired())):
+            act_chance *= war.OPPORTUNIST_MULT
+            raid_t = min(0.68 + violent * war.OPPORTUNIST_MULT * 0.25,
+                         war.RAID_RUNG_CAP)
+            notes.append("an opportunist smells blood — you look weak "
+                         "and he knows it")
+
+    return RivalPolicy(
+        act_chance=min(1.0, act_chance),
+        price_war_t=price_war_t, poach_t=poach_t, extort_t=extort_t,
+        raid_t=raid_t, raid_edge=war.raid_edge(state, key),
+        hostile=hostile, notes=tuple(notes))
+
+
 def rival_phase(state: State, con: Console, rng: random.Random) -> None:
-    """Each rival takes one action a night, scaled to how much they hate you."""
+    """Each rival takes one action a night, scaled to how much they hate
+    you. The behavior IS rival_policy's view — this loop only rolls the
+    dice and dispatches (rev. 14 item 4)."""
     for key, rival in state.rivals.items():
         if not rival.alive:
             continue
@@ -30,26 +125,22 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
         if rival.raid_warning == 1:
             continue   # tonight — night phase resolves it
 
-        grudge = max(0.0, -rival.relation) / 100      # 0..1
-        act_chance = spec["aggression"] * 0.5 + grudge * 0.6
-        if state.branch == "straight" and state.total_stock_units() == 0:
-            # Rivals smell retreat: a shop that no longer scares anyone
-            # (§2.4.1, rev. 9 item 13).
-            act_chance *= straight.RETREAT_AGGRESSION
-        if rng.random() > act_chance:
+        pol = rival_policy(state, key)
+        if not pol.hostile:
+            continue   # the insurance week: a merchant stays a merchant
+        if rng.random() > pol.act_chance:
             if rival.relation > 20 and rng.random() < 0.2:
                 con.bullet(f"{spec['short']} sends over a tray of cannoli. A truce holds.")
             continue
 
         roll = rng.random()
-        violent = spec["violence"] * (0.5 + grudge)
-        if roll < 0.30:
+        if roll < pol.price_war_t:
             _price_war(state, key, spec, con)
-        elif roll < 0.50:
+        elif roll < pol.poach_t:
             _poach(state, rival, spec, con, rng)
-        elif roll < 0.68:
+        elif roll < pol.extort_t:
             _extort(state, rival, spec, con, rng)
-        elif roll < 0.68 + violent * 0.25:
+        elif roll < pol.raid_t:
             rival.raid_warning = rng.randint(2, 3)
             con.bullet(f"Unfamiliar cars idle across from the shop. {spec['short']}'s "
                        f"plates. Something is coming.")

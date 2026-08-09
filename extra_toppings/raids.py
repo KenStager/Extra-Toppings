@@ -6,7 +6,7 @@ Violence works, and always costs more than it looks like it costs.
 
 import random
 
-from . import data, models
+from . import data, models, war
 from .models import State
 from .ui import Console, money
 
@@ -327,7 +327,8 @@ def incoming_raid(state: State, rival_key: str, con: Console,
     # Fight.
     defenders = state.crew()
     strength = max([e.nerve for e in defenders], default=3) + (4 if has_guard else 0)
-    attack = 4 + rival.strength / 12 + rng.uniform(0, 4)
+    attack = 4 + rival.strength / 12 + rng.uniform(0, 4) \
+        + war.raid_edge(state, rival_key)
     if strength + rng.uniform(0, 4) >= attack:
         con.say("  It's loud and brief. They leave one man's jacket and all their nerve.")
         models.apply_rival_damage(state, rival_key, "defense",

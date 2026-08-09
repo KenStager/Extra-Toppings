@@ -538,6 +538,15 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
         con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
                    f"around to drive it.")
         return False
+    pol = models.district_heat_policy(state, plan["district"])
+    if not pol.plannable:
+        # Service-time revalidation of the RED-heat refusal (rev. 14
+        # item 5): the district may have caught fire since the plan
+        # was made. Nothing has committed yet, so nothing is lost.
+        con.bullet(f"Tonight's route is scrubbed — "
+                   f"{data.DISTRICTS[plan['district']]['label']} is "
+                   f"{pol.note}.")
+        return False
     for g in list(plan["cargo"]):
         have = state.shop_stash.get(g, 0)
         take = min(plan["cargo"][g], have)
@@ -693,9 +702,11 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     if state.branch == "straight":
         straight.exit_readout(state, con)
 
-    # The city cools a little overnight.
-    for d in state.districts.values():
-        d.heat = max(0.0, d.heat - models.HEAT_DECAY)
+    # The city cools a little overnight — a hot district, slower (the
+    # heat-policy authority; flag-off the decay IS the old flat 5).
+    for dk, d in state.districts.items():
+        d.heat = max(0.0, d.heat
+                     - models.district_heat_policy(state, dk).decay)
     state.day += 1
 
 
