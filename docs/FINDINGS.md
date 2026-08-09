@@ -1166,19 +1166,73 @@ ensembles reproduce round 8 to the digit at both depths. No PR is
 open and the Quiet Sale's flag stays down — both wait for the merge
 disposition.
 
+### Round 9 correction 3 (re-review — the arrest and the closed form, design rev. 12)
+
+Re-review approved the story and gameplay design outright, reproduced
+every correction-2 number, and found the last two model-level
+blockers; both fixed at the root, recorded as revision 12 on paper
+first, with nothing grandfathered in the rerun.
+
+- **Arrested witnesses stop receiving loyalty relief.**
+  `witness_status` answered beyond_reach while `dormant_sources`
+  re-derived protection on its own and forgot the arrest — a real
+  route bust arrests a driver without unhiring them, so arrested Rosa
+  at morale 8 kept her 20-point record halved (Case 40, not 50) while
+  the docket cited custody in the same breath. Protection is now
+  derived INSIDE witness_status (the ordered matrix: settled beats
+  arrested beats protected beats reachable) and dormant_sources
+  consumes only status == protected. Pinned: the exhibit itself, the
+  complete ten-row matrix, and a regression through the real
+  solo-route bust — the displayed Case rises the moment the cuffs
+  close, driven by `resolve_route`.
+- **The relief allocator honors a closed-form contract.** Two
+  violations inside the accepted model, both reproduced: a legal
+  zero-magnitude protected record made the allocator break instead of
+  skip (zeroing a 0.6 record jumped the Case 10.6 → 20.3 as every
+  later cut was abandoned — it now falls to 10.3), and sequential
+  per-cut subtraction let a floor-bound display read
+  9.999999999999998. `fold_case` now computes relief = min(total
+  halvable, max(0, raw − floor)) in closed form and canonicalizes
+  floor-bound displays to EXACTLY 10; ledger order survives only in
+  the per-record display allocation (skip zeros, break only on an
+  exhausted allowance). The harness oracle computes the closed form
+  independently — the rev. 11 oracle had repeated the allocator's
+  break and certified its own defect. Property coverage moved from
+  named examples to generated sweeps over accepted magnitudes
+  including zero: 200 monotonicity trials across all four ruled
+  directions, 300 floor-binding probes with a teeth check, 100
+  docket-sums-to-meter trials.
+
+**The rerun, nothing grandfathered** (150 seeds, `--seeds 500` in
+parentheses): natural — reachability 57% (56%), earned exits 48%
+(43%) in band, covert 0.0%, oracles clean, paired bar **65%**
+(**61%**) against ≥ 60%, re-cleared fresh on the corrected fold;
+redemption — median ΔCase **−10.0** (−10.0), strictly below **99%**
+(99%), ablation **80** (76) points; crash-freedom 300/300
+(1000/1000); the Quiet Sale battery identical to round 8 at both
+depths. 334 tests green on 3.11 and 3.12 (3.13 agrees); ruff/mypy
+clean; flag-off golden 300/300 and paired stand-pat 300/300 (expected
+82 / held 82, schema v1) on all three Pythons.
+
+**Per the rev. 12 ruling, P2 opens as a PR on this green.** Merge
+remains the reviewer's explicit word; the Straight Path and the Quiet
+Sale activate together AFTER the merge, as their own step. No further
+design or tuning ruling is pending.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0 and P1 are complete and merged
   (P0 foundation + telegraphs, rounds 6–7; P1a fork skeleton + P1b
   Quiet Sale, round 8 with corrections 1–6). **P2 — the Straight Path
-  — is implemented, measured (round 9), and corrected twice under
-  review (rev. 10, rev. 11: the monotone ledger and the closed
-  witness lifecycle); its two-cohort gate passes with the natural
-  paired bar re-cleared after the fold fix** (65%/61% against ≥ 60%;
-  redemption −10.0 median, 99% strictly below, 76–80-point ablation).
-  Awaiting the merge disposition; **the Quiet Sale's flag has NOT
-  lifted and no PR is open** — both wait for the reviewer's explicit
-  word. P3 (the Harbor War) stays paused until then.
+  — is implemented, measured (round 9), corrected three times under
+  review (rev. 10–12: derived retention, the monotone closed-form
+  ledger, the arrest-aware witness authority), and its two-cohort
+  gate passes with nothing grandfathered** (natural paired 65%/61%
+  against ≥ 60%; redemption −10.0 median, 99% strictly below,
+  80/76-point ablation). **The PR is open per the rev. 12 ruling;
+  merge waits on the reviewer's explicit word**, and the Straight
+  Path + Quiet Sale flags activate together AFTER the merge, as
+  their own step. P3 (the Harbor War) stays paused until then.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
