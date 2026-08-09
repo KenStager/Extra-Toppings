@@ -892,21 +892,36 @@ def validate_cross_state(state: "State") -> None:
     if len(keys) != len(all_keys):
         raise ValueError("employees: duplicate keys make witness "
                          "provenance ambiguous")
-    # The storage authority binds at persistence too (rev. 18 item 2):
-    # a stash over its space cap, or holding negative units, is
+    # The storage authority binds at persistence too (rev. 18 item 2;
+    # via the shared validator, rev. 19 item 1): a stash of unknown
+    # goods, inexact or negative counts, or over its space cap is
     # refused — never repaired.
     for where, stash in (("shop", state.shop_stash),
                          ("warehouse", state.warehouse)):
         if stash is None:
             continue
-        if any(isinstance(u, bool) or not isinstance(u, int) or u < 0
-               for u in stash.values()):
-            raise ValueError(f"{where} stash: unit counts must be "
-                             f"non-negative integers")
+        validate_inventory_map(stash, f"{where} stash")
         if space_used(stash) > space_cap(state, where):
             raise ValueError(
                 f"{where} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
+    # Chronology (rev. 19 item 2): history cannot post-date the state
+    # it lives in, and an append-only log's days never run backward.
+    for name, log, kind in (("raid_log", state.raid_log,
+                             RaidAttemptRecord),
+                            ("route_log", state.route_log,
+                             RouteExecutionRecord)):
+        prev = 0
+        for i, rec in enumerate(log):
+            if not isinstance(rec, kind):
+                raise ValueError(f"{name}[{i}]: not a {kind.__name__}")
+            if rec.day > state.day:
+                raise ValueError(f"{name}[{i}]: day {rec.day} post-dates "
+                                 f"the state's day {state.day}")
+            if rec.day < prev:
+                raise ValueError(f"{name}[{i}]: days run backward "
+                                 f"({prev} → {rec.day})")
+            prev = rec.day
     aware = {e.key for e in state.employees if e.aware}
     hired = {e.key for e in state.employees if e.hired}
     for i, r in enumerate(state.evidence):
@@ -983,15 +998,33 @@ def security_word(alertness: float) -> str:
 
 
 RAID_ATTEMPT_OUTCOMES = frozenset({"scrubbed", "failed", "succeeded"})
+RAID_CREW_MAX = 3          # planning's cap — one home (rev. 19 item 2)
+
+# ── The quiet-night alertness transition (rev. 19 item 3) ─────────
+ALERTNESS_DECAY = 0.34
+
+
+def alertness_decay_tick(rival, day: int) -> None:
+    """THE quiet-night transition, one home: guards get bored again,
+    slowly — but never on a night you hit them (the rival phase runs
+    after the raid, so a raid tonight blocks tonight's decay).
+    Production's rival phase AND the pacing experiment consume this
+    single function; the transition cannot drift between them."""
+    if rival.last_raided_day != day:
+        rival.alertness = max(0.0, rival.alertness - ALERTNESS_DECAY)
+# The corner channel's mechanical ceiling in hundredths: the -4/night
+# cap doubled by the outage window. war.py asserts this equals its
+# CORNER_CAP × OUTAGE_MULT at import, so the homes cannot drift.
+CORNER_DAMAGE_MAX_H = 800
 
 
 @dataclass(frozen=True)
 class RaidAttemptRecord:
-    """One outgoing job, booked once (rev. 18 item 3): constructed
-    locally AFTER the outcome is known, appended exactly once, frozen
-    thereafter — never a mutable dict edited in flight. Validation
-    runs at construction, so persistence cannot round-trip
-    day="banana", crew=-7 or a failed job carrying damage."""
+    """One outgoing job, booked once (rev. 18 item 3), bound to the
+    ACTUAL mechanical domains (rev. 19 item 2): constructed locally
+    AFTER the outcome is known, appended exactly once, frozen
+    thereafter. A 100-person crew or 99.99 strength of job damage is
+    history gameplay cannot produce, so persistence refuses it."""
     day: int
     rival: str
     outcome: str            # scrubbed | failed | succeeded
@@ -999,37 +1032,44 @@ class RaidAttemptRecord:
     damage_h: int           # ACTUAL applied strength damage, hundredths
 
     def __post_init__(self) -> None:
-        if isinstance(self.day, bool) or not isinstance(self.day, int) \
-                or self.day < 1:
+        if type(self.day) is not int or self.day < 1:
             raise ValueError(f"raid attempt: bad day {self.day!r}")
         if self.rival not in data.RIVALS:
             raise ValueError(f"raid attempt: unknown rival {self.rival!r}")
         if self.outcome not in RAID_ATTEMPT_OUTCOMES:
             raise ValueError(f"raid attempt: unknown outcome "
                              f"{self.outcome!r}")
-        if isinstance(self.crew, bool) or not isinstance(self.crew, int) \
-                or self.crew < 1:
-            raise ValueError(f"raid attempt: bad crew count {self.crew!r}")
-        if isinstance(self.damage_h, bool) \
-                or not isinstance(self.damage_h, int) \
-                or self.damage_h < 0 or self.damage_h > 10_000:
-            raise ValueError(f"raid attempt: bad damage {self.damage_h!r}")
+        if type(self.crew) is not int \
+                or not 1 <= self.crew <= RAID_CREW_MAX:
+            raise ValueError(f"raid attempt: crew {self.crew!r} outside "
+                             f"the 1..{RAID_CREW_MAX} planning cap")
+        if type(self.damage_h) is not int or self.damage_h < 0 \
+                or self.damage_h > RAID_STOCK_STRENGTH * 100:
+            raise ValueError(f"raid attempt: damage {self.damage_h!r} "
+                             f"outside the strongest job's "
+                             f"{RAID_STOCK_STRENGTH}-strength ceiling")
         if self.outcome != "succeeded" and self.damage_h != 0:
             raise ValueError("raid attempt: only a succeeded job "
                              "applies damage")
 
 
-ROUTE_HEAT_BANDS = frozenset({"cool", "amber", "red"})
+# Only bands a route can actually EXECUTE under (rev. 19 item 2):
+# red is refused at planning AND at the commit revalidation, so an
+# executed red route is history that never happened. Each band pins
+# its policy multiplier.
+ROUTE_EXECUTED_BANDS = {"cool": 1.0, "amber": 0.5}
 
 
 @dataclass(frozen=True)
 class RouteExecutionRecord:
-    """One route night, booked at RESOLUTION (rev. 18 item 4): the
-    execution-time district, heat band and capacity multiplier, the
-    units actually sold, the corner damage actually applied, and
-    whether the turf was contested (a live campaign owned it) — so
-    no study ever again reads exposure at the wrong time or from a
-    price-depression signal."""
+    """One route night, booked at RESOLUTION (rev. 18 item 4), bound
+    to the actual mechanical domains (rev. 19 item 2): the
+    execution-time district, its band with the band's OWN policy
+    multiplier, units a 24-space wagon can actually move, corner
+    damage under the mechanical cap, and a contested flag only a
+    turf with an owner can carry. Prefer `of_market` — the record
+    built from the authoritative RouteMarket view — so no study can
+    invent a combination gameplay cannot produce."""
     day: int
     district: str
     heat_band: str
@@ -1039,53 +1079,91 @@ class RouteExecutionRecord:
     contested: bool
 
     def __post_init__(self) -> None:
-        if isinstance(self.day, bool) or not isinstance(self.day, int) \
-                or self.day < 1:
+        if type(self.day) is not int or self.day < 1:
             raise ValueError(f"route record: bad day {self.day!r}")
         if self.district not in data.DISTRICTS:
             raise ValueError(f"route record: unknown district "
                              f"{self.district!r}")
-        if self.heat_band not in ROUTE_HEAT_BANDS:
-            raise ValueError(f"route record: unknown band "
-                             f"{self.heat_band!r}")
-        if not isinstance(self.capacity_mult, (int, float)) \
-                or isinstance(self.capacity_mult, bool) \
-                or not 0.0 < float(self.capacity_mult) <= 1.0:
-            raise ValueError(f"route record: bad capacity multiplier "
-                             f"{self.capacity_mult!r}")
-        if isinstance(self.units_sold, bool) \
-                or not isinstance(self.units_sold, int) \
-                or self.units_sold < 0:
-            raise ValueError(f"route record: bad units {self.units_sold!r}")
-        if isinstance(self.corner_damage_h, bool) \
-                or not isinstance(self.corner_damage_h, int) \
-                or self.corner_damage_h < 0:
-            raise ValueError(f"route record: bad corner damage "
-                             f"{self.corner_damage_h!r}")
-        if not isinstance(self.contested, bool):
+        if self.heat_band not in ROUTE_EXECUTED_BANDS:
+            raise ValueError(f"route record: a route cannot execute "
+                             f"under {self.heat_band!r}")
+        if self.capacity_mult != ROUTE_EXECUTED_BANDS[self.heat_band]:
+            raise ValueError(
+                f"route record: band {self.heat_band!r} carries "
+                f"multiplier {ROUTE_EXECUTED_BANDS[self.heat_band]}, "
+                f"got {self.capacity_mult!r}")
+        if type(self.units_sold) is not int \
+                or not 0 <= self.units_sold <= data.VEHICLE_CARGO:
+            raise ValueError(f"route record: {self.units_sold!r} units "
+                             f"from a {data.VEHICLE_CARGO}-space wagon")
+        if type(self.corner_damage_h) is not int \
+                or not 0 <= self.corner_damage_h <= CORNER_DAMAGE_MAX_H:
+            raise ValueError(f"route record: corner damage "
+                             f"{self.corner_damage_h!r} outside the "
+                             f"mechanical cap")
+        if type(self.contested) is not bool:
             raise ValueError(f"route record: bad contested flag "
                              f"{self.contested!r}")
+        if self.contested and data.DISTRICTS[self.district]["rival"] is None:
+            raise ValueError(f"route record: {self.district} has no "
+                             f"owner to contest")
         if self.corner_damage_h and not self.contested:
             raise ValueError("route record: corner damage on an "
                              "uncontested turf is impossible")
 
+    @classmethod
+    def of_market(cls, day: int, rm, units_sold: int,
+                  corner_damage_h: int) -> "RouteExecutionRecord":
+        """The authoritative constructor: band, multiplier, district
+        and contested flag come from the RouteMarket view the route
+        actually ran on."""
+        return cls(day=day, district=rm.district,
+                   heat_band=rm.heat.band,
+                   capacity_mult=rm.heat.capacity_mult,
+                   units_sold=units_sold,
+                   corner_damage_h=corner_damage_h,
+                   contested=rm.corner_rate > 0.0)
 
-# ── THE storage capacity authority (rev. 18 item 2) ──────────────
+
+# ── THE storage capacity authority (rev. 18 item 2, made SAFE per
+# rev. 19 item 1) ─────────────────────────────────────────────────
 # One home for space arithmetic: space used, a destination's
 # capacity, the units that fit, and the transactional transfer.
 # Supplier purchases, the storage menu, haul placement, the route
-# planner and persistence validation all consume THESE — capacity
-# math never lives in a call site again.
+# planner, rendering and persistence validation all consume THESE —
+# and everything passes through ONE inventory-map validator first:
+# exact integers, known goods, no negatives, explicit locations.
+
+STORAGE_LOCATIONS = ("shop", "warehouse")
+
+
+def validate_inventory_map(stash: dict, where: str = "inventory") -> None:
+    """THE shared inventory-map validator (rev. 19 item 1): every
+    key a known good, every count an EXACT integer (True and 1.5
+    are refused, never coerced), never negative. Consumed by every
+    space computation, transfer, placement, render and persistence
+    read — impossible inventory is refused, not reported as zero."""
+    for g, u in stash.items():
+        if g not in data.GOODS:
+            raise ValueError(f"{where}: unknown good {g!r}")
+        if type(u) is not int:
+            raise ValueError(f"{where}: count for {g} must be an exact "
+                             f"integer, got {u!r}")
+        if u < 0:
+            raise ValueError(f"{where}: negative {g} count {u}")
+
 
 def space_used(stash: dict | None) -> int:
-    """Cargo-space units a stash occupies (units × space each)."""
+    """Space units a stash occupies (units × space each). Refuses an
+    impossible map — never silently drops a negative row."""
     if not stash:
         return 0
-    return sum(u * data.GOODS[g]["bulk"] for g, u in stash.items() if u > 0)
+    validate_inventory_map(stash)
+    return sum(u * data.GOODS[g]["bulk"] for g, u in stash.items())
 
 
 def space_cap(state: "State", where: str) -> int:
-    """A destination's capacity in cargo-space units."""
+    """A destination's capacity in space units."""
     if where == "shop":
         return state.shop.stash_cap
     if where == "warehouse":
@@ -1094,14 +1172,21 @@ def space_cap(state: "State", where: str) -> int:
 
 
 def _stash_at(state: "State", where: str) -> dict:
-    stash = state.shop_stash if where == "shop" else state.warehouse
-    if stash is None:
-        raise ValueError("no warehouse is rented")
-    return stash
+    """Explicit locations only (rev. 19 item 1: an unknown name must
+    never alias a real stash)."""
+    if where == "shop":
+        return state.shop_stash
+    if where == "warehouse":
+        if state.warehouse is None:
+            raise ValueError("no warehouse is rented")
+        return state.warehouse
+    raise ValueError(f"unknown storage location {where!r}")
 
 
 def units_that_fit(state: "State", where: str, good: str) -> int:
     """How many units of `good` the destination can still take."""
+    if good not in data.GOODS:
+        raise ValueError(f"unknown good {good!r}")
     stash = _stash_at(state, where)
     room = max(0, space_cap(state, where) - space_used(stash))
     return room // data.GOODS[good]["bulk"]
@@ -1110,13 +1195,19 @@ def units_that_fit(state: "State", where: str, good: str) -> int:
 def move_goods(state: "State", src: str, dst: str, good: str,
                units: int) -> None:
     """THE transactional transfer: refused whole — never partially
-    applied, never over a destination's capacity (rev. 18 item 2:
-    a shop→warehouse move could stack 202/200)."""
+    applied, never over a destination's capacity (rev. 18 item 2),
+    never a boolean, a fraction, or an unknown location (rev. 19
+    item 1)."""
+    if type(units) is not int:
+        raise ValueError(f"cannot move {units!r} units — exact "
+                         f"integers only")
+    if good not in data.GOODS:
+        raise ValueError(f"unknown good {good!r}")
     if units < 0:
         raise ValueError(f"cannot move {units} units")
+    a, b = _stash_at(state, src), _stash_at(state, dst)
     if units == 0:
         return
-    a, b = _stash_at(state, src), _stash_at(state, dst)
     if a.get(good, 0) < units:
         raise ValueError(f"only {a.get(good, 0)}x {good} at {src}")
     if units > units_that_fit(state, dst, good):
@@ -1132,7 +1223,9 @@ def place_haul(state: "State", haul: dict) -> tuple:
     (kept, left_behind). Raid payoffs and the salvage pickup both
     consume this — the loop lives once, its arithmetic is the
     storage authority's, and space caps can never be quietly
-    skipped again."""
+    skipped again. The haul map passes the shared validator first
+    (rev. 19 item 1: no boolean, fractional or negative hauls)."""
+    validate_inventory_map(haul, "haul")
     left_behind = 0
     kept: dict = {}
     for g, u in haul.items():

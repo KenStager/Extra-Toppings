@@ -1200,70 +1200,97 @@ def _heat_exposure_probe(trials: int = 400) -> None:
           f"corner take")
 
 
-def _pacing_fixed_opportunity(trials: int = 800) -> None:
-    """The CAUSAL pacing experiment (rev. 18 item 3): a genuinely
-    state-matched, fixed-opportunity rollout. Both arms start from
-    the IDENTICAL declared-war state (same seed, same crew, same
-    prices), face the same 12-night horizon, and share per-night bot
-    seeds — the only difference is the policy: the grinder attempts a
-    job every night its crew stands; the paced arm attempts only
-    when the security word says the window is open (alertness under
-    the hardened band), waiting while it is shut. Total ACTUAL
-    strength damage over the horizon, attempts, and injury-days are
-    measured per arm; the paired difference carries the causal
-    claim. (Attack-side only — retaliation is not simulated here;
-    the injury ledger prices the fights the jobs themselves buy.)"""
+def _pacing_mech_rng(seed: int, day: int) -> random.Random:
+    """Raid-MECHANICS dice for one calendar night — a pure function
+    of (seed, day, channel), so skipping a night cannot shift any
+    later night's dice (rev. 19 item 3)."""
+    return random.Random(f"{seed}/{day}/mech")
+
+
+def _pacing_bot_rng(seed: int, day: int) -> random.Random:
+    """Decision dice for one calendar night — same keying."""
+    return random.Random(f"{seed}/{day}/bot")
+
+
+PACING_HORIZON = 12
+PACING_START_DAY = 15
+
+
+def _pacing_rollout(seed: int, policy) -> tuple:
+    """One arm of the fixed-opportunity experiment: a declared-war
+    state built from `seed`, rolled over the fixed horizon.
+    `policy(night_index, rival)` says whether to attempt tonight.
+    Ordering mirrors production's night exactly: the raid (if any)
+    runs first, then THE canonical quiet-night alertness transition
+    (models.alertness_decay_tick — a raid tonight blocks tonight's
+    decay, rev. 19 item 3). Returns (total damage, attempts,
+    injury-days, committed person-nights)."""
     from extra_toppings.models import (BranchState, VENDETTA_RELATION,
+                                       alertness_decay_tick,
                                        set_relation)
-    HORIZON = 12
-
-    def rollout(seed, paced):
-        rng = random.Random(seed)
-        st = new_state()
-        market.roll_prices(st, rng)
-        st.warehouse = {}
-        st.day = 15
-        st.debt = 0
-        st.debt_paid_day = 14
-        st.act = 2
-        st.branch = "war"
-        st.branch_state = BranchState.war(
-            war_target="vinnie", declared_day=15,
-            starting_strength=st.rivals["vinnie"].strength)
-        set_relation(st, "vinnie", min(st.rivals["vinnie"].relation,
-                                       VENDETTA_RELATION))
-        crew = st.employees[:3]
+    rng_world = random.Random(seed)
+    st = new_state()
+    market.roll_prices(st, rng_world)
+    st.warehouse = {}
+    st.day = PACING_START_DAY
+    st.debt = 0
+    st.debt_paid_day = PACING_START_DAY - 1
+    st.act = 2
+    st.branch = "war"
+    st.branch_state = BranchState.war(
+        war_target="vinnie", declared_day=PACING_START_DAY,
+        starting_strength=st.rivals["vinnie"].strength)
+    set_relation(st, "vinnie", min(st.rivals["vinnie"].relation,
+                                   VENDETTA_RELATION))
+    crew = st.employees[:3]
+    for e in crew:
+        e.hired = e.aware = True
+    rival = st.rivals["vinnie"]
+    start_h = round(rival.strength * 100)
+    attempts = injury_days = person_nights = 0
+    for night in range(PACING_HORIZON):
+        day = PACING_START_DAY + night
+        st.day = day
+        team = [e for e in crew if e.available]
+        if team and rival.alive and policy(night, rival):
+            plan = {"rival": "vinnie", "objective": "steal_stock",
+                    "team": team, "armed": False,
+                    "wagon_free": True, "table_warned": True}
+            person_nights += len(team)
+            raids.run_raid(st, plan,
+                           BotConsole(_pacing_bot_rng(seed, day)),
+                           _pacing_mech_rng(seed, day))
+            attempts += 1
+        alertness_decay_tick(rival, day)     # production's ordering
         for e in crew:
-            e.hired = e.aware = True
-        rival = st.rivals["vinnie"]
-        start_h = round(rival.strength * 100)
-        attempts = injury_days = person_nights = 0
-        for night in range(HORIZON):
-            team = [e for e in crew if e.available]
-            window_open = rival.alertness < 4.0     # the security word
-            if team and rival.alive and (not paced or window_open):
-                plan = {"rival": "vinnie", "objective": "steal_stock",
-                        "team": team, "armed": False,
-                        "wagon_free": True, "table_warned": True}
-                person_nights += len(team)
-                raids.run_raid(
-                    st, plan,
-                    BotConsole(random.Random(seed * 31 + night)), rng)
-                attempts += 1
-            st.day += 1
-            if rival.last_raided_day != st.day:
-                rival.alertness = max(0.0, rival.alertness - 0.34)
-            for e in crew:
-                if e.injured_days > 0:
-                    injury_days += 1
-                    e.injured_days -= 1
-        damage = (start_h - round(rival.strength * 100)) / 100
-        return damage, attempts, injury_days, person_nights
+            if e.injured_days > 0:
+                injury_days += 1
+                e.injured_days -= 1
+    damage = (start_h - round(rival.strength * 100)) / 100
+    return damage, attempts, injury_days, person_nights
 
-    rows: dict = {True: [], False: []}
+
+def _pacing_fixed_opportunity(trials: int = 800) -> None:
+    """The CAUSAL pacing experiment (rev. 18 item 3; paired IN FACT
+    per rev. 19 item 3): both arms start from the IDENTICAL
+    declared-war state and every calendar night carries its own
+    decision and mechanics dice, keyed by (seed, day, channel) — a
+    night the paced arm skips cannot shift any later night's dice.
+    The alertness transition is the production function itself.
+    Attack-side only: retaliation is not simulated; the injury
+    ledger prices the fights the jobs themselves buy. The paired
+    difference carries the causal claim; the 500-seed outcome bar
+    remains the arbiter of the whole trade."""
+    def paced(night, rival):
+        return rival.alertness < 4.0         # the security word
+
+    def grind(night, rival):
+        return True
+
+    rows: dict = {"paced": [], "grind": []}
     for seed in range(trials):
-        for paced in (True, False):
-            rows[paced].append(rollout(seed, paced))
+        rows["paced"].append(_pacing_rollout(seed, paced))
+        rows["grind"].append(_pacing_rollout(seed, grind))
 
     def mean_se(vals):
         m = statistics.fmean(vals)
@@ -1271,26 +1298,26 @@ def _pacing_fixed_opportunity(trials: int = 800) -> None:
               if len(vals) > 1 else 0.0)
         return m, se
 
-    p_d, g_d = ([r[0] for r in rows[True]], [r[0] for r in rows[False]])
+    p_d = [r[0] for r in rows["paced"]]
+    g_d = [r[0] for r in rows["grind"]]
     paired = [a - b for a, b in zip(p_d, g_d)]
     pm, pse = mean_se(p_d)
     gm, gse = mean_se(g_d)
     dm, dse = mean_se(paired)
-    p_eff = (sum(r[0] for r in rows[True])
-             / max(1, sum(r[3] for r in rows[True])))
-    g_eff = (sum(r[0] for r in rows[False])
-             / max(1, sum(r[3] for r in rows[False])))
+    p_eff = (sum(p_d) / max(1, sum(r[3] for r in rows["paced"])))
+    g_eff = (sum(g_d) / max(1, sum(r[3] for r in rows["grind"])))
     print(f"pacing, fixed-opportunity [CAUSAL: state-matched arms, "
-          f"{trials} paired trials, {HORIZON}-night horizon]: total "
-          f"applied strength damage — window-paced {pm:.1f}±{pse:.1f} "
-          f"vs every-night {gm:.1f}±{gse:.1f} (paired Δ "
-          f"{dm:+.1f}±{dse:.1f}); per committed person-night — "
-          f"{p_eff:.2f} vs {g_eff:.2f}; jobs attempted "
-          f"{statistics.fmean(r[1] for r in rows[True]):.1f} vs "
-          f"{statistics.fmean(r[1] for r in rows[False]):.1f}; "
+          f"calendar-keyed dice, {trials} paired trials, "
+          f"{PACING_HORIZON}-night horizon]: total applied strength "
+          f"damage — window-paced {pm:.1f}±{pse:.1f} vs every-night "
+          f"{gm:.1f}±{gse:.1f} (paired Δ {dm:+.1f}±{dse:.1f}); per "
+          f"committed person-night — {p_eff:.2f} vs {g_eff:.2f}; jobs "
+          f"attempted "
+          f"{statistics.fmean(r[1] for r in rows['paced']):.1f} vs "
+          f"{statistics.fmean(r[1] for r in rows['grind']):.1f}; "
           f"injured-crew days "
-          f"{statistics.fmean(r[2] for r in rows[True]):.1f} vs "
-          f"{statistics.fmean(r[2] for r in rows[False]):.1f} "
+          f"{statistics.fmean(r[2] for r in rows['paced']):.1f} vs "
+          f"{statistics.fmean(r[2] for r in rows['grind']):.1f} "
           f"[attack-side only; the 500-seed outcome bar is the "
           f"arbiter of the whole trade]")
 
@@ -1353,8 +1380,9 @@ def _raid_decline_at_war_cadence(trials: int = 2000) -> None:
                     e.injured_days = 0
                 for _ in range(spacing_nights):
                     st.day += 1
-                    if rival.last_raided_day != st.day:
-                        rival.alertness = max(0.0, rival.alertness - 0.34)
+                    # THE canonical quiet-night transition (rev. 19).
+                    from extra_toppings.models import alertness_decay_tick
+                    alertness_decay_tick(rival, st.day)
         return values, succ
 
     def mean_se(vals):

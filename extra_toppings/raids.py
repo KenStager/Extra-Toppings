@@ -63,9 +63,10 @@ def plan_raid(state: State, con: Console, rng: random.Random,
 
     team: list = []
     pool = list(crew)
-    while pool and len(team) < 3:
+    while pool and len(team) < models.RAID_CREW_MAX:
         names = [f"{e.name} (nerve {e.nerve}, {e.trait})" for e in pool] + ["Enough"]
-        c = con.menu(f"Crew ({len(team)} picked, max 3):", names)
+        c = con.menu(f"Crew ({len(team)} picked, "
+                     f"max {models.RAID_CREW_MAX}):", names)
         if c == len(pool):
             break
         team.append(pool.pop(c))

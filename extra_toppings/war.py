@@ -167,6 +167,10 @@ def insurance_paid(state: State) -> bool:
 
 SALVAGE_HEAT = 8      # trucks at a dead man's dock get noticed (§6.3)
 
+# The record domain in models (rev. 19 item 2) mirrors the corner
+# channel's real ceiling — drift is an import error, not a quiet lie.
+assert models.CORNER_DAMAGE_MAX_H == round(CORNER_CAP * OUTAGE_MULT * 100)
+
 
 def _bs(state: State):
     """The war's BranchState, or a loud refusal — these entry points

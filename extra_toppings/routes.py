@@ -44,12 +44,11 @@ class RouteManifest:
         return self.capacity - self.bulk_used
 
     def validate(self) -> None:
-        for g, u in self.cargo.items():
-            if g not in data.GOODS:
-                raise ValueError(f"manifest: unknown good {g!r}")
-            if isinstance(u, bool) or not isinstance(u, int) or u < 0:
-                raise ValueError(f"manifest: bad unit count for {g}: {u!r}")
-        if isinstance(self.legit, bool) or not isinstance(self.legit, int) \
+        # The shared inventory-map validator (rev. 19 item 1): exact
+        # integers, known goods, no negatives — one contract for the
+        # wagon, the stashes and persistence alike.
+        models.validate_inventory_map(self.cargo, "manifest")
+        if type(self.legit) is not int \
                 or self.legit < 0:
             raise ValueError(f"manifest: bad pizza count {self.legit!r}")
         if self.bulk_used > self.capacity:
@@ -122,7 +121,7 @@ def inventory_lines(label: str, stash: dict, cap: int | None) -> list[str]:
     item 1; one term, rev. 18 item 2) — the same arithmetic
     everywhere a stash is shown: the back room, the warehouse, and
     the wagon manifest."""
-    total = sum(u * data.GOODS[g]["bulk"] for g, u in stash.items() if u > 0)
+    total = models.space_used(stash)     # THE one arithmetic (rev. 19)
     head = f"{label} — {total}" + (f" of {cap}" if cap is not None else "") \
         + " space used:"
     lines = [head]
@@ -198,8 +197,8 @@ def plan_route(state: State, con: Console, rng: random.Random,
     can_carry = driver.aware or ride_along
     # The route-loading card (rev. 18 item 2): one vocabulary,
     # taught once per planning.
-    con.say(f"  The wagon holds {manifest.capacity} cargo-space "
-            f"units. Each pizza uses 1. "
+    con.say(f"  The wagon holds {manifest.capacity} space. "
+            f"Each pizza uses 1. "
             + ". ".join(f"{s['label']} uses {s['bulk']} per unit"
                         for s in data.GOODS.values() if s["bulk"] > 1)
             + ". Pizzas and coded goods share the same space.")
@@ -374,10 +373,8 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     if not cargo:
         state.districts[dk].known_price_age = 0 if plan["ride_along"] else 1
         driver.routes_survived += 1
-        state.route_log.append(models.RouteExecutionRecord(
-            day=state.day, district=dk, heat_band=rm.heat.band,
-            capacity_mult=rm.heat.capacity_mult, units_sold=0,
-            corner_damage_h=0, contested=rm.corner_rate > 0.0))
+        state.route_log.append(models.RouteExecutionRecord.of_market(
+            state.day, rm, 0, 0))
         return report
 
     drops = rm.drops(len(cargo))
@@ -413,11 +410,8 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     if not report["busted"]:
         driver.routes_survived += 1
         driver.familiarity[dk] = min(10, driver.familiarity.get(dk, 0) + 1)
-    state.route_log.append(models.RouteExecutionRecord(
-        day=state.day, district=dk, heat_band=rm.heat.band,
-        capacity_mult=rm.heat.capacity_mult, units_sold=report["sold"],
-        corner_damage_h=round(corner_applied * 100),
-        contested=rm.corner_rate > 0.0))
+    state.route_log.append(models.RouteExecutionRecord.of_market(
+        state.day, rm, report["sold"], round(corner_applied * 100)))
     return report
 
 

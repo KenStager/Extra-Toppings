@@ -233,9 +233,16 @@ def epilogue(state: State, con: Console) -> None:
     elif e == "harbor_yours":
         fallen = war.broken_keys(state)[0]
         second = war.target_key(state)
+        # The ACTUAL captured turf, derived and named (rev. 19 item
+        # 5): Sal's fall captures Little Sicily; Vinnie's captures
+        # Old Harbor and the Meadows — never one generic district.
+        turf = [d["label"] for d in data.DISTRICTS.values()
+                if d["rival"] == fallen]
+        turf_s = " and ".join([", ".join(turf[:-1]), turf[-1]]
+                              if len(turf) > 1 else turf)
         con.say(f"""
   Day thirty. {data.RIVALS[fallen]['label']} is a name on old menus.
-  Their corners call your board, their district learned your number,
+  Their corners call your board, {turf_s} learned your number,
   and the harbor knows exactly one operation that matters.""")
         if second is not None:
             con.say(f"  The second war — {data.RIVALS[second]['short']}'s —"

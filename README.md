@@ -95,11 +95,11 @@ Everything from the design pitch's "first playable version" checklist:
 | Four contraband categories | Extra Oregano, Special Mushrooms, Hot Honey, White Truffle Powder |
 | Two meaningful rivals | Sal (great food, quiet knives) and Vinnie (terrible food, loud ones) — with memory, telegraphed raids and an escalation ladder |
 | Eight named employees | Four stats, a personality trait each, morale, injuries, arrests. Reading someone in gains a courier and creates a witness |
-| One delivery vehicle | Enzo's wagon: 24 cargo slots shared between pizzas and product |
+| One delivery vehicle | Enzo's wagon: 24 space shared between pizzas and product |
 | Thirty-day debt deadline | $15,000 compounding daily. Carmine fronts a starving shop groceries — onto the debt |
 | Dynamic prices and events | Concerts, seizures, crackdowns, festivals, heat waves; overselling a district depresses its price |
 | Clean and dirty accounting | Two ledgers; laundering capped by believable revenue; dirty cash exists physically and can be stolen or seized |
-| One warehouse | Rentable, bulk storage, off-site cash stash — and one more address to defend |
+| One warehouse | Rentable, 200 space of storage, off-site cash stash — and one more address to defend |
 | Three raid objectives, one layout system | Steal their stock, photograph their ledger, wreck their ovens — the same room-by-room system resolves their raids on you |
 
 Two layers of law: **Heat** is local weather (rises with sloppy routes,

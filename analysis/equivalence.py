@@ -195,6 +195,61 @@ def run_recorded(seed: int, bot_key: str,
 REQUIRED_META = ("version", "engine", "generated_at_commit",
                  "predecessor_sha256", "reason", "seeds", "bots")
 
+# THE active-baseline contract (rev. 19 item 4): the harness KNOWS
+# which baseline is sanctioned — exact version, generation commit,
+# predecessor checksum, reason, seeds, bots, and the active file's
+# own sha256. A golden mutated in any field, or swapped wholesale,
+# fails the gate before a single run is compared. Updated only as
+# part of a recorded, sanctioned regeneration.
+ACTIVE_BASELINE: dict = {
+    "version": 2,
+    "generated_at_commit": "57f2c4bf9e1d4731d8174225a865ab862ab46e7e",
+    "predecessor_sha256": "75d9199fdb5cda6c4b652f9ba0eec5269a6"
+                          "1a37952919e249914e7a40f090839",
+    "reason": "design rev. 17-18 sanctioned regeneration: the "
+              "RouteManifest inventory contract replaced the 12-pizza "
+              "planner defect the prior trace pinned; final baseline "
+              "established after the contract completed",
+    "seeds": 150,
+    "bots": ["greedy", "random"],
+    "file_sha256": "13d9eeba742aff279b149c16d42ffd3bfce"
+                   "7d28b029a7985ddde1b776e7828fd",
+}
+
+
+def validate_baseline(path: str = GOLDEN_PATH) -> list:
+    """Every way the active golden could lie, checked independently:
+    the file's own hash against the contract, then every metadata
+    field against its contracted value. Returns a list of failures
+    (empty = the baseline is the sanctioned one)."""
+    errors = []
+    try:
+        with open(path, "rb") as fb:
+            raw = fb.read()
+    except OSError as exc:
+        return [f"golden unreadable: {exc}"]
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != ACTIVE_BASELINE["file_sha256"]:
+        errors.append(f"file sha256 {actual[:12]}… is not the "
+                      f"sanctioned baseline "
+                      f"{ACTIVE_BASELINE['file_sha256'][:12]}…")
+    try:
+        meta = json.loads(raw).get("meta", {})
+    except ValueError as exc:
+        return errors + [f"golden unparseable: {exc}"]
+    for key in REQUIRED_META:
+        if not meta.get(key):
+            errors.append(f"missing metadata {key!r}")
+    for key in ("version", "generated_at_commit", "predecessor_sha256",
+                "reason", "seeds"):
+        if key in meta and meta.get(key) != ACTIVE_BASELINE[key]:
+            errors.append(f"metadata {key!r} = {meta.get(key)!r} does "
+                          f"not match the contract")
+    if sorted(meta.get("bots") or []) != ACTIVE_BASELINE["bots"]:
+        errors.append(f"metadata 'bots' = {meta.get('bots')!r} does "
+                      f"not match the contract")
+    return errors
+
 
 def _head_commit() -> str:
     import subprocess
@@ -256,16 +311,16 @@ def generate(seeds: int, reason: str | None = None) -> None:
 
 
 def check(seeds: int | None) -> int:
+    # Provenance is part of the gate (rev. 18 item 5; independent
+    # contract per rev. 19 item 4): a golden that cannot prove it is
+    # THE sanctioned baseline fails before any run is compared.
+    problems = validate_baseline()
+    if problems:
+        for p in problems:
+            print(f"FAIL golden provenance: {p}")
+        return 1
     with open(GOLDEN_PATH) as f:
         golden = json.load(f)
-    # Provenance is part of the gate (rev. 18 item 5): a golden that
-    # cannot say what it is, where it came from and why it exists is
-    # not a baseline.
-    meta = golden.get("meta", {})
-    missing = [k for k in REQUIRED_META if not meta.get(k)]
-    if missing:
-        print(f"FAIL golden provenance: missing metadata {missing}")
-        return 1
     n = seeds or golden["meta"]["seeds"]
     failures = 0
     checked = 0

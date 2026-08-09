@@ -1181,5 +1181,84 @@ class TestRevision17Instruments(unittest.TestCase):
                 save.state_from_dict(d2)
 
 
+
+
+class TestRevision19Pairing(unittest.TestCase):
+    """Rev. 19 item 3: the pacing experiment's dice are keyed by
+    calendar night, and the alertness transition is production's."""
+
+    def test_skipping_a_night_cannot_shift_later_dice(self):
+        # Two arms that differ ONLY at night 0 (skip vs attempt) must
+        # hand run_raid IDENTICAL mechanics dice on every shared
+        # later attempt night.
+        from analysis import experiments as ex
+        seen: dict = {}
+
+        real_run_raid = raids.run_raid
+
+        def spy(state, plan, con, rng, _arm=[None]):
+            seen.setdefault(_arm[0], {})[state.day] = rng.getstate()
+            return real_run_raid(state, plan, con, rng)
+
+        def arm(name, skip_first):
+            def policy(night, rival):
+                return not (skip_first and night == 0)
+            spy.__defaults__ = ([name],)
+            raids.run_raid = spy
+            try:
+                ex._pacing_rollout(3, policy)
+            finally:
+                raids.run_raid = real_run_raid
+
+        arm("skip", True)
+        arm("all", False)
+        shared = set(seen["skip"]) & set(seen["all"])
+        self.assertGreater(len(shared), 5)
+        for day in shared:
+            self.assertEqual(seen["skip"][day], seen["all"][day],
+                             f"night {day}'s dice shifted")
+
+    def test_the_experiment_uses_the_production_transition(self):
+        # One home (rev. 19 item 3): the canonical tick IS what the
+        # rival phase runs — decay on a quiet night, none on a night
+        # you hit them.
+        from extra_toppings.models import (ALERTNESS_DECAY,
+                                           alertness_decay_tick)
+        state = war_state()
+        rv = state.rivals["vinnie"]
+        rv.alertness = 5.0
+        rv.last_raided_day = state.day       # hit tonight
+        alertness_decay_tick(rv, state.day)
+        self.assertEqual(rv.alertness, 5.0)
+        alertness_decay_tick(rv, state.day + 1)
+        self.assertEqual(rv.alertness, 5.0 - ALERTNESS_DECAY)
+
+
+
+
+class TestRevision19Ending(unittest.TestCase):
+    """Rev. 19 item 5: the Harbor Is Yours ending derives and names
+    the ACTUAL captured turf."""
+
+    def test_sals_fall_names_little_sicily(self):
+        state = war_state(target="sal")
+        break_target(state, "sal")
+        state.game_over = "harbor_yours"
+        con = Quiet()
+        game.epilogue(state, con)
+        self.assertIsNotNone(con.find("Little Sicily learned your number"))
+
+    def test_vinnies_fall_names_both_districts(self):
+        state = war_state(target="vinnie")
+        break_target(state, "vinnie")
+        state.game_over = "harbor_yours"
+        con = Quiet()
+        game.epilogue(state, con)
+        line = con.find("learned your number")
+        self.assertIsNotNone(line)
+        self.assertIn("Old Harbor", line)
+        self.assertIn("Meadows", line)
+
+
 if __name__ == "__main__":
     unittest.main()

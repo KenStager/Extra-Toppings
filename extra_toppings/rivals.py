@@ -117,9 +117,10 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
             rival.ovens_wrecked_days -= 1
             models.apply_rival_damage(state, key, "ovens", models.OVEN_BLEED,
                                       floor=models.OVEN_BLEED_FLOOR)
-        # Guards get bored again, slowly — but not on a night you hit them.
-        if rival.last_raided_day != state.day:
-            rival.alertness = max(0.0, rival.alertness - 0.34)
+        # Guards get bored again, slowly — but not on a night you hit
+        # them. THE one transition (rev. 19 item 3), shared with the
+        # pacing experiment.
+        models.alertness_decay_tick(rival, state.day)
 
         # A telegraphed raid counts down; landing is handled by the night phase.
         if rival.raid_warning > 1:

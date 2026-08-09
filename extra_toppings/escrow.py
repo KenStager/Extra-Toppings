@@ -160,7 +160,7 @@ def _show_card(state: State, con: Console) -> None:
                else "a clean close")
     con.say(f"  The buyer's ledger test: unlaundered cash anywhere "
             f"{money(held)} against a {money(DIRTY_TOLERANCE)} tolerance; "
-            f"product anywhere {stock} bulk. As it stands this closes as: "
+            f"product anywhere {stock} space. As it stands this closes as: "
             f"{verdict}.")
 
 

@@ -177,6 +177,84 @@ class TestRevision18Inventory(unittest.TestCase):
             save.state_from_dict(d)
 
 
+class TestRevision19Storage(unittest.TestCase):
+    """Rev. 19 items 1-2: the storage authority is SAFE (one shared
+    inventory-map validator, explicit locations) and the historical
+    ledgers bind to the actual mechanical domains."""
+
+    def test_the_authority_refuses_impossible_inventory(self):
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.warehouse = {}
+        state.shop_stash = {"oregano": 3}
+        for bad_units in (True, 1.5, -1):
+            with self.assertRaises(ValueError):
+                models.move_goods(state, "shop", "warehouse",
+                                  "oregano", bad_units)
+        with self.assertRaises(ValueError):
+            models.move_goods(state, "bogus", "warehouse", "oregano", 1)
+        with self.assertRaises(ValueError):
+            models.move_goods(state, "shop", "bogus", "oregano", 1)
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"oregano": True})
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"oregano": 1.5})
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"oregano": -2})
+        with self.assertRaises(ValueError):
+            models.space_used({"oregano": -2})
+        self.assertEqual(state.shop_stash, {"oregano": 3})
+        self.assertEqual(state.warehouse, {})
+
+    def test_rendering_consumes_the_one_arithmetic(self):
+        with self.assertRaises(ValueError):
+            routes.inventory_lines("The back room", {"oregano": -2}, 40)
+
+    def test_attempt_records_bind_to_the_planning_domains(self):
+        from extra_toppings.models import RaidAttemptRecord
+        with self.assertRaises(ValueError):
+            RaidAttemptRecord(day=15, rival="sal", outcome="succeeded",
+                              crew=100, damage_h=0)
+        with self.assertRaises(ValueError):
+            RaidAttemptRecord(day=15, rival="sal", outcome="succeeded",
+                              crew=1, damage_h=9999)
+        RaidAttemptRecord(day=15, rival="sal", outcome="succeeded",
+                          crew=3, damage_h=1200)     # the real ceiling
+
+    def test_route_records_bind_to_the_mechanical_domains(self):
+        from extra_toppings.models import RouteExecutionRecord
+        ok = {"day": 15, "district": "old_harbor", "heat_band": "cool",
+              "capacity_mult": 1.0, "units_sold": 5,
+              "corner_damage_h": 0, "contested": False}
+        RouteExecutionRecord(**ok)
+        for change in ({"heat_band": "cool", "capacity_mult": 0.5},
+                       {"heat_band": "amber", "capacity_mult": 1.0},
+                       {"heat_band": "red", "capacity_mult": 0.5},
+                       {"units_sold": 999},
+                       {"district": "university", "contested": True},
+                       {"contested": True, "corner_damage_h": 9999}):
+            with self.assertRaises(ValueError):
+                RouteExecutionRecord(**{**ok, **change})
+
+    def test_chronology_binds_at_persistence(self):
+        from extra_toppings.models import RaidAttemptRecord
+        state, _rng = fresh(2)
+        state.day = 10
+        state.raid_log = [RaidAttemptRecord(
+            day=20, rival="sal", outcome="failed", crew=1, damage_h=0)]
+        with self.assertRaises(ValueError):
+            save.state_to_dict(state) and save.state_from_dict(
+                save.state_to_dict(state))
+        state.day = 25
+        state.raid_log = [
+            RaidAttemptRecord(day=20, rival="sal", outcome="failed",
+                              crew=1, damage_h=0),
+            RaidAttemptRecord(day=18, rival="sal", outcome="failed",
+                              crew=1, damage_h=0)]
+        with self.assertRaises(ValueError):
+            save.state_from_dict(save.state_to_dict(state))
+
+
 class TestSharedCapacity(unittest.TestCase):
     def _plan(self, load_units):
         state, rng = fresh(2)
