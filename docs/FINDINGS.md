@@ -1508,6 +1508,146 @@ chair remains unreleased; both rows, the heat finding and the
 recorded escrow movement (sloppy 186/280 closes, valuation $2,429,
 flips 44% at 500) go to review.
 
+### Round 10 correction 2 (re-review — design rev. 16)
+
+Review reproduced every number at e0c5bef and found four root
+contracts still false and two mechanics not yet load-bearing. All
+corrected at the root, recorded as revision 16 on paper first;
+sixteen new regressions pin the boundaries, fourteen failing on the
+pre-fix engine (the two passers pin behavior that was already
+correct).
+
+- **Evidence tells the truth about what accrued.** Reproduced as
+  reported: 10.0 points of paper accrued, 4.0 seen by the "gross"
+  collector — the study read records after counsel and settlements
+  had mutated them, so no evidence criterion could bind. Every
+  record now carries an immutable `accrued` beside the mutable
+  effective magnitude, written at accrual; the suspicion top-up is
+  genuine accrual and moves both in lockstep; validation binds
+  0 ≤ effective ≤ accrued at the persistence boundary (doctored
+  payloads refused); older payloads migrate `accrued` as the stored
+  magnitude — pre-contest values are unrecoverable, said plainly.
+  The study reads accrued values only.
+- **The wagon really is owned by the one view.** Reproduced: with a
+  salvage planned and no route, the night handed the raid the wagon
+  (`plans.get("route") is None` ignored the pickup). The night now
+  asks `wagon_job(plans)` — the same view planning consulted — and
+  the route/raid/salvage matrix is pinned: a planned pickup holds
+  the wagon all night; a route scrubbed at commit frees it; a raid
+  with no committed wagon job gets it.
+- **"Every active branch" includes the Quiet Sale.** The shared
+  clean-insolvency transition now runs in the escrow week, in the
+  broker's voice (`escrow.night_insolvency`); `insolvent_days`
+  joins the sale's persisted, validated field set; the
+  narratively-tempting exemption was declined per the ruling. The
+  battery rerun records the movement below.
+- **The second front lives, and it is measured.** The zero-Syndicate
+  seam was two defects: the study recognized the retired
+  survived-plus-two-broken form (fixed: `war.GOOD_ENDINGS` is the
+  one vocabulary, consumed by `grade` and the study), and the bot's
+  global broken flag plus hardcoded "Vinnie's turf" froze it after
+  the first capture (fixed: all board state is MORNING-scoped and
+  re-read from the board each day; the route chooser follows the
+  LIVE target's turf by name). At 500 seeds the mixed fleet now
+  declares the second front in 149/258 wars, collects 151 salvages,
+  completes 69 double captures and ends 68 runs at the Syndicate.
+
+**The replaced pacing letter — and it passes without a new
+constant.** The two-night-gap heuristic was replaced by
+window-rational raiding (full-price jobs whenever the security word
+says the window is open; waiting only while it is shut), and the war
+board now prints the actual multipliers ("jobs land at 70% strength;
+his response runs ×1.30"). That alone dissolved the deficit: the old
+−18/−19 was the paced bot FORGOING open windows, not the grinder
+winning. At 500 seeds the alertness-aware full policy stands at 57%
+against the cooldown policy's 53% — it does not trail (the binding
+criterion) — and the controlled equal-opportunity comparison on
+entry-identical seeds reads: applied jobs damage per committed
+crew-night 12.8 paced vs 10.8 cooldown; injured-crew nights per war
+5 vs 7; retaliation telegraphs per war equal at the median (2 vs 2 —
+the retaliation edge shows in the injury ledger, not the telegraph
+count). No slope moved, no preparation mechanic was needed.
+
+**The replaced evidence letter passes, with its margin explained.**
+On true accruals at 500 seeds: median 98% of post-fork ACCRUED
+evidence still effective at the ending (bar ≥ 50%), and Case ends
+above its fork-day value despite remediation in 258/258 wars (bar ≥
+60%). The margins are enormous because the war starves remediation —
+war pay and insurance eat the money that would retain counsel — so
+the bars currently certify "the war out-earns the eraser" rather
+than "the eraser was tried and failed"; the redemption cohort
+remains the proof that the eraser works when funded. The
+decomposition rows (pattern+physical 53% of accrued gross; kinds
+pattern 15 / physical 29 / paper 13 / witness 35) ship as
+diagnostics, no longer bars.
+
+**Heat: the consequence now flows through the customer pool, and the
+measurement is exposure-matched.** RouteMarket halves the EFFECTIVE
+corner cap with the same capacity multiplier that halves the stops.
+The controlled paired probe — one route night on the target's turf,
+heat 55 in BOTH arms so the legacy risk channel cancels, only the
+teeth differing — reads 15.8 units sold under amber vs 21.1
+cool-read, corner damage 1.72 vs 2.92 (400 trials): the burned
+neighborhood costs custom exactly where the exposure is. The
+organic fleet rows stay honest about rarity: 59 of 258 wars at 500
+seeds ever see their target's turf past cool, and on those seeds
+the paired medians (units 8 vs 8, corner 1.8 vs 1.8) do not move,
+because turf-amber nights and turf-route nights rarely coincide for
+this bot — the war bot works contested turf hardest in the outage
+window, before heat accumulates. Heat's teeth are real and priced
+at the route; they are not yet a campaign-outcome force, and the
+global ending rate is no longer asked to prove otherwise.
+
+**A new miss, honestly decomposed: restaurant-neglect trails by 11,
+not 15.** Window-rational raiding lifted every fleet — including
+neglect, from 5% to 46% at 500 — so the branch-good gap collapsed
+from 31 points to 11 (10 at 150) against the recorded ≥ 15 bar. The
+decomposition says the old pass and the new miss are the same
+phenomenon: breaking ONE target by day 30 needs crew, a wagon and
+open windows, not a living restaurant, and the old bot's
+window-forgoing simply punished neglect twice. The restaurant's
+load now shows downstream of the bar's measure: the neglect fleet
+completes ZERO double captures and ZERO Syndicates (119 second
+fronts declared, 25 salvages collected — it starts wars it cannot
+finish), burns out half again as often (43 vs 30), leaves the
+target at 22% median strength vs 0%, runs 768 war-pay-short nights
+against the mixed fleet's 482, and bleeds cold witnesses (50% of
+its accrued gross). Whether the bar is re-aimed at the second front
+(where the shop's economy actually binds), widened to the endings
+mix, or the miss stands as recorded is review's call — no constant
+moved and the bot was not tuned to the bar.
+
+**Intentional battery movement, recorded.** Truthful sale insolvency
+moved the CAREFUL escrow fleet only: 79 → 78 closes at 150, 261 →
+257 at 500 (93% → 92%) — a diligence week run on an empty till now
+ends "broke" before the buyer signs. Sloppy (59 / 186), keeps-stash
+(8 / 22), the valuation ($2,350 / $2,429, flips 46% / 44%) and every
+Straight row are unchanged to the byte; both identity gates hold
+300/300 on 3.11, 3.12 and 3.13, goldens untouched.
+
+**The corrected war gate under the rev. 16 letters** (150 seeds, 500
+in parentheses):
+
+| Row | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Ablation entry identity | 0 divergent | 0 (0) — 79 (258) entered in every fleet | pass |
+| Crash-freedom | all | 150/150 (500/500) | pass |
+| Median end strength | ≤ 50% | 0% (0%) | pass |
+| Still-effective accrual share | ≥ 50% (proposed) | 98% (98%) | pass |
+| Case above fork-day despite remediation | ≥ 60% (proposed) | 100% (100%) | pass |
+| Channel mix over 60% | 0 | 0 (0); median worst 46% (43%) | pass |
+| Branch-good band | 25–70% | 53% (57%) | pass |
+| Raid-only trails | ≥ 15 | 44 (45) | pass |
+| Full policy vs cooldown | must not trail at 500 | +2 (**+4**) | **pass** |
+| Restaurant-neglect trails | ≥ 15 | **10** (**11**) | **miss, decomposed** |
+| Reconciliation + transparency | 0 bad | 0 (0) | pass |
+
+The raid-decline curve reproduces round 5 exactly at depth
+(consecutive $752±35 → $556±29 → $413±24; war cadence
+$752 → $675±32 → $607±30; paired repayment +$120±15 / +$194±18).
+The chair remains unreleased; the neglect miss, the slack evidence
+margins and the heat rarity finding go to review.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P2 complete, merged and
@@ -1530,18 +1670,32 @@ flips 44% at 500) go to review.
   band), the "drift" claim retracted (round 5 was 2,000 trials;
   reproduced exactly at depth), ablation entry identity asserted at
   zero divergence, and the causal heat report showing the teeth
-  enforced but not yet outcome-load-bearing.** After correction:
-  cooldown still wins by 18 at both depths (decomposed — one median
-  job separates the policies; the simulation's physics already
-  throttle the grind), and pattern+physical reads 46% at 150 /
-  exactly 50% at 500 against the frozen bar. The chair stays
+  enforced but not yet outcome-load-bearing.** **The rev. 16 pass
+  (round 10 correction 2) then corrected the four remaining root
+  contracts — immutable accrued evidence, the wagon owned by the one
+  assignment view at execution, sale insolvency, the exercised and
+  measured second front — and replaced the two letters: the pacing
+  criterion passes at 500 (full policy 57% vs cooldown 53%, better
+  damage per crew-night, fewer injuries) via window-rational raiding
+  with no new constant, and the remediation-resistance bars pass at
+  98%/100% on true accruals.** One row misses: restaurant-neglect
+  trails by 11 against ≥ 15 (decomposed — window-rational jobs
+  lifted every fleet; the shop's load now binds at the second front,
+  where neglect completes zero double captures, not at the one-target
+  bar). Heat is priced at the route (controlled probe: 15.8 vs 21.1
+  units, 1.72 vs 2.92 corner damage under equal heat) but turf-amber
+  and turf-route nights rarely coincide organically. The chair stays
   unreleased; the rulings are the reviewer's.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
   24/39/8 question, deferred to the P4 human-play pass.
-- Heat still under-binds relative to the Case; needs local teeth without
-  becoming a second global meter.
+- Heat now has local, war-scoped teeth priced at the route (capacity
+  and the effective corner cap through RouteMarket, rev. 16) without
+  becoming a second global meter — but organic exposure is rare at
+  current constants: turf-amber nights and turf-route nights rarely
+  coincide, so heat shapes nights, not campaigns. Whether that is the
+  intended weight is a §6.3 constants question for review.
 - Event responsiveness beyond payday/heat-wave is now *provable* with the
   market bot (it reads the news); a dedicated study should measure whether
   exploiting port-seizure/concert pricing separates skilled play.
