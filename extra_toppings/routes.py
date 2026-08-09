@@ -10,17 +10,22 @@ from .ui import Console, money
 
 @dataclass
 class RouteManifest:
-    """THE wagon inventory model (rev. 17 item 1): one typed manifest
-    owns cargo bulk, pizza bulk, remaining capacity and validation.
-    Every quantity says what it counts — `cargo` maps good → UNITS
-    (bulk priced per unit from data.GOODS), `legit` counts pizza
-    ORDERS at one box, one slot — and both share the wagon's
-    `capacity` slots, exactly as README always promised. An
-    over-capacity manifest is REFUSED, at commit and at resolution,
-    never repaired and never merely prevented by a planning screen."""
+    """THE wagon inventory model (rev. 17 item 1, hardened rev. 18
+    item 1): one typed manifest owns cargo space, pizza space,
+    remaining capacity and validation. Every quantity says what it
+    counts — `cargo` maps good → UNITS (space priced per unit from
+    data.GOODS), `legit` counts pizza ORDERS at one box, one
+    cargo-space unit — and both share the wagon's capacity, which is
+    FIXED BY THE MODEL (rev. 18: no payload chooses its own wagon).
+    Parsing is strict — no coercion — and an over-capacity manifest
+    is REFUSED, at commit and at resolution, never repaired and
+    never merely prevented by a planning screen."""
     cargo: dict = field(default_factory=dict)
     legit: int = 0
-    capacity: int = data.VEHICLE_CARGO
+
+    @property
+    def capacity(self) -> int:
+        return data.VEHICLE_CARGO
 
     @property
     def cargo_bulk(self) -> int:
@@ -48,33 +53,84 @@ class RouteManifest:
                 or self.legit < 0:
             raise ValueError(f"manifest: bad pizza count {self.legit!r}")
         if self.bulk_used > self.capacity:
-            raise ValueError(f"manifest: {self.bulk_used} bulk loaded in a "
-                             f"{self.capacity}-slot wagon")
+            raise ValueError(f"manifest: {self.bulk_used} space loaded "
+                             f"in a {self.capacity}-space wagon")
 
     @classmethod
-    def of_plan(cls, plan: dict) -> "RouteManifest":
-        """The resolution-side reading of a route plan — refuses what
-        planning should never have produced (rev. 17: unchecked
-        dictionaries ran 52-slot loads through a 24-slot wagon)."""
+    def of_plan(cls, plan) -> "RouteManifest":
+        """The reading of a route plan — a typed RoutePlan hands over
+        its own manifest; a legacy dictionary is parsed STRICTLY
+        (rev. 18 item 1: no int() coercion — True, 1.5 and "3" are
+        refused, not repaired) and refused if illegal."""
+        if isinstance(plan, RoutePlan):
+            plan.manifest.validate()
+            return plan.manifest
+        legit = plan.get("legit", 0)
         m = cls(cargo=dict(plan.get("cargo") or {}),
-                legit=int(plan.get("legit") or 0))
+                legit=0 if legit is None else legit)
         m.validate()
         return m
 
 
+@dataclass
+class RoutePlan:
+    """THE typed route plan (rev. 18 item 1): the manifest IS the
+    inventory truth and rides inside — there are no parallel
+    cargo/legit dictionaries anywhere. Legacy plan["cargo"] reads
+    pass through to the one manifest; the only sanctioned writes
+    (the straight branch's disposal flag, commit's clamped pizza
+    count) go through the same door."""
+    district: str
+    driver: Employee
+    ride_along: bool
+    manifest: RouteManifest
+    disposal: bool = False
+
+    @property
+    def cargo(self) -> dict:
+        return self.manifest.cargo
+
+    @property
+    def legit(self) -> int:
+        return self.manifest.legit
+
+    _KEYS = ("district", "driver", "ride_along", "cargo", "legit",
+             "disposal")
+
+    def __getitem__(self, key):
+        if key in self._KEYS:
+            return getattr(self, key)
+        raise KeyError(key)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __setitem__(self, key, value) -> None:
+        if key == "legit":
+            self.manifest.legit = value
+        elif key == "disposal":
+            self.disposal = value
+        else:
+            raise KeyError(f"route plan field {key!r} is not writable")
+
+
 def inventory_lines(label: str, stash: dict, cap: int | None) -> list[str]:
-    """Inventory rendered as units × bulk each = bulk used (rev. 17
-    item 1) — the same arithmetic everywhere a stash is shown: the
-    shop's back room, the warehouse, and the wagon manifest."""
+    """Inventory rendered as units × space each = space used (rev. 17
+    item 1; one term, rev. 18 item 2) — the same arithmetic
+    everywhere a stash is shown: the back room, the warehouse, and
+    the wagon manifest."""
     total = sum(u * data.GOODS[g]["bulk"] for g, u in stash.items() if u > 0)
     head = f"{label} — {total}" + (f" of {cap}" if cap is not None else "") \
-        + " bulk used:"
+        + " space used:"
     lines = [head]
     for g, u in stash.items():
         if u <= 0:
             continue
         b = data.GOODS[g]["bulk"]
-        lines.append(f"    {data.GOODS[g]['label']:<24} {u} × {b} bulk "
+        lines.append(f"    {data.GOODS[g]['label']:<24} {u} × {b} space "
                      f"= {u * b}")
     if len(lines) == 1:
         lines.append("    (empty)")
@@ -90,7 +146,7 @@ def route_suspicion(covert: int, legit: int) -> float:
 
 
 def plan_route(state: State, con: Console, rng: random.Random,
-               reserved: list | None = None) -> dict | None:
+               reserved: list | None = None) -> "RoutePlan | None":
     """Morning: pick district, driver, cargo, cover. Returns a route plan.
 
     `reserved` employees (tonight's raid crew) can't also drive the route —
@@ -134,12 +190,19 @@ def plan_route(state: State, con: Console, rng: random.Random,
     ride_along = con.confirm("Ride along yourself? (You can handle trouble — and be caught in it.)")
 
     # The wagon manifest (rev. 17 item 1): pizzas and product share
-    # 24 slots through ONE typed model. Every product stays on the
+    # the wagon through ONE typed model. Every product stays on the
     # board — including rows that can't load tonight, with their
     # reasons — and the load can be revised until it's confirmed;
     # nothing silently disappears when the wagon fills.
     manifest = RouteManifest()
     can_carry = driver.aware or ride_along
+    # The route-loading card (rev. 18 item 2): one vocabulary,
+    # taught once per planning.
+    con.say(f"  The wagon holds {manifest.capacity} cargo-space "
+            f"units. Each pizza uses 1. "
+            + ". ".join(f"{s['label']} uses {s['bulk']} per unit"
+                        for s in data.GOODS.values() if s["bulk"] > 1)
+            + ". Pizzas and coded goods share the same space.")
     while True:
         for g, spec in data.GOODS.items():
             have = state.shop_stash.get(g, 0)
@@ -148,22 +211,25 @@ def plan_route(state: State, con: Console, rng: random.Random,
             price = state.prices[dk][g] \
                 if state.districts[dk].known_price_age == 0 else None
             hint = f" (~{money(price)}/u here)" if price is not None else ""
-            row = (f"{spec['label']} — loaded {loaded}, {unit} bulk each, "
-                   f"{have} in the stash{hint}")
+            row = (f"{spec['label']} — loaded {loaded}, {unit} space "
+                   f"each, {have} in the stash{hint}")
             if not can_carry:
                 con.say(f"  {row} [{driver.name} isn't read in — pizzas "
                         f"only unless you ride along]")
                 continue
-            if have + loaded <= 0:
+            if have <= 0:
                 con.say(f"  {row} [none in the stash]")
                 continue
             if loaded == 0 and manifest.free < unit:
                 con.say(f"  {row} [no room — {manifest.free} of "
-                        f"{manifest.capacity} slots free]")
+                        f"{manifest.capacity} space free]")
                 continue
-            top = min(have + loaded, loaded + manifest.free // unit)
-            n = con.ask_int(f"Load {spec['label']}? {unit} bulk each, "
-                            f"{manifest.free} slots free{hint}",
+            # Revise bound (rev. 18 item 1): planned goods never left
+            # the stash, so the stash IS the ownership ceiling —
+            # min(have, loaded + free // space), never have + loaded.
+            top = min(have, loaded + manifest.free // unit)
+            n = con.ask_int(f"Load {spec['label']}? {unit} space each, "
+                            f"{manifest.free} space free{hint}",
                             0, top, loaded)
             if n:
                 manifest.cargo[g] = n   # intention only — committed at service
@@ -174,8 +240,8 @@ def plan_route(state: State, con: Console, rng: random.Random,
         # 24-order pizza wagon (the unexplained 12 cap is gone,
         # rev. 17 item 1).
         pool = state.delivery_pool
-        row = (f"Pizzas for cover — loaded {manifest.legit}, 1 bulk each "
-               f"({pool} orders on the board)")
+        row = (f"Pizzas for cover — loaded {manifest.legit}, 1 space "
+               f"each ({pool} orders on the board)")
         legit_top = min(state.shop.ingredients, pool,
                         manifest.legit + manifest.free)
         if pool <= 0:
@@ -185,7 +251,7 @@ def plan_route(state: State, con: Console, rng: random.Random,
             con.say(f"  {row} [the pantry is empty]")
         elif legit_top <= 0 and manifest.legit == 0:
             con.say(f"  {row} [no room — 0 of {manifest.capacity} "
-                    f"slots free]")
+                    f"space free]")
         else:
             manifest.legit = con.ask_int(
                 f"Delivery orders to run for cover ({pool} on the board, "
@@ -194,33 +260,33 @@ def plan_route(state: State, con: Console, rng: random.Random,
                 min(manifest.legit or (8 if manifest.cargo else 4),
                     legit_top))
         con.say(f"  The wagon — {manifest.bulk_used} of "
-                f"{manifest.capacity} bulk used:")
+                f"{manifest.capacity} space used:")
         for g, u in manifest.cargo.items():
             b = data.GOODS[g]["bulk"]
-            con.say(f"    {data.GOODS[g]['label']:<24} {u} × {b} bulk "
+            con.say(f"    {data.GOODS[g]['label']:<24} {u} × {b} space "
                     f"= {u * b}")
         if manifest.legit:
             con.say(f"    {'Pizzas for cover':<24} {manifest.legit} × 1 "
-                    f"bulk = {manifest.legit}")
+                    f"space = {manifest.legit}")
         if not manifest.cargo and not manifest.legit:
             con.say("    (empty)")
         if con.menu(f"The manifest — {manifest.bulk_used} of "
-                    f"{manifest.capacity} slots loaded:",
+                    f"{manifest.capacity} space loaded:",
                     ["Revise the load", "Confirm the manifest"]) == 1:
             break
-    manifest.validate()                 # commit-side refusal (rev. 17)
-    cargo, legit = manifest.cargo, manifest.legit
+    manifest.validate()
     # §2.1 same-night telegraph: a contraband route scheduled while
     # payoff is within tonight's reach can book bust evidence (up to
     # ~20 + 0.3/unit on a ride-along search) and slam a Case gate the
     # sit-down reads tomorrow. What it books depends on the night, so
     # the warning is unconditional in that window — a printed line only;
     # the plan can still be replanned or cancelled from the morning menu.
-    if cargo and _payoff_reachable_tonight(state, dk, cargo):
+    if manifest.cargo and _payoff_reachable_tonight(state, dk,
+                                                   manifest.cargo):
         con.say("  With the debt this close to settled, remember: a bad stop "
                 "tonight goes into the file tomorrow's table reads.")
-    return {"district": dk, "driver": driver, "ride_along": ride_along,
-            "cargo": cargo, "legit": legit}
+    return RoutePlan(district=dk, driver=driver, ride_along=ride_along,
+                     manifest=manifest)
 
 
 def _payoff_reachable_tonight(state: State, dk: str, cargo: dict) -> bool:

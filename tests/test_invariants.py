@@ -92,6 +92,91 @@ class TestDeterminism(unittest.TestCase):
         self.assertEqual(t1[0], t2[0])
 
 
+class TestRevision18Inventory(unittest.TestCase):
+    """Rev. 18 items 1-2: the manifest is the route's CANONICAL
+    inventory (strict parsing, validation before mutation, honest
+    revise bounds) and storage has one capacity authority."""
+
+    def test_malformed_plan_types_are_refused_not_coerced(self):
+        for bad in (True, 1.5, "3"):
+            with self.assertRaises(ValueError):
+                routes.RouteManifest.of_plan(
+                    {"cargo": {}, "legit": bad})
+        with self.assertRaises(ValueError):
+            routes.RouteManifest.of_plan(
+                {"cargo": {"oregano": 1.5}, "legit": 0})
+
+    def test_an_illegal_commit_mutates_nothing(self):
+        # The reviewer's repro: a 25-space plan committed - stash
+        # deducted, an ingredient burned - before resolution raised.
+        # Commit now validates FIRST; refusal leaves zero footprint.
+        state, _rng = fresh(2)
+        state.shop_stash = {"oregano": 12}
+        state.shop.ingredients = 30
+        state.delivery_pool = 20
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        plan = {"district": "university", "driver": rosa,
+                "ride_along": False, "legit": 1,
+                "cargo": {"oregano": 12}}          # 25 space in 24
+        con = ScriptedConsole([])
+        with self.assertRaises(ValueError):
+            phases._commit_route(state, plan, con)
+        self.assertEqual(state.shop_stash, {"oregano": 12})
+        self.assertEqual(state.shop.ingredients, 30)
+
+    def test_revising_cannot_offer_more_than_the_stash_owns(self):
+        # The reviewer's repro: 8 in the stash, load 8, revise - 12
+        # offered. Planned goods never leave the stash, so the stash
+        # is the ceiling: min(have, loaded + free // space).
+        state, rng = fresh(2)
+        state.delivery_pool = 0
+        state.shop_stash = {"oregano": 8}
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        con = ScriptedConsole([0, 0, False, 8, 0, 12, 1])
+        plan = routes.plan_route(state, con, rng)
+        self.assertEqual(plan["cargo"], {"oregano": 8})
+
+    def test_the_plan_is_typed_and_carries_one_manifest(self):
+        state, rng = fresh(2)
+        state.delivery_pool = 10
+        state.shop_stash = {"oregano": 4}
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 2, 4]),
+                                 rng)
+        self.assertIsInstance(plan, routes.RoutePlan)
+        self.assertIs(plan["cargo"], plan.manifest.cargo)
+        self.assertEqual(plan["legit"], plan.manifest.legit)
+
+    def test_the_warehouse_cap_binds_the_transfer(self):
+        # The reviewer's repro: one more oregano into a warehouse at
+        # 200/200 landed 202/200. The authority refuses whole.
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.warehouse = {"mushrooms": 200}       # exactly at cap
+        state.shop_stash = {"oregano": 1}
+        with self.assertRaises(ValueError):
+            models.move_goods(state, "shop", "warehouse", "oregano", 1)
+        self.assertEqual(state.shop_stash, {"oregano": 1})
+        self.assertEqual(state.warehouse, {"mushrooms": 200})
+        self.assertEqual(
+            models.units_that_fit(state, "warehouse", "oregano"), 0)
+
+    def test_storage_over_cap_is_refused_at_persistence(self):
+        state, _rng = fresh(2)
+        state.warehouse = {"mushrooms": 200}
+        d = save.state_to_dict(state)
+        d["warehouse"]["mushrooms"] = 202
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+        d["warehouse"]["mushrooms"] = 200
+        d["shops"][0]["stash"] = {"oregano": -1}
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+
+
 class TestSharedCapacity(unittest.TestCase):
     def _plan(self, load_units):
         state, rng = fresh(2)

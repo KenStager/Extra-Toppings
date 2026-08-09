@@ -897,6 +897,21 @@ def validate_cross_state(state: "State") -> None:
     if len(keys) != len(all_keys):
         raise ValueError("employees: duplicate keys make witness "
                          "provenance ambiguous")
+    # The storage authority binds at persistence too (rev. 18 item 2):
+    # a stash over its space cap, or holding negative units, is
+    # refused — never repaired.
+    for where, stash in (("shop", state.shop_stash),
+                         ("warehouse", state.warehouse)):
+        if stash is None:
+            continue
+        if any(isinstance(u, bool) or not isinstance(u, int) or u < 0
+               for u in stash.values()):
+            raise ValueError(f"{where} stash: unit counts must be "
+                             f"non-negative integers")
+        if space_used(stash) > space_cap(state, where):
+            raise ValueError(
+                f"{where} stash: {space_used(stash)} space used over "
+                f"the {space_cap(state, where)}-space cap")
     aware = {e.key for e in state.employees if e.aware}
     hired = {e.key for e in state.employees if e.hired}
     for i, r in enumerate(state.evidence):
@@ -972,27 +987,79 @@ def security_word(alertness: float) -> str:
     return "sleepy"
 
 
+# ── THE storage capacity authority (rev. 18 item 2) ──────────────
+# One home for space arithmetic: space used, a destination's
+# capacity, the units that fit, and the transactional transfer.
+# Supplier purchases, the storage menu, haul placement, the route
+# planner and persistence validation all consume THESE — capacity
+# math never lives in a call site again.
+
+def space_used(stash: dict | None) -> int:
+    """Cargo-space units a stash occupies (units × space each)."""
+    if not stash:
+        return 0
+    return sum(u * data.GOODS[g]["bulk"] for g, u in stash.items() if u > 0)
+
+
+def space_cap(state: "State", where: str) -> int:
+    """A destination's capacity in cargo-space units."""
+    if where == "shop":
+        return state.shop.stash_cap
+    if where == "warehouse":
+        return data.WAREHOUSE_CAP
+    raise ValueError(f"unknown storage location {where!r}")
+
+
+def _stash_at(state: "State", where: str) -> dict:
+    stash = state.shop_stash if where == "shop" else state.warehouse
+    if stash is None:
+        raise ValueError("no warehouse is rented")
+    return stash
+
+
+def units_that_fit(state: "State", where: str, good: str) -> int:
+    """How many units of `good` the destination can still take."""
+    stash = _stash_at(state, where)
+    room = max(0, space_cap(state, where) - space_used(stash))
+    return room // data.GOODS[good]["bulk"]
+
+
+def move_goods(state: "State", src: str, dst: str, good: str,
+               units: int) -> None:
+    """THE transactional transfer: refused whole — never partially
+    applied, never over a destination's capacity (rev. 18 item 2:
+    a shop→warehouse move could stack 202/200)."""
+    if units < 0:
+        raise ValueError(f"cannot move {units} units")
+    if units == 0:
+        return
+    a, b = _stash_at(state, src), _stash_at(state, dst)
+    if a.get(good, 0) < units:
+        raise ValueError(f"only {a.get(good, 0)}x {good} at {src}")
+    if units > units_that_fit(state, dst, good):
+        raise ValueError(f"{units}x {good} does not fit at {dst}")
+    a[good] -= units
+    b[good] = b.get(good, 0) + units
+
+
 def place_haul(state: "State", haul: dict) -> tuple:
     """THE haul-placement authority (rev. 15 item 2): stolen or
     salvaged goods fill the shop stash first, then the warehouse if
     rented, and anything past that stays where it was found. Returns
     (kept, left_behind). Raid payoffs and the salvage pickup both
-    consume this — the loop lives once, and bulk caps can never be
-    quietly skipped again."""
+    consume this — the loop lives once, its arithmetic is the
+    storage authority's, and space caps can never be quietly
+    skipped again."""
     left_behind = 0
     kept: dict = {}
     for g, u in haul.items():
-        bulk = data.GOODS[g]["bulk"]
-        room = max(0, state.shop.stash_cap
-                   - state.stash_bulk(state.shop_stash)) // bulk
+        room = units_that_fit(state, "shop", g)
         to_shop = min(u, room)
         if to_shop:
             state.shop_stash[g] = state.shop_stash.get(g, 0) + to_shop
         rest = u - to_shop
         if rest and state.warehouse is not None:
-            wh_room = max(0, data.WAREHOUSE_CAP
-                          - state.stash_bulk(state.warehouse)) // bulk
-            to_wh = min(rest, wh_room)
+            to_wh = min(rest, units_that_fit(state, "warehouse", g))
             if to_wh:
                 state.warehouse[g] = state.warehouse.get(g, 0) + to_wh
             rest -= to_wh
@@ -1219,7 +1286,9 @@ class State:
 
     # ── derived ──────────────────────────────────────────────────
     def stash_bulk(self, stash: dict) -> int:
-        return sum(u * data.GOODS[g]["bulk"] for g, u in stash.items())
+        # Legacy name; the arithmetic lives in the one storage
+        # authority (rev. 18 item 2).
+        return space_used(stash)
 
     def hired(self) -> list:
         return [e for e in self.employees if e.hired]

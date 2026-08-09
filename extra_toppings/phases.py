@@ -484,8 +484,8 @@ def _supplier_offer(state: State, rng: random.Random) -> dict | None:
 
 
 def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
-    room = state.shop.stash_cap - state.stash_bulk(state.shop_stash)
-    fit = room // data.GOODS[offer["good"]]["bulk"]
+    # The storage authority prices the bound (rev. 18 item 2).
+    fit = models.units_that_fit(state, "shop", offer["good"])
     afford = (state.dirty + state.clean) // offer["price"]
     top = min(offer["units"], fit, afford)
     if top <= 0:
@@ -499,8 +499,9 @@ def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
         state.clean -= cost - from_dirty
         state.shop_stash[offer["good"]] = state.shop_stash.get(offer["good"], 0) + n
         offer["units"] -= n
-        con.say(f"  Boxes come in through the alley door. Stash: "
-                f"{state.stash_bulk(state.shop_stash)}/{state.shop.stash_cap} bulk.")
+        con.say(f"  Boxes come in through the alley door. The back room: "
+                f"{models.space_used(state.shop_stash)}/"
+                f"{models.space_cap(state, 'shop')} space used.")
     return offer if offer["units"] > 0 else None
 
 
@@ -739,22 +740,38 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
                    f"{data.DISTRICTS[plan['district']]['label']} is "
                    f"{pol.note}.")
         return False
-    for g in list(plan["cargo"]):
+    # Rev. 18 item 1: the PLANNED manifest is validated BEFORE any
+    # state mutation — an illegal plan is refused with the stash and
+    # pantry untouched, never discovered mid-deduction.
+    planned = routes.RouteManifest.of_plan(plan)
+    # The live, availability-revalidated COMMITTED manifest is built
+    # first; only then does its inventory transaction apply, atomically.
+    committed = routes.RouteManifest()
+    for g, want in planned.cargo.items():
         have = state.shop_stash.get(g, 0)
-        take = min(plan["cargo"][g], have)
-        if take < plan["cargo"][g]:
+        take = min(want, have)
+        if take < want:
             con.bullet(f"Only {take}x {data.GOODS[g]['label']} left to load — "
                        f"the stash moved since this morning.")
-        plan["cargo"][g] = take
-        state.shop_stash[g] = have - take
+        if take:
+            committed.cargo[g] = take
     # Cover pizzas are real orders AND real oven time.
-    doable = min(plan["legit"], state.delivery_pool,
-                 state.shop.kitchen_cap, state.shop.ingredients)
-    if doable < plan["legit"]:
-        con.bullet(f"The kitchen fills {doable} of {plan['legit']} planned "
-                   f"delivery orders — orders, ovens and pantry set the limit.")
-    plan["legit"] = doable
-    state.shop.ingredients -= doable
+    committed.legit = min(planned.legit, state.delivery_pool,
+                          state.shop.kitchen_cap, state.shop.ingredients)
+    if committed.legit < planned.legit:
+        con.bullet(f"The kitchen fills {committed.legit} of "
+                   f"{planned.legit} planned delivery orders — orders, "
+                   f"ovens and pantry set the limit.")
+    committed.validate()
+    for g, take in committed.cargo.items():
+        state.shop_stash[g] = state.shop_stash.get(g, 0) - take
+    state.shop.ingredients -= committed.legit
+    if isinstance(plan, routes.RoutePlan):
+        plan.manifest = committed
+    else:                       # legacy dict plans (tests only)
+        plan["cargo"].clear()
+        plan["cargo"].update(committed.cargo)
+        plan["legit"] = committed.legit
     # A disposal run spends one of the three at the moment the wagon
     # actually loads product — a plan that scrubbed, or loaded nothing,
     # costs nothing (rev. 9 item 5: the crime is the run that rolls).
@@ -1100,9 +1117,16 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
         for g, u in list(state.shop_stash.items()):
             if u <= 0:
                 continue
-            n = con.ask_int(f"Move {data.GOODS[g]['label']} (have {u})", 0, u, u)
-            state.shop_stash[g] -= n
-            state.warehouse[g] = state.warehouse.get(g, 0) + n
+            # The storage authority prices the bound and says why
+            # (rev. 18 item 2): the warehouse has a cap too.
+            fits = models.units_that_fit(state, "warehouse", g)
+            n = con.ask_int(
+                f"Move {data.GOODS[g]['label']} (have {u}; warehouse "
+                f"{models.space_used(state.warehouse)}/"
+                f"{models.space_cap(state, 'warehouse')} space used; "
+                f"{fits} more units fit)",
+                0, min(u, fits), min(u, fits))
+            models.move_goods(state, "shop", "warehouse", g, n)
             moved += n
         if moved and state.branch == "quiet_sale":
             # A truck at the rolling door while the buyer's man watches
@@ -1112,12 +1136,14 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
         for g, u in list(state.warehouse.items()):
             if u <= 0:
                 continue
-            room = (state.shop.stash_cap - state.stash_bulk(state.shop_stash)) \
-                // data.GOODS[g]["bulk"]
-            n = con.ask_int(f"Bring back {data.GOODS[g]['label']} (there {u}, fits {room})",
-                            0, min(u, room), 0)
-            state.warehouse[g] -= n
-            state.shop_stash[g] = state.shop_stash.get(g, 0) + n
+            fits = models.units_that_fit(state, "shop", g)
+            n = con.ask_int(
+                f"Bring back {data.GOODS[g]['label']} (there {u}; back "
+                f"room {models.space_used(state.shop_stash)}/"
+                f"{models.space_cap(state, 'shop')} space used; "
+                f"{fits} more units fit)",
+                0, min(u, fits), 0)
+            models.move_goods(state, "warehouse", "shop", g, n)
     elif c == 2:
         n = con.ask_int("Stash how much dirty cash off-site?", 0, state.dirty, 0)
         state.dirty -= n
