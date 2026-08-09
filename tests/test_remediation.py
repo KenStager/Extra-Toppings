@@ -407,16 +407,19 @@ class TestDerivedDormancy(unittest.TestCase):
         self.assertEqual(state.case, 50.0)
         self.assertEqual(straight.grade(state), "almost_out")
 
-    def test_relief_allocates_in_ledger_order_and_stops_at_the_floor(self):
+    def test_relief_is_partial_at_the_boundary_and_monotone(self):
+        # Rev. 11 item 1: allowance = raw − floor; the boundary record
+        # takes PARTIAL relief, so total relief is exactly
+        # min(halvable, allowance) and the display is monotone.
         state = straight_state()
         e = next(x for x in state.employees if x.name.startswith("Rosa"))
         e.aware = True
         e.morale = 8
-        # Raw 12, allowance 2 — the 4-point halving does not fit.
+        # Raw 12, allowance 2, halvable 4 → partial cut 2 → display 10.
         state.add_case(8, "detective talk", kind="witness", source=e.key)
         state.add_case(4, "tip", kind="paper")
-        self.assertEqual(state.case, 12.0)
-        # Raise the raw total and the same halving fits.
+        self.assertEqual(state.case, 10.0)
+        # More raw total → more allowance → the halving completes.
         state.add_case(8, "seizure", kind="physical")
         self.assertEqual(state.case, 16.0)     # 20 raw − 4 relief
 
@@ -431,6 +434,162 @@ class TestDerivedDormancy(unittest.TestCase):
         e.morale = 9
         self.assertNotIn(e.key, state.dormant_sources())
         self.assertEqual(state.case, 25.0)
+
+
+# ══ Monotone Case (rev. 11 item 1) ════════════════════════════════
+
+class TestMonotoneCase(unittest.TestCase):
+    """The six ruled properties, including both review repros: the
+    meter must never move the wrong way around the floor."""
+
+    def _protected(self, witness=12.0, paper=3.0):
+        state = straight_state()
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        e.morale = 8
+        state.add_case(witness, "detective talk", kind="witness",
+                       source=e.key)
+        if paper:
+            state.add_case(paper, "flagged paper", kind="paper")
+        return state, e
+
+    def test_adding_evidence_cannot_lower_the_case(self):
+        # Review repro 1: witness 12 + paper 3 read Case 15 under the
+        # all-or-nothing allocation and FELL to 10 when a point of
+        # paper arrived. Partial allocation: 10 before, 10 after.
+        state, _e = self._protected()
+        before = state.case
+        self.assertEqual(before, 10.0)      # partial relief engages
+        state.add_case(1, "new paper", kind="paper")
+        self.assertGreaterEqual(state.case, before)
+
+    def test_reducing_a_record_cannot_raise_the_case(self):
+        # Review repro 2: witness 12 + paper 4.1 read 10.1; a −2.46
+        # contest RAISED it to 13.6. Partial allocation: it falls.
+        state, _e = self._protected(paper=4.1)
+        self.assertAlmostEqual(state.case, 10.1)
+        before = state.case
+        ev.contest_next(state, Quiet())
+        self.assertLessEqual(state.case, before)
+
+    def test_losing_protection_cannot_lower_the_case(self):
+        state, e = self._protected()
+        before = state.case
+        e.morale = 3
+        self.assertGreaterEqual(state.case, before)
+
+    def test_gaining_protection_cannot_raise_the_case(self):
+        state, e = self._protected()
+        e.morale = 3
+        before = state.case
+        e.morale = 8
+        self.assertLessEqual(state.case, before)
+
+    def test_docket_effective_magnitudes_sum_to_the_meter(self):
+        state, _e = self._protected(paper=4.1)
+        for _ in range(4):
+            state.add_case(0.5, "", kind="paper")
+        view = ev.build_ledger_view(state)
+        self.assertEqual(view.total, state.case)
+        self.assertAlmostEqual(
+            max(0.0, min(100.0, sum(line.effective for line in view.lines))),
+            view.total)
+
+    def test_floor_limited_protection_renders_as_partial(self):
+        state, _e = self._protected()          # cut 5 of the halvable 6
+        view = ev.build_ledger_view(state)
+        line = next(li for li in view.lines if li.why == "detective talk")
+        self.assertTrue(line.relieved)
+        self.assertTrue(line.partial)
+        self.assertAlmostEqual(line.effective, 7.0)   # 12 − 5, not 6
+        con = Quiet()
+        straight.show_case_file(state, con)
+        self.assertIsNotNone(con.find("holds part of it down"))
+
+
+# ══ The witness lifecycle (rev. 11 item 2) ════════════════════════
+
+class TestWitnessLifecycle(unittest.TestCase):
+    def _settled_out(self):
+        state = straight_state()
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        state.add_case(10, "detective talk", kind="witness", source=e.key)
+        state.add_case(20, "ballast", kind="physical")
+        state.clean = 5000
+        ev.settle_witness(state, e, Quiet())
+        return state, e
+
+    def test_settled_records_stop_reading_settleable(self):
+        from extra_toppings.models import remediation_disposition
+        state, _e = self._settled_out()
+        record = state.evidence[0]
+        self.assertEqual(remediation_disposition(record, state), "settled")
+        view = ev.build_ledger_view(state)
+        line = next(li for li in view.lines if li.why == "detective talk")
+        self.assertEqual(line.disposition, "settled")
+
+    def test_arrested_witnesses_read_beyond_reach_and_are_no_target(self):
+        from extra_toppings.models import remediation_disposition
+        state = straight_state()
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        e.arrested = True
+        state.add_case(10, "detective talk", kind="witness", source=e.key)
+        self.assertEqual(remediation_disposition(state.evidence[0], state),
+                         "beyond_reach")
+        self.assertNotIn(e, ev.settle_targets(state))
+
+    def test_settled_out_names_never_rehire_in_branch(self):
+        state, e = self._settled_out()
+        # Drive the real staff menu: the hire list must not offer them.
+        sc = _Scripted([0, 4])    # Hire -> (list) -> Back out
+        phases._staff_menu(state, sc, Streams(3).staff)
+        self.assertFalse(e.hired)
+        self.assertTrue(sc.applicants)
+        self.assertTrue(all(e.name not in line for line in sc.applicants))
+
+    def test_a_settled_and_hired_payload_is_refused(self):
+        state, e = self._settled_out()
+        payload = save.state_to_dict(state)
+        for row in payload["employees"]:
+            if row["key"] == e.key:
+                row["hired"] = True
+        with self.assertRaises(ValueError):
+            save.state_from_dict(payload)
+
+    def test_duplicate_keys_and_naive_sources_are_refused(self):
+        state = straight_state()
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        state.add_case(10, "detective talk", kind="witness", source=e.key)
+        payload = save.state_to_dict(state)
+        doctored = dict(payload)
+        doctored["employees"] = list(payload["employees"]) \
+            + [dict(payload["employees"][0])]
+        with self.assertRaises(ValueError):
+            save.state_from_dict(doctored)
+        doctored2 = save.state_to_dict(state)
+        doctored2["evidence"][0]["source"] = "e6"   # never read in
+        with self.assertRaises(ValueError):
+            save.state_from_dict(doctored2)
+
+
+class _Scripted(Quiet):
+    """A Quiet console that also answers menus from a script and
+    remembers the applicant lists it was shown."""
+
+    def __init__(self, script):
+        super().__init__()
+        self.script = list(script)
+        self.applicants: list = []
+
+    def menu(self, prompt, options):
+        if prompt.startswith("Applicants:"):
+            self.applicants.extend(options)
+            return len(options) - 1
+        ans = self.script.pop(0) if self.script else len(options) - 1
+        return max(0, min(ans, len(options) - 1))
 
 
 # ══ Persistence ═══════════════════════════════════════════════════

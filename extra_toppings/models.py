@@ -105,53 +105,55 @@ def case_prefix(evidence: list):
         yield record, total
 
 
-def dormant_relief_indices(evidence: list,
-                           dormant_sources: frozenset) -> tuple:
-    """Which records the derived retention halving actually reaches
-    (rev. 10 item 1): witness records whose source is protected,
-    allocated in ledger order, stopping at the first record whose
-    relief would take the display below the floor. Pure — same inputs,
-    same allocation — so the fold, the settlement arithmetic and the
-    docket can never disagree about who is being protected. Because
-    the allowance is (raw total − floor), derived relief can never
-    display the sum below the floor at all: only the paid verbs can,
-    and they top up the suspicion record when they do."""
+def dormant_relief(evidence: list,
+                   dormant_sources: frozenset) -> tuple:
+    """THE relief allocation (rev. 11 item 1): (index, cut) pairs for
+    the derived retention halving, per record and PARTIAL at the
+    boundary. Allowance A = max(0, raw total − floor); each protected
+    witness record in ledger order takes cut = min(half its magnitude,
+    A − relief already allocated). Total relief is therefore exactly
+    min(total halvable, A), which makes the display monotone in every
+    direction the design promises: nonnegative accrual never lowers
+    it, remediation never raises it, losing protection never lowers
+    it, gaining protection never raises it — the rev. 10
+    all-or-nothing allocation violated all four at the boundary. Pure:
+    the fold, the docket, the settlement lock-in and the harness
+    oracle all consume this one contract."""
     if not dormant_sources:
         return ()
     total = 0.0
     for record in evidence:
         total += record.magnitude
-    if total <= CASE_FLOOR:
-        return ()
     allowance = total - CASE_FLOOR
-    relief = 0.0
-    indices = []
+    if allowance <= 0:
+        return ()
+    allocated = 0.0
+    pairs = []
     for i, record in enumerate(evidence):
         if record.kind == "witness" and record.source in dormant_sources:
-            cut = record.magnitude * (1 - DORMANT_FACTOR)
-            if relief + cut <= allowance:
-                relief += cut
-                indices.append(i)
-            else:
+            cut = min(record.magnitude * (1 - DORMANT_FACTOR),
+                      allowance - allocated)
+            if cut <= 0:
                 break
-    return tuple(indices)
+            allocated += cut
+            pairs.append((i, cut))
+    return tuple(pairs)
 
 
 def fold_case(evidence: list, dormant_sources: frozenset = frozenset()) \
         -> float:
     """THE full-ledger Case-total fold (rev. 6 completion, context-
-    aware per rev. 10): the raw left-to-right sum, less the derived
-    retention relief, clamped to 0..100. `dormant_sources` is the live
-    protected set — State.case supplies it, so no cached flag can go
-    stale between a morale slip and the grade. An empty set (every
-    pre-branch caller) leaves the arithmetic bit-identical to the
-    pre-dormancy fold."""
+    aware per rev. 10, monotone per rev. 11): the raw left-to-right
+    sum, less the per-record relief allocation, clamped to 0..100.
+    `dormant_sources` is the live protected set — State.case supplies
+    it, so no cached flag can go stale between a morale slip and the
+    grade. An empty set (every pre-branch caller) leaves the
+    arithmetic bit-identical to the pre-dormancy fold."""
     total = 0.0
     for _record, running in case_prefix(evidence):
         total = running
-    if dormant_sources:
-        for i in dormant_relief_indices(evidence, dormant_sources):
-            total -= evidence[i].magnitude * (1 - DORMANT_FACTOR)
+    for _i, cut in dormant_relief(evidence, dormant_sources):
+        total -= cut
     return max(0.0, min(100.0, total))
 
 
@@ -470,39 +472,90 @@ def validate_evidence(records: list) -> None:
             suspicion_seen = True
 
 
-def remediation_disposition(record) -> str:
-    """THE single answer to what may touch a record (rev. 10 item 4):
+def witness_status(state: "State", key: str) -> str:
+    """THE witness-relationship authority (rev. 11 item 2): one answer
+    for a sourced witness, read by the docket, the settlement target
+    list, hostile-witness grading, hiring eligibility and cross-state
+    validation alike:
+      "settled"     — their peace is bought; nothing reopens it
+      "beyond_reach"— arrested: the statement is the state's now
+      "protected"   — current, aware, content: retention is holding
+                      their records down for free
+      "reachable"   — a settlement can reach them tonight
+    Callers guarantee the key names a roster employee."""
+    if state.branch_state is not None \
+            and key in state.branch_state.settled_witnesses:
+        return "settled"
+    e = next(x for x in state.employees if x.key == key)
+    if e.arrested:
+        return "beyond_reach"
+    if key in state.dormant_sources():
+        return "protected"
+    return "reachable"
+
+
+def remediation_disposition(record, state: "State | None" = None) -> str:
+    """THE single answer to what may touch a record (rev. 10 item 4,
+    context-aware per rev. 11):
       "contestable"  — paper counsel has not argued yet
       "contested"    — paper counsel already argued
-      "settleable"   — witness testimony attached to a roster key
+      "settleable"   — witness testimony a settlement can still reach
+      "settled"      — witness testimony whose source's peace is bought
+      "beyond_reach" — witness testimony whose source is in custody
       "external"     — witness testimony with outside provenance: no
                        settlement can reach it (the patrolman, the
                        watcher at the truck)
       "immune"       — physical, pattern, legacy: what the city saw,
                        it saw
       "suspicion"    — the floor record; permanent by definition
-    The contest queue, the settlement verb, the docket and validation
-    all consume this — kind, provenance and UI cannot disagree."""
+    Without state, a sourced witness answers the type-level
+    "settleable"; WITH state (every player-facing caller) the answer
+    reflects the live relationship via witness_status. The contest
+    queue, the settlement verb, the docket and validation all consume
+    this — kind, provenance and UI cannot disagree."""
     if record.kind == "suspicion":
         return "suspicion"
     if record.kind == "paper":
         return "contested" if record.contested else "contestable"
     if record.kind == "witness":
-        return "settleable" if record.source else "external"
+        if not record.source:
+            return "external"
+        if state is None:
+            return "settleable"
+        status = witness_status(state, record.source)
+        if status == "settled":
+            return "settled"
+        if status == "beyond_reach":
+            return "beyond_reach"
+        return "settleable"
     return "immune"
 
 
 def validate_cross_state(state: "State") -> None:
-    """Rev. 10 item 2: the ledger, the roster, the settled list and
-    the branch state must cohere as ONE payload — a witness record
-    sourced to nobody on the roster, or a settlement naming a
-    nonexistent or never-aware employee, is refused, not repaired."""
-    keys = {e.key for e in state.employees}
+    """Rev. 10 item 2, tightened rev. 11: the ledger, the roster, the
+    settled list and the branch state must cohere as ONE payload —
+    duplicate employee keys (ambiguous provenance), a witness record
+    sourced to nobody or to someone never read in, a settlement
+    naming a nonexistent or never-aware employee, or a settled name
+    still on the payroll (the closed rehire lifecycle) are refused,
+    not repaired."""
+    all_keys = [e.key for e in state.employees]
+    keys = set(all_keys)
+    if len(keys) != len(all_keys):
+        raise ValueError("employees: duplicate keys make witness "
+                         "provenance ambiguous")
     aware = {e.key for e in state.employees if e.aware}
+    hired = {e.key for e in state.employees if e.hired}
     for i, r in enumerate(state.evidence):
-        if r.kind == "witness" and r.source and r.source not in keys:
-            raise ValueError(f"evidence[{i}]: witness source {r.source!r} "
-                             f"names nobody on the roster")
+        if r.kind == "witness" and r.source:
+            if r.source not in keys:
+                raise ValueError(f"evidence[{i}]: witness source "
+                                 f"{r.source!r} names nobody on the roster")
+            if r.source not in aware:
+                raise ValueError(f"evidence[{i}]: witness source "
+                                 f"{r.source!r} was never read in — they "
+                                 f"cannot know what this record says "
+                                 f"they know")
     if state.branch == "straight" and state.branch_state is not None:
         for k in state.branch_state.settled_witnesses:
             if k not in keys:
@@ -512,6 +565,10 @@ def validate_cross_state(state: "State") -> None:
                 raise ValueError(f"straight: settled witness {k!r} was "
                                  f"never read in — there is nothing to "
                                  f"have settled")
+            if k in hired:
+                raise ValueError(f"straight: settled witness {k!r} is "
+                                 f"still on the payroll — settled-out "
+                                 f"names cannot be rehired (rev. 11)")
 
 
 @dataclass

@@ -28,7 +28,8 @@ from dataclasses import dataclass
 
 from .models import (CASE_FLOOR, DORMANT_FACTOR, DORMANT_MORALE,
                      REMEDIATION_CAP, BranchState, Employee, Evidence,
-                     State, dormant_relief_indices, remediation_disposition)
+                     State, dormant_relief, remediation_disposition,
+                     witness_status)
 from .ui import Console, money
 
 COUNSEL_FEE = 150               # $/day, clean (§2.3)
@@ -83,12 +84,14 @@ def _apply_floor(state: State, before: float, con: Console) -> None:
 class LedgerLine:
     day: int
     kind: str
-    disposition: str          # models.remediation_disposition
-    base: float               # the stored magnitude
+    disposition: str          # models.remediation_disposition, with state
+    base: float               # the stored magnitude (grouped: the sum)
     effective: float          # what the meter counts tonight
-    relieved: bool            # under derived retention protection now
+    relieved: bool            # under derived retention relief now
+    partial: bool             # the relief is floor-limited, not the half
     why: str
     source_name: str          # roster name; "" for external/unattached
+    count: int = 1            # grouped lines carry their entry count
 
 
 @dataclass(frozen=True)
@@ -106,30 +109,66 @@ class EvidenceLedgerView:
     cap_left: float
     counsel_retained: bool
     counsel_days: int
-    next_contest: str         # "" when nothing is left to argue
+    # Why counsel can or cannot move next (rev. 11 item 3): "target"
+    # names next_contest; "empty" / "floor" / "cap" say exactly why no
+    # contest can occur — the docket never names a target that cannot
+    # be argued.
+    contest_state: str
+    next_contest: str
 
 
 def build_ledger_view(state: State) -> EvidenceLedgerView:
-    sources = state.dormant_sources()
-    relieved = frozenset(dormant_relief_indices(state.evidence, sources))
+    cuts = dict(dormant_relief(state.evidence, state.dormant_sources()))
     by_key = {e.key: e for e in state.employees}
-    lines = []
+    placed = []           # (ledger position, LedgerLine)
+    hum_pos = -1
+    hum_count = 0
+    hum_base = 0.0
+    hum_first_day = 0
+    hum_open = False      # any tick still contestable
     for i, r in enumerate(state.evidence):
-        protected = i in relieved
+        if r.kind == "paper" and not r.why:
+            # Storage stays per-tick (float identity, round 6); the
+            # DISPLAY groups the hum into one line (rev. 11 item 3).
+            if hum_pos < 0:
+                hum_pos = i
+                hum_first_day = r.day
+            hum_count += 1
+            hum_base += r.magnitude
+            hum_open = hum_open or (not r.contested and r.magnitude > 0)
+            continue
+        cut = cuts.get(i, 0.0)
         employee = by_key.get(r.source)
-        lines.append(LedgerLine(
+        placed.append((i, LedgerLine(
             day=r.day, kind=r.kind,
-            disposition=remediation_disposition(r),
+            disposition=remediation_disposition(r, state),
             base=r.magnitude,
-            effective=r.magnitude * DORMANT_FACTOR if protected
-            else r.magnitude,
-            relieved=protected,
+            effective=r.magnitude - cut,
+            relieved=cut > 0,
+            partial=0 < cut < r.magnitude * (1 - DORMANT_FACTOR),
             why=r.why,
-            source_name=employee.name if employee is not None else ""))
+            source_name=employee.name if employee is not None else "")))
+    if hum_count:
+        placed.append((hum_pos, LedgerLine(
+            day=hum_first_day, kind="paper",
+            disposition="contestable" if hum_open else "contested",
+            base=hum_base, effective=hum_base, relieved=False,
+            partial=False, why=HUM_LABEL, source_name="",
+            count=hum_count)))
+    placed.sort(key=lambda pair: pair[0])
     bs = _bs(state)
     targets = _contest_queue(state)
+    if not targets:
+        contest_state, next_contest = "empty", ""
+    elif state.case <= CASE_FLOOR:
+        contest_state, next_contest = "floor", ""
+    elif remediation_left(state) <= 0:
+        contest_state, next_contest = "cap", ""
+    else:
+        contest_state = "target"
+        next_contest = targets[0].why or HUM_LABEL
     return EvidenceLedgerView(
-        lines=tuple(lines),
+        lines=tuple(line for _pos, line in placed),
         total=state.case,
         floor=CASE_FLOOR,
         cap=REMEDIATION_CAP,
@@ -137,7 +176,8 @@ def build_ledger_view(state: State) -> EvidenceLedgerView:
         cap_left=remediation_left(state),
         counsel_retained=bs.counsel_retained,
         counsel_days=bs.counsel_days,
-        next_contest=(targets[0].why or HUM_LABEL) if targets else "")
+        contest_state=contest_state,
+        next_contest=next_contest)
 
 
 # ── counsel ───────────────────────────────────────────────────────
@@ -215,12 +255,14 @@ def contest_next(state: State, con: Console) -> None:
 # ── settlements ───────────────────────────────────────────────────
 
 def settle_targets(state: State) -> list:
-    """Who a settlement can reach: any aware employee, current or
-    departed, not already settled. Arrested witnesses are beyond hush
-    money — their statement is the state's."""
-    settled = set(_bs(state).settled_witnesses)
+    """Who a settlement can reach, straight from the one relationship
+    authority (rev. 11 item 2): reachable and protected witnesses —
+    a protected current witness settles OUT, locking the retention
+    half in for good. Settled names and the arrested (their statement
+    is the state's) never appear."""
     return [e for e in state.employees
-            if e.aware and not e.arrested and e.key not in settled]
+            if e.aware and witness_status(state, e.key)
+            in ("reachable", "protected")]
 
 
 def settlement_cost(e: Employee) -> int:
@@ -243,14 +285,13 @@ def settle_witness(state: State, e: Employee, con: Console) -> None:
         con.say(f"  {e.name}'s quiet costs {money(cost)} clean; the till "
                 f"holds {money(state.clean)}. Not tonight.")
         return
-    # Derive the CURRENT relief allocation before anything mutates —
-    # records it already halves lock in for free (effective weight
-    # unchanged, no cap charge); the rest is the paid part.
-    relieved = set(dormant_relief_indices(state.evidence,
-                                          state.dormant_sources()))
+    # Derive the CURRENT relief allocation before anything mutates
+    # (rev. 11: per-record, possibly partial). The cut a record is
+    # already receiving locks in for free — effective weight
+    # unchanged, no cap charge; the rest of the halving is paid.
+    cuts = dict(dormant_relief(state.evidence, state.dormant_sources()))
     records = [(i, r) for i, r in enumerate(state.evidence)
-               if remediation_disposition(r) == "settleable"
-               and r.source == e.key]
+               if r.kind == "witness" and r.source == e.key]
     before = state.case
     state.clean -= cost
     was_current = e.hired
@@ -258,26 +299,34 @@ def settle_witness(state: State, e: Employee, con: Console) -> None:
         e.hired = False
         e.resignation_pending = False
     bs.settled_witnesses.append(e.key)
+    # paid_parts: what full permanence would still remove per record,
+    # beyond tonight's free cut (half the magnitude minus the cut).
+    paid_parts = []
+    locked_any = False
     for i, r in records:
-        if i in relieved:
-            r.magnitude *= DORMANT_FACTOR
-    active = [r for i, r in records if i not in relieved]
-    wanted = sum(r.magnitude for r in active) * (1 - DORMANT_FACTOR)
+        cut = cuts.get(i, 0.0)
+        paid = r.magnitude * (1 - DORMANT_FACTOR) - cut
+        if cut > 0:
+            r.magnitude -= cut          # the free lock, display-neutral
+            locked_any = True
+        paid_parts.append((r, paid))
+    wanted = sum(paid for _r, paid in paid_parts)
     room = remediation_left(state)
     applied = 0.0
     if not records:
         evidence_outcome = "no_records"
-    elif not active:
-        evidence_outcome = "locked_free"
     elif before <= CASE_FLOOR:
         evidence_outcome = "floor"
+    elif wanted <= 0:
+        evidence_outcome = "locked_free" if locked_any else "no_records"
     elif room <= 0:
         evidence_outcome = "cap_exhausted"
     else:
         applied = min(wanted, room)
         scale = applied / wanted
-        for r in active:
-            r.magnitude -= r.magnitude * (1 - DORMANT_FACTOR) * scale
+        for r, paid in paid_parts:
+            if paid > 0:
+                r.magnitude -= paid * scale
         bs.remediation_used += applied
         evidence_outcome = "applied" if applied == wanted else "truncated"
     # The relationship, first — it happened regardless of arithmetic.

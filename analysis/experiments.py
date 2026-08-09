@@ -18,9 +18,11 @@ from collections import Counter, defaultdict
 from typing import ClassVar
 
 from extra_toppings import data, escrow, market, phases, raids
-from extra_toppings.bot import (BOTS, CrimeHeavyBot, EscrowBot, GreedyBot,
-                                KeepsStashBot, MarketBot, NoRemediationBot,
-                                SloppyEscrowBot, StraightBot)
+from extra_toppings.bot import (BOTS, CounselOnlyBot, CrimeHeavyBot,
+                                EscrowBot, GreedyBot, KeepsStashBot,
+                                MarketBot, NoRemediationBot,
+                                SettlementOnlyBot, SloppyEscrowBot,
+                                StraightBot)
 from extra_toppings.config import GameConfig
 from extra_toppings.game import run
 from extra_toppings.models import new_state
@@ -410,12 +412,12 @@ def _display_case(state) -> float:
         acc = 0.0
         for r in state.evidence:
             if r.kind == "witness" and r.source in protected:
-                cut = r.magnitude * 0.5
-                if acc + cut <= allowance:
-                    acc += cut
-                    display -= cut
-                else:
+                # Per-record, partial at the boundary (rev. 11).
+                cut = min(r.magnitude * 0.5, allowance - acc)
+                if cut <= 0:
                     break
+                acc += cut
+                display -= cut
     return max(0.0, min(100.0, display))
 
 
@@ -531,9 +533,25 @@ def _fork_straight(seeds: int) -> None:
                 "covert": covert, "legit": legit,
                 "ledger_bad": ledger_bad, "floor_bad": floor_bad}
 
-    def straight_rows(pairs, label_suffix="", state_factory=None):
+    # The cohort contract, encoded (rev. 11 item 4): which metrics BIND
+    # in which cohort. Everything still prints; nothing nonbinding is
+    # ever labeled as a bar.
+    NATURAL_SPEC = {"band": True, "delta": False, "below": False,
+                    "covert": True, "tag": ""}
+    REDEMPTION_SPEC = {"band": False, "delta": True, "below": True,
+                       "covert": False, "tag": ""}
+    DIAGNOSTIC_SPEC = {"band": False, "delta": False, "below": False,
+                       "covert": False, "tag": " [diagnostic]"}
+
+    def straight_rows(pairs, spec, state_factory=None):
         rates = {}
         per_seed = {}
+        band_note = ("band 25–70%" if spec["band"]
+                     else "reported — no band binds this cohort")
+        delta_note = ("bar ≤ −5" if spec["delta"] else "reported")
+        below_note = ("bar ≥ 60%" if spec["below"] else "reported")
+        covert_note = ("bar < 5%" if spec["covert"] else "reported")
+        tag = spec["tag"]
         for name, cls in pairs:
             entered = 0
             endings: Counter = Counter()
@@ -562,15 +580,15 @@ def _fork_straight(seeds: int) -> None:
                 if entered else 0.0
             below = sum(1 for d in deltas if d < 0)
             share = covert / (covert + legit) if covert + legit else 0.0
-            print(f"{name}{label_suffix}: entered {entered}/{seeds}, "
+            print(f"{name}{tag}: entered {entered}/{seeds}, "
                   f"endings {dict(endings)}")
             print(f"  earned exits {endings['straight_exit']}/{entered} "
-                  f"({rates[name]:.0%}; band 25–70%)")
+                  f"({rates[name]:.0%}; {band_note})")
             if deltas:
                 print(f"  ΔCase fork→end: median "
-                      f"{statistics.median(deltas):+.1f} (bar ≤ −5); "
+                      f"{statistics.median(deltas):+.1f} ({delta_note}); "
                       f"strictly below fork-day in {below}/{len(deltas)} "
-                      f"({below / len(deltas):.0%}; bar ≥ 60%)")
+                      f"({below / len(deltas):.0%}; {below_note})")
                 print(f"  decomposition: lockup Case median "
                       f"{statistics.median(lockups):.1f} "
                       f"(≥20 in {sum(1 for c in lockups if c >= 20)}"
@@ -585,7 +603,7 @@ def _fork_straight(seeds: int) -> None:
                           f"{statistics.median(hot):+.1f}, below fork-day "
                           f"{sum(1 for d in hot if d < 0)}/{len(hot)}")
             print(f"  covert revenue share after fork+2: ${covert:,} of "
-                  f"${covert + legit:,} ({share:.1%}; bar < 5%)")
+                  f"${covert + legit:,} ({share:.1%}; {covert_note})")
             print(f"  ledger transparency: {ledger_bad} bad nights "
                   f"(bar 0); floor: {floor_bad} sub-floor remediated "
                   f"nights (bar 0)")
@@ -593,8 +611,9 @@ def _fork_straight(seeds: int) -> None:
 
     print("— natural-entry cohort (the unmodified smart-bot baseline, "
           "rev. 10 item 8) —")
-    rates, per_seed = straight_rows((("straight", StraightBot),
-                                     ("no-remediation", NoRemediationBot)))
+    rates, per_seed = straight_rows(
+        (("straight", StraightBot),
+         ("no-remediation", NoRemediationBot)), NATURAL_SPEC)
     print(f"natural ablation (reported, not a bar in this cohort): "
           f"straight {rates['straight']:.0%} → no-remediation "
           f"{rates['no-remediation']:.0%} "
@@ -618,15 +637,23 @@ def _fork_straight(seeds: int) -> None:
 
     # ── the redemption cohort (rev. 10 item 8) ───────────────────
     print("— redemption cohort (the frozen §3.1 reference entry, "
-          "Case 31, across world seeds; the original bars bind here) —")
+          "Case 31, across world seeds; the original ΔCase letter "
+          "binds here) —")
     red_rates, red_seed = straight_rows(
         (("redemption", StraightBot),
          ("redemption-no-remediation", NoRemediationBot)),
-        state_factory=_redemption_state)
+        REDEMPTION_SPEC, state_factory=_redemption_state)
     print(f"redemption ablation drop: "
           f"{red_rates['redemption']:.0%} → "
           f"{red_rates['redemption-no-remediation']:.0%} "
           f"({(red_rates['redemption'] - red_rates['redemption-no-remediation']) * 100:.0f} points; bar ≥ 20)")
+    # Rev. 11: the review's suggested single-verb diagnostics — the
+    # combined control is guaranteed to fail its hostile-witness term,
+    # so these separate what each verb is worth. Not bars.
+    print("— redemption single-verb diagnostics (rev. 11; not bars) —")
+    straight_rows((("counsel-only", CounselOnlyBot),
+                   ("settlement-only", SettlementOnlyBot)),
+                  DIAGNOSTIC_SPEC, state_factory=_redemption_state)
 
     # ── diagnostic: the same branch policy over a dirty month ────
     # The §3.1 vignette enters the fork at Case 31; the market bot's
@@ -645,14 +672,17 @@ def _fork_straight(seeds: int) -> None:
                                         "Market board")]
 
     class DirtyMonthNoRemediation(DirtyMonthStraightBot):
-        remediates = False
+        use_counsel = False
+        use_settlements = False
 
     print("— dirty-month diagnostic (crime-heavy Act I, same branch "
-          "policy; §3.1's entry profile) —")
+          "policy; §3.1's entry profile; not bars) —")
     dirty_rates, _ = straight_rows(
         (("dirty-month", DirtyMonthStraightBot),
-         ("dirty-no-remediation", DirtyMonthNoRemediation)))
-    print(f"dirty-month ablation drop: {dirty_rates['dirty-month']:.0%} → "
+         ("dirty-no-remediation", DirtyMonthNoRemediation)),
+        DIAGNOSTIC_SPEC)
+    print(f"dirty-month ablation drop [diagnostic]: "
+          f"{dirty_rates['dirty-month']:.0%} → "
           f"{dirty_rates['dirty-no-remediation']:.0%} "
           f"({(dirty_rates['dirty-month'] - dirty_rates['dirty-no-remediation']) * 100:.0f} points)")
 

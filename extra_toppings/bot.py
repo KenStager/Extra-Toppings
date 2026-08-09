@@ -443,7 +443,10 @@ class StraightBot(MarketBot):
     the same transcript a human does: the book-burning header flips it
     into branch mode; the exit readout tells it what remains."""
 
-    remediates = True     # criterion 5's ablation flips this
+    # Criterion 5's ablation flips both; the rev. 11 diagnostic
+    # variants flip one each.
+    use_counsel = True
+    use_settlements = True
 
     def __init__(self, rng: random.Random, verbose: bool = False) -> None:
         super().__init__(rng, verbose)
@@ -510,14 +513,14 @@ class StraightBot(MarketBot):
                     return 0.2
                 return 50
             if "Improvements" in label:
-                want_counsel = self.remediates and not self._counsel
+                want_counsel = self.use_counsel and not self._counsel
                 want_ad = self._clean >= 1200 and self._rep < 60
                 if (want_counsel or want_ad) \
                         and "Improvements" not in self._done_today:
                     return 45
                 return 0.2
             if "Settle with a witness" in label:
-                if self.remediates \
+                if self.use_settlements \
                         and "Settle with a witness" not in self._done_today:
                     return 40
                 return 0.2
@@ -554,7 +557,7 @@ class StraightBot(MarketBot):
                 return 2 if self._sal_gone else 0   # burn if Sal can't buy
             if prompt.startswith("Improvements"):
                 for i, o in enumerate(options):
-                    if o.startswith("Retain counsel") and self.remediates \
+                    if o.startswith("Retain counsel") and self.use_counsel \
                             and "counsel_pick" not in self._done_today:
                         self._done_today.add("counsel_pick")
                         return i
@@ -606,7 +609,18 @@ class NoRemediationBot(StraightBot):
     never retains counsel, never settles a witness. Everything else is
     the same policy. If this bot's earned-exit rate doesn't crater, the
     pressure is decorative."""
-    remediates = False
+    use_counsel = False
+    use_settlements = False
+
+
+class CounselOnlyBot(StraightBot):
+    """Rev. 11 diagnostic (not a bar): counsel without settlements."""
+    use_settlements = False
+
+
+class SettlementOnlyBot(StraightBot):
+    """Rev. 11 diagnostic (not a bar): settlements without counsel."""
+    use_counsel = False
 
 
 class SloppyEscrowBot(EscrowBot):

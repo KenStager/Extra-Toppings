@@ -92,11 +92,12 @@ def clean_days(state: State, as_of: int | None = None) -> int:
 
 def hostile_witnesses(state: State) -> list:
     """Departed aware employees below morale 5 with no settlement —
-    the goal term's exact letter (§2.4.1)."""
-    settled = set(live(state).settled_witnesses)
+    the goal term's exact letter (§2.4.1), read through the one
+    witness-relationship authority (rev. 11 item 2)."""
+    from .models import witness_status
     return [e for e in state.employees
             if e.aware and not e.hired and e.morale < HOSTILE_MORALE
-            and e.key not in settled]
+            and witness_status(state, e.key) != "settled"]
 
 
 def open_feuds(state: State) -> list[str]:
@@ -311,9 +312,17 @@ _DISPOSITION_NOTES = {
     "contestable": "counsel can argue this",
     "contested": "already argued down",
     "settleable": "a settlement can reach this",
+    "settled": "their peace is bought",
+    "beyond_reach": "in custody — the statement is the state's",
     "external": "outside provenance — no settlement reaches it",
     "immune": "what the city saw, it saw",
     "suspicion": "permanent — they remember your name",
+}
+
+_CONTEST_STATES = {
+    "empty": "nothing left worth arguing",
+    "floor": "the floor holds — nothing to argue below it",
+    "cap": "cap exhausted — every point the cap allows is spent",
 }
 
 
@@ -329,19 +338,28 @@ def show_case_file(state: State, con: Console) -> None:
         con.say("  The file is empty. Keep it that way.")
         return
     for line in view.lines:
-        label = line.why if line.why else "a routine discrepancy"
-        weight = (f"{line.base:.1f} → counts {line.effective:.1f} "
-                  f"({line.source_name}'s loyalty holds it down)"
-                  if line.relieved else f"counts {line.effective:.1f}")
+        label = line.why
+        if line.count > 1:
+            label += f" ({line.count} entries, rolled up)"
+        if line.relieved and line.partial:
+            weight = (f"{line.base:.1f} → counts {line.effective:.1f} "
+                      f"({line.source_name}'s loyalty holds part of it "
+                      f"down; the floor limits the rest)")
+        elif line.relieved:
+            weight = (f"{line.base:.1f} → counts {line.effective:.1f} "
+                      f"({line.source_name}'s loyalty holds it down)")
+        else:
+            weight = f"counts {line.effective:.1f}"
         who = f" — {line.source_name}" if line.source_name else ""
         con.say(f"    · day {line.day} · {line.kind} · {weight} · "
                 f"{label}{who} [{_DISPOSITION_NOTES[line.disposition]}]")
     con.say(f"  Remedy spent {view.cap_used:.1f} of {view.cap:.0f} "
             f"points; {view.cap_left:.1f} left to argue or settle.")
     if view.counsel_retained:
-        target = (f"next in the queue: '{view.next_contest}'"
-                  if view.next_contest else "nothing left worth arguing")
-        con.say(f"  Counsel retained, day {view.counsel_days} — {target}.")
+        status = (f"next in the queue: '{view.next_contest}'"
+                  if view.contest_state == "target"
+                  else _CONTEST_STATES[view.contest_state])
+        con.say(f"  Counsel retained, day {view.counsel_days} — {status}.")
     else:
         con.say("  No counsel retained — the paper stands unargued.")
 

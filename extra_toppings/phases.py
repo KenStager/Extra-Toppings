@@ -375,6 +375,15 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                                 "Let someone go", "Back"])
         if c == 0:
             pool = [e for e in state.employees if not e.hired and not e.arrested]
+            if state.branch == "straight" and state.branch_state is not None:
+                # Rev. 11: settled-out names never come back — the
+                # settlement was severance, not a sabbatical, and a
+                # rehire would reopen the witness problem the goal
+                # term already counted closed.
+                from .models import witness_status
+                pool = [e for e in pool
+                        if not (e.aware and witness_status(state, e.key)
+                                == "settled")]
             if not pool:
                 con.say("  Nobody worth hiring is looking.")
                 continue
