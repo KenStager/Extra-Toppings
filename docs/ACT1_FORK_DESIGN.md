@@ -349,9 +349,11 @@ Kinds, assigned at the existing `add_case` call sites:
 - **witness** — attached to a person: walked out knowing everything (6),
   fired knowing everything (6), poached knowing everything (8), a long talk
   with a detective (10).
-- **paper** — financial: over-ceiling laundering (≤ 20/incident), the 0.5
-  routine-discrepancy ticks (aggregated into one rolling "routine
-  discrepancies" record), frozen-deposit reviews.
+- **paper** — the file's documents: over-ceiling laundering
+  (≤ 20/incident), the 0.5 routine-discrepancy ticks (aggregated into
+  one rolling "routine discrepancies" record), frozen-deposit reviews,
+  and intelligence in the file — the informant's tip is a report, not
+  testimony (rev. 10 ruling).
 - **physical** — seizures and scenes: traffic-stop seizures, walk-through
   finds, the owner photographed by the wagon, bodies, gunfire, brawls.
 - **pattern** — the raid handwriting premium, and only that.
@@ -829,11 +831,17 @@ seeds 24/39/8 remains the test of fun.
    seeds completes every run; full unittest/ruff/mypy suite green.
 4. **Divergence.** Four branch bots (minimal per-branch policies over the
    existing smart bot). Measured over post-fork days only:
-   - *Straight Path bot:* covert revenue share < 5% after fork+2; **median
-     ΔCase ≤ −5 from fork day to end** — genuinely negative, not merely
-     non-positive — and Case strictly below its fork-day value in ≥ 60% of
-     runs: the first falling Case in the game's history, earned against
-     the branch's own crime clock.
+   - *Straight Path bot (two cohorts, rev. 10):* the **natural-entry
+     cohort** (the unmodified smart-bot baseline) holds covert revenue
+     share < 5% after fork+2, the earned-exit band, and *remediation
+     leaves the file lower than its unremediated twin in ≥ 60% of
+     matched entries*; the **redemption cohort** (the frozen §3.1
+     reference state, Case 31, entered through the real scene across
+     world seeds) holds the original letter — **median ΔCase ≤ −5
+     from fork day to end**, genuinely negative, with Case strictly
+     below its fork-day value in ≥ 60% of runs: the first falling
+     Case in the game's history, earned against the branch's own
+     crime clock.
    - *War bot:* median target strength at end ≤ 50% of its fork-day value;
      pattern+physical evidence ≥ 50% of post-fork Case growth; **channel
      mix:** in successful runs no single damage channel (jobs / corners /
@@ -1908,3 +1916,83 @@ in flight, recorded for ruling:
    when THIS gate passes — is honored over the phase boundary: with
    the ΔCase study missing its bars, no flag moves until the ruling
    lands.
+
+**Revision 10** responds to the review of P2, which reproduced every
+number, accepted the branch's identity and the randomness ownership,
+ruled on all four flagged questions — and found two correctness
+defects and three design gaps that block the PR. Recorded on paper
+before the correction pass:
+
+1. *Dormancy was cached derived state, and the cache could lie at the
+   worst moment.* The stored `Evidence.dormant` flag was reconciled
+   nightly BEFORE the rival and law phases; a poach or a
+   morale-dropping search after the reconciliation left a protected
+   record halved with its protection gone — reproduced: a dormant
+   20-point record at morale 5→4 graded `straight_exit` where the
+   true file reads `almost_out`. Doctored saves could also plant
+   dormant records with nonexistent, departed or demoralized sources.
+   The correction removes the stored flag entirely: **retention
+   dormancy is derived, in one context-aware ledger calculation** —
+   `fold_case(evidence, dormant_sources)` where the dormant set
+   (hired ∧ aware ∧ morale ≥ 5 ∧ unsettled) is computed from the live
+   roster at every read; `State.case` supplies the context, and no
+   phase ordering can stale it. The floor keeps its letter inside the
+   same calculation: halvings allocate in ledger order and stop at
+   the first record whose relief would take the display below 10 —
+   deterministic, pure, and identical arithmetic to the flag-off fold
+   when the set is empty. The nightly reconciliation event is gone;
+   the paid verbs keep their at-verb floor top-ups. Settling a
+   currently-protected witness still locks the half in for free (the
+   magnitude halves as the source leaves the protected set —
+   effective weight unchanged, no cap charge).
+2. *Cross-state validation.* Save-load now validates the ledger, the
+   roster, the settled list and the branch state TOGETHER: witness
+   sources must be empty (external) or a roster key;
+   `settled_witnesses` must name existing, aware employees; the
+   dormant-record payload class ceases to exist with the field.
+3. *The evidence ledger becomes visible.* One `EvidenceLedgerView`
+   itemizes every record — kind, base and effective magnitude, source
+   name, disposition, contest status — plus the displayed total
+   (identical, by construction, to the meter), the paid-cap budget
+   spent and remaining, the floor, and counsel's next target. A
+   "case file / counsel docket" screen in the branch morning renders
+   the view and nothing else; the exit readout consumes the same
+   total. The renderer infers no rules.
+4. *One remediation disposition.* A single
+   `models.remediation_disposition(record)` names what can touch each
+   record — contestable / settleable / external-witness (immune) /
+   immune / the suspicion record — and the contest queue, the
+   settlement verb, the docket and validation all consume it; kind,
+   provenance and UI cannot disagree.
+5. *Taxonomy ruling applied.* The informant's tip is an intelligence
+   report, not testimony: it becomes **paper** (contestable) at its
+   call site, §2.3's paper list gaining the entry. The bribed
+   patrolman, the regular at the handoff and the watcher at Sal's
+   truck stay witness records with external provenance (empty
+   source) — immune, and now labeled as such in the docket.
+6. *Settlement is one result with two outcomes.* Every path —
+   relief applied, truncated at the cap, floor-bound, cap-exhausted,
+   or no attached records — states the relational outcome AND the
+   evidentiary outcome. The below-floor ruling stands; cap
+   exhaustion gets the same honesty ("the engagement is settled; the
+   file is not").
+7. *The disposal route stops resurrecting the burned book.* Route
+   presentation is centralized and branch-aware: a disposal run
+   speaks of cold buyers and one-use contacts, never "coded orders
+   on the board." The route grammar, dice and prompts' option lists
+   are unchanged; only the disposal-flagged voice differs.
+8. *The Case bars split into two cohorts (the ruling on the round-9
+   miss).* No constants move; no bar is conditioned after the fact.
+   **Natural-entry cohort** — the unmodified market-bot baseline:
+   keeps reachability, the earned-exit band, the covert-share
+   collapse, crash-freedom and both oracles, and gains the paired
+   bar *remediation leaves the file lower in ≥ 60% of matched
+   entries*. **Redemption cohort** — a frozen, predeclared
+   §3.1-shaped reference state (Case 31: an immune seizure, a
+   flagged over-ceiling record, the routine hum, the informant's
+   tip, and a hostile departed witness), entered through the real
+   scene and run across world seeds: the original bars bind here —
+   median ΔCase ≤ −5, Case strictly below entry in ≥ 60%, ablation
+   drop ≥ 20 points. The dirty-month bot remains an ecological
+   confirmation, not an acceptance fixture. The reference state is a
+   harness-owned literal, like the frozen scene schema.
