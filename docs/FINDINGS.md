@@ -1219,6 +1219,24 @@ remains the reviewer's explicit word; the Straight Path and the Quiet
 Sale activate together AFTER the merge, as their own step. No further
 design or tuning ruling is pending.
 
+### Round 9 coda — the activation (post-merge)
+
+PR #12 merged on the reviewer's explicit approval (merge commit,
+history intact; the reviewer's own 300,000-ledger probe found no
+allocation or monotonicity failures). Per the same disposition, the
+Straight Path and the Quiet Sale activate TOGETHER in one separate
+commit: the released set gets one canonical home
+(`models.RELEASED_BRANCHES = {"straight", "quiet_sale"}`, checked
+against BRANCH_ORDER at import), the CLI flag consumes it
+(`EXTRA_TOPPINGS_FORK=1` now seats both released chairs), and it is
+pinned that exactly those two chairs are actionable — Partner and War
+still render with their true verdicts and refuse with the
+development-build marker. No economic constants moved. Verification
+on the activation commit: full suite green on 3.11 and 3.12 (3.13
+agrees); flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on all three — the gates run their
+own explicit configs, so the CLI's lift moves no identity surface.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0 and P1 are complete and merged
