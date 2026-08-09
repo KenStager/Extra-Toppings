@@ -1871,6 +1871,101 @@ change). The five contracts are closed; per the ruling P3 can
 proceed to a PR review on the reviewer's word. The chair stays
 unreleased until then.
 
+### Round 10 correction 5 (re-review — design rev. 19)
+
+Review reproduced every rev. 18 check and the 150-seed battery,
+confirmed the planner genuinely fixes the player's wall — and found
+four blocking root contracts plus one canonical reconciliation. All
+closed per revision 19 (paper first, the canonical sections updated
+in place per the ruling); 13 new pins, all failing on the pre-fix
+engine. No balance constant moved, no feature expanded.
+
+**1. Storage is one SAFE authority.** One shared inventory-map
+validator — exact integers (`type(x) is int`; `True` and `1.5` are
+refused, never coerced), known goods, no negatives — sits behind
+`space_used`, `units_that_fit`, `move_goods`, `place_haul`, the
+rendering and persistence. Storage locations are explicit: an
+unknown name ("bogus") is a refusal, never a silent alias of the
+warehouse. `space_used({"oregano": -2})` now refuses instead of
+reporting zero; `inventory_lines` consumes the one arithmetic. The
+vocabulary contract finished: the card, escrow's closing readout
+and README all say "space" — every reviewer counterexample is a
+pinned refusal with zero mutation.
+
+**2. The historical ledgers bind to the actual domains.** Crew
+binds to the 1..3 planning cap (now one constant, consumed by
+`plan_raid` and the record alike); damage to the strongest job's
+1200-hundredth ceiling; executed routes carry only the bands a
+route can execute under — cool@1.0 or amber@0.5, each pinning its
+policy multiplier (an executed red route is history that never
+happened); units bind to the 24-space wagon; contested requires an
+owner (University Hill cannot be contested); corner damage binds to
+the −8 mechanical cap, with `war.py` asserting at import that the
+record's ceiling equals `CORNER_CAP × OUTAGE_MULT` so the homes
+cannot drift. Cross-state chronology binds: no record post-dates
+the state's day, and an append-only log's days never run backward.
+`RouteExecutionRecord.of_market` builds the record from the
+authoritative RouteMarket view, so studies cannot invent
+combinations gameplay cannot produce. Every reviewer counterexample
+is a pinned refusal.
+
+**3. The pacing experiment is paired in fact — and the corrected
+result is the reviewer's.** The quiet-night alertness transition
+now lives in ONE home (`models.alertness_decay_tick`, the guard
+included: never on a night you hit them) consumed by the production
+rival phase, the decline probe and the experiment alike — the
+refactor is bit-identical, both identity gates passing untouched.
+Decision AND mechanics dice are keyed by (seed, calendar day,
+channel); a skipped night cannot shift any later night's dice,
+pinned by rng-state equality across arms that differ only at night
+zero. The withdrawn 11.4-vs-12.4 is replaced by the certified run
+(800 paired trials, no tuning): **total applied strength damage
+window-paced 9.0±0.3 vs every-night 8.9±0.3 — a statistical tie
+(paired Δ +0.1±0.2) — on HALF the attempts (5.8 vs 11.4), with
+efficiency 0.55 vs 0.32 per committed person-night and injured-crew
+days 4.7 vs 12.6.** The reviewer's independent diagnostic is
+reproduced: grinding buys tempo by spending bodies; pacing matches
+its damage while preserving the crew — the canonical thesis, now in
+the paper's body. The outcome bar stands (57% vs 53% at 500; 53% vs
+51% at 150).
+
+**4. The baseline contract is independent.** The harness carries
+`ACTIVE_BASELINE` — exact version, generation commit, predecessor
+sha256, reason, seeds, bots, and the active file's OWN sha256
+(13d9eeba…) — asserted before a single run is compared. Mutation
+tests flip every field independently (version −9, commit "banana",
+predecessor "garbage", reason "x", seeds 1, a dropped field) and a
+raw byte mid-file; each is rejected. The sanctioned baseline itself
+validates clean, and updating the contract is possible only as part
+of a recorded regeneration.
+
+**5. The canonical text describes the current rules.** §2.4.3 and
+§2.7 now state, in the body: five damage channels (defense named);
+the remediation-resistance letters where the retired
+pattern+physical 50% stood; the pacing letters (outcome bar,
+observational decomposition under exact names, the calendar-keyed
+causal experiment) where the retired 20-point cooldown drop stood;
+the honest thesis in place of "winning requires pacing"; and heat
+as a LOCAL ROUTE TAX, with campaign-level load explicitly
+unproven. The "Harbor Is Yours" ending derives and names the
+actual captured turf — Sal's fall captures Little Sicily; Vinnie's
+captures Old Harbor and the Meadows (both pinned).
+
+**The batteries moved in exactly one line per depth** — the
+corrected causal probe. Every other row is byte-identical to
+rev. 18: the validators refuse only what gameplay never produces,
+and the decay-tick extraction is the same arithmetic (the gates
+prove it to the byte). All letters hold: empire 26 points at 500
+(22 at 150); full policy does not trail; branch-good 57%;
+raid-only trails 45; permanent residue 98% / above-fork 100%;
+oracles 0; decline curve unchanged.
+
+Verification: 520 tests, ruff and mypy clean on 3.11 and 3.12;
+both identity gates 300/300 on 3.11, 3.12 AND 3.13 against the
+UNCHANGED sanctioned baseline, now contract-asserted; stand-pat
+82/82. The chair stays unreleased; the head returns for the final
+review.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P2 complete, merged and
