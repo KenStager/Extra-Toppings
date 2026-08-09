@@ -1,10 +1,84 @@
 """Delivery routes: legit pizzas up front, coded orders in the warmer bag."""
 
 import random
+from dataclasses import dataclass, field
 
 from . import data, market, models, straight, war
 from .models import Employee, State
 from .ui import Console, money
+
+
+@dataclass
+class RouteManifest:
+    """THE wagon inventory model (rev. 17 item 1): one typed manifest
+    owns cargo bulk, pizza bulk, remaining capacity and validation.
+    Every quantity says what it counts — `cargo` maps good → UNITS
+    (bulk priced per unit from data.GOODS), `legit` counts pizza
+    ORDERS at one box, one slot — and both share the wagon's
+    `capacity` slots, exactly as README always promised. An
+    over-capacity manifest is REFUSED, at commit and at resolution,
+    never repaired and never merely prevented by a planning screen."""
+    cargo: dict = field(default_factory=dict)
+    legit: int = 0
+    capacity: int = data.VEHICLE_CARGO
+
+    @property
+    def cargo_bulk(self) -> int:
+        return sum(u * data.GOODS[g]["bulk"] for g, u in self.cargo.items())
+
+    @property
+    def pizza_bulk(self) -> int:
+        return self.legit
+
+    @property
+    def bulk_used(self) -> int:
+        return self.cargo_bulk + self.pizza_bulk
+
+    @property
+    def free(self) -> int:
+        return self.capacity - self.bulk_used
+
+    def validate(self) -> None:
+        for g, u in self.cargo.items():
+            if g not in data.GOODS:
+                raise ValueError(f"manifest: unknown good {g!r}")
+            if isinstance(u, bool) or not isinstance(u, int) or u < 0:
+                raise ValueError(f"manifest: bad unit count for {g}: {u!r}")
+        if isinstance(self.legit, bool) or not isinstance(self.legit, int) \
+                or self.legit < 0:
+            raise ValueError(f"manifest: bad pizza count {self.legit!r}")
+        if self.bulk_used > self.capacity:
+            raise ValueError(f"manifest: {self.bulk_used} bulk loaded in a "
+                             f"{self.capacity}-slot wagon")
+
+    @classmethod
+    def of_plan(cls, plan: dict) -> "RouteManifest":
+        """The resolution-side reading of a route plan — refuses what
+        planning should never have produced (rev. 17: unchecked
+        dictionaries ran 52-slot loads through a 24-slot wagon)."""
+        m = cls(cargo=dict(plan.get("cargo") or {}),
+                legit=int(plan.get("legit") or 0))
+        m.validate()
+        return m
+
+
+def inventory_lines(label: str, stash: dict, cap: int | None) -> list[str]:
+    """Inventory rendered as units × bulk each = bulk used (rev. 17
+    item 1) — the same arithmetic everywhere a stash is shown: the
+    shop's back room, the warehouse, and the wagon manifest."""
+    total = sum(u * data.GOODS[g]["bulk"] for g, u in stash.items() if u > 0)
+    head = f"{label} — {total}" + (f" of {cap}" if cap is not None else "") \
+        + " bulk used:"
+    lines = [head]
+    for g, u in stash.items():
+        if u <= 0:
+            continue
+        b = data.GOODS[g]["bulk"]
+        lines.append(f"    {data.GOODS[g]['label']:<24} {u} × {b} bulk "
+                     f"= {u * b}")
+    if len(lines) == 1:
+        lines.append("    (empty)")
+    return lines
 
 
 def route_suspicion(covert: int, legit: int) -> float:
@@ -59,39 +133,83 @@ def plan_route(state: State, con: Console, rng: random.Random,
     driver = drivers[con.menu("Who drives?", names)]
     ride_along = con.confirm("Ride along yourself? (You can handle trouble — and be caught in it.)")
 
-    # Cargo: only read-in drivers carry product unless you're in the car.
-    # Pizzas and product share the same wagon — every box takes a slot.
-    cargo: dict[str, int] = {}
-    space = data.VEHICLE_CARGO
+    # The wagon manifest (rev. 17 item 1): pizzas and product share
+    # 24 slots through ONE typed model. Every product stays on the
+    # board — including rows that can't load tonight, with their
+    # reasons — and the load can be revised until it's confirmed;
+    # nothing silently disappears when the wagon fills.
+    manifest = RouteManifest()
     can_carry = driver.aware or ride_along
-    if not can_carry:
-        con.say(f"  {driver.name} isn't read in — pizzas only unless you ride along.")
-    else:
+    while True:
         for g, spec in data.GOODS.items():
             have = state.shop_stash.get(g, 0)
-            if have <= 0 or space <= 0:
-                continue
-            fit = min(have, space // spec["bulk"])
-            if fit <= 0:
-                continue
-            price = state.prices[dk][g] if state.districts[dk].known_price_age == 0 \
-                else None
+            loaded = manifest.cargo.get(g, 0)
+            unit = spec["bulk"]
+            price = state.prices[dk][g] \
+                if state.districts[dk].known_price_age == 0 else None
             hint = f" (~{money(price)}/u here)" if price is not None else ""
-            n = con.ask_int(f"Load {spec['label']}? have {have}, fits {fit}{hint}",
-                            0, fit, 0)
+            row = (f"{spec['label']} — loaded {loaded}, {unit} bulk each, "
+                   f"{have} in the stash{hint}")
+            if not can_carry:
+                con.say(f"  {row} [{driver.name} isn't read in — pizzas "
+                        f"only unless you ride along]")
+                continue
+            if have + loaded <= 0:
+                con.say(f"  {row} [none in the stash]")
+                continue
+            if loaded == 0 and manifest.free < unit:
+                con.say(f"  {row} [no room — {manifest.free} of "
+                        f"{manifest.capacity} slots free]")
+                continue
+            top = min(have + loaded, loaded + manifest.free // unit)
+            n = con.ask_int(f"Load {spec['label']}? {unit} bulk each, "
+                            f"{manifest.free} slots free{hint}",
+                            0, top, loaded)
             if n:
-                cargo[g] = n            # intention only — committed at service
-                space -= n * spec["bulk"]
-
-    # Cover has to be real: only customers who actually ordered delivery.
-    legit_cap = min(12, state.shop.ingredients, space, state.delivery_pool)
-    if state.delivery_pool <= 0:
-        con.say("  No delivery orders on the board — a busier, better-liked "
-                "shop would give you cover.")
-    legit = con.ask_int(
-        f"Delivery orders to run for cover ({state.delivery_pool} on the board, "
-        f"wagon space {space})",
-        0, legit_cap, min(8 if cargo else 4, legit_cap))
+                manifest.cargo[g] = n   # intention only — committed at service
+            else:
+                manifest.cargo.pop(g, None)
+        # Cover has to be real: only customers who actually ordered
+        # delivery — and every box takes a slot, all the way to a
+        # 24-order pizza wagon (the unexplained 12 cap is gone,
+        # rev. 17 item 1).
+        pool = state.delivery_pool
+        row = (f"Pizzas for cover — loaded {manifest.legit}, 1 bulk each "
+               f"({pool} orders on the board)")
+        legit_top = min(state.shop.ingredients, pool,
+                        manifest.legit + manifest.free)
+        if pool <= 0:
+            con.say(f"  {row} [no delivery orders — a busier, better-liked "
+                    f"shop would give you cover]")
+        elif state.shop.ingredients <= 0:
+            con.say(f"  {row} [the pantry is empty]")
+        elif legit_top <= 0 and manifest.legit == 0:
+            con.say(f"  {row} [no room — 0 of {manifest.capacity} "
+                    f"slots free]")
+        else:
+            manifest.legit = con.ask_int(
+                f"Delivery orders to run for cover ({pool} on the board, "
+                f"wagon space {manifest.free + manifest.legit})",
+                0, legit_top,
+                min(manifest.legit or (8 if manifest.cargo else 4),
+                    legit_top))
+        con.say(f"  The wagon — {manifest.bulk_used} of "
+                f"{manifest.capacity} bulk used:")
+        for g, u in manifest.cargo.items():
+            b = data.GOODS[g]["bulk"]
+            con.say(f"    {data.GOODS[g]['label']:<24} {u} × {b} bulk "
+                    f"= {u * b}")
+        if manifest.legit:
+            con.say(f"    {'Pizzas for cover':<24} {manifest.legit} × 1 "
+                    f"bulk = {manifest.legit}")
+        if not manifest.cargo and not manifest.legit:
+            con.say("    (empty)")
+        if con.menu(f"The manifest — {manifest.bulk_used} of "
+                    f"{manifest.capacity} slots loaded:",
+                    ["Revise the load", "Confirm the manifest"]) == 1:
+            break
+    manifest.validate()                 # commit-side refusal (rev. 17)
+    cargo, legit = manifest.cargo, manifest.legit
     # §2.1 same-night telegraph: a contraband route scheduled while
     # payoff is within tonight's reach can book bust evidence (up to
     # ~20 + 0.3/unit on a ride-along search) and slam a Case gate the
@@ -163,6 +281,9 @@ def _stop_risk(state: State, plan: dict) -> float:
 def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
     dk = plan["district"]
     driver: Employee = plan["driver"]
+    # Resolution-side refusal (rev. 17 item 1): the night runs no
+    # manifest the wagon could not carry, whoever built the dict.
+    RouteManifest.of_plan(plan)
     cargo = plan["cargo"]
     dspec = data.DISTRICTS[dk]
     report: dict = {"sold": 0, "cash": 0, "busted": False, "lines": []}

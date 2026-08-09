@@ -387,6 +387,15 @@ def _case_first_crossed_60_day(state: State) -> int | None:
 
 def _market_board(state: State, con: Console) -> None:
     con.say("")
+    # Inventory reads units × bulk each = bulk used, everywhere a
+    # stash is shown (rev. 17 item 1).
+    for line in routes.inventory_lines("The back room", state.shop_stash,
+                                       state.shop.stash_cap):
+        con.say(f"  {line}")
+    if state.warehouse is not None:
+        for line in routes.inventory_lines("The warehouse", state.warehouse,
+                                           data.WAREHOUSE_CAP):
+            con.say(f"  {line}")
     for dk, dspec in data.DISTRICTS.items():
         d = state.districts[dk]
         con.say(f"  {dspec['label']} — heat {d.heat:.0f}  ({dspec['flavor']})")

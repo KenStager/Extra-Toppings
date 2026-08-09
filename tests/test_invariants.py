@@ -110,14 +110,48 @@ class TestSharedCapacity(unittest.TestCase):
         self.assertEqual(sum(plan["cargo"].values()), 12)
         self.assertEqual(plan["legit"], 0)
 
-    def test_empty_cargo_leaves_full_pizza_capacity(self):
+    def test_empty_cargo_frees_the_slots_for_pizzas(self):
         plan = self._plan(0)
         self.assertEqual(sum(plan["cargo"].values()), 0)
-        self.assertEqual(plan["legit"], 12)
+        self.assertEqual(plan["legit"], 12)     # the 12 is the REQUEST
 
     def test_partial_cargo_partial_cover(self):
         plan = self._plan(9)    # 18 slots used, 6 left
         self.assertEqual(plan["legit"], 6)
+
+    def test_a_pizza_only_route_loads_the_whole_wagon(self):
+        # Rev. 17 item 1: the unexplained 12-pizza cap is gone — 24
+        # real orders, ingredients and slots load 24.
+        state, rng = fresh(2)
+        state.delivery_pool = 30
+        state.shop.ingredients = 30
+        state.shop_stash = {}
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        con = ScriptedConsole([0, 0, False, 24])
+        plan = routes.plan_route(state, con, rng)
+        self.assertEqual(plan["legit"], 24)
+
+    def test_an_over_capacity_manifest_is_refused_at_resolution(self):
+        # Rev. 17 item 1: resolution refuses what planning should
+        # never have produced — unchecked dictionaries ran 52-slot
+        # loads through the 24-slot wagon.
+        state, rng = fresh(2)
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.aware = True
+        plan = {"district": "university", "driver": rosa,
+                "ride_along": False, "legit": 10,
+                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}}
+        with self.assertRaises(ValueError):
+            routes.resolve_route(state, plan, ScriptedConsole([]), rng)
+
+    def test_the_manifest_counts_bulk_not_units(self):
+        m = routes.RouteManifest(cargo={"oregano": 12})   # bulk 2 each
+        self.assertEqual(m.bulk_used, 24)
+        self.assertEqual(m.free, 0)
+        m.legit = 1
+        with self.assertRaises(ValueError):
+            m.validate()
 
 
 class TestLaundering(unittest.TestCase):

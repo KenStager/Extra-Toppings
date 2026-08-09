@@ -102,6 +102,9 @@ class StrategyBot(Console):
             return best
         if prompt.startswith(("Hit whom?", "The job:", "Read in whom?", "Applicants:")):
             return 0
+        if prompt.startswith("The manifest"):
+            # The rows were answered on the walk — confirm, don't loop.
+            return len(options) - 1
         if prompt.startswith("Crew ("):
             m = re.match(r"Crew \((\d+) picked", prompt)
             picked = int(m.group(1)) if m else 0
