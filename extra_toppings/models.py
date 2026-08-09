@@ -244,6 +244,18 @@ class Evidence:
     why: str
     source: str = ""          # Employee.key when a witness is attached
     contested: bool = False
+    # The immutable accrual (rev. 16 item 1): what this record was
+    # WORTH when it was booked. Contests and settlements mutate the
+    # effective magnitude; nothing but the suspicion record's own
+    # top-ups (genuine accrual, moved in lockstep) ever touches this.
+    # None fills from magnitude at construction — which is also the
+    # migration for pre-rev.16 payloads, whose pre-contest values are
+    # unrecoverable. Validation binds 0 <= magnitude <= accrued.
+    accrued: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.accrued is None:
+            self.accrued = self.magnitude
 
 
 @dataclass(frozen=True)
@@ -460,7 +472,10 @@ _BRANCH_FIELDS = {
             "insolvent_days"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
                    "escrow_discount_pct", "severance_outcome",
-                   "severance_paid", "closing_headcount"},
+                   "severance_paid", "closing_headcount",
+                   # The shared insolvency counter (rev. 16 item 3:
+                   # "every active branch" includes the sale).
+                   "insolvent_days"},
 }
 SEVERANCE_OUTCOMES = ("pending", "paid", "declined", "unaffordable",
                       "not_applicable")
@@ -515,6 +530,7 @@ def validate_branch_state(branch: str | None,
             raise ValueError("quiet_sale: the sit-down is diligence day 1")
         _validate_escrow_pricing(branch_state)
         _validate_severance(branch_state, game_over)
+        _validate_insolvency("quiet_sale", branch_state, game_over)
     elif branch == "straight":
         _validate_straight(branch_state, game_over)
     elif branch == "war":
@@ -778,6 +794,13 @@ def validate_evidence(records: list) -> None:
                 or r.magnitude < 0:
             raise ValueError(f"evidence[{i}]: magnitude must be a "
                              f"non-negative number, got {r.magnitude!r}")
+        if isinstance(r.accrued, bool) \
+                or not isinstance(r.accrued, (int, float)) \
+                or r.accrued < 0 or r.magnitude > r.accrued:
+            raise ValueError(f"evidence[{i}]: accrued must be a number "
+                             f"with 0 <= effective <= accrued, got "
+                             f"effective {r.magnitude!r} of "
+                             f"{r.accrued!r} (rev. 16)")
         if not isinstance(r.contested, bool):
             raise ValueError(f"evidence[{i}]: contested must be a boolean")
         if r.contested and r.kind != "paper":

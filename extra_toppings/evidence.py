@@ -72,7 +72,10 @@ def _apply_floor(state: State, before: float, con: Console) -> None:
                           why=SUSPICION_WHY)
         state.evidence.append(record)
     while state.case < CASE_FLOOR:
-        record.magnitude += CASE_FLOOR - state.case
+        # A top-up is genuine accrual (rev. 16): both move in lockstep.
+        diff = CASE_FLOOR - state.case
+        record.magnitude += diff
+        record.accrued = (record.accrued or 0.0) + diff
     con.say(f"  The file thins to the part that never leaves: {SUSPICION_WHY}."
             f" (The sum holds at {CASE_FLOOR:.0f} — the climate cools; it"
             f" does not un-happen.)")

@@ -66,18 +66,24 @@ class RouteMarket:
 def route_market(state: State, dk: str) -> RouteMarket:
     dspec = data.DISTRICTS[dk]
     owner = dspec["rival"]
+    heat = models.district_heat_policy(state, dk)
     corner_rate = corner_cap = 0.0
     if owner is not None and models.live_campaign(state, owner) is not None:
         outage = state.rivals[owner].ovens_wrecked_days > 0
         mult = war.OUTAGE_MULT if outage else 1
         corner_rate = war.CORNER_RATE * mult
-        corner_cap = war.CORNER_CAP * mult
+        # Heat's consequence flows through the customer pool (rev. 16
+        # item 7): an amber turf has half the divertible custom, so
+        # the EFFECTIVE corner cap halves with the same capacity
+        # multiplier that halves the stops — the -4/night cap can no
+        # longer mask the burned neighborhood.
+        corner_cap = war.CORNER_CAP * mult * heat.capacity_mult
     return RouteMarket(
         district=dk,
         base=dspec["underground"],
         event=event_mult(state, dk, "underground"),
         bonus=war.underground_bonus(state, dk),
-        heat=models.district_heat_policy(state, dk),
+        heat=heat,
         owner=owner,
         corner_rate=corner_rate, corner_cap=corner_cap)
 

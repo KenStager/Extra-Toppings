@@ -380,3 +380,28 @@ class TestAlertnessPressure(unittest.TestCase):
         state = war_state(target="vinnie")
         state.rivals["sal"].alertness = 8.0
         self.assertEqual(war.pressure(state, "sal").impact_mult, 1.0)
+
+
+class TestHeatCornersCoupling(unittest.TestCase):
+    """Rev. 16 item 7: an amber turf has half the divertible custom —
+    the EFFECTIVE corner cap halves with the same capacity multiplier
+    that halves the stops, so the -4/night cap can no longer mask the
+    burned neighborhood."""
+
+    def test_amber_halves_the_effective_corner_cap(self):
+        from extra_toppings import market
+        state = war_state(target="vinnie")
+        rm = market.route_market(state, "old_harbor")
+        self.assertEqual(rm.corner_cap, war.CORNER_CAP)
+        state.districts["old_harbor"].heat = 60.0
+        rm = market.route_market(state, "old_harbor")
+        self.assertEqual(rm.heat.band, "amber")
+        self.assertEqual(rm.corner_cap,
+                         war.CORNER_CAP * rm.heat.capacity_mult)
+        self.assertLess(rm.corner_cap, war.CORNER_CAP)
+        # The rate is untouched — the pool shrinks, not the price.
+        self.assertEqual(rm.corner_rate, war.CORNER_RATE)
+
+
+if __name__ == "__main__":
+    unittest.main()

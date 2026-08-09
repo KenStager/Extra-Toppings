@@ -15,7 +15,7 @@ the stream provably fresh (§2.7).
 
 from dataclasses import dataclass
 
-from . import data
+from . import data, models
 from .models import (REPRICE_MAX_PCT, REPRICE_MIN_PCT, SEVERANCE_PER_HEAD,
                      BranchState, State, validate_branch_state)
 from .rng import Streams
@@ -443,3 +443,20 @@ def sale_tier(state: State) -> str:
     if total >= TIER_MODEST:
         return "modest"
     return "fire"
+def night_insolvency(state: State, con: Console,
+                     payroll_short: bool) -> None:
+    """The shared clean-insolvency transition in the escrow week's
+    voice (rev. 16 item 3: "every active branch" includes the sale —
+    a diligence week run on a till this empty ends before the buyer
+    signs anything)."""
+    outcome = models.insolvency_tick(state, payroll_short)
+    if outcome == "broke":
+        con.say("  Two nights running: no payroll, no stock, no hidden "
+                "dollar — mid-diligence. The buyer's man finds the "
+                "lights off and the crew gone; there is nothing left "
+                "to sell him.")
+    elif outcome == "warned":
+        con.bullet("Payroll missed with nothing left to sell and "
+                   "nothing hidden. A shop this empty won't survive to "
+                   "its own closing.")
+

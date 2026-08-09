@@ -90,6 +90,10 @@ INSURANCE_NIGHTS = 7
 # ── Capture (rev. 13 item 10; rev. 14 item 7) ─────────────────────
 CAPTURE_UNDERGROUND = 0.5  # their coded customers call your board
 
+# THE terminal vocabulary (rev. 16 item 4): grade() writes these and
+# the study reads them — one spelling, no retired forms.
+GOOD_ENDINGS = frozenset({"harbor_yours", "syndicate"})
+
 
 # ── Campaign lookups (all derived — no duplicate state) ───────────
 
@@ -252,8 +256,16 @@ def _board_lines(state: State, compact: bool) -> list:
                                 if ch in spent)
             lines.append(f"where his strength went: {ledger}")
         press = pressure(state, camp.rival_key)
-        if press.note:
-            lines.append(press.note)
+        if press.impact_mult < 1.0:
+            # The actual multipliers, not adjectives (rev. 16 item 5c).
+            lines.append(
+                f"pressure — jobs land at {press.impact_mult:.0%} "
+                f"strength; his response runs "
+                f"×{press.retaliation_mult:.2f} (his security learned "
+                f"the handwriting)")
+        else:
+            lines.append("pressure — the window is open: jobs land at "
+                         "full strength")
         if rv.ledger_stolen:
             lines.append("his ledger sits in your safe — lean on it, or "
                          "hand it to the woman in the gray suit")

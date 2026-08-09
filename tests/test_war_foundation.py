@@ -384,5 +384,43 @@ class TestWorldStillWorks(unittest.TestCase):
                 war_target=key, declared_day=14, starting_strength=60))
 
 
+
+
+class TestAccruedPersistence(unittest.TestCase):
+    """Rev. 16 item 1 at the persistence boundary: 0 <= effective <=
+    accrued binds at load, and an older payload without the field
+    migrates to the stored magnitude — refused, never repaired."""
+
+    def _war_with_evidence(self):
+        state = war_state()
+        state.add_case(10, "a pattern of night jobs", kind="pattern")
+        return state
+
+    def test_effective_above_accrued_is_refused(self):
+        state = self._war_with_evidence()
+        d = save.state_to_dict(state)
+        d["evidence"][-1]["magnitude"] = \
+            d["evidence"][-1]["accrued"] + 1.0
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+
+    def test_a_negative_accrual_is_refused(self):
+        state = self._war_with_evidence()
+        d = save.state_to_dict(state)
+        d["evidence"][-1]["magnitude"] = 0.0
+        d["evidence"][-1]["accrued"] = -1.0
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+
+    def test_an_older_payload_without_accrued_migrates(self):
+        state = self._war_with_evidence()
+        d = save.state_to_dict(state)
+        for e in d["evidence"]:
+            e.pop("accrued")
+        restored = save.state_from_dict(d)
+        self.assertTrue(all(r.accrued == r.magnitude
+                            for r in restored.evidence))
+
+
 if __name__ == "__main__":
     unittest.main()

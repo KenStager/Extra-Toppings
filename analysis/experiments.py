@@ -18,6 +18,7 @@ from collections import Counter, defaultdict
 from typing import ClassVar
 
 from extra_toppings import data, escrow, market, phases, raids
+from extra_toppings import war as war_mod
 from extra_toppings.bot import (BOTS, CooldownRaiderBot, CounselOnlyBot,
                                 CrimeHeavyBot, EscrowBot, GreedyBot,
                                 KeepsStashBot, MarketBot, NeglectWarBot,
@@ -724,6 +725,14 @@ def _fork_war(seeds: int) -> None:
         gross: Counter = Counter()
         seen = {"n": None, "pre": None}
         amber_nights = {"n": 0}
+        # The pacing letter's exposure ledger (rev. 16 item 5) and the
+        # exposure-matched heat probe (item 7), both read at night:
+        # each incoming raid telegraph is one 0→armed transition of a
+        # rival's warning; injury exposure is crew-nights spent hurt;
+        # turf units are the day's sales on live-campaign turf.
+        prev_warn: dict = {}
+        exposure = {"retal": 0, "injury": 0, "turf_units": 0,
+                    "turf_amber": 0}
 
         def on_night(state, streams):
             nonlocal recon_bad, ledger_bad
@@ -741,23 +750,26 @@ def _fork_war(seeds: int) -> None:
                 from extra_toppings.models import district_heat_policy
                 if district_heat_policy(state, dk).band != "cool":
                     amber_nights["n"] += 1
+            for k, rv in state.rivals.items():
+                if prev_warn.get(k, 0) == 0 and rv.raid_warning > 0:
+                    exposure["retal"] += 1
+                prev_warn[k] = rv.raid_warning
+            exposure["injury"] += sum(
+                1 for e in state.hired() if e.injured_days > 0)
+            for c in state.branch_state.campaigns:
+                if c.broken_day is not None:
+                    continue
+                for dk, dspec in data.DISTRICTS.items():
+                    if dspec["rival"] == c.rival_key:
+                        exposure["turf_units"] += sum(
+                            state.districts[dk].sold_yesterday.values())
+                        if district_heat_policy(state, dk).band != "cool":
+                            exposure["turf_amber"] += 1
             if seen["n"] is None:
                 # First war night: everything before the lock-up count
                 # is pre-fork by construction (the scene adds nothing).
                 seen["n"] = state.sitdown_snapshot.evidence_count_at_lockup
                 seen["raids0"] = state.raids_led
-            # Gross accrual, captured at first sight (rev. 14 item 10:
-            # BEFORE remediation can halve it). Suspicion top-ups are
-            # remediation bookkeeping, not accrual — excluded. External
-            # witness records (empty source) are tallied separately:
-            # they are as immune as physical, and the thesis-level
-            # immune share [diagnostic] wants them counted.
-            for r in state.evidence[seen["n"]:]:
-                if r.kind != "suspicion":
-                    gross[r.kind] += r.magnitude
-                    if r.kind == "witness" and not r.source:
-                        gross["witness_ext"] += r.magnitude
-            seen["n"] = len(state.evidence)
             # The reconciliation oracle: campaign starting strength
             # minus current strength equals its records, exactly.
             for c in state.branch_state.campaigns:
@@ -788,12 +800,23 @@ def _fork_war(seeds: int) -> None:
         for c in camps:
             for dr in c.damage:
                 agg[dr.channel] += dr.hundredths
+        # Post-fork accrual read from the IMMUTABLE accrued field at
+        # the end of the run (rev. 16 item 1) — remediation can no
+        # longer make the denominator lie. Suspicion top-ups are
+        # remediation bookkeeping, excluded from both sums.
+        count = s.sitdown_snapshot.evidence_count_at_lockup
+        post = [r for r in s.evidence[count:] if r.kind != "suspicion"]
+        for r in post:
+            gross[r.kind] += r.accrued
+            if r.kind == "witness" and not r.source:
+                gross["witness_ext"] += r.accrued
         pp = gross.get("pattern", 0.0) + gross.get("physical", 0.0)
         g_total = sum(v for k, v in gross.items() if k != "witness_ext")
         immune = pp + gross.get("legacy", 0.0) + gross.get("witness_ext",
                                                            0.0)
-        good = s.game_over == "harbor_yours" or (
-            s.game_over == "survived" and len(broken) >= 2)
+        effective_total = sum(r.magnitude for r in post)
+        lockup_case = s.sitdown_snapshot.case_at_lockup
+        good = s.game_over in war_mod.GOOD_ENDINGS
         corner_h = sum(dr.hundredths for c in camps for dr in c.damage
                        if dr.channel == "corners")
         return {"entered": True, "ending": s.game_over, "ratio": ratio,
@@ -801,11 +824,24 @@ def _fork_war(seeds: int) -> None:
                 "pp_share": pp / g_total if g_total else None,
                 "immune_share": immune / g_total if g_total else None,
                 "gross": dict(gross), "g_total": g_total,
+                # The replaced evidence letter (rev. 16 item 6):
+                # remediation RESISTANCE, on true accruals.
+                "still_effective": (effective_total / g_total
+                                    if g_total else None),
+                "above_fork": s.case > lockup_case,
+                "second_front": len(camps) >= 2,
+                "salvage_collected": sum(
+                    1 for c in camps if c.salvage_day is not None),
                 "post_raids": s.raids_led - seen.get("raids0", s.raids_led),
                 "good": good, "recon_bad": recon_bad,
                 "ledger_bad": ledger_bad, "pre_hash": seen["pre"],
                 "amber_nights": amber_nights["n"],
                 "corner_damage": corner_h / 100,
+                "jobs_damage": agg.get("jobs", 0) / 100,
+                "retal_raids": exposure["retal"],
+                "injury_nights": exposure["injury"],
+                "turf_units": exposure["turf_units"],
+                "turf_amber": exposure["turf_amber"],
                 "war_pay": s.branch_state.war_pay_paid,
                 "short": s.branch_state.war_pay_short_nights}
 
@@ -823,6 +859,8 @@ def _fork_war(seeds: int) -> None:
         per_seed = {}
         amber_tot = 0
         corner_tot: list = []
+        still_eff: list = []
+        above_fork = second_fronts = salvage_n = second_caps = 0
         for seed in range(seeds):
             r = war_run(cls, seed)
             per_seed[seed] = r
@@ -840,6 +878,12 @@ def _fork_war(seeds: int) -> None:
                              "witness_ext"):
                     kind_shares[kind].append(
                         r["gross"].get(kind, 0.0) / r["g_total"])
+            if r["still_effective"] is not None:
+                still_eff.append(r["still_effective"])
+            above_fork += r["above_fork"]
+            second_fronts += r["second_front"]
+            salvage_n += r["salvage_collected"]
+            second_caps += r["broken"] >= 2
             post_raids.append(r["post_raids"])
             goods += r["good"]
             for m in r["mixes"]:
@@ -858,17 +902,28 @@ def _fork_war(seeds: int) -> None:
               f"({rate:.0%})")
         print(f"  median end strength vs fork-day "
               f"{statistics.median(ratios):.0%}")
+        if still_eff:
+            # The replaced evidence letter (rev. 16 item 6): the war
+            # resists remediation — measured on true accruals.
+            print(f"  remediation resistance: median "
+                  f"{statistics.median(still_eff):.0%} of post-fork "
+                  f"ACCRUED evidence still effective at the ending "
+                  f"(bar ≥ 50%); Case above fork-day despite remediation "
+                  f"in {above_fork}/{entered} "
+                  f"({above_fork / entered:.0%}; bar ≥ 60%)")
         if pp_shares:
-            print(f"  pattern+physical share of gross post-fork accrual: "
-                  f"median {statistics.median(pp_shares):.0%}")
+            print(f"  pattern+physical share of gross accrual "
+                  f"[decomposition, on accrued values]: median "
+                  f"{statistics.median(pp_shares):.0%}")
             kinds = " / ".join(
                 f"{k} {statistics.median(v):.0%}"
                 for k, v in kind_shares.items() if v and k != "immune")
             print(f"  gross accrual by kind, median shares "
                   f"[decomposition]: {kinds}")
-            print(f"  remediation-immune share (pattern + physical + "
-                  f"external witness) [diagnostic]: median "
-                  f"{statistics.median(kind_shares['immune']):.0%}")
+        print(f"  the second front [longitudinal]: declared in "
+              f"{second_fronts}/{entered}, salvage collected "
+              f"{salvage_n}, double captures {second_caps}, syndicate "
+              f"endings {endings.get('syndicate', 0)}")
         if post_raids:
             print(f"  post-fork jobs led: median "
                   f"{statistics.median(post_raids):.0f} "
@@ -918,10 +973,43 @@ def _fork_war(seeds: int) -> None:
     neglect = fleets["neglect"][0]
     print(f"raid-only trails mixed: {mixed:.0%} → {raid_only:.0%} "
           f"({(mixed - raid_only) * 100:.0f} points; bar ≥ 15)")
-    print(f"cooldown ablation drop: {mixed:.0%} → {cooldown:.0%} "
-          f"({(mixed - cooldown) * 100:.0f} points; bar ≥ 20)")
     print(f"restaurant-neglect trails mixed: {mixed:.0%} → {neglect:.0%} "
           f"({(mixed - neglect) * 100:.0f} points; bar ≥ 15)")
+
+    # The pacing letter (rev. 16 item 5): the 20-point cooldown bar is
+    # retired — pacing proves itself in a CONTROLLED equal-opportunity
+    # comparison on entry-identical seeds instead. Paced attacks must
+    # buy better applied jobs damage per committed crew-night and
+    # lower retaliation/injury exposure; and at 500 seeds the
+    # alertness-aware full policy must not trail the cooldown policy.
+    med = statistics.median
+    cool_seed = fleets["cooldown"][1]
+    per_cn: dict = {"paced": [], "cooldown": []}
+    retal: dict = {"paced": [], "cooldown": []}
+    injury: dict = {"paced": [], "cooldown": []}
+    for seed in range(seeds):
+        pair = {"paced": war_seed[seed], "cooldown": cool_seed[seed]}
+        if not all(r["entered"] for r in pair.values()):
+            continue
+        for label, r in pair.items():
+            if r["post_raids"]:
+                per_cn[label].append(r["jobs_damage"] / r["post_raids"])
+            retal[label].append(r["retal_raids"])
+            injury[label].append(r["injury_nights"])
+    if per_cn["paced"] and per_cn["cooldown"]:
+        print(f"pacing, controlled [equal-opportunity seeds]: applied "
+              f"jobs damage per committed crew-night — paced "
+              f"{med(per_cn['paced']):.1f} vs cooldown "
+              f"{med(per_cn['cooldown']):.1f} (paced must not trail); "
+              f"retaliation raids telegraphed per war — paced "
+              f"{med(retal['paced']):g} vs cooldown "
+              f"{med(retal['cooldown']):g}; injured-crew nights per "
+              f"war — paced {med(injury['paced']):g} vs cooldown "
+              f"{med(injury['cooldown']):g} (paced must run cooler on "
+              f"both)")
+    trail = "holds" if mixed >= cooldown else "TRAILS"
+    print(f"the full policy vs cooldown [binding at 500 seeds]: "
+          f"{mixed:.0%} vs {cooldown:.0%} — must not trail ({trail})")
 
     # The causal heat report (rev. 15): the same mixed fleet with the
     # district teeth neutralized — heat's contribution measured, not
@@ -936,7 +1024,6 @@ def _fork_war(seeds: int) -> None:
             "diagnostic: heat policy off — the causal report")
     finally:
         _models.HEAT_AMBER, _models.HEAT_RED = saved
-    med = statistics.median
     print(f"causal heat report [diagnostic]: teeth ON — "
           f"{war_amber} amber/red district-nights across the fleet, "
           f"median corner damage {med(war_corner) if war_corner else 0:g}, "
@@ -944,8 +1031,110 @@ def _fork_war(seeds: int) -> None:
           f"nights, median corner damage "
           f"{med(off_corner) if off_corner else 0:g}, branch-good "
           f"{off_rate:.0%}")
+    # Exposure-matched (rev. 16 item 7): the same seeds paired ON/OFF,
+    # restricted to wars whose LIVE TARGET TURF actually spent nights
+    # past cool — heat's consequence read where the exposure was
+    # (target-turf custom and the effective corner take), not demanded
+    # of a noisy global ending rate.
+    exp = [(war_seed[s], off_seed[s]) for s in range(seeds)
+           if war_seed[s]["entered"] and off_seed[s]["entered"]
+           and war_seed[s]["turf_amber"] > 0]
+    if exp:
+        print(f"heat, exposure-matched [{len(exp)} turf-amber seeds, "
+              f"paired ON/OFF]: target-turf units sold "
+              f"{med([a['turf_units'] for a, _ in exp]):g} vs "
+              f"{med([b['turf_units'] for _, b in exp]):g}; corner "
+              f"damage {med([a['corner_damage'] for a, _ in exp]):g} vs "
+              f"{med([b['corner_damage'] for _, b in exp]):g} — the "
+              f"burned neighborhood must cost custom (ON at or below "
+              f"OFF)")
+    else:
+        print("heat, exposure-matched: no turf-amber seeds at this "
+              "depth — the controlled probe below carries the causal "
+              "claim")
 
+    _heat_exposure_probe(trials=400)
     _raid_decline_at_war_cadence(trials=2000)
+
+
+def _heat_exposure_probe(trials: int = 400) -> None:
+    """Rev. 16 item 7's controlled arm: one route night on the live
+    target's turf — same shop, same cargo, same draws, and the SAME
+    55-point heat in both arms; the only difference is whether the
+    policy's teeth read that heat as amber. The legacy risk channel
+    cancels exactly (risk reads the heat VALUE, equal in both arms),
+    so what's left is the customer-pool coupling: halved stops and a
+    halved effective corner cap. Diagnostic patching, like the causal
+    report — the teeth constants restore before anything else runs."""
+    from extra_toppings import models as _models
+    from extra_toppings import routes as _routes
+    from extra_toppings.models import BranchState, set_relation
+    from extra_toppings.ui import Console
+
+    class _Sell(Console):
+        """Rides along, sells every stop, plays every stop cool."""
+        def __init__(self):
+            super().__init__()
+            self.quiet = True
+
+        def say(self, text=""):
+            pass
+
+        def bullet(self, text):
+            pass
+
+        def menu(self, prompt, options):
+            return 0
+
+    dk = "meadows"                 # the target's BIG turf: stops bind
+    target = data.DISTRICTS[dk]["rival"]
+
+    def night(seed, teeth):
+        saved = (_models.HEAT_AMBER, _models.HEAT_RED)
+        if not teeth:
+            _models.HEAT_AMBER = _models.HEAT_RED = 10 ** 9
+        try:
+            state = new_state()
+            state.day, state.act = 15, 2
+            state.debt, state.debt_paid_day = 0, 14
+            state.branch = "war"
+            state.branch_state = BranchState.war(
+                war_target=target, declared_day=14,
+                starting_strength=state.rivals[target].strength)
+            set_relation(state, target,
+                         min(state.rivals[target].relation,
+                             _models.VENDETTA_RELATION))
+            market.roll_prices(state, random.Random(9000 + seed))
+            state.districts[dk].heat = 55.0
+            driver = next(e for e in state.employees if e.hired)
+            plan = {"district": dk, "driver": driver,
+                    "cargo": {"oregano": 12, "mushrooms": 10,
+                              "hot_honey": 8},
+                    "legit": 10, "ride_along": True}
+            report = _routes.resolve_route(state, plan, _Sell(),
+                                           random.Random(seed))
+            camp = state.branch_state.campaigns[0]
+            corner = sum(dr.hundredths for dr in camp.damage
+                         if dr.channel == "corners") / 100
+            return report["sold"], corner
+        finally:
+            _models.HEAT_AMBER, _models.HEAT_RED = saved
+
+    on_sold, on_corner, off_sold, off_corner = [], [], [], []
+    for seed in range(trials):
+        sold, corner = night(seed, True)
+        on_sold.append(sold)
+        on_corner.append(corner)
+        sold, corner = night(seed, False)
+        off_sold.append(sold)
+        off_corner.append(corner)
+    m = statistics.mean
+    print(f"heat, controlled [one route night on {dk}, heat 55 in "
+          f"BOTH arms, {trials} paired trials]: units sold "
+          f"{m(on_sold):.1f} amber vs {m(off_sold):.1f} cool-read; "
+          f"corner damage {m(on_corner):.2f} vs {m(off_corner):.2f} — "
+          f"the halved customer pool must cost custom and cap the "
+          f"corner take")
 
 
 def _raid_decline_at_war_cadence(trials: int = 2000) -> None:

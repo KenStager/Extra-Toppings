@@ -867,3 +867,103 @@ class TestPostPayoffEconomy(unittest.TestCase):
         d = save.state_to_dict(state)
         with self.assertRaises(ValueError):
             save.state_from_dict(d)
+
+
+class TestRevision16Boundaries(unittest.TestCase):
+    """Rev. 16: the wagon really is owned by the one view at night,
+    the Syndicate epilogue renders from the damage ledger, and the
+    bot's intelligence is the morning board — never a stale global."""
+
+    def _two_front_war(self):
+        state = war_state()
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        marcus = next(e for e in state.employees
+                      if e.name.startswith("Marcus"))
+        rosa.hired = marcus.hired = True
+        break_target(state, "vinnie")
+        war.declare(state, "sal", Quiet())
+        return state, rosa, marcus
+
+    def test_a_salvage_night_denies_the_raid_the_wagon(self):
+        # The rev. 16 item 2 repro: route empty, salvage planned — the
+        # old expression read only the route and handed the raid a
+        # wagon that was out on the pickup all night.
+        state, rosa, marcus = self._two_front_war()
+        plans = {"route": None,
+                 "raid": {"rival": "sal", "objective": "steal_stock",
+                          "team": [marcus], "armed": False,
+                          "table_warned": True},
+                 "salvage": {"rival": "vinnie", "driver": rosa}}
+        phases.night(state, plans, {}, Scripted([6]), Streams(11))
+        self.assertIs(plans["raid"]["wagon_free"], False)
+
+    def test_a_free_night_hands_the_raid_the_wagon(self):
+        state, _rosa, marcus = self._two_front_war()
+        plans = {"route": None, "salvage": None,
+                 "raid": {"rival": "sal", "objective": "steal_stock",
+                          "team": [marcus], "armed": False,
+                          "table_warned": True}}
+        phases.night(state, plans, {}, Scripted([6]), Streams(11))
+        self.assertIs(plans["raid"]["wagon_free"], True)
+
+    def test_the_syndicate_epilogue_reads_the_damage_ledger(self):
+        # Jobs-only campaigns: the ending names the night jobs and no
+        # one else — no prosecutor, no stolen ledger (rev. 16 item 8).
+        state = war_state()
+        break_target(state, "vinnie")
+        war.declare(state, "sal", Quiet())
+        break_target(state, "sal")
+        state.game_over = "syndicate"
+        con = Quiet()
+        game.epilogue(state, con)
+        self.assertIsNotNone(con.find("night jobs"))
+        self.assertIsNone(con.find("gray suit"))
+        self.assertIsNone(con.find("stolen ledger"))
+
+    def test_the_prosecutor_appears_only_for_a_prosecution(self):
+        state = war_state()
+        apply_rival_damage(state, "vinnie", "ledger", LEDGER_LAW_STRENGTH)
+        live_campaign(state, "vinnie").violence_raised = True
+        break_target(state, "vinnie")
+        war.declare(state, "sal", Quiet())
+        break_target(state, "sal")
+        state.game_over = "syndicate"
+        con = Quiet()
+        game.epilogue(state, con)
+        self.assertIsNotNone(con.find("gray suit"))
+
+    def test_a_spent_ledger_without_the_law_stays_a_ledger(self):
+        state = war_state()
+        apply_rival_damage(state, "vinnie", "ledger", LEDGER_LEAN_STRENGTH)
+        break_target(state, "vinnie")
+        war.declare(state, "sal", Quiet())
+        break_target(state, "sal")
+        state.game_over = "syndicate"
+        con = Quiet()
+        game.epilogue(state, con)
+        self.assertIsNotNone(con.find("stolen ledger"))
+        self.assertIsNone(con.find("gray suit"))
+
+    def test_the_bot_reads_the_live_target_from_the_board(self):
+        import random
+        from extra_toppings.bot import WarBot
+        bot = WarBot(random.Random(0))
+        bot._at_war = True
+        bot.say("DAY 20 of 30 — MORNING")
+        bot.say("  SAL — strength 40.0 of 55.0, security wary, "
+                "ovens intact")
+        self.assertEqual(bot._live_target, "Sal")
+        pick = bot._special_menu("Run today's route where?",
+                                 ["Old Harbor — Vinnie's turf",
+                                  "Little Sicily — Sal's turf",
+                                  "University — open ground",
+                                  "Back"])
+        self.assertEqual(pick, 1)
+        # The board is MORNING-SCOPED: a new morning clears it until
+        # the new board is read — no stale target survives the night.
+        bot.say("DAY 21 of 30 — MORNING")
+        self.assertIsNone(bot._live_target)
+
+
+if __name__ == "__main__":
+    unittest.main()

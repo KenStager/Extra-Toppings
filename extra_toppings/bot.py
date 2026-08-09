@@ -668,7 +668,7 @@ class WarBot(MarketBot):
         self._security = ""
         self._outage = False
         self._has_ledger = False
-        self._target_broken = False
+        self._live_target: str | None = None
         self._fatal_ground = False
         self._last_job_day = -9
         self._read_ins = 0
@@ -680,16 +680,22 @@ class WarBot(MarketBot):
             self._at_war = True
             self._entered_war = True         # latched for the harness
         if self._at_war:
-            m = re.match(r"[A-Z]+ — strength [\d.]+ of [\d.]+, "
+            if "— MORNING" in text:
+                # Board state is MORNING-SCOPED (rev. 16 item 4): the
+                # old global broken flag outlived the first campaign
+                # and froze the second front — after declaring on Sal
+                # the bot stopped pursuing jobs and corners entirely.
+                self._live_target = None
+                self._security = ""
+                self._outage = False
+                self._has_ledger = False
+                self._fatal_ground = False
+            m = re.match(r"([A-Z]+) — strength [\d.]+ of [\d.]+, "
                          r"security (\w+), ovens (intact|cold)", s)
             if m:
-                self._security = m.group(1)
-                self._outage = m.group(2) == "cold"
-            if "broke on day" in s:
-                self._target_broken = True
-                # A dead man's ledger is worthless — the board re-sets
-                # the flag if a NEW target's ledger lands in the safe.
-                self._has_ledger = False
+                self._live_target = m.group(1).capitalize()
+                self._security = m.group(2)
+                self._outage = m.group(3) == "cold"
             if "ledger sits in your safe" in s:
                 self._has_ledger = True
             if "woman in the gray suit reads" in s \
@@ -697,8 +703,6 @@ class WarBot(MarketBot):
                 self._has_ledger = False
             if "The shop is already hurt" in s:
                 self._fatal_ground = True
-            if "— MORNING" in text:
-                self._fatal_ground = False
         super().say(text)
 
     def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
@@ -714,14 +718,17 @@ class WarBot(MarketBot):
         return len(options) - 1
 
     def _wants_job(self) -> bool:
-        if self._target_broken:
+        if self._live_target is None:
             return False
         if not self.pace_raids:
             # The grind, measured: a job EVERY night the cooldown
             # allows, the security word never consulted.
             return self.day - self._last_job_day >= 1
+        # Window-rational pacing (rev. 16 item 5): a full-price job
+        # whenever the window is OPEN — the two-night gap forgave
+        # open windows the world had already priced.
         return self._security in ("sleepy", "wary") \
-            and self.day - self._last_job_day >= 2
+            and self.day - self._last_job_day >= 1
 
     def _score(self, label: str) -> float:
         if self._at_war:
@@ -814,17 +821,23 @@ class WarBot(MarketBot):
                     return 1
                 return 0
             if prompt.startswith("Run today's route where?"):
-                turf_ok = (self.use_corners and not self._target_broken)
+                # Campaign-aware turf (rev. 16 item 4): the live
+                # target's name comes off the board, never a
+                # hardcoded rival.
+                turf = (f"{self._live_target}'s turf"
+                        if self._live_target else "")
+                turf_ok = self.use_corners and bool(turf)
                 best = None
                 for i, o in enumerate(options[:-1]):
                     if "[RED]" in o:
                         continue
-                    if turf_ok and "Vinnie's turf" in o:
+                    if turf_ok and turf in o:
                         if self._outage:
                             return i          # the window is open
                         best = i if best is None else best
-                    elif not turf_ok and "Vinnie's turf" not in o:
-                        best = i if best is None else best
+                    elif not turf or turf not in o:
+                        if not turf_ok and best is None:
+                            best = i
                 if best is not None:
                     return best
                 return super()._special_menu(prompt, options)

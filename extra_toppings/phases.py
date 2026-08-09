@@ -779,7 +779,12 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             if len(team) < len(raid_plan["team"]):
                 con.say("  The crew is short tonight; the job goes ahead anyway.")
             raid_plan["team"] = team
-            raid_plan["wagon_free"] = plans.get("route") is None
+            # The assignment view answers at execution exactly as it
+            # did at planning (rev. 16 item 2): the wagon belongs to
+            # the raid only when NEITHER committed wagon job owns it —
+            # a route scrubbed at commit freed it; a salvage plan
+            # holds it all night.
+            raid_plan["wagon_free"] = wagon_job(plans) is None
             # §2.1 rev. 4: the day's takings can put payoff in reach
             # after the job was planned — recheck once, before it runs.
             if not raid_plan.get("table_warned") and state.payoff_in_reach():
@@ -897,6 +902,8 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     elif state.branch == "war" and not state.game_over:
         war.night_obligation(state, con, payroll_short)
         war.night_insolvency(state, con, payroll_short)
+    elif state.branch == "quiet_sale" and not state.game_over:
+        escrow.night_insolvency(state, con, payroll_short)
 
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))

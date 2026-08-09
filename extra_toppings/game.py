@@ -198,11 +198,29 @@ def epilogue(state: State, con: Console) -> None:
   You keep your legs — a courtesy, he says, to your uncle.
   ENDING: The debt came due.""")
     elif e == "syndicate":
-        con.say("""
+        # The ending renders from the campaign damage ledger (rev. 16
+        # item 8): it names only the channels this player actually
+        # used, and the prosecutor appears only when the prosecution
+        # happened.
+        used = {dr.channel for c in war.campaigns(state)
+                for dr in c.damage}
+        bits = [label for ch, label in (
+            ("jobs", "night jobs"), ("corners", "corner routes"),
+            ("ovens", "cold ovens"), ("defense", "a defended door"))
+            if ch in used]
+        if "ledger" in used:
+            bits.append("a woman in a gray suit who thinks you're a "
+                        "very lucky bystander"
+                        if any(c.violence_raised
+                               for c in war.campaigns(state))
+                        else "a stolen ledger spent to the last page")
+        how = ", ".join(bits[:-1]) + (" and " + bits[-1]
+                                      if len(bits) > 1 else
+                                      (bits[0] if bits else "patience"))
+        con.say(f"""
   Moretti's is a mattress store now. Vinnie's is a parking lot. You
   declared both wars at a breakfast table and finished both before the
-  month did — jobs, corners, cold ovens, and a woman in a gray suit
-  who thinks you're a very lucky bystander. Every warmer bag in the
+  month did — {how}. Every warmer bag in the
   city rides in one of your wagons.
   ENDING: The syndicate. Nothing moves without extra toppings.""")
     elif e == "burned_out":
