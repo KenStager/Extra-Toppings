@@ -2022,6 +2022,18 @@ byte-identical at both depths (the validators refuse only what
 gameplay never produces). The chair stays unreleased; the head
 returns for the short final review.
 
+**Proof-seam addendum (the final hold's one blocker).** The
+`_doctored` negative-persistence helper predated the reconciliation
+and built a baseline that already failed it — five negative tests
+could pass before their mutation was examined. Root-fixed: the
+helper builds a LEGAL job history (raid record included), PROVES the
+untouched payload round-trips to the byte, then mutates a separate
+deep copy and asserts rejection against the relevant error family —
+"does not reconcile", "vendetta band", "integer number of
+hundredths", "malformed campaign payload" — so each rejection is
+caused by the mutation under test and nothing else. Test-only; no
+engine file moved.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P2 complete, merged and

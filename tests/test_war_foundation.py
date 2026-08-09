@@ -347,35 +347,52 @@ class TestWarPersistence(unittest.TestCase):
         self.assertEqual(restored.branch_state, state.branch_state)
         self.assertEqual(save.state_to_dict(restored), d)
 
-    def _doctored(self, mutate):
+    def _doctored(self, mutate, expect):
+        """A negative-persistence probe that PROVES ITS BASELINE
+        (rev. 20 final hold): the pristine payload — a LEGAL job
+        history, raid record included — must round-trip clean first,
+        so the later rejection is caused by the mutation under test
+        and nothing else. The mutation lands on a separate copy."""
+        import copy
+        from extra_toppings.models import RaidAttemptRecord
         state = war_state()
+        before = round(state.rivals["vinnie"].strength * 100)
         apply_rival_damage(state, "vinnie", "jobs", RAID_STOCK_STRENGTH)
+        state.raid_log.append(RaidAttemptRecord(
+            day=state.day, rival="vinnie", outcome="succeeded", crew=2,
+            damage_h=before - round(state.rivals["vinnie"].strength
+                                    * 100)))
         d = save.state_to_dict(state)
-        mutate(d)
-        with self.assertRaises(ValueError):
-            save.state_from_dict(d)
+        restored = save.state_from_dict(copy.deepcopy(d))
+        self.assertEqual(save.state_to_dict(restored), d)
+        doctored = copy.deepcopy(d)
+        mutate(doctored)
+        with self.assertRaisesRegex(ValueError, expect):
+            save.state_from_dict(doctored)
 
     def test_reconciliation_binds_at_the_persistence_boundary(self):
         # The world says one strength, the records say another.
         self._doctored(lambda d: d["rivals"]["vinnie"].__setitem__(
-            "strength", 70))
+            "strength", 70), expect="does not reconcile")
 
     def test_the_vendetta_lock_binds_at_the_persistence_boundary(self):
         self._doctored(lambda d: d["rivals"]["vinnie"].__setitem__(
-            "relation", 0))
+            "relation", 0), expect="vendetta band")
 
     def test_fractional_hundredths_are_refused(self):
         self._doctored(lambda d: d["branch_state"]["campaigns"][0]
-                       ["damage"][0].__setitem__("hundredths", 120.5))
+                       ["damage"][0].__setitem__("hundredths", 120.5),
+                       expect="integer number of hundredths")
 
     def test_unknown_campaign_fields_are_refused(self):
         self._doctored(lambda d: d["branch_state"]["campaigns"][0]
-                       .__setitem__("morale", 9))
+                       .__setitem__("morale", 9),
+                       expect="malformed campaign payload")
 
     def test_a_dead_rival_needs_its_capture_recorded(self):
         def mutate(d):
             d["rivals"]["vinnie"]["strength"] = 0
-        self._doctored(mutate)
+        self._doctored(mutate, expect="does not reconcile")
 
     def test_war_fields_on_another_branch_are_refused(self):
         state = new_state()
