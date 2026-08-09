@@ -1648,6 +1648,123 @@ $752 → $675±32 → $607±30; paired repayment +$120±15 / +$194±18).
 The chair remains unreleased; the neglect miss, the slack evidence
 margins and the heat rarity finding go to review.
 
+### Round 10 correction 3 (re-review — design rev. 17)
+
+Review independently confirmed every rev. 16 check and number, then
+ruled that one core product contract and several instruments encode
+the wrong model. All corrected per revision 17, recorded on paper
+first. Fifteen new pins land failing-then-passing on their pre-fix
+engines (three capacity pins at the inventory commit; eight
+instrument pins at the instruments commit; the passers pin behavior
+that was already correct).
+
+**The wagon gets one coherent inventory model — and the golden is
+deliberately versioned.** The player's report was exactly right: 12
+Extra Oregano (bulk 2) fills all 24 slots, the planner's
+disappearing prompts made a full wagon look like the end of
+planning, and the unexplained `min(12, …)` capped pizza-only routes
+at half the wagon README always promised. One typed `RouteManifest`
+now owns cargo bulk, pizza bulk, remaining capacity and validation;
+the cap is gone (a 24-order pizza wagon loads 24 — pinned);
+over-capacity manifests are refused at commit AND at resolution
+(the reviewer's 52-slot dictionary is a pinned refusal); the
+planner is an editable manifest walk — every product visible every
+pass, disabled rows carrying their reasons, the load printed as
+units × bulk each = bulk used, revisable until confirmed; the back
+room and warehouse read the same arithmetic on the market board.
+The golden trace was then regenerated ONCE, as the sanctioned,
+versioned act: the old golden — which pinned the 12-pizza defect,
+and correctly fails 21/300 against the corrected engine — is
+retired by name (9c8222969adc365cebb0889658e28b57), the new trace
+is c8764f46077e99d1dee05dc1713014f3, and the never-regenerate rule
+resumes over it. The paired stand-pat gate held across the change
+(300/300, 82/82) and the equivalence projection now pins districts
+to the explicit v2 shape so post-v2 fields can never leak into a
+digest again.
+
+**The batteries moved in what they measure, nothing else.** Every
+gameplay row at both depths — entries, endings, closes, valuation,
+every Straight and Sale and war fleet count — is byte-identical to
+the rev. 16 run: the bots' answers map one-to-one onto the manifest
+walk (they never requested past the old cap, the walk asks the same
+prompts in the same order, and the confirm consumes no RNG). The
+inventory defect was a PLAYER-facing wall, which is exactly why
+three rounds of bot fleets never hit it.
+
+**Withdrawn numbers, rerun on honest instruments:**
+
+- *Pacing (the attempt ledger).* The impossible 12.8 was successful
+  raids only, with a baseline that dropped first-night successes.
+  Outgoing jobs now book append-only attempt records (day, rival,
+  scrubbed/failed/succeeded, committed crew, actual applied damage);
+  the study divides by attempted job-nights and person-nights, first
+  war night included. At 500: applied strength damage per attempted
+  job-night **8.7 paced vs 6.1 cooldown**; per person-night **4.3 vs
+  3.7**; scrubbed jobs 0 vs 13; injured-crew nights 5 vs 7;
+  retaliation telegraphs 2 vs 2. Post-fork jobs run median 4 (the
+  old "3 led" undercounted attempts). The full policy still does
+  not trail at the binding depth: **57% vs 53%**.
+- *Evidence (three quantities, one canonical view).* The withdrawn
+  98% returns named as what it is: median **98% of post-fork
+  accrued evidence survives as PERMANENT residue** after contests
+  and settlements (the rev. 16 bar, ≥ 50%), with **live effective
+  after retention relief** reported beside it — also 98% for these
+  fleets, because a war-pay-short, morale-bled roster holds almost
+  no PROTECTED witnesses, so live relief has nothing to halve. The
+  reviewer's divergence case (accrued 20 / residue 20 / live 10) is
+  real and pinned in test through `evidence.ledger_quantities`,
+  which the docket's own relief allocation prices. Case above
+  fork-day: 258/258 (bar ≥ 60%).
+- *Heat (a legal route).* The 15.8/21.1 probe ran 52 slots in a
+  24-slot wagon; withdrawn. Rerun through a legal 24-slot
+  RouteManifest: **12.0 units sold under amber vs 17.5 cool-read,
+  corner damage 1.63 vs 2.62** (400 paired trials, heat 55 in both
+  arms). The organic rows, now reading actual route sales from
+  their own field (`District.route_sold` — `sold_yesterday` is a
+  price signal that stock raids overwrite with −8 shortages),
+  still show what they showed: 59/258 wars ever see target turf
+  past cool and their paired medians do not move. Heat is priced
+  at the route; its organic rarity stands as a finding.
+- *The wagon at night (execution truth).* `run_salvage` returns a
+  typed SalvageResult; the night's wagon question reads the
+  execution result off the service report — a pickup scrubbed
+  before departure never took the wagon out (pinned), a departed
+  pickup still holds it (pinned), and a missing record fails toward
+  a busy wagon, never a phantom grant (pinned).
+
+**The replaced neglect letter — the empire bar — passes.** At 500
+seeds, unconditional Syndicate rate: **maintained 26% (68/258) vs
+neglect 0% (26 points; bar ≥ 15)**. The decomposition ships per
+fleet: neglect converts 0 of 119 second fronts into a second
+capture (the mixed fleet converts 69 of 149), burns out 43 vs 30,
+runs 768 war-pay-short nights vs 482, and bleeds cold witnesses
+(50% of accrued gross). Branch-good (11-point gap) remains as
+decomposition — the street fight a hollow restaurant can still
+win.
+
+**The corrected war gate under the rev. 17 letters** (150 seeds,
+500 in parentheses):
+
+| Row | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Ablation entry identity | 0 divergent | 0 (0) — 79 (258) entered in every fleet | pass |
+| Crash-freedom | all | 150/150 (500/500) | pass |
+| Median end strength | ≤ 50% | 0% (0%) | pass |
+| Permanent-residue share of accrued | ≥ 50% (proposed) | 98% (98%) | pass |
+| Case above fork-day despite remediation | ≥ 60% (proposed) | 100% (100%) | pass |
+| Channel mix over 60% | 0 | 0 (0) | pass |
+| Branch-good band | 25–70% | 53% (57%) | pass |
+| Raid-only trails | ≥ 15 | 44 (45) | pass |
+| Full policy vs cooldown | must not trail at 500 | +2 (**+4**) | pass |
+| The empire letter (Syndicate-rate gap) | ≥ 15 at 500 | 22 (**26**) | **pass** |
+| Reconciliation + transparency | 0 bad | 0 (0) | pass |
+
+Verification: 498 tests, ruff and mypy clean on 3.11 and 3.12;
+both identity gates 300/300 on 3.11, 3.12 AND 3.13 against the
+versioned golden; ablation entry identity zero; the decline curve
+unchanged. The chair remains unreleased and no PR is opened — the
+instruments are honest now, and the rulings are the reviewer's.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P2 complete, merged and
@@ -1682,10 +1799,17 @@ margins and the heat rarity finding go to review.
   trails by 11 against ≥ 15 (decomposed — window-rational jobs
   lifted every fleet; the shop's load now binds at the second front,
   where neglect completes zero double captures, not at the one-target
-  bar). Heat is priced at the route (controlled probe: 15.8 vs 21.1
-  units, 1.72 vs 2.92 corner damage under equal heat) but turf-amber
-  and turf-route nights rarely coincide organically. The chair stays
-  unreleased; the rulings are the reviewer's.
+  bar). **The rev. 17 pass (correction 3) then fixed the core
+  inventory model (one typed RouteManifest, the 12-pizza cap gone,
+  the golden deliberately versioned — the one sanctioned
+  regeneration) and made the instruments honest: pacing from the
+  attempt ledger (8.7 vs 6.1 per attempted job-night at 500), the
+  three evidence quantities from one canonical view (98% permanent
+  residue), heat on a legal manifest (12.0 vs 17.5 units), the
+  night's wagon reading execution results — and the replaced empire
+  letter passes (Syndicate-rate gap 26 points at 500 vs bar ≥ 15).
+  Every gameplay battery row is byte-identical through the change.**
+  The chair stays unreleased; the rulings are the reviewer's.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
