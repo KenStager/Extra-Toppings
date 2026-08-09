@@ -1084,19 +1084,101 @@ ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
 ensembles reproduce round 8 to the digit at 150 and 500 seeds. The
 Quiet Sale's flag remains down pending the re-review's explicit word.
 
+### Round 9 correction 2 (re-review — the monotone ledger, design rev. 11)
+
+Re-review reproduced every correction-1 number, accepted all eight
+rev. 10 corrections in architecture, ruled on both flags (no criterion
+amendment: the natural paired bar passes as written and must re-clear
+after this fix; the redemption exit rate is not a failure and gets no
+band) — and found the replacement ledger **non-monotone at the
+floor**, plus a disposition authority still answering without the
+state to know. Both fixed at the root, recorded as revision 11 on
+paper first.
+
+- **Case arithmetic is monotone again.** The all-or-nothing relief
+  allocation moved the meter the wrong way at the boundary, both
+  directions reproduced by review: one point of NEW paper dropped
+  Case 15 → 10 (the bigger allowance let a too-big halving suddenly
+  fit), and a −2.46 contest RAISED Case 10.1 → 13.6 (the shrunken
+  allowance evicted it). `dormant_relief` now allocates per record
+  and PARTIALLY at the boundary — cut = min(half the magnitude,
+  allowance remaining) in ledger order — so total relief is exactly
+  min(halvable, raw − floor) and the display can only move the way
+  the design promises. All six ruled properties are pinned, the two
+  repros among them: accrual never lowers, remediation never raises,
+  losing protection never lowers, gaining it never raises, docket
+  effective magnitudes sum to the meter, and floor-limited partial
+  relief renders honestly ("loyalty holds part of it down; the floor
+  limits the rest"). The fold, the docket, the settlement lock-in
+  (free portion = tonight's actual cut; paid portion = the rest of
+  the halving, cap-scaled per record) and the independent oracle all
+  consume the one allocation contract.
+- **The witness relationship has one authority, and the lifecycle is
+  closed.** `models.witness_status` (settled / beyond_reach /
+  protected / reachable) now feeds a context-aware
+  `remediation_disposition`: a settled or arrested source no longer
+  renders "a settlement can reach this" — the review's four repros
+  are pinned. Per the ruling, **settled-out names never rehire on
+  the Straight Path**: the real staff menu refuses them and a
+  settled-and-hired payload is refused at load, alongside duplicate
+  employee keys and witness testimony sourced to the never-read-in.
+- **The docket keeps round 6's promise**: storage stays per-tick,
+  the display rolls the routine hum into one line with its entry
+  count and exact totals; the counsel status line says "cap
+  exhausted" or "the floor holds" instead of naming a target no
+  contest can reach.
+- **The reporter tells the truth.** The cohort contract is an
+  explicit spec: only binding numbers print as bars; the natural
+  cohort's absolute ΔCase and the redemption cohort's exit rate
+  print as reported; every dirty-month and single-verb line is
+  tagged [diagnostic]. (The relabeling also surfaced a harness bug:
+  the dirty-month ablation bot had kept remediating after its flag
+  was renamed — fixed; its drop reads 13–14 points again.)
+
+**The gate after the fold correction — the ruling's condition was
+that the natural paired bar re-clear, and it does** (150 seeds,
+`--seeds 500` in parentheses):
+
+| Cohort / row | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Natural: reachability | ≥ 55% | 57% (56%) | pass |
+| Natural: earned-exit band | 25–70% | 48% (43%) | pass |
+| Natural: covert share after fork+2 | < 5% | 0.0% (0.0%) | pass |
+| Natural: paired — remediation leaves the file lower | ≥ 60% | 55/85 = **65%** (172/280 = **61%**) | pass |
+| Natural: ledger + floor oracles | 0 bad | 0 (0) | pass |
+| Redemption: median ΔCase fork→end | ≤ −5 | −10.0 (−10.0) | pass |
+| Redemption: strictly below entry | ≥ 60% | 99% (99%) | pass |
+| Redemption: ablation drop | ≥ 20 pts | 80 (76) | pass |
+| Crash-freedom (both fleets) | all | 300/300 (1000/1000) | pass |
+| Quiet Sale battery | round-8 rows | identical | pass |
+
+The single-verb diagnostics (not bars) say what each verb is worth:
+counsel alone pulls the reference file −7.0 with 96–97% strictly
+below but exits 0% — the hostile witness stays unsettled; settlements
+alone exit 75–79% at ΔCase +2.0 — the goal term without the
+arithmetic. The two verbs are load-bearing in different terms, which
+is the §2.3 design working as written.
+
+After correction 2: 327 tests green on 3.11 and 3.12 (11 new);
+ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11, 3.12 and 3.13; the escrow
+ensembles reproduce round 8 to the digit at both depths. No PR is
+open and the Quiet Sale's flag stays down — both wait for the merge
+disposition.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0 and P1 are complete and merged
   (P0 foundation + telegraphs, rounds 6–7; P1a fork skeleton + P1b
   Quiet Sale, round 8 with corrections 1–6). **P2 — the Straight Path
-  — is implemented, measured (round 9), corrected under review
-  (rev. 10), and its two-cohort gate now passes** — natural-entry
-  rows green with the paired ≥ 60% bar, redemption cohort green on
-  the original letter (ΔCase −10.0 median, 99% strictly below,
-  76–80-point ablation). Awaiting the re-review's verdict on the
-  correction pass; **the Quiet Sale's flag has NOT lifted and no PR
-  is open** — both wait for the reviewer's explicit word, per the
-  disposition. P3 (the Harbor War) stays paused until then.
+  — is implemented, measured (round 9), and corrected twice under
+  review (rev. 10, rev. 11: the monotone ledger and the closed
+  witness lifecycle); its two-cohort gate passes with the natural
+  paired bar re-cleared after the fold fix** (65%/61% against ≥ 60%;
+  redemption −10.0 median, 99% strictly below, 76–80-point ablation).
+  Awaiting the merge disposition; **the Quiet Sale's flag has NOT
+  lifted and no PR is open** — both wait for the reviewer's explicit
+  word. P3 (the Harbor War) stays paused until then.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
