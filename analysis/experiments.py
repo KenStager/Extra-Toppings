@@ -387,17 +387,36 @@ def fork(seeds: int) -> None:
     _fork_straight(seeds)
 
 
-def _display_fold(evidence) -> float:
-    """The ledger-transparency oracle (§2.7 criterion 4): an
-    INDEPENDENT recomputation of what the visible records display —
-    left to right, dormant records at half weight, clamped — asserted
-    equal to the meter every night. Deliberately reimplemented here
+def _display_case(state) -> float:
+    """The ledger-transparency oracle (§2.7 criterion 4, context-aware
+    per rev. 10): an INDEPENDENT recomputation of what the visible
+    records display — the raw left-to-right sum, less the derived
+    retention relief (protected sources from the live roster, halvings
+    allocated in ledger order within raw-total-minus-floor, subtracted
+    in that same order), clamped. Deliberately reimplemented here
     rather than imported, the way the golden harness reimplements the
     legacy projection."""
+    settled = set(state.branch_state.settled_witnesses) \
+        if state.branch_state is not None else set()
+    protected = {e.key for e in state.employees
+                 if e.hired and e.aware and e.morale >= 5
+                 and e.key not in settled}
     total = 0.0
-    for r in evidence:
-        total += r.magnitude * 0.5 if r.dormant else r.magnitude
-    return max(0.0, min(100.0, total))
+    for r in state.evidence:
+        total += r.magnitude
+    display = total
+    if protected and total > 10.0:
+        allowance = total - 10.0
+        acc = 0.0
+        for r in state.evidence:
+            if r.kind == "witness" and r.source in protected:
+                cut = r.magnitude * 0.5
+                if acc + cut <= allowance:
+                    acc += cut
+                    display -= cut
+                else:
+                    break
+    return max(0.0, min(100.0, display))
 
 
 def _fork_straight(seeds: int) -> None:
@@ -433,7 +452,7 @@ def _fork_straight(seeds: int) -> None:
             nonlocal ledger_bad, floor_bad
             if state.branch != "straight" or state.branch_state is None:
                 return
-            if state.case != _display_fold(state.evidence):
+            if state.case != _display_case(state):
                 ledger_bad += 1
             if state.branch_state.remediation_used > 0 \
                     and state.case < 10.0:

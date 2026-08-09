@@ -137,6 +137,7 @@ def _straight_morning_menu(state: State, con: Console, streams: Streams,
             "Staff (hire, read in, raises)",
             "Improvements & warehouse",
             f"Disposal (runs left: {bs.disposal_runs_left})",
+            "The case file (counsel's docket)",
             "Open for service →",
         ]
         c = con.menu("Morning at the shop:", options)
@@ -157,6 +158,8 @@ def _straight_morning_menu(state: State, con: Console, streams: Streams,
             fire_sale_done = _disposal_menu(state, con, streams, plans,
                                             fire_sale_done)
         elif c == 7:
+            straight.show_case_file(state, con)
+        elif c == 8:
             break
 
 

@@ -94,8 +94,10 @@ def _plant(state: State, rival, spec: dict, con: Console, rng: random.Random) ->
     con.bullet("An anonymous tip sends a patrol crawling past your block all night.")
     state.add_heat(data.HOME_DISTRICT, 12)
     if rng.random() < 0.3:
+        # Paper, not witness (rev. 10 ruling): a tip in a file is an
+        # intelligence report, not testimony — counsel can argue it.
         state.add_case(4, "an informant's tip put your shop in a file",
-                       kind="witness")
+                       kind="paper")
 
 
 def negotiate(state: State, con: Console, rng: random.Random) -> None:

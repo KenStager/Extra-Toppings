@@ -17,7 +17,8 @@ from dataclasses import asdict
 from . import data
 from .models import (ActiveEvent, BranchState, District, Employee, Evidence,
                      Rival, Shop, SitdownSnapshot, State,
-                     validate_branch_state, validate_evidence)
+                     validate_branch_state, validate_cross_state,
+                     validate_evidence)
 from .rng import Streams
 
 SAVE_VERSION = 3
@@ -128,11 +129,13 @@ def state_from_dict(d: dict) -> State:
     # mixed, impossible, or terminally-contradictory combination is
     # refused, not repaired (the severance state machine binds here,
     # including the sold-cannot-be-pending terminal invariant). The
-    # evidence ledger has its own persistence contract (rev. 9): a
-    # negative magnitude or misapplied dormancy is refused the same way.
+    # evidence ledger has its own persistence contract (rev. 9), and
+    # the whole payload must cohere across ledger, roster, settlements
+    # and branch state (rev. 10) — refused, not repaired.
     validate_branch_state(state.branch, state.branch_state,
                           game_over=state.game_over)
     validate_evidence(state.evidence)
+    validate_cross_state(state)
     return state
 
 

@@ -6,11 +6,12 @@ contracts for all of it."""
 import unittest
 
 from extra_toppings import evidence as ev
-from extra_toppings import phases, save, sitdown
+from extra_toppings import phases, save, sitdown, straight
 from extra_toppings.models import (CASE_FLOOR, REMEDIATION_CAP, BranchState,
                                    Evidence, case_prefix, fold_case,
                                    new_state, validate_branch_state,
                                    validate_evidence)
+from extra_toppings.models import remediation_disposition as models_disposition
 from extra_toppings.rng import Streams
 from extra_toppings.ui import Console
 
@@ -32,11 +33,13 @@ class Quiet(Console):
 
 
 def straight_state():
+    from extra_toppings.models import SitdownSnapshot
     state = new_state()
     state.debt = 0
     state.debt_paid_day = 13
     state.day = 14
     state.act = 2
+    state.sitdown_snapshot = SitdownSnapshot(13, 0.0, 0)
     state.branch = "straight"
     state.branch_state = BranchState.straight()
     validate_branch_state(state.branch, state.branch_state)
@@ -74,15 +77,18 @@ class TestPrefixIterator(unittest.TestCase):
                                          len(state.evidence), 60.0),
             "the crossing record")
 
-    def test_dormant_records_count_at_half_weight_everywhere(self):
+    def test_derived_protection_halves_at_fold_time_only(self):
+        # Rev. 10: dormancy is context, not state — the fold halves a
+        # protected source's records; the prefix scans stay raw (they
+        # only run pre-branch, where protection cannot exist).
         records = [
             Evidence(day=1, magnitude=40.0, kind="witness", why="w",
-                     source="e0", dormant=True),
+                     source="e0"),
             Evidence(day=2, magnitude=45.0, kind="paper", why="p"),
         ]
-        self.assertEqual(fold_case(records), 65.0)
-        # The prefix crossing honors dormancy too: 20 + 45 = 65 crosses
-        # 60 at the SECOND record, not the first.
+        self.assertEqual(fold_case(records), 85.0)
+        self.assertEqual(fold_case(records, frozenset({"e0"})), 65.0)
+        # Raw prefix: 40 crosses 60 at the second record regardless.
         self.assertEqual(
             sitdown.gate_crossing_record(records, 2, 60.0), "p")
 
@@ -210,8 +216,10 @@ class TestSettlements(unittest.TestCase):
         self.assertIn(e.key, state.branch_state.settled_witnesses)
         record = state.evidence[0]
         self.assertAlmostEqual(record.magnitude, 4.0)
-        self.assertFalse(record.dormant)
         self.assertAlmostEqual(state.branch_state.remediation_used, 4.0)
+        # Two outcomes, both stated (rev. 10 item 6).
+        self.assertIsNotNone(con.find("peace is bought"))
+        self.assertIsNotNone(con.find("go dormant for good"))
 
     def test_settling_out_a_current_witness_books_no_firing_record(self):
         state = straight_state()
@@ -235,23 +243,24 @@ class TestSettlements(unittest.TestCase):
         self.assertNotIn(e.key, state.branch_state.settled_witnesses)
         self.assertEqual(state.evidence[0].magnitude, 8.0)
 
-    def test_a_dormant_record_locks_in_for_free(self):
-        # Retention already halved it; the settlement makes the same
-        # half permanent and charges the cap nothing (rev. 9 item 4).
+    def test_a_protected_record_locks_in_for_free(self):
+        # Derived retention already halves it; the settlement makes
+        # the same half permanent and charges the cap nothing
+        # (rev. 9 item 4, derived per rev. 10).
         state = straight_state()
         e = next(x for x in state.employees if x.name.startswith("Rosa"))
         e.aware = True
+        e.morale = 6
         state.add_case(10, "detective talk", kind="witness", source=e.key)
-        state.evidence[0].dormant = True
         state.add_case(20, "ballast", kind="physical")
         state.clean = 2000
-        self.assertEqual(state.case, 25.0)
-        ev.settle_witness(state, e, Quiet())
-        self.assertEqual(state.case, 25.0)
-        record = state.evidence[0]
-        self.assertAlmostEqual(record.magnitude, 5.0)
-        self.assertFalse(record.dormant)
+        self.assertEqual(state.case, 25.0)      # derived halving live
+        con = Quiet()
+        ev.settle_witness(state, e, con)
+        self.assertEqual(state.case, 25.0)      # unchanged, now permanent
+        self.assertAlmostEqual(state.evidence[0].magnitude, 5.0)
         self.assertEqual(state.branch_state.remediation_used, 0.0)
+        self.assertIsNotNone(con.find("no longer depends on their mood"))
 
     def test_below_the_floor_a_settlement_signs_but_relieves_nothing(self):
         state = straight_state()
@@ -263,6 +272,39 @@ class TestSettlements(unittest.TestCase):
         self.assertEqual(state.evidence[0].magnitude, 6.0)
         self.assertEqual(state.branch_state.remediation_used, 0.0)
         self.assertIsNotNone(con.find("buys peace, not arithmetic"))
+
+    def test_cap_exhausted_settlement_states_both_outcomes(self):
+        # The review's exhibit: cap spent, Marcus paid — the old line
+        # said his knowledge went "quiet for good" while the file
+        # never moved. Both outcomes must now be stated (rev. 10).
+        state = straight_state()
+        e = self._departed_witness(state, magnitude=8.0)
+        state.add_case(24, "ballast", kind="physical")
+        state.branch_state.remediation_used = 25.0
+        state.clean = 2000
+        con = Quiet()
+        ev.settle_witness(state, e, con)
+        self.assertIn(e.key, state.branch_state.settled_witnesses)
+        self.assertEqual(state.evidence[0].magnitude, 8.0)   # unmoved
+        self.assertIsNotNone(con.find("peace is bought"))
+        self.assertIsNotNone(con.find("every point the cap allows"))
+        self.assertIsNone(con.find("quiet for good"))
+
+    def test_the_informants_tip_is_paper_and_contestable(self):
+        # Rev. 10 ruling: a tip in a file is a report, not testimony.
+        import random as _random
+        from extra_toppings import rivals as _rivals
+        state = straight_state()
+        seed = next(k for k in range(200)
+                    if _random.Random(k).random() < 0.3)
+        _rivals._plant(state, state.rivals["vinnie"], {"short": "Vinnie"},
+                       Quiet(), _random.Random(seed))
+        tip = state.evidence[-1]
+        self.assertEqual(tip.kind, "paper")
+        self.assertEqual(models_disposition(tip), "contestable")
+        # And counsel's queue reaches it ahead of the hum.
+        state.add_case(0.5, "", kind="paper")
+        self.assertEqual(ev._contest_queue(state), [tip])
 
     def test_settlement_never_unlatches_an_arrest(self):
         state = straight_state()
@@ -318,37 +360,77 @@ class TestTheFloor(unittest.TestCase):
         self.assertAlmostEqual(suspicion[0].magnitude, 1.2)
 
 
-# ══ Retention dormancy ════════════════════════════════════════════
+# ══ Derived retention protection (rev. 10) ════════════════════════
 
-class TestRetentionDormancy(unittest.TestCase):
-    def test_a_content_current_witness_keeps_their_records_dormant(self):
+class TestDerivedDormancy(unittest.TestCase):
+    def _protected_state(self):
         state = straight_state()
         e = next(x for x in state.employees if x.name.startswith("Rosa"))
         e.aware = True
         e.morale = 6
         state.add_case(10, "detective talk", kind="witness", source=e.key)
         state.add_case(20, "ballast", kind="physical")
-        con = Quiet()
-        ev.reconcile_dormancy(state, con)
-        self.assertTrue(state.evidence[0].dormant)
-        self.assertEqual(state.case, 25.0)
-        self.assertIsNotNone(con.find("loyalty"))
-        # Morale slips: the protection lapses and the file warms.
-        e.morale = 4
-        ev.reconcile_dormancy(state, con)
-        self.assertFalse(state.evidence[0].dormant)
-        self.assertEqual(state.case, 30.0)
-        self.assertIsNotNone(con.find("wake back up"))
+        return state, e
 
-    def test_new_dormancy_stops_at_the_floor(self):
+    def test_protection_follows_the_live_roster_with_no_event(self):
+        state, e = self._protected_state()
+        self.assertEqual(state.case, 25.0)     # halved, right now
+        e.morale = 4                           # no reconciliation runs
+        self.assertEqual(state.case, 30.0)     # and none is needed
+        e.morale = 6
+        self.assertEqual(state.case, 25.0)
+
+    def test_a_poach_wakes_the_record_instantly(self):
+        state, e = self._protected_state()
+        self.assertEqual(state.case, 25.0)
+        e.hired = False                        # poached mid-night
+        self.assertEqual(state.case, 30.0)
+
+    def test_the_reviewers_final_night_repro(self):
+        # The review's exhibit: a protected 20-point record over 30
+        # physical read Case 40 and graded straight_exit after a late
+        # morale slip; the true file reads 50 and grades almost_out.
+        state = straight_state()
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        e.morale = 5
+        state.add_case(20, "detective talk", kind="witness", source=e.key)
+        state.add_case(30, "seizures", kind="physical")
+        state.shop_stash = {}
+        state.dirty = 0
+        for r in state.rivals.values():
+            r.relation = -10.0
+        state.shop.reputation = 60.0
+        self.assertEqual(state.case, 40.0)
+        self.assertEqual(straight.grade(state), "straight_exit")
+        e.morale = 4                           # the search's last word
+        self.assertEqual(state.case, 50.0)
+        self.assertEqual(straight.grade(state), "almost_out")
+
+    def test_relief_allocates_in_ledger_order_and_stops_at_the_floor(self):
         state = straight_state()
         e = next(x for x in state.employees if x.name.startswith("Rosa"))
         e.aware = True
         e.morale = 8
+        # Raw 12, allowance 2 — the 4-point halving does not fit.
         state.add_case(8, "detective talk", kind="witness", source=e.key)
-        ev.reconcile_dormancy(state, Quiet())
-        self.assertFalse(state.evidence[0].dormant)
-        self.assertEqual(state.case, 8.0)
+        state.add_case(4, "tip", kind="paper")
+        self.assertEqual(state.case, 12.0)
+        # Raise the raw total and the same halving fits.
+        state.add_case(8, "seizure", kind="physical")
+        self.assertEqual(state.case, 16.0)     # 20 raw − 4 relief
+
+    def test_settled_sources_are_not_double_halved(self):
+        state, e = self._protected_state()
+        state.clean = 2000
+        ev.settle_witness(state, e, Quiet())   # locks 10 → 5, permanent
+        self.assertEqual(state.case, 25.0)
+        # Even rehired at high morale, a settled source never re-enters
+        # the derived set — no quarter-weighting through the back door.
+        e.hired = True
+        e.morale = 9
+        self.assertNotIn(e.key, state.dormant_sources())
+        self.assertEqual(state.case, 25.0)
 
 
 # ══ Persistence ═══════════════════════════════════════════════════
@@ -360,6 +442,8 @@ class TestPersistence(unittest.TestCase):
         bs.counsel_retained = True
         bs.counsel_days = 4
         bs.remediation_used = 7.5
+        e3 = next(x for x in state.employees if x.key == "e3")
+        e3.aware = True
         bs.settled_witnesses = ["e3"]
         bs.ad_days_left = 2
         state.add_case(10, "contested paper", kind="paper")
@@ -367,12 +451,15 @@ class TestPersistence(unittest.TestCase):
         state.evidence[0].magnitude = 4.0
         e = next(x for x in state.employees if x.name.startswith("Rosa"))
         e.aware = True
+        e.morale = 7
         state.add_case(10, "detective talk", kind="witness", source=e.key)
-        state.evidence[1].dormant = True
+        state.add_case(20, "ballast", kind="physical")
         loaded = save.state_from_dict(save.state_to_dict(state))
         self.assertEqual(loaded.branch_state, bs)
         self.assertTrue(loaded.evidence[0].contested)
-        self.assertTrue(loaded.evidence[1].dormant)
+        # The derived protection travels through the roster, not the
+        # record: the loaded state halves the same source.
+        self.assertEqual(loaded.dormant_sources(), state.dormant_sources())
         self.assertEqual(loaded.case, state.case)
 
     def _refused(self, mutate):
@@ -388,12 +475,6 @@ class TestPersistence(unittest.TestCase):
     def test_doctored_evidence_payloads_are_refused(self):
         def negative(p):
             p["evidence"][0]["magnitude"] = -50.0
-        def dormant_physical(p):
-            p["evidence"][0]["kind"] = "physical"
-            p["evidence"][0]["dormant"] = True
-        def dormant_unsourced(p):
-            p["evidence"][0]["source"] = ""
-            p["evidence"][0]["dormant"] = True
         def contested_witness(p):
             p["evidence"][0]["contested"] = True
         def unknown_kind(p):
@@ -401,10 +482,24 @@ class TestPersistence(unittest.TestCase):
         def twin_suspicion(p):
             rec = {"day": 3, "magnitude": 2.0, "kind": "suspicion",
                    "why": ev.SUSPICION_WHY, "source": "",
-                   "dormant": False, "contested": False}
+                   "contested": False}
             p["evidence"].extend([dict(rec), dict(rec)])
-        for mutate in (negative, dormant_physical, dormant_unsourced,
-                       contested_witness, unknown_kind, twin_suspicion):
+        for mutate in (negative, contested_witness, unknown_kind,
+                       twin_suspicion):
+            self._refused(mutate)
+
+    def test_cross_state_incoherence_is_refused(self):
+        # Rev. 10 item 2: ledger, roster, settlements and branch state
+        # must cohere as one payload.
+        def phantom_witness_source(p):
+            p["evidence"][0]["source"] = "e99"
+        def settled_nobody(p):
+            p["branch_state"]["settled_witnesses"] = ["e99"]
+        def settled_never_aware(p):
+            # e6 exists but was never read in.
+            p["branch_state"]["settled_witnesses"] = ["e6"]
+        for mutate in (phantom_witness_source, settled_nobody,
+                       settled_never_aware):
             self._refused(mutate)
 
     def test_doctored_straight_payloads_are_refused(self):
@@ -431,11 +526,10 @@ class TestPersistence(unittest.TestCase):
         state.add_case(5, "a record", kind="physical")
         payload = save.state_to_dict(state)
         for rec in payload["evidence"]:
-            del rec["dormant"], rec["contested"]
+            del rec["contested"]
         del payload["branch_state"]
         payload["branch_state"] = None
         loaded = save.state_from_dict(payload)
-        self.assertFalse(loaded.evidence[0].dormant)
         self.assertFalse(loaded.evidence[0].contested)
 
     def test_cross_branch_mix_with_straight_fields_is_refused(self):

@@ -72,12 +72,15 @@ class ActiveEvent:
     days_left: int
 
 
-# A dormant witness record counts at half weight (§2.3) — the one
-# factor shared by the fold, the ledger view, and the settlement
-# arithmetic. The floor and cap are the §2.3 bounds: remediation never
-# displays the sum below CASE_FLOOR, and the paid verbs never remove
-# more than REMEDIATION_CAP points across a run.
+# A retention-protected witness record counts at half weight (§2.3) —
+# the one factor shared by the fold, the ledger view, and the
+# settlement arithmetic. The floor and cap are the §2.3 bounds:
+# remediation never displays the sum below CASE_FLOOR, and the paid
+# verbs never remove more than REMEDIATION_CAP points across a run.
+# DORMANT_MORALE is the retention threshold: a current aware employee
+# at or above it keeps their own records at half weight, for free.
 DORMANT_FACTOR = 0.5
+DORMANT_MORALE = 5
 CASE_FLOOR = 10.0
 REMEDIATION_CAP = 25.0
 
@@ -85,38 +88,70 @@ EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
                   "suspicion")
 
 
-def effective_magnitude(record) -> float:
-    """What a record contributes to the meter: dormant witness records
-    count at half weight; everything else returns the stored magnitude
-    untouched (no arithmetic — bit-identity with the pre-dormancy fold
-    is by construction, not by luck)."""
-    if record.dormant:
-        return record.magnitude * DORMANT_FACTOR
-    return record.magnitude
-
-
 def case_prefix(evidence: list):
     """THE shared prefix iterator (rev. 9 item 15): yields (record,
     running_total) with the same explicit left-to-right addition as
-    fold_case — NOT sum(), which Python 3.12 moved to compensated
+    the raw fold — NOT sum(), which Python 3.12 moved to compensated
     summation, breaking bit-identity with the sequential running total
-    (found as 15/300 golden failures in review). The full-ledger fold,
-    the Case-60 telegraph and the sit-down's gate-crossing record all
-    consume this one arithmetic; the running total is unclamped (a
-    prefix question is about crossing, not display)."""
+    (found as 15/300 golden failures in review). The Case-60 telegraph
+    and the sit-down's gate-crossing record consume it directly (both
+    run pre-branch, where retention protection cannot exist); the
+    full-ledger fold applies the derived retention relief on top
+    (rev. 10). The running total is unclamped — a prefix question is
+    about crossing, not display."""
     total = 0.0
     for record in evidence:
-        total += effective_magnitude(record)
+        total += record.magnitude
         yield record, total
 
 
-def fold_case(evidence: list) -> float:
-    """THE full-ledger Case-total fold (rev. 6 completion): the last
-    running total of the shared prefix iterator, clamped to 0..100.
-    State.case and the sit-down's live ledger both call this."""
+def dormant_relief_indices(evidence: list,
+                           dormant_sources: frozenset) -> tuple:
+    """Which records the derived retention halving actually reaches
+    (rev. 10 item 1): witness records whose source is protected,
+    allocated in ledger order, stopping at the first record whose
+    relief would take the display below the floor. Pure — same inputs,
+    same allocation — so the fold, the settlement arithmetic and the
+    docket can never disagree about who is being protected. Because
+    the allowance is (raw total − floor), derived relief can never
+    display the sum below the floor at all: only the paid verbs can,
+    and they top up the suspicion record when they do."""
+    if not dormant_sources:
+        return ()
+    total = 0.0
+    for record in evidence:
+        total += record.magnitude
+    if total <= CASE_FLOOR:
+        return ()
+    allowance = total - CASE_FLOOR
+    relief = 0.0
+    indices = []
+    for i, record in enumerate(evidence):
+        if record.kind == "witness" and record.source in dormant_sources:
+            cut = record.magnitude * (1 - DORMANT_FACTOR)
+            if relief + cut <= allowance:
+                relief += cut
+                indices.append(i)
+            else:
+                break
+    return tuple(indices)
+
+
+def fold_case(evidence: list, dormant_sources: frozenset = frozenset()) \
+        -> float:
+    """THE full-ledger Case-total fold (rev. 6 completion, context-
+    aware per rev. 10): the raw left-to-right sum, less the derived
+    retention relief, clamped to 0..100. `dormant_sources` is the live
+    protected set — State.case supplies it, so no cached flag can go
+    stale between a morale slip and the grade. An empty set (every
+    pre-branch caller) leaves the arithmetic bit-identical to the
+    pre-dormancy fold."""
     total = 0.0
     for _record, running in case_prefix(evidence):
         total = running
+    if dormant_sources:
+        for i in dormant_relief_indices(evidence, dormant_sources):
+            total -= evidence[i].magnitude * (1 - DORMANT_FACTOR)
     return max(0.0, min(100.0, total))
 
 
@@ -126,25 +161,26 @@ class Evidence:
     never a separately stored number — so what the file says and what the
     meter shows can never drift apart.
 
-    kind: "witness" (a person who knows), "paper" (financial trail),
-    "physical" (seizures and scenes), "pattern" (the raid handwriting),
-    "legacy" (migrated from a pre-v3 save; renders its text verbatim),
-    "suspicion" (the institutional-suspicion floor record, §2.3 —
-    permanent, immune to every remediation verb, topped up in place).
-    Routine paper ticks carry why="" and render nowhere, exactly like the
-    flagless accruals they replace.
+    kind: "witness" (a person who knows), "paper" (documents and
+    reports in the file), "physical" (seizures and scenes), "pattern"
+    (the raid handwriting), "legacy" (migrated from a pre-v3 save;
+    renders its text verbatim), "suspicion" (the institutional-
+    suspicion floor record, §2.3 — permanent, immune to every
+    remediation verb, topped up in place). Routine paper ticks carry
+    why="" and render nowhere, exactly like the flagless accruals they
+    replace.
 
-    dormant: the reversible retention halving (§2.3 rev. 9 item 4) — a
-    current aware employee at morale ≥ 5 keeps their own records at
-    half weight; reconciled nightly in-branch, never set outside one.
-    contested: counsel argued this paper record down already — each
-    record contests at most once."""
+    A witness record's source is an Employee.key, or "" for external
+    provenance — someone the settlement verb can never reach (the
+    patrolman, the watcher at the truck). Retention protection is NOT
+    stored here (rev. 10): it is derived from the live roster at every
+    read, so it can never go stale. contested: counsel argued this
+    paper record down already — each record contests at most once."""
     day: int
     magnitude: float
     kind: str
     why: str
     source: str = ""          # Employee.key when a witness is attached
-    dormant: bool = False
     contested: bool = False
 
 
@@ -406,13 +442,12 @@ def _validate_severance(bs: "BranchState", game_over: str | None) -> None:
 
 
 def validate_evidence(records: list) -> None:
-    """The evidence ledger's persistence contract (rev. 9): magnitudes
-    are never negative (a doctored −50 record would be a credit against
-    the Case), kinds come from the known taxonomy, dormancy is only the
-    retention halving (witness records with a named source), contests
-    only mark paper, and the institutional-suspicion record — permanent
-    and immune — exists at most once, topped up in place. Raises
-    ValueError; bound at save-load."""
+    """The evidence ledger's persistence contract (rev. 9, tightened
+    rev. 10): magnitudes are never negative (a doctored −50 record
+    would be a credit against the Case), kinds come from the known
+    taxonomy, contests only mark paper, and the institutional-
+    suspicion record — permanent and immune — exists at most once,
+    topped up in place. Raises ValueError; bound at save-load."""
     suspicion_seen = False
     for i, r in enumerate(records):
         if r.kind not in EVIDENCE_KINDS:
@@ -422,13 +457,8 @@ def validate_evidence(records: list) -> None:
                 or r.magnitude < 0:
             raise ValueError(f"evidence[{i}]: magnitude must be a "
                              f"non-negative number, got {r.magnitude!r}")
-        if not isinstance(r.dormant, bool) or not isinstance(r.contested, bool):
-            raise ValueError(f"evidence[{i}]: dormant/contested must be "
-                             f"booleans")
-        if r.dormant and (r.kind != "witness" or not r.source):
-            raise ValueError(f"evidence[{i}]: dormancy is the retention "
-                             f"halving — witness records with a named "
-                             f"source only (kind {r.kind!r})")
+        if not isinstance(r.contested, bool):
+            raise ValueError(f"evidence[{i}]: contested must be a boolean")
         if r.contested and r.kind != "paper":
             raise ValueError(f"evidence[{i}]: only paper records are "
                              f"contestable (kind {r.kind!r})")
@@ -438,6 +468,50 @@ def validate_evidence(records: list) -> None:
                                  "record exists at most once, topped up "
                                  "in place")
             suspicion_seen = True
+
+
+def remediation_disposition(record) -> str:
+    """THE single answer to what may touch a record (rev. 10 item 4):
+      "contestable"  — paper counsel has not argued yet
+      "contested"    — paper counsel already argued
+      "settleable"   — witness testimony attached to a roster key
+      "external"     — witness testimony with outside provenance: no
+                       settlement can reach it (the patrolman, the
+                       watcher at the truck)
+      "immune"       — physical, pattern, legacy: what the city saw,
+                       it saw
+      "suspicion"    — the floor record; permanent by definition
+    The contest queue, the settlement verb, the docket and validation
+    all consume this — kind, provenance and UI cannot disagree."""
+    if record.kind == "suspicion":
+        return "suspicion"
+    if record.kind == "paper":
+        return "contested" if record.contested else "contestable"
+    if record.kind == "witness":
+        return "settleable" if record.source else "external"
+    return "immune"
+
+
+def validate_cross_state(state: "State") -> None:
+    """Rev. 10 item 2: the ledger, the roster, the settled list and
+    the branch state must cohere as ONE payload — a witness record
+    sourced to nobody on the roster, or a settlement naming a
+    nonexistent or never-aware employee, is refused, not repaired."""
+    keys = {e.key for e in state.employees}
+    aware = {e.key for e in state.employees if e.aware}
+    for i, r in enumerate(state.evidence):
+        if r.kind == "witness" and r.source and r.source not in keys:
+            raise ValueError(f"evidence[{i}]: witness source {r.source!r} "
+                             f"names nobody on the roster")
+    if state.branch == "straight" and state.branch_state is not None:
+        for k in state.branch_state.settled_witnesses:
+            if k not in keys:
+                raise ValueError(f"straight: settled witness {k!r} names "
+                                 f"nobody on the roster")
+            if k not in aware:
+                raise ValueError(f"straight: settled witness {k!r} was "
+                                 f"never read in — there is nothing to "
+                                 f"have settled")
 
 
 @dataclass
@@ -538,9 +612,23 @@ class State:
         self.shops[0].legit_revenue_today = value
 
     # ── the Case, derived from its records ───────────────────────
+    def dormant_sources(self) -> frozenset:
+        """The retention-protected set, derived from the LIVE roster
+        at every read (rev. 10): a current aware employee at morale ≥
+        DORMANT_MORALE, not already settled, keeps their own records
+        at half weight. No cache, no reconciliation event — a poach or
+        a morale slip changes the display the moment it happens."""
+        if self.branch != "straight" or self.branch_state is None:
+            return frozenset()
+        settled = set(self.branch_state.settled_witnesses)
+        return frozenset(
+            e.key for e in self.employees
+            if e.hired and e.aware and e.morale >= DORMANT_MORALE
+            and e.key not in settled)
+
     @property
     def case(self) -> float:
-        return fold_case(self.evidence)
+        return fold_case(self.evidence, self.dormant_sources())
 
     @property
     def case_flags(self) -> list:

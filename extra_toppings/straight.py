@@ -305,6 +305,47 @@ def burn_stock(state: State, con: Console) -> None:
                 "home (move stash, nights) before it can burn.")
 
 
+# ── the case file (rev. 10 item 3) ────────────────────────────────
+
+_DISPOSITION_NOTES = {
+    "contestable": "counsel can argue this",
+    "contested": "already argued down",
+    "settleable": "a settlement can reach this",
+    "external": "outside provenance — no settlement reaches it",
+    "immune": "what the city saw, it saw",
+    "suspicion": "permanent — they remember your name",
+}
+
+
+def show_case_file(state: State, con: Console) -> None:
+    """The docket: renders the EvidenceLedgerView and nothing else —
+    every number comes from the view, and the view's total IS the
+    meter (same fold, same context)."""
+    view = evidence.build_ledger_view(state)
+    con.say("")
+    con.say(f"  THE CASE FILE — reads {view.total:.1f}/100 tonight "
+            f"(the floor under any lawyering: {view.floor:.0f}).")
+    if not view.lines:
+        con.say("  The file is empty. Keep it that way.")
+        return
+    for line in view.lines:
+        label = line.why if line.why else "a routine discrepancy"
+        weight = (f"{line.base:.1f} → counts {line.effective:.1f} "
+                  f"({line.source_name}'s loyalty holds it down)"
+                  if line.relieved else f"counts {line.effective:.1f}")
+        who = f" — {line.source_name}" if line.source_name else ""
+        con.say(f"    · day {line.day} · {line.kind} · {weight} · "
+                f"{label}{who} [{_DISPOSITION_NOTES[line.disposition]}]")
+    con.say(f"  Remedy spent {view.cap_used:.1f} of {view.cap:.0f} "
+            f"points; {view.cap_left:.1f} left to argue or settle.")
+    if view.counsel_retained:
+        target = (f"next in the queue: '{view.next_contest}'"
+                  if view.next_contest else "nothing left worth arguing")
+        con.say(f"  Counsel retained, day {view.counsel_days} — {target}.")
+    else:
+        con.say("  No counsel retained — the paper stands unargued.")
+
+
 # ── improvements extras ───────────────────────────────────────────
 
 def counsel_label(state: State) -> str:
@@ -388,7 +429,6 @@ def night_tick(state: State, con: Console, payroll_short: bool) -> None:
                                     state.shop.reputation + AD_REP_PER_NIGHT)
         con.say(f"  The advertising works its shift: reputation "
                 f"{state.shop.reputation:.0f}.")
-    evidence.reconcile_dormancy(state, con)
     if payroll_short and state.total_stock_units() == 0 \
             and state.unlaundered_total() == 0:
         bs.insolvent_days += 1

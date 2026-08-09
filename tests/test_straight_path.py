@@ -100,7 +100,7 @@ class TestTakingTheChair(unittest.TestCase):
 class TestBranchMorning(unittest.TestCase):
     def test_menu_swaps_route_and_raid_for_disposal(self):
         state = in_branch()
-        con = CaptureConsole([7])            # straight to service
+        con = CaptureConsole([8])            # straight to service
         phases.morning(state, con, Streams(3))
         self.assertIsNotNone(con.find("Disposal (runs left: 3)"))
         self.assertIsNone(con.find("Plan a night job"))
@@ -111,7 +111,7 @@ class TestBranchMorning(unittest.TestCase):
         state = in_branch()
         state.shop.ingredients = 0
         state.clean = 0
-        con = CaptureConsole([7])
+        con = CaptureConsole([8])
         phases.morning(state, con, Streams(3))
         self.assertIsNone(con.find("Carmine's nephew"))
         self.assertEqual(state.debt, 0)
@@ -151,7 +151,7 @@ class TestFireSale(unittest.TestCase):
         con = CaptureConsole([
             6, 0, 4,     # Disposal -> fire-sale -> hand over 4
             6, 0,        # Disposal -> fire-sale again: refused
-            7,           # open for service
+            8,           # open for service
         ])
         phases.morning(state, con, Streams(3))
         self.assertIsNotNone(con.find("One meeting a day"))
@@ -242,7 +242,7 @@ class TestDisposalRuns(unittest.TestCase):
     def test_spent_runs_refuse_through_the_real_menu(self):
         state = in_branch(stash={"oregano": 4})
         state.branch_state.disposal_runs_left = 0
-        con = CaptureConsole([6, 1, 7])
+        con = CaptureConsole([6, 1, 8])
         phases.morning(state, con, Streams(3))
         self.assertIsNotNone(con.find("The three runs are spent"))
 
@@ -322,11 +322,11 @@ class TestCounselDualUse(unittest.TestCase):
 
     def test_retain_and_dismiss_through_the_real_improvements_menu(self):
         state = in_branch()
-        con = CaptureConsole([5, 0, 6, 7])   # improvements, retain, back
+        con = CaptureConsole([5, 0, 6, 8])   # improvements, retain, back
         phases.morning(state, con, Streams(3))
         self.assertTrue(state.branch_state.counsel_retained)
         self.assertIsNotNone(con.find("Retain counsel"))
-        con2 = CaptureConsole([5, 0, 6, 7])  # improvements, dismiss, back
+        con2 = CaptureConsole([5, 0, 6, 8])  # improvements, dismiss, back
         phases.morning(state, con2, Streams(3))
         self.assertFalse(state.branch_state.counsel_retained)
         self.assertIsNotNone(con2.find("Dismiss counsel"))
@@ -517,6 +517,87 @@ class TestTheMatrix(unittest.TestCase):
         _exit_ready(state)
         state.add_case(10, "the last straw", kind="physical")
         self.assertEqual(state.game_over, "arrested")
+
+
+# ══ The case file (rev. 10 item 3) ════════════════════════════════
+
+class TestTheCaseFile(unittest.TestCase):
+    def _docket_state(self):
+        state = in_branch(case=10.0)          # physical, immune
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        e.morale = 7
+        state.add_case(8, "detective talk", kind="witness", source=e.key)
+        state.add_case(6, "an informant's tip put your shop in a file",
+                       kind="paper")
+        state.add_case(3, "a patrolman on the take knows your face",
+                       kind="witness")       # external provenance
+        return state
+
+    def test_the_view_totals_are_the_meter(self):
+        from extra_toppings import evidence as ev
+        state = self._docket_state()
+        view = ev.build_ledger_view(state)
+        self.assertEqual(view.total, state.case)
+        effective_sum = sum(line.effective for line in view.lines)
+        self.assertEqual(max(0.0, min(100.0, effective_sum)), view.total)
+        by_why = {line.why: line for line in view.lines}
+        self.assertEqual(by_why["prior seizures"].disposition, "immune")
+        self.assertEqual(by_why["detective talk"].disposition, "settleable")
+        self.assertTrue(by_why["detective talk"].relieved)
+        self.assertEqual(
+            by_why["an informant's tip put your shop in a file"]
+            .disposition, "contestable")
+        self.assertEqual(
+            by_why["a patrolman on the take knows your face"]
+            .disposition, "external")
+
+    def test_the_docket_renders_through_the_real_menu(self):
+        state = self._docket_state()
+        con = CaptureConsole([7, 8])          # case file, then service
+        phases.morning(state, con, Streams(3))
+        self.assertIsNotNone(con.find("THE CASE FILE"))
+        self.assertIsNotNone(con.find("loyalty holds it down"))
+        self.assertIsNotNone(con.find("no settlement reaches it"))
+        self.assertIsNotNone(con.find("Remedy spent 0.0 of 25"))
+        self.assertIsNotNone(con.find("No counsel retained"))
+
+    def test_counsels_next_target_is_named(self):
+        from extra_toppings import evidence as ev
+        state = self._docket_state()
+        state.branch_state.counsel_retained = True
+        view = ev.build_ledger_view(state)
+        self.assertEqual(view.next_contest,
+                         "an informant's tip put your shop in a file")
+
+
+# ══ The disposal voice (rev. 10 item 7) ═══════════════════════════
+
+class TestDisposalVoice(unittest.TestCase):
+    def _ride(self, disposal):
+        state = in_branch(stash={"mushrooms": 8})
+        phases.market.roll_prices(state, random.Random(4))
+        driver = next(e for e in state.employees
+                      if e.name.startswith("Rosa"))
+        driver.aware = True
+        plan = {"district": "university", "driver": driver,
+                "ride_along": True, "cargo": {"mushrooms": 8}, "legit": 0}
+        if disposal:
+            plan["disposal"] = True
+        con = CaptureConsole([0] * 40)        # sell at every stop
+        phases.routes.resolve_route(state, plan, con, Streams(4).routes)
+        return con
+
+    def test_the_burned_book_stays_burned(self):
+        con = self._ride(disposal=True)
+        self.assertIsNone(con.find("coded orders"))
+        self.assertIsNotNone(con.find("cold buyers"))
+        self.assertIsNotNone(con.find("clearance buyer"))
+
+    def test_ordinary_routes_keep_their_voice(self):
+        con = self._ride(disposal=False)
+        self.assertIsNotNone(con.find("coded orders"))
+        self.assertIsNone(con.find("clearance buyer"))
 
 
 # ══ Persistence mid-branch ════════════════════════════════════════
