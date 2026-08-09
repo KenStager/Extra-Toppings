@@ -2,7 +2,7 @@
 
 import random
 
-from . import data
+from . import data, straight
 from .models import State
 from .ui import Console, money
 
@@ -31,6 +31,10 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
 
         grudge = max(0.0, -rival.relation) / 100      # 0..1
         act_chance = spec["aggression"] * 0.5 + grudge * 0.6
+        if state.branch == "straight" and state.total_stock_units() == 0:
+            # Rivals smell retreat: a shop that no longer scares anyone
+            # (§2.4.1, rev. 9 item 13).
+            act_chance *= straight.RETREAT_AGGRESSION
         if rng.random() > act_chance:
             if rival.relation > 20 and rng.random() < 0.2:
                 con.bullet(f"{spec['short']} sends over a tray of cannoli. A truce holds.")
@@ -90,8 +94,10 @@ def _plant(state: State, rival, spec: dict, con: Console, rng: random.Random) ->
     con.bullet("An anonymous tip sends a patrol crawling past your block all night.")
     state.add_heat(data.HOME_DISTRICT, 12)
     if rng.random() < 0.3:
+        # Paper, not witness (rev. 10 ruling): a tip in a file is an
+        # intelligence report, not testimony — counsel can argue it.
         state.add_case(4, "an informant's tip put your shop in a file",
-                       kind="witness")
+                       kind="paper")
 
 
 def negotiate(state: State, con: Console, rng: random.Random) -> None:

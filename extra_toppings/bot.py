@@ -258,7 +258,11 @@ class MarketBot(StrategyBot):
     # ── perception: everything comes in through say() ────────────
     def say(self, text: str = "") -> None:
         if "— MORNING" in text:
-            self.day += 1
+            # The calendar day, read off the header — identical to the
+            # old increment on any full run, and correct on harness
+            # runs that start mid-calendar (rev. 10 cohorts).
+            m0 = re.search(r"DAY (\d+) of", text)
+            self.day = int(m0.group(1)) if m0 else self.day + 1
             self._done_today = set()
             if self.signal_days > 0:
                 self.signal_days -= 1
@@ -427,6 +431,196 @@ class EscrowBot(MarketBot):
                     return 0.5
                 return 40 if self.careful else -10
         return super()._score(label)
+
+
+class StraightBot(MarketBot):
+    """Minimal per-branch policy over the smart bot (§2.7 criterion 4):
+    takes the Straight Path when the table opens, then liquidates fast
+    through the fire-sale channel, retains counsel, settles departed
+    witnesses, advertises the reputation up, mends feuds with envelopes,
+    pays tribute rather than let a raid land, declines every temptation,
+    and washes the pile down under the ceiling night after night. Reads
+    the same transcript a human does: the book-burning header flips it
+    into branch mode; the exit readout tells it what remains."""
+
+    # Criterion 5's ablation flips both; the rev. 11 diagnostic
+    # variants flip one each.
+    use_counsel = True
+    use_settlements = True
+
+    def __init__(self, rng: random.Random, verbose: bool = False) -> None:
+        super().__init__(rng, verbose)
+        self._tried_chair = False
+        self._in_branch = False
+        self._counsel = False
+        self._sal_gone = False
+        self._stock: int | None = None   # from the exit readout
+        self._ad_running = False
+        self._feud = False
+        self._clean = 0
+        self._dirty = 0
+        self._rep = 50.0
+        self.covert_by_day: dict[int, int] = {}   # transcript-tallied
+
+    def say(self, text: str = "") -> None:
+        s = text.strip()
+        if s.startswith("THE STRAIGHT PATH"):
+            self._in_branch = True
+            self._entered_straight = True    # latched for the harness
+        if self._in_branch:
+            if "takes the retainer" in s:
+                self._counsel = True
+            if "retainer bounced" in s or "goes back in its envelope" in s:
+                self._counsel = False
+            if "Sal's people aren't answering" in s:
+                self._sal_gone = True
+            m = re.match(r"Exit readout: stock (\d+) · dirty \$([\d,]+)",
+                         s)
+            if m:
+                self._stock = int(m.group(1))
+                self._feud = "feud:" in s
+            for pattern in (r"Sal's man pays \$([\d,]+)",
+                            r"The contact pays \$([\d,]+)",
+                            r"Route take: \$([\d,]+) dirty"):
+                pm = re.search(pattern, s)
+                if pm:
+                    take = int(pm.group(1).replace(",", ""))
+                    # self.day counts MORNING headers, so it names the
+                    # calendar day the take landed on.
+                    self.covert_by_day[self.day] = \
+                        self.covert_by_day.get(self.day, 0) + take
+        m = re.match(r"Clean \$([\d,]+) \| Dirty \$([\d,]+) \| Debt \$[\d,]+"
+                     r"(?: \| Rep (\d+) \|)?", s)
+        if m:
+            self._clean = int(m.group(1).replace(",", ""))
+            self._dirty = int(m.group(2).replace(",", ""))
+            if m.group(3) is not None:
+                self._rep = float(m.group(3))
+        super().say(text)
+
+    def scene_menu(self, namespace: str, prompt: str, options: list[str]) -> int:
+        # Deterministic and RNG-free: try the Straight Path once; the
+        # confirmation (and any other scene menu) progresses last.
+        if prompt == "Your chair:" and not self._tried_chair:
+            self._tried_chair = True
+            return 0
+        return len(options) - 1
+
+    def _score(self, label: str) -> float:
+        if self._in_branch:
+            if label.startswith("Disposal"):
+                if self._stock == 0 or "Disposal" in self._done_today:
+                    return 0.2
+                return 50
+            if "Improvements" in label:
+                want_counsel = self.use_counsel and not self._counsel
+                want_ad = self._clean >= 1200 and self._rep < 60
+                if (want_counsel or want_ad) \
+                        and "Improvements" not in self._done_today:
+                    return 45
+                return 0.2
+            if "Settle with a witness" in label:
+                if self.use_settlements \
+                        and "Settle with a witness" not in self._done_today:
+                    return 40
+                return 0.2
+            if "Talk to a rival" in label:
+                if self._feud and self._clean >= 0 \
+                        and "Talk to a rival" not in self._done_today:
+                    return 35
+                return -5
+            if "back door" in label:
+                return -10                    # every temptation declined
+            if "Pay tribute" in label:
+                # Never let a raid land — when the bag can cover it.
+                m = re.search(r"\(\$([\d,]+) dirty\)", label)
+                demand = int(m.group(1).replace(",", "")) if m else 1500
+                return 50 if self._dirty >= demand else -5
+            if "Empty the stash" in label:
+                # A stashless shop eats a guaranteed -8 instead of a
+                # near-certain lost fight (no read-in defenders).
+                return 45
+        return super()._score(label)
+
+    def menu(self, prompt: str, options: list[str]) -> int:
+        pick = super().menu(prompt, options)
+        if self._in_branch:
+            for key in ("Disposal", "Improvements", "Settle with a witness",
+                        "Talk to a rival"):
+                if key in options[pick]:
+                    self._done_today.add(key)
+        return pick
+
+    def _special_menu(self, prompt: str, options: list[str]) -> int | None:
+        if self._in_branch:
+            if prompt.startswith("Disposal — what's left"):
+                return 2 if self._sal_gone else 0   # burn if Sal can't buy
+            if prompt.startswith("Improvements"):
+                for i, o in enumerate(options):
+                    if o.startswith("Retain counsel") and self.use_counsel \
+                            and "counsel_pick" not in self._done_today:
+                        self._done_today.add("counsel_pick")
+                        return i
+                if self._clean >= 1200 and self._rep < 60 \
+                        and "ad_pick" not in self._done_today:
+                    for i, o in enumerate(options):
+                        # One campaign at a time — never stack spend.
+                        if o.startswith("Advertising") \
+                                and "campaign running" not in o:
+                            self._done_today.add("ad_pick")
+                            return i
+                return len(options) - 1
+            if prompt.startswith("Whose quiet do you buy?"):
+                for i, o in enumerate(options[:-1]):
+                    if "departed" in o:
+                        return i
+                return len(options) - 1
+            if prompt.startswith("Reach out to whom?"):
+                for i, o in enumerate(options[:-1]):
+                    m = re.search(r"relation (-\d+)", o)
+                    if m and int(m.group(1)) <= -60:
+                        return i
+                return len(options) - 1
+            if prompt.startswith(("Sal Moretti", "Vinnie 'The Oven'")):
+                return 0                      # the envelope, not the threat
+        return super()._special_menu(prompt, options)
+
+    def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
+        if self._in_branch:
+            if prompt.startswith("Hand over"):
+                return hi                     # the whole shelf goes
+            if prompt.startswith("Sell how many"):
+                return 0                      # temptations declined
+            if prompt.startswith("Run how much"):
+                # Wash the pile down — but while a feud is live and the
+                # calendar allows, hold a tribute-and-envelope reserve:
+                # the goal's $200 line matters on day 30, not tonight.
+                m = re.search(r"dirty \$([\d,]+)", prompt)
+                dirty = int(m.group(1).replace(",", "")) if m else hi
+                reserve = 1600 if self._feud and self.day <= 26 else 0
+                # Never past tonight's ceiling (the default) — washing
+                # over it is a crime on the branch's own clock.
+                return max(0, min(default, dirty - reserve))
+        return super().ask_int(prompt, lo, hi, default)
+
+
+class NoRemediationBot(StraightBot):
+    """Criterion 5's ablation: the branch's stated counterplay removed —
+    never retains counsel, never settles a witness. Everything else is
+    the same policy. If this bot's earned-exit rate doesn't crater, the
+    pressure is decorative."""
+    use_counsel = False
+    use_settlements = False
+
+
+class CounselOnlyBot(StraightBot):
+    """Rev. 11 diagnostic (not a bar): counsel without settlements."""
+    use_settlements = False
+
+
+class SettlementOnlyBot(StraightBot):
+    """Rev. 11 diagnostic (not a bar): settlements without counsel."""
+    use_counsel = False
 
 
 class SloppyEscrowBot(EscrowBot):

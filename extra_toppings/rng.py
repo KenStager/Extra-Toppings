@@ -12,12 +12,13 @@ import random
 
 
 class Streams:
-    # sitdown/brokers/war are reserved for the Act II fork (the sit-down
-    # scene, the escrow buyer, the harbor war). They exist now so save v3
-    # is final, and they stay undrawn until the fork triggers — the
-    # equivalence harness asserts exactly that.
+    # sitdown/brokers/war/straight are reserved for the Act II fork (the
+    # sit-down scene, the escrow buyer, the harbor war, the Straight
+    # Path's meeting dice — rev. 9 item 1). They exist so the save
+    # schema is final, and each stays undrawn until its branch actually
+    # draws it — the equivalence harness asserts exactly that.
     PERSISTENT = ("routes", "rivals", "raids", "staff",
-                  "sitdown", "brokers", "war")
+                  "sitdown", "brokers", "war", "straight")
 
     def __init__(self, seed: int | None) -> None:
         if seed is None:
@@ -30,6 +31,7 @@ class Streams:
         self.sitdown = random.Random(f"{seed}/sitdown")
         self.brokers = random.Random(f"{seed}/brokers")
         self.war = random.Random(f"{seed}/war")
+        self.straight = random.Random(f"{seed}/straight")
 
     def daily(self, day: int, channel: str) -> random.Random:
         """A fresh generator for one (day, channel) — action-independent."""

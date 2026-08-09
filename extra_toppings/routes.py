@@ -2,7 +2,7 @@
 
 import random
 
-from . import data, market
+from . import data, market, straight
 from .models import Employee, State
 from .ui import Console, money
 
@@ -111,6 +111,30 @@ def _payoff_reachable_tonight(state: State, dk: str, cargo: dict) -> bool:
 
 # ── resolution ────────────────────────────────────────────────────
 
+def _route_voice(plan: dict) -> dict:
+    """THE route presentation, branch-aware in one place (rev. 10 item
+    7): the burned coded-customer book stays burned — a disposal run
+    speaks of cold buyers and one-use contacts, never a resurrected
+    order board. Grammar, dice and option lists are identical; only
+    the words change, and only on disposal-flagged plans."""
+    if plan.get("disposal"):
+        return {
+            "intro": "{drops} cold buyers on a one-time list tonight — "
+                     "strangers, and they know you're leaving.",
+            "stop": "Stop {n}: a clearance buyer takes {want}x {label} "
+                    "at {price}/unit. No names, no next time.",
+            "home": "{driver} comes back with {cash} in the bag. No "
+                    "board took these orders — just one-use contacts "
+                    "who won't call again.",
+        }
+    return {
+        "intro": "{drops} coded orders on the board tonight.",
+        "stop": "Stop {n}: buyer wants {want}x {label} at {price}/unit.",
+        "home": "{driver} comes back with {cash} in the bag "
+                "and firsthand prices from {district}.",
+    }
+
+
 def _stop_risk(state: State, plan: dict) -> float:
     dk = plan["district"]
     susp = route_suspicion(sum(plan["cargo"].values()), plan["legit"])
@@ -184,9 +208,10 @@ def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
                        rng: random.Random, report: dict) -> None:
     dk = plan["district"]
     cargo = plan["cargo"]
+    voice = _route_voice(plan)
     con.say("")
     con.say(f"  You ride shotgun. {plan['driver'].name} drives. "
-            f"{drops} coded orders on the board tonight.")
+            + voice["intro"].format(drops=drops))
     for stop in range(drops):
         goods_left = [g for g, u in cargo.items() if u > 0]
         if not goods_left:
@@ -194,13 +219,19 @@ def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
         g = rng.choice(goods_left)
         spec = data.GOODS[g]
         base_price = state.prices[dk][g]
-        mult = rng.uniform(0.85, 1.2)
+        # A disposal run prices like a seller without a network (rev. 9
+        # item 1): the haircut replaces the ordinary offer roll, draw
+        # for draw, on the same stream.
+        mult = rng.uniform(straight.DISPOSAL_HAIRCUT_LO,
+                           straight.DISPOSAL_HAIRCUT_HI) \
+            if plan.get("disposal") else rng.uniform(0.85, 1.2)
         offer = int(base_price * mult)
         top_want = max(2, int(4 * data.DISTRICTS[dk]["underground"]
                               * market.event_mult(state, dk, "underground")))
         want = min(cargo[g], rng.randint(1, top_want))
         choice = con.menu(
-            f"Stop {stop+1}: buyer wants {want}x {spec['label']} at {money(offer)}/unit.",
+            voice["stop"].format(n=stop + 1, want=want, label=spec["label"],
+                                 price=money(offer)),
             ["Sell", "Haggle (nerve)", "Skip this stop"])
         if choice == 2:
             continue
@@ -337,11 +368,15 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
         units = int(cargo[g] * sell_frac)
         if units:
             cargo[g] -= units
-            _sell(state, dk, g, units, rng.uniform(0.9, 1.05), report)
+            # Disposal runs sell at the haircut, same draw (rev. 9).
+            mult = rng.uniform(straight.DISPOSAL_HAIRCUT_LO,
+                               straight.DISPOSAL_HAIRCUT_HI) \
+                if plan.get("disposal") else rng.uniform(0.9, 1.05)
+            _sell(state, dk, g, units, mult, report)
     for g, u in cargo.items():
         if u > 0:
             state.shop_stash[g] = state.shop_stash.get(g, 0) + u
-    report["lines"].append(
-        f"{driver.name} comes back with {money(report['cash'])} in the bag "
-        f"and firsthand prices from {data.DISTRICTS[dk]['label']}.")
+    report["lines"].append(_route_voice(plan)["home"].format(
+        driver=driver.name, cash=money(report["cash"]),
+        district=data.DISTRICTS[dk]["label"]))
     state.districts[dk].known_price_age = 0

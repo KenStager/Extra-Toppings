@@ -891,14 +891,352 @@ held 82, schema v1) on 3.11, 3.12 and 3.13; both ensembles unchanged —
 150 seeds: flips 27/60 = 45%, median $2,370; 500 seeds: 81/188 = 43%,
 median $2,444.
 
+## Round 9 — P2: the Straight Path, and the file that had nothing to fall from
+
+The clean-exit branch is in (`extra_toppings/straight.py` +
+`evidence.py` + the scene commit path), behind the same flag, drawing
+only its reserved dice: disposal runs ride the routes stream draw for
+draw, temptation arrival is a per-day world channel, and the meeting
+dice draw the new persistent `straight` stream — first drawn only
+after the chair is taken (rev. 9 item 1, flagged for ruling). The
+remediation machinery is the §2.3 letter under the rev. 9 arithmetic:
+counsel contests flagged paper first and the routine hum as the one
+rolling record; settlements halve a witness's records permanently and
+settle a current witness OUT with no firing record; retention keeps a
+content current witness's records dormant for free, reversibly; the
+25-point cap binds the paid verbs and truncates out loud; the
+institutional-suspicion record tops up in place by exactly the
+difference, and displayed Case ≡ the visible ledger every night. The
+shared prefix iterator the fold_case docstring owed since rev. 6 is
+real (`models.case_prefix`), consumed by the fold, the Case-60
+telegraph and the gate-crossing record.
+
+All numbers below reproduce via `python3 -m analysis.experiments fork`
+(150 seeds; StraightBot and its no-remediation ablation over the
+market bot, the criterion's named baseline) and `--seeds 500`.
+
+| Criterion (straight rows) | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Reachability (unchanged) | ≥ 55% | 85/150 = 57% | pass |
+| Crash-freedom (forced-straight chaos) | 150/150 | 150/150 | pass |
+| Covert revenue share after fork+2 | < 5% | $0 = 0.0% | pass |
+| Earned-exit band | 25–70% | 40/85 = 47% | pass |
+| Ledger transparency (nightly, both bots) | 0 bad | 0 | pass |
+| Suspicion floor (once paid remediation exists) | never < 10 | 0 bad | pass |
+| Median ΔCase fork→end | ≤ −5 | **+4.0** | **miss** |
+| Case strictly below fork-day | ≥ 60% | 9/85 = **11%** | **miss** |
+| Ablation drop (never settles / no counsel) | ≥ 20 pts | **0** | **miss** |
+| Quiet Sale battery (all P2 code in tree) | round-8 rows | identical | pass |
+
+The 500-seed confirmation: entered 280/500 (56%), earned exits 42%,
+ΔCase median +4.5, strictly below 11%, covert 0.0%, ablation −1
+point, crash-free 1000/1000 across both chaos fleets; the escrow rows
+reproduce round 8 exactly (careful 93%, ablation 85 points, valuation
+median $2,444, flips 81/188 = 43%).
+
+**The three misses are one finding, and it is structural.** The
+decomposition (printed by the harness, per row):
+
+- **The file arrives cold.** Median lock-up Case at entry: 6.0 (150
+  seeds), 5.5 (500) — BELOW the 10-point institutional floor, where
+  the design says the file cannot fall at all. Only 16/85 entries
+  (46/280) reach lock-up ≥ 20. The §3.1 exemplar walks in at Case 31;
+  the named smart-bot baseline pays Carmine by day 10–11 and brings
+  almost nothing to redeem. A bar demanding −5 from a median entry of
+  6 is arithmetically unreachable regardless of mechanics.
+- **The settlement verb has no lawful target the entire study.** The
+  market bot reads nobody in, so no witness record it accrues carries
+  an Employee source — settlements measured: 0 in 85 entries, 0 in
+  280. What the siege books post-fork (median +4.6/+4.9) is largely
+  the informant's tip and the patrolman's memory — witness-kind
+  records with NO source, structurally as immune as physical. Whether
+  those two P0-era call sites are mis-kinded is now a live design
+  question (§8 P2 notes, item 3).
+- **The mechanism itself works, measured three ways.** Matched-seed
+  counterfactual: remediation leaves the file lower in 55/85 = 65%
+  (172/280 = 61%) of paired entries, median −1.0. The dirty-month
+  diagnostic (crime-heavy Act I, identical branch policy — the §3.1
+  entry profile): settlements 39 (165 at 500 seeds), remediated
+  ΔCase +3.2 against +12.5 unremediated — a nine-point pull — with
+  the lockup ≥ 20 population at median −0.1 (−0.9 at 500) and 13/25
+  (53/92) strictly below, against 0 without remediation; its
+  ablation drop is 13–14 points. Every diagnostic is labeled in the
+  harness and none conditions a bar.
+
+So: not the bots (the policy exercises every verb the baseline's
+month gives it), not the mechanics (the counterfactuals separate
+cleanly), but a criterion whose premise — a redemption-shaped entry —
+the named baseline almost never produces. Three resolutions are on
+the table for review, none taken unilaterally: condition or restate
+the bar (e.g. the matched-seed counterfactual IS the falling-Case
+claim, unconditioned); re-base the straight rows on the dirty-month
+profile the branch was written for; or strengthen the remediation
+constants against the siege — a §6.3 constants decision that needs
+its ruling recorded first. The source-less-witness taxonomy question
+rides along.
+
+**Consequence honored:** §7 lifts the Quiet Sale's flag when THIS
+gate passes. It has not passed; no flag moved. The fork still
+reaches no player until the ruling lands.
+
+Verification: 305 tests green on 3.11 and 3.12 (68 new across
+`tests/test_remediation.py` and `tests/test_straight_path.py`,
+driving the real scene, mornings, commits, resolutions and nights);
+ruff 0.15.x + mypy clean; flag-off golden 300/300 AND paired
+stand-pat 300/300 (expected 82 / held 82, schema v1) on 3.11, 3.12
+and 3.13 with all P2 code in the tree — the branch and its machinery
+are provably inert unless entered.
+
+### Round 9 correction (review — design rev. 10)
+
+Review reproduced every round-9 number, accepted the branch's identity
+and the randomness ownership, ruled on all four flagged questions —
+and found two correctness defects and three design gaps; all corrected
+at the root, recorded as design revision 10 before implementation.
+
+- **The dormancy cache could lie at the worst moment.** The stored
+  `Evidence.dormant` flag was reconciled nightly BEFORE the rival and
+  law phases; the reviewer's repro — a protected 20-point record over
+  30 physical, morale 5 → 4 after the reconciliation — read Case 40
+  and graded `straight_exit` where the true file reads 50 and grades
+  `almost_out`. Doctored saves could plant dormant records with
+  nonexistent, departed or demoralized sources. The flag is GONE:
+  retention protection is derived from the live roster inside one
+  context-aware fold (`fold_case(evidence, dormant_sources)`, the set
+  computed by `State.case` at every read), with halvings allocated in
+  ledger order inside raw-total-minus-floor — so derived relief can
+  never display the sum below the floor at all, and no phase ordering
+  can stale it. The repro is pinned both ways, with the poach variant;
+  `validate_cross_state` now binds ledger, roster, settlements and
+  branch state as one payload (phantom witness sources, settlements
+  naming nobody, and settlements naming the never-read-in are all
+  refused).
+- **The promised ledger is now visible.** One `EvidenceLedgerView`
+  itemizes every record — kind, base and effective magnitude, source
+  name, disposition, contest status — plus the meter (same fold, same
+  context: identity by construction), the 25-point budget spent and
+  left, the floor, and counsel's next target. "The case file
+  (counsel's docket)" renders it from the branch morning menu; the
+  renderer infers no rules. `models.remediation_disposition` is the
+  one answer to what may touch a record; queue, verbs, docket and
+  validation all consume it.
+- **Settlements state both outcomes on every path.** The review's
+  Marcus exhibit (cap spent, $360 paid, "what they know goes quiet
+  for good", file unmoved) is pinned: the relational outcome and the
+  evidentiary outcome are separate sentences — applied, truncated at
+  the cap, cap-exhausted ("the engagement is settled; the evidence is
+  not"), floor-bound, locked-in-free, or nothing-in-the-file.
+- **The informant's tip is paper** (an intelligence report, not
+  testimony — §2.3 amended) and counsel can argue it; the patrolman
+  and the watchers stay witness records with external provenance,
+  labeled immune in the docket. In round-9's 500-seed runs the tip
+  was the dominant post-fork source-less accrual (286 records, 1,144
+  points in typical entries) — reclassification moves it into
+  counsel's reach, which shows up directly in the natural cohort's
+  paired numbers below.
+- **The burned book stays burned.** Route presentation is centralized
+  and branch-aware (`routes._route_voice`): a disposal run speaks of
+  cold buyers and one-use clearance contacts, never "coded orders on
+  the board." Grammar, dice and option lists untouched; both voices
+  pinned.
+
+**The corrected gate (rev. 10 item 8: two cohorts, no constants moved,
+no bar conditioned after the fact), 150 seeds, `--seeds 500` in
+parentheses:**
+
+| Cohort / row | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Natural: reachability | ≥ 55% | 57% (56%) | pass |
+| Natural: earned-exit band | 25–70% | 48% (43%) | pass |
+| Natural: covert share after fork+2 | < 5% | 0.0% (0.0%) | pass |
+| Natural: paired — remediation leaves the file lower | ≥ 60% | 55/85 = 65% (172/280 = 61%) | pass |
+| Natural: ledger + floor oracles, nightly | 0 bad | 0 (0) | pass |
+| Redemption: median ΔCase fork→end | ≤ −5 | **−10.0** (−10.0) | **pass** |
+| Redemption: Case strictly below entry | ≥ 60% | 148/150 = **99%** (497/500 = 99%) | **pass** |
+| Redemption: ablation drop | ≥ 20 pts | **80** (76) | **pass** |
+| Crash-freedom (both chaos fleets) | all | 300/300 (1000/1000) | pass |
+| Quiet Sale battery (all P2 code in tree) | round-8 rows | identical | pass |
+
+The redemption cohort is the frozen §3.1 reference entry (Case 31: an
+immune seizure, the routine hum, a flagged over-ceiling record, the
+informant's tip, and Marcus departed knowing everything), a
+harness-owned predeclared literal entered through the real scene
+across world seeds — `game.run` gained an injectable starting state so
+the cohort runs the one real loop, not a drifted copy. Its earned-exit
+rate reads 80% (76%) — above the 25–70 band, which per the ruling
+binds the natural cohort; reported, not judged, and the reference
+state was built to be redeemable. The natural cohort's absolute ΔCase
+medians remain positive (+3.1 / +3.5) with the full decomposition
+still printed — that is the cold-entry population the ruling
+deliberately measures by the paired bar instead. The dirty-month
+ecological confirmation moved with the taxonomy fix: lockup ≥ 20
+entries now run median ΔCase −4.9 (−4.5) with 21/25 (73/92) strictly
+below, ablation 17 (14) points.
+
+Two notes for the re-review, flagged not judged: the natural paired
+bar sits close to its floor at 500 seeds (61% against ≥ 60%), and the
+redemption cohort has no band bar of its own — if review wants one,
+it lands as a criterion amendment, not a tuning pass.
+
+After the correction: 316 tests green on 3.11 and 3.12 (11 new);
+ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11, 3.12 and 3.13; the escrow
+ensembles reproduce round 8 to the digit at 150 and 500 seeds. The
+Quiet Sale's flag remains down pending the re-review's explicit word.
+
+### Round 9 correction 2 (re-review — the monotone ledger, design rev. 11)
+
+Re-review reproduced every correction-1 number, accepted all eight
+rev. 10 corrections in architecture, ruled on both flags (no criterion
+amendment: the natural paired bar passes as written and must re-clear
+after this fix; the redemption exit rate is not a failure and gets no
+band) — and found the replacement ledger **non-monotone at the
+floor**, plus a disposition authority still answering without the
+state to know. Both fixed at the root, recorded as revision 11 on
+paper first.
+
+- **Case arithmetic is monotone again.** The all-or-nothing relief
+  allocation moved the meter the wrong way at the boundary, both
+  directions reproduced by review: one point of NEW paper dropped
+  Case 15 → 10 (the bigger allowance let a too-big halving suddenly
+  fit), and a −2.46 contest RAISED Case 10.1 → 13.6 (the shrunken
+  allowance evicted it). `dormant_relief` now allocates per record
+  and PARTIALLY at the boundary — cut = min(half the magnitude,
+  allowance remaining) in ledger order — so total relief is exactly
+  min(halvable, raw − floor) and the display can only move the way
+  the design promises. All six ruled properties are pinned, the two
+  repros among them: accrual never lowers, remediation never raises,
+  losing protection never lowers, gaining it never raises, docket
+  effective magnitudes sum to the meter, and floor-limited partial
+  relief renders honestly ("loyalty holds part of it down; the floor
+  limits the rest"). The fold, the docket, the settlement lock-in
+  (free portion = tonight's actual cut; paid portion = the rest of
+  the halving, cap-scaled per record) and the independent oracle all
+  consume the one allocation contract.
+- **The witness relationship has one authority, and the lifecycle is
+  closed.** `models.witness_status` (settled / beyond_reach /
+  protected / reachable) now feeds a context-aware
+  `remediation_disposition`: a settled or arrested source no longer
+  renders "a settlement can reach this" — the review's four repros
+  are pinned. Per the ruling, **settled-out names never rehire on
+  the Straight Path**: the real staff menu refuses them and a
+  settled-and-hired payload is refused at load, alongside duplicate
+  employee keys and witness testimony sourced to the never-read-in.
+- **The docket keeps round 6's promise**: storage stays per-tick,
+  the display rolls the routine hum into one line with its entry
+  count and exact totals; the counsel status line says "cap
+  exhausted" or "the floor holds" instead of naming a target no
+  contest can reach.
+- **The reporter tells the truth.** The cohort contract is an
+  explicit spec: only binding numbers print as bars; the natural
+  cohort's absolute ΔCase and the redemption cohort's exit rate
+  print as reported; every dirty-month and single-verb line is
+  tagged [diagnostic]. (The relabeling also surfaced a harness bug:
+  the dirty-month ablation bot had kept remediating after its flag
+  was renamed — fixed; its drop reads 13–14 points again.)
+
+**The gate after the fold correction — the ruling's condition was
+that the natural paired bar re-clear, and it does** (150 seeds,
+`--seeds 500` in parentheses):
+
+| Cohort / row | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Natural: reachability | ≥ 55% | 57% (56%) | pass |
+| Natural: earned-exit band | 25–70% | 48% (43%) | pass |
+| Natural: covert share after fork+2 | < 5% | 0.0% (0.0%) | pass |
+| Natural: paired — remediation leaves the file lower | ≥ 60% | 55/85 = **65%** (172/280 = **61%**) | pass |
+| Natural: ledger + floor oracles | 0 bad | 0 (0) | pass |
+| Redemption: median ΔCase fork→end | ≤ −5 | −10.0 (−10.0) | pass |
+| Redemption: strictly below entry | ≥ 60% | 99% (99%) | pass |
+| Redemption: ablation drop | ≥ 20 pts | 80 (76) | pass |
+| Crash-freedom (both fleets) | all | 300/300 (1000/1000) | pass |
+| Quiet Sale battery | round-8 rows | identical | pass |
+
+The single-verb diagnostics (not bars) say what each verb is worth:
+counsel alone pulls the reference file −7.0 with 96–97% strictly
+below but exits 0% — the hostile witness stays unsettled; settlements
+alone exit 75–79% at ΔCase +2.0 — the goal term without the
+arithmetic. The two verbs are load-bearing in different terms, which
+is the §2.3 design working as written.
+
+After correction 2: 327 tests green on 3.11 and 3.12 (11 new);
+ruff/mypy clean; flag-off golden 300/300 and paired stand-pat 300/300
+(expected 82 / held 82, schema v1) on 3.11, 3.12 and 3.13; the escrow
+ensembles reproduce round 8 to the digit at both depths. No PR is
+open and the Quiet Sale's flag stays down — both wait for the merge
+disposition.
+
+### Round 9 correction 3 (re-review — the arrest and the closed form, design rev. 12)
+
+Re-review approved the story and gameplay design outright, reproduced
+every correction-2 number, and found the last two model-level
+blockers; both fixed at the root, recorded as revision 12 on paper
+first, with nothing grandfathered in the rerun.
+
+- **Arrested witnesses stop receiving loyalty relief.**
+  `witness_status` answered beyond_reach while `dormant_sources`
+  re-derived protection on its own and forgot the arrest — a real
+  route bust arrests a driver without unhiring them, so arrested Rosa
+  at morale 8 kept her 20-point record halved (Case 40, not 50) while
+  the docket cited custody in the same breath. Protection is now
+  derived INSIDE witness_status (the ordered matrix: settled beats
+  arrested beats protected beats reachable) and dormant_sources
+  consumes only status == protected. Pinned: the exhibit itself, the
+  complete ten-row matrix, and a regression through the real
+  solo-route bust — the displayed Case rises the moment the cuffs
+  close, driven by `resolve_route`.
+- **The relief allocator honors a closed-form contract.** Two
+  violations inside the accepted model, both reproduced: a legal
+  zero-magnitude protected record made the allocator break instead of
+  skip (zeroing a 0.6 record jumped the Case 10.6 → 20.3 as every
+  later cut was abandoned — it now falls to 10.3), and sequential
+  per-cut subtraction let a floor-bound display read
+  9.999999999999998. `fold_case` now computes relief = min(total
+  halvable, max(0, raw − floor)) in closed form and canonicalizes
+  floor-bound displays to EXACTLY 10; ledger order survives only in
+  the per-record display allocation (skip zeros, break only on an
+  exhausted allowance). The harness oracle computes the closed form
+  independently — the rev. 11 oracle had repeated the allocator's
+  break and certified its own defect. Property coverage moved from
+  named examples to generated sweeps over accepted magnitudes
+  including zero: 200 monotonicity trials across all four ruled
+  directions, 300 floor-binding probes with a teeth check, 100
+  docket-sums-to-meter trials.
+
+**The rerun, nothing grandfathered** (150 seeds, `--seeds 500` in
+parentheses): natural — reachability 57% (56%), earned exits 48%
+(43%) in band, covert 0.0%, oracles clean, paired bar **65%**
+(**61%**) against ≥ 60%, re-cleared fresh on the corrected fold;
+redemption — median ΔCase **−10.0** (−10.0), strictly below **99%**
+(99%), ablation **80** (76) points; crash-freedom 300/300
+(1000/1000); the Quiet Sale battery identical to round 8 at both
+depths. 334 tests green on 3.11 and 3.12 (3.13 agrees); ruff/mypy
+clean; flag-off golden 300/300 and paired stand-pat 300/300 (expected
+82 / held 82, schema v1) on all three Pythons.
+
+**Per the rev. 12 ruling, P2 opens as a PR on this green.** Merge
+remains the reviewer's explicit word; the Straight Path and the Quiet
+Sale activate together AFTER the merge, as their own step. No further
+design or tuning ruling is pending.
+
 ## Still open (carried to the next design pass)
 
-- The midgame still resolves around day 12–15. The payoff-triggered
-  Act I fork is now fully designed and merged as the decision record
-  (`docs/ACT1_FORK_DESIGN.md`, PR #6); implementation follows the phased
-  plan there. P0 is now complete — foundation (round 6) plus the §2.1
-  telegraph lines (round 7); P1 (the sit-down behind a feature flag) is
-  next, on the reviewer's go.
+- The payoff-triggered Act I fork: P0 and P1 are complete and merged
+  (P0 foundation + telegraphs, rounds 6–7; P1a fork skeleton + P1b
+  Quiet Sale, round 8 with corrections 1–6). **P2 — the Straight Path
+  — is implemented, measured (round 9), corrected three times under
+  review (rev. 10–12: derived retention, the monotone closed-form
+  ledger, the arrest-aware witness authority), and its two-cohort
+  gate passes with nothing grandfathered** (natural paired 65%/61%
+  against ≥ 60%; redemption −10.0 median, 99% strictly below,
+  80/76-point ablation). **The PR is open per the rev. 12 ruling;
+  merge waits on the reviewer's explicit word**, and the Straight
+  Path + Quiet Sale flags activate together AFTER the merge, as
+  their own step. P3 (the Harbor War) stays paused until then.
+- The Quiet Sale's human-play verdict is untaken: *sold well* was never
+  reached by any bot (the clean number must be earned by the month, not
+  the week — the branch's thesis). Whether that is fun is a seeds
+  24/39/8 question, deferred to the P4 human-play pass.
 - Heat still under-binds relative to the Case; needs local teeth without
   becoming a second global meter.
 - Event responsiveness beyond payday/heat-wave is now *provable* with the

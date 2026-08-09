@@ -251,23 +251,37 @@ def record_incident(state: State, con: Console, streams: Streams,
                f"{money(bs.escrow_mark)}. One more and the deal dies.")
 
 
-def incinerate(state: State, con: Console, stock: bool = False,
-               cash: int = 0) -> None:
-    """THE escrow disposal primitive (rev. 7): destruction, never
-    conversion. Nothing comes back — no clean cash, no Case relief, no
-    value; the week's one rule is that the two ledgers cannot touch, so
-    what cannot be shown gets burned. Cash burns only from the till in
-    hand: warehouse cash is physical and must be trucked back before it
-    can meet the incinerator."""
+def burn_assets(state: State, stock: bool = False,
+                cash: int = 0) -> tuple[int, int]:
+    """THE disposal effect (rev. 7, shared per rev. 9 item 9):
+    destruction, never conversion. Nothing comes back — no clean cash,
+    no Case relief, no value. Cash burns only from the till in hand:
+    warehouse cash is physical and must be trucked back before it can
+    meet the incinerator; warehouse stock likewise burns only after it
+    comes home. Returns (units burned, dollars burned); narration
+    belongs to the caller's branch."""
+    units = 0
     if stock and state.stash_bulk(state.shop_stash) > 0:
         units = sum(u for u in state.shop_stash.values() if u > 0)
         state.shop_stash = {}
+    burned = 0
+    if cash > 0:
+        burned = min(cash, state.dirty)
+        state.dirty -= burned
+    return units, burned
+
+
+def incinerate(state: State, con: Console, stock: bool = False,
+               cash: int = 0) -> None:
+    """The escrow surface over the shared burn effect: the week's one
+    rule is that the two ledgers cannot touch, so what cannot be shown
+    gets burned."""
+    units, burned = burn_assets(state, stock=stock, cash=cash)
+    if units:
         con.say(f"  {units} units go into the incinerator behind the "
                 f"bakery before ten. It smells like money for an hour, "
                 f"and then it smells like a clean close.")
     if cash > 0:
-        burned = min(cash, state.dirty)
-        state.dirty -= burned
         con.say(f"  {money(burned)} in unwashable bills goes into the same "
                 f"fire, a brick at a time. It buys nothing, launders "
                 f"nothing, and answers no subpoena — which is the point.")

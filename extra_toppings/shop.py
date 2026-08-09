@@ -7,7 +7,7 @@ serve as cover on a route. A hollow restaurant has nothing to hide behind.
 
 import random
 
-from . import data, market
+from . import data, market, straight
 from .models import State
 
 
@@ -55,8 +55,14 @@ def recompute_demand(state: State) -> None:
     late_f = 1.2 if "late_license" in shop.upgrades else 1.0
     coupon_f = 0.8 if shop.coupon_days > 0 else 1.0
     ev_f = market.event_mult(state, dk, "traffic")
+    # An advertising campaign lifts the order book while it runs
+    # (Straight Path only, rev. 9 item 8). The 1.0 multiplicand is
+    # exact in IEEE, so the flag-off arithmetic is bit-identical.
+    ad_f = (straight.AD_DEMAND_MULT
+            if state.branch == "straight" and state.branch_state is not None
+            and state.branch_state.ad_days_left > 0 else 1.0)
     state.demand_today = int(base * rep_f * price_f * late_f * coupon_f * ev_f
-                             * state.demand_shock)
+                             * ad_f * state.demand_shock)
     state.delivery_pool = int(state.demand_today * DELIVERY_SHARE)
 
 
