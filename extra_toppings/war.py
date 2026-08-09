@@ -12,7 +12,7 @@ only on a recorded ruling.
 
 import random
 
-from . import data, models
+from . import data, evidence, models
 from .models import State, WarCampaignState
 from .ui import Console, money
 
@@ -248,8 +248,12 @@ def night_obligation(state: State, con: Console,
     (the caller's flag); if base wages bounced, no bonus is paid and
     no second morale penalty lands — one short night, one roster-wide
     hit. Otherwise the bonus draws dirty first, then clean, checked
-    before any mutation; the amounts persist separately."""
+    before any mutation; the amounts persist separately.
+
+    Counsel's nightly work runs first — the same machinery as
+    everywhere the capability policy unlocks it (rev. 14 item 8)."""
     bs = _bs(state)
+    evidence.counsel_nightly(state, con)
     crew = [e for e in state.hired() if e.aware and not e.arrested]
     due = WAR_PAY_PER_HEAD * len(crew)
     if due == 0:

@@ -7,8 +7,8 @@ by anything the player does. Player-facing dice use persistent streams.
 
 import random
 
-from . import (data, escrow, market, models, raids, rivals, routes, shop,
-               straight, war)
+from . import (data, escrow, evidence, market, models, raids, rivals,
+               routes, shop, straight, war)
 from .config import GameConfig
 from .models import SitdownSnapshot, State, case_prefix
 from .rng import Streams
@@ -191,6 +191,7 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
             ("Plan tonight's route", "route"),
             ("Plan a night job (raid)", "raid"),
             ("The war board", "board"),
+            ("The case file (counsel's docket)", "case"),
         ]
         next_front = _second_front(state)
         if next_front:
@@ -235,6 +236,8 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
                 wagon_free=route is None and plans.get("salvage") is None)
         elif key == "board":
             war.board(state, con)
+        elif key == "case":
+            evidence.show_case_file(state, con)
         elif key == "declare" and next_front:
             c = con.menu(
                 f"Take the war to {data.RIVALS[next_front]['short']}? "
@@ -473,11 +476,12 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                                 "Let someone go", "Back"])
         if c == 0:
             pool = [e for e in state.employees if not e.hired and not e.arrested]
-            if state.branch == "straight" and state.branch_state is not None:
+            if models.remediation_unlocked(state):
                 # Rev. 11: settled-out names never come back — the
                 # settlement was severance, not a sabbatical, and a
                 # rehire would reopen the witness problem the goal
-                # term already counted closed.
+                # term already counted closed. Capability-gated
+                # (rev. 14 item 8): the war settles too.
                 from .models import witness_status
                 pool = [e for e in pool
                         if not (e.aware and witness_status(state, e.key)
@@ -564,6 +568,10 @@ def _improvements(state: State, con: Console) -> None:
         if state.branch == "straight":
             extras = [("counsel", straight.counsel_label(state)),
                       ("advertise", straight.ad_label(state))]
+        elif models.remediation_unlocked(state):
+            # The war retains the same counsel (rev. 14 item 8);
+            # advertising stays the Straight Path's own verb.
+            extras = [("counsel", evidence.counsel_label(state))]
         keys = [k for k in data.UPGRADES if k not in owned]
         opts = [label for _key, label in extras]
         opts += [f"{data.UPGRADES[k]['label']} — {money(data.UPGRADES[k]['cost'])} clean. "
@@ -575,7 +583,7 @@ def _improvements(state: State, con: Console) -> None:
         c = con.menu(f"Improvements (clean {money(state.clean)}):", opts)
         if c < len(extras):
             if extras[c][0] == "counsel":
-                straight.toggle_counsel(state, con)
+                evidence.toggle_counsel(state, con)
             else:
                 straight.advertise(state, con)
             continue
@@ -784,8 +792,13 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                 ("Pay Carmine (he prefers unmarked bills)", "debt"),
                 ("Move stash / cash (shop ↔ warehouse)", "storage"),
                 ("Talk to a rival", "rival"),
-                ("Lock up →", "lockup"),
             ]
+            if models.remediation_unlocked(state):
+                # The war settles witnesses through the same verb
+                # (rev. 14 item 8) — crew versus Case, priced nightly.
+                entries += [("Settle with a witness (clean cash buys "
+                             "quiet)", "settle")]
+            entries += [("Lock up →", "lockup")]
         key = entries[con.menu("Settle accounts:",
                                [label for label, _k in entries])][1]
         if key == "cash":
@@ -800,7 +813,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         elif key == "rival":
             rivals.negotiate(state, con, streams.rivals)
         elif key == "settle":
-            straight.settle_menu(state, con)
+            evidence.settle_menu(state, con)
         else:
             break
 
@@ -875,9 +888,10 @@ def _launder(state: State, remaining: int, con: Console) -> int:
         return 0
     # §2.3 dual use: while counsel is retained the believable ceiling
     # is enforced — the "wash more anyway" branch is simply not offered
-    # (counsel's office sees the tapes). Straight branch only; the
-    # flag-off prompt and bounds are untouched.
-    counsel = state.branch == "straight" and state.branch_state is not None \
+    # (counsel's office sees the tapes). Capability-gated (rev. 14
+    # item 8); the flag-off prompt and bounds are untouched.
+    counsel = models.remediation_unlocked(state) \
+        and state.branch_state is not None \
         and state.branch_state.counsel_retained
     top = min(state.dirty, remaining) if counsel else state.dirty
     if counsel and top <= 0:

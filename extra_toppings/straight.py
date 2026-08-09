@@ -309,87 +309,15 @@ def burn_stock(state: State, con: Console) -> None:
                 "home (move stash, nights) before it can burn.")
 
 
-# ── the case file (rev. 10 item 3) ────────────────────────────────
-
-_DISPOSITION_NOTES = {
-    "contestable": "counsel can argue this",
-    "contested": "already argued down",
-    "settleable": "a settlement can reach this",
-    "settled": "their peace is bought",
-    "beyond_reach": "in custody — the statement is the state's",
-    "external": "outside provenance — no settlement reaches it",
-    "immune": "what the city saw, it saw",
-    "suspicion": "permanent — they remember your name",
-}
-
-_CONTEST_STATES = {
-    "empty": "nothing left worth arguing",
-    "floor": "the floor holds — nothing to argue below it",
-    "cap": "cap exhausted — every point the cap allows is spent",
-}
-
-
-def show_case_file(state: State, con: Console) -> None:
-    """The docket: renders the EvidenceLedgerView and nothing else —
-    every number comes from the view, and the view's total IS the
-    meter (same fold, same context)."""
-    view = evidence.build_ledger_view(state)
-    con.say("")
-    con.say(f"  THE CASE FILE — reads {view.total:.1f}/100 tonight "
-            f"(the floor under any lawyering: {view.floor:.0f}).")
-    if not view.lines:
-        con.say("  The file is empty. Keep it that way.")
-        return
-    for line in view.lines:
-        label = line.why
-        if line.count > 1:
-            label += f" ({line.count} entries, rolled up)"
-        if line.relieved and line.partial:
-            weight = (f"{line.base:.1f} → counts {line.effective:.1f} "
-                      f"({line.source_name}'s loyalty holds part of it "
-                      f"down; the floor limits the rest)")
-        elif line.relieved:
-            weight = (f"{line.base:.1f} → counts {line.effective:.1f} "
-                      f"({line.source_name}'s loyalty holds it down)")
-        else:
-            weight = f"counts {line.effective:.1f}"
-        who = f" — {line.source_name}" if line.source_name else ""
-        con.say(f"    · day {line.day} · {line.kind} · {weight} · "
-                f"{label}{who} [{_DISPOSITION_NOTES[line.disposition]}]")
-    con.say(f"  Remedy spent {view.cap_used:.1f} of {view.cap:.0f} "
-            f"points; {view.cap_left:.1f} left to argue or settle.")
-    if view.counsel_retained:
-        status = (f"next in the queue: '{view.next_contest}'"
-                  if view.contest_state == "target"
-                  else _CONTEST_STATES[view.contest_state])
-        con.say(f"  Counsel retained, day {view.counsel_days} — {status}.")
-    else:
-        con.say("  No counsel retained — the paper stands unargued.")
-
-
-# ── improvements extras ───────────────────────────────────────────
-
-def counsel_label(state: State) -> str:
-    if live(state).counsel_retained:
-        return ("Dismiss counsel — the retainer ends tonight; the ceiling "
-                "is yours to break again.")
-    return (f"Retain counsel — {money(evidence.COUNSEL_FEE)}/day clean. "
-            f"Contests the file every third day; enforces the ceiling "
-            f"while retained.")
-
-
-def toggle_counsel(state: State, con: Console) -> None:
-    bs = live(state)
-    if bs.counsel_retained:
-        bs.counsel_retained = False
-        con.say("  The engagement letter goes back in its envelope. The "
-                "file is yours again — all of it.")
-        return
-    bs.counsel_retained = True
-    con.say(f"  A lawyer with harbor-view offices takes the retainer "
-            f"({money(evidence.COUNSEL_FEE)}/day, clean, nightly). Their "
-            f"one condition: the books make sense while they work — no "
-            f"washing past the ceiling. Counsel's office sees the tapes.")
+# ── the case file & the paid verbs: shared homes ─────────────────
+# The remediation UI moved to evidence.py (rev. 14 item 8): the
+# machinery belongs to every branch the capability policy unlocks,
+# and the war must not call Straight-specific wrappers. These names
+# stay bound for this module's callers and tests.
+show_case_file = evidence.show_case_file
+counsel_label = evidence.counsel_label
+toggle_counsel = evidence.toggle_counsel
+settle_menu = evidence.settle_menu
 
 
 def ad_label(state: State) -> str:
@@ -413,27 +341,6 @@ def advertise(state: State, con: Console) -> None:
 
 
 # ── nights ────────────────────────────────────────────────────────
-
-def settle_menu(state: State, con: Console) -> None:
-    """The night action: buy a witness's quiet (§2.3, rev. 9 item 4).
-    Departed witnesses list first; a current name on this list is
-    settled OUT — severance instead of a witness."""
-    targets = sorted(evidence.settle_targets(state),
-                     key=lambda e: (e.hired, e.key))
-    if not targets:
-        con.say("  Nobody left to settle with — everyone who knows is "
-                "either paid, content, or beyond reach.")
-        return
-    labels = []
-    for e in targets:
-        status = ("still on payroll — settling means they leave, quietly"
-                  if e.hired else f"departed, morale {e.morale}")
-        labels.append(f"{e.name} ({status}) — "
-                      f"{money(evidence.settlement_cost(e))} clean")
-    labels.append("Back")
-    pick = con.menu("Whose quiet do you buy?", labels)
-    if pick < len(targets):
-        evidence.settle_witness(state, targets[pick], con)
 
 
 def night_tick(state: State, con: Console, payroll_short: bool) -> None:

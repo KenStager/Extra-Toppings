@@ -334,7 +334,7 @@ class TestBurnedOut(unittest.TestCase):
         state.clean = 5000
         state.shop.damage_days = 2
         state.rivals["vinnie"].raid_warning = 1
-        con = self._night(state, [1, 4])     # decoy; lock up
+        con = self._night(state, [1, 5])     # decoy; lock up
         self.assertEqual(state.game_over, "burned_out")
         self.assertIsNotNone(con.find("The war came home"))
 
@@ -342,7 +342,7 @@ class TestBurnedOut(unittest.TestCase):
         state = war_state()
         state.clean = 5000
         state.rivals["vinnie"].raid_warning = 1
-        self._night(state, [1, 4])
+        self._night(state, [1, 5])
         self.assertIsNone(state.game_over)
         self.assertEqual(state.shop.damage_days, 2)
 
@@ -352,7 +352,7 @@ class TestBurnedOut(unittest.TestCase):
         state.dirty = 5000
         state.shop.damage_days = 2
         state.rivals["vinnie"].raid_warning = 1
-        self._night(state, [2, 4])
+        self._night(state, [2, 5])
         self.assertIsNone(state.game_over)
 
     def test_flag_off_never_burns_out(self):
@@ -396,7 +396,7 @@ class TestTargetOnlyJobs(unittest.TestCase):
                 "team": [rosa], "armed": False, "table_warned": True}
         break_target(state)                  # the corners got him first
         alert_before = state.rivals["vinnie"].alertness
-        con = Scripted([4])                  # just lock up
+        con = Scripted([5])                  # just lock up
         phases.night(state, {"route": None, "raid": plan}, {}, con,
                      Streams(11))
         self.assertIsNotNone(con.find("broke before the crew"))
@@ -548,3 +548,60 @@ class TestWarPersistenceMidCampaign(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSharedRemediation(unittest.TestCase):
+    """Rev. 14 item 8: the war unlocks the SAME machinery — retention
+    protection, counsel, settlements — through the capability policy,
+    never through straight wrappers or parallel copies."""
+
+    def test_retention_protection_holds_in_the_war(self):
+        state = war_state()
+        e = state.employees[0]
+        e.hired, e.aware, e.morale = True, True, 8
+        state.add_case(20, f"{e.name} knows everything",
+                       kind="witness", source=e.key)
+        self.assertEqual(state.case, 10.0)      # halved, floor-exact
+        e.morale = 3
+        self.assertEqual(state.case, 20.0)      # protection lapses live
+
+    def test_counsel_retains_charges_and_contests_in_the_war(self):
+        from extra_toppings import evidence
+        state = war_state()
+        state.clean = 5000
+        state.add_case(12, "an over-ceiling wash left paper",
+                       kind="paper")
+        evidence.toggle_counsel(state, Quiet())
+        for _ in range(evidence.COUNSEL_CONTEST_EVERY):
+            war.night_obligation(state, Quiet(), payroll_short=False)
+        bs = state.branch_state
+        self.assertEqual(bs.counsel_days, 3)
+        self.assertEqual(state.clean, 5000 - 3 * evidence.COUNSEL_FEE)
+        contested = [r for r in state.evidence if r.contested]
+        self.assertEqual(len(contested), 1)
+        self.assertEqual(state.case, 10.0)      # the floor holds, exactly
+        self.assertIn("suspicion", {r.kind for r in state.evidence})
+        validate_branch_state("war", bs)
+
+    def test_settlements_reach_war_witnesses(self):
+        from extra_toppings import evidence
+        state = war_state()
+        state.clean = 5000
+        e = state.employees[0]
+        e.hired, e.aware, e.morale = False, True, 2   # departed, hostile
+        state.add_case(30, f"{e.name} left knowing everything",
+                       kind="witness", source=e.key)
+        before = state.case
+        evidence.settle_witness(state, e, Quiet())
+        self.assertLess(state.case, before)
+        self.assertIn(e.key, state.branch_state.settled_witnesses)
+        validate_cross_state(state)
+
+    def test_the_capability_is_exactly_two_branches(self):
+        from extra_toppings.models import remediation_unlocked
+        self.assertTrue(remediation_unlocked(war_state()))
+        self.assertFalse(remediation_unlocked(new_state()))
+        sale = new_state()
+        sale.branch = "quiet_sale"
+        sale.branch_state = BranchState.quiet_sale()
+        self.assertFalse(remediation_unlocked(sale))

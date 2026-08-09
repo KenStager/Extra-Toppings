@@ -87,6 +87,19 @@ REMEDIATION_CAP = 25.0
 EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
                   "suspicion")
 
+# §2.3 grants the counterplay verbs to the active branches; each branch
+# turns them on in its own phase under its own studies (rev. 9 item 16;
+# the war joined by the rev. 14 ruling). THE branch-capability answer —
+# counsel availability, the laundering ceiling, settlements, retention
+# protection, hiring refusals, cross-state validation and the docket
+# all consume this one pair; never a scattered branch check.
+REMEDIATION_BRANCHES = frozenset({"straight", "war"})
+
+
+def remediation_unlocked(state: "State") -> bool:
+    return state.branch in REMEDIATION_BRANCHES \
+        and state.branch_state is not None
+
 
 def case_prefix(evidence: list):
     """THE shared prefix iterator (rev. 9 item 15): yields (record,
@@ -409,7 +422,11 @@ _BRANCH_FIELDS = {
                  "ad_days_left", "insolvent_days"},
     "partner": {"points_due_day", "points_missed", "vig_owed"},
     "war": {"campaigns", "war_pay_paid", "war_pay_short_nights",
-            "insurance_paid_until"},
+            "insurance_paid_until",
+            # The shared remediation fields (rev. 14 item 8): the war
+            # unlocks the same verbs through the same machinery.
+            "counsel_retained", "counsel_days", "remediation_used",
+            "settled_witnesses"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
                    "escrow_discount_pct", "severance_outcome",
                    "severance_paid", "closing_headcount"},
@@ -473,6 +490,29 @@ def validate_branch_state(branch: str | None,
         _validate_war(branch_state)
 
 
+def _validate_remediation_fields(branch: str, bs: "BranchState") -> None:
+    """The shared remediation contracts (rev. 14 item 8): the counsel
+    ledger, the paid budget and the settled roster bind identically in
+    every branch the capability policy unlocks."""
+    if not isinstance(bs.counsel_retained, bool):
+        raise ValueError(f"{branch}: counsel_retained must be a bool, "
+                         f"got {bs.counsel_retained!r}")
+    if type(bs.counsel_days) is not int or bs.counsel_days < 0:
+        raise ValueError(f"{branch}: counsel_days must be a non-negative "
+                         f"integer, got {bs.counsel_days!r}")
+    used = bs.remediation_used
+    if isinstance(used, bool) or not isinstance(used, (int, float)) \
+            or not 0 <= used <= REMEDIATION_CAP:
+        raise ValueError(f"{branch}: remediation_used must lie in "
+                         f"0..{REMEDIATION_CAP:.0f} points, got {used!r}")
+    names = bs.settled_witnesses
+    if not isinstance(names, list) \
+            or any(not isinstance(k, str) or not k for k in names) \
+            or len(set(names)) != len(names):
+        raise ValueError(f"{branch}: settled_witnesses must be a list of "
+                         f"unique employee keys, got {names!r}")
+
+
 def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
     """The Straight Path's field contracts (rev. 9): counted disposal
     runs, the paid-remediation budget, the settled-witness roster and
@@ -486,23 +526,7 @@ def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
             type(bs.last_crime_day) is not int or bs.last_crime_day < 1):
         raise ValueError(f"straight: last_crime_day must be None or a "
                          f"positive day, got {bs.last_crime_day!r}")
-    if not isinstance(bs.counsel_retained, bool):
-        raise ValueError(f"straight: counsel_retained must be a bool, "
-                         f"got {bs.counsel_retained!r}")
-    if type(bs.counsel_days) is not int or bs.counsel_days < 0:
-        raise ValueError(f"straight: counsel_days must be a non-negative "
-                         f"integer, got {bs.counsel_days!r}")
-    used = bs.remediation_used
-    if isinstance(used, bool) or not isinstance(used, (int, float)) \
-            or not 0 <= used <= REMEDIATION_CAP:
-        raise ValueError(f"straight: remediation_used must lie in "
-                         f"0..{REMEDIATION_CAP:.0f} points, got {used!r}")
-    names = bs.settled_witnesses
-    if not isinstance(names, list) \
-            or any(not isinstance(k, str) or not k for k in names) \
-            or len(set(names)) != len(names):
-        raise ValueError(f"straight: settled_witnesses must be a list of "
-                         f"unique employee keys, got {names!r}")
+    _validate_remediation_fields("straight", bs)
     if type(bs.ad_days_left) is not int or bs.ad_days_left < 0:
         raise ValueError(f"straight: ad_days_left must be a non-negative "
                          f"integer, got {bs.ad_days_left!r}")
@@ -628,6 +652,7 @@ def _validate_war(bs: "BranchState") -> None:
     if ins is not None and (type(ins) is not int or ins < 1):
         raise ValueError(f"war: insurance_paid_until must be None or a "
                          f"positive day, got {ins!r}")
+    _validate_remediation_fields("war", bs)
 
 
 def _validate_escrow_pricing(bs: "BranchState") -> None:
@@ -816,17 +841,18 @@ def validate_cross_state(state: "State") -> None:
                                  f"{r.source!r} was never read in — they "
                                  f"cannot know what this record says "
                                  f"they know")
-    if state.branch == "straight" and state.branch_state is not None:
+    if remediation_unlocked(state) and state.branch_state is not None:
+        b = state.branch
         for k in state.branch_state.settled_witnesses:
             if k not in keys:
-                raise ValueError(f"straight: settled witness {k!r} names "
+                raise ValueError(f"{b}: settled witness {k!r} names "
                                  f"nobody on the roster")
             if k not in aware:
-                raise ValueError(f"straight: settled witness {k!r} was "
+                raise ValueError(f"{b}: settled witness {k!r} was "
                                  f"never read in — there is nothing to "
                                  f"have settled")
             if k in hired:
-                raise ValueError(f"straight: settled witness {k!r} is "
+                raise ValueError(f"{b}: settled witness {k!r} is "
                                  f"still on the payroll — settled-out "
                                  f"names cannot be rehired (rev. 11)")
     if state.branch == "war" and state.branch_state is not None:
@@ -1059,7 +1085,7 @@ class State:
         no reconciliation event, and no second derivation to forget
         what the authority knows — an arrest, a poach or a morale slip
         changes the display the moment it happens."""
-        if self.branch != "straight" or self.branch_state is None:
+        if not remediation_unlocked(self):
             return frozenset()
         return frozenset(
             e.key for e in self.employees
