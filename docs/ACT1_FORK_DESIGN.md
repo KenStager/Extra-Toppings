@@ -859,8 +859,14 @@ seeds 24/39/8 remains the test of fun.
      defense damage remaining visible in its ledger — trails the mixed
      bot's success rate by ≥ 15 points, the anti-grind claim tested
      directly; a **restaurant-neglect ablation** (no cover spend, no
-     pantry care) trails the complete bot by ≥ 15 points, or the tycoon
-     half is decorative and the branch fails review; and a nightly
+     pantry care) trails the complete bot in **unconditional
+     Syndicate-ending rate by ≥ 15 points, binding at 500 seeds**
+     (rev. 17: a hollow restaurant can win one street fight but
+     cannot sustain control of the city — the first-capture bar
+     measured the wrong dramatic outcome; second-front-to-capture
+     conversion, Burned Out, payroll failures and witness accrual are
+     the reported decomposition), or the tycoon half is decorative
+     and the branch fails review; and a nightly
      reconciliation oracle: each campaign's starting strength minus the
      rival's current strength equals its damage records exactly.
    - *Partner bot:* combined legit revenue ≥ 1.5× the stand-pat control's
@@ -2774,3 +2780,101 @@ unchanged, the Sale battery rerun after truthful insolvency with
 movement recorded, ablation entry identity at zero, and the war
 gates rerun at both depths under the replaced criteria. No
 activation before the new pacing letter genuinely passes.
+
+**Revision 17** responds to the re-review of the rev. 16 pass at
+b4f4582, which independently confirmed every check and number —
+and ruled that several instruments and one core product contract
+encode the wrong model. The war's story is accepted; the
+corrections below are the review's rulings, recorded before any
+further implementation. Items 1–2 are CORE scope that precedes and
+underlies P3; items 3–6 are the blocking P3 findings; item 7
+replaces the neglect letter.
+
+1. **The wagon gets one coherent inventory model: RouteManifest.**
+   A player correctly reported that 12 Extra Oregano (bulk 2)
+   silently fills all 24 slots and the planner's disappearing
+   prompts make a full wagon look like the end of planning; review
+   confirmed and found the deeper incoherence — the route
+   calculations count FIVE incompatible quantities (capacity in
+   bulk slots; pizzas against a hard-coded 12; coded stops by
+   product categories; suspicion/lateness/heat by contraband
+   units; corner damage by units sold). Rulings, verbatim in
+   intent: the unexplained `min(12, …)` pizza cap is REMOVED — a
+   pizza-only route with 24 real orders, ingredients and oven
+   capacity loads 24 (README's "24 cargo slots shared between
+   pizzas and product" was always the contract; the test calling
+   12 "full pizza capacity" pinned a defect); if a stop-count
+   limit is ever wanted it becomes a separate, NAMED route-time
+   meter applied consistently to legitimate and covert stops, not
+   a buried constant; ONE typed `RouteManifest` owns cargo bulk,
+   pizza bulk, remaining capacity and validation; the sequential
+   disappearing prompts are replaced by an editable manifest where
+   every product stays visible — including disabled rows with
+   their reasons; inventory displays read units × bulk each =
+   bulk used at the shop, the warehouse and the wagon; and
+   over-capacity manifests are REFUSED at commit and at
+   resolution, never repaired and never merely prevented by UI.
+2. **The golden trace is deliberately versioned afterward.** The
+   flag-off golden has pinned the 12-pizza defect since P0;
+   preserving a known player-facing defect is not equivalence.
+   After the inventory correction lands with its own tests, the
+   golden is regenerated ONCE, as a recorded, versioned act — the
+   old checksum retired by name in FINDINGS, never silently — and
+   the never-regenerate rule resumes over the new trace. This is
+   the first and only sanctioned regeneration; the paired
+   stand-pat gate must hold across the change.
+3. **The heat probe must run a legal route.** The controlled
+   probe's injected cargo was 52 slots in a 24-slot wagon
+   (12 oregano = 24, 10 mushrooms, 8 honey, 10 pizzas) —
+   `resolve_route` accepted the unchecked dictionary, which is
+   itself the item-1 defect. The 15.8-vs-21.1 heat result is
+   WITHDRAWN and reruns through a legal RouteManifest. The
+   organic turf-units row is also contaminated: it read
+   `sold_yesterday`, which successful stock raids overwrite with
+   −8 shortage signals; actual route sales get their own result
+   field and the study reads that.
+4. **Outgoing raids get typed attempt records.** The pacing
+   comparison reported 12.8 strength damage per "committed
+   crew-night" when the strongest job applies at most 12 — the
+   denominator was successful `raids_led`, with the baseline
+   captured AFTER the first war night (a first-night success
+   vanishes), and entry-identical seeds are not an equal-
+   opportunity experiment once policies diverge. Root fix: an
+   append-only attempt record per outgoing job —
+   attempted/scrubbed/succeeded, crew committed, actual applied
+   damage — measured as damage per attempted job-night or per
+   person-night and NAMED as what it is; no honest-looking
+   number from a dishonest denominator.
+5. **"Still effective" measures the live ledger, not stored
+   magnitude.** Review reproduced a legal record with accrued 20,
+   Case and docket 10, harness "effective" 20 — the harness
+   ignored live retention (loyalty) relief. The 98% claim is
+   WITHDRAWN. The study reports three quantities from ONE
+   canonical ledger view (the docket's own): gross accrued;
+   permanent residue after contests and settlements; live
+   effective contribution after retention protection.
+6. **The night consults execution results, not morning
+   intentions.** A salvage driver lost before service prints
+   "scrubbed", draws nothing, collects nothing — and the
+   untouched plan still reserves the wagon against the raid,
+   though the wagon never departed. `run_salvage` returns a typed
+   result (wagon_used / scrubbed / collected); the night's wagon
+   question reads what actually happened.
+7. **The neglect letter is replaced: the restaurant sustains the
+   empire, not the street fight.** At 500 seeds neglect still
+   breaks its first rival but records zero double captures and
+   zero Syndicates — "a hollow restaurant can help win one street
+   fight, but it cannot sustain control of the city" is the
+   accepted hybrid thesis. New letter, binding at 500: the
+   maintained restaurant beats neglect in UNCONDITIONAL
+   Syndicate-ending rate by ≥ 15 points; second-front-to-capture
+   conversion, Burned Out, payroll failures and witness accrual
+   ship as decomposition. No constants are tuned to it. Heat may
+   stand as a local route consequence if the legal-manifest rerun
+   confirms it; its organic rarity remains an honest finding.
+
+Sequencing, per the ruling: the inventory/route model (items 1–2)
+is corrected first as its own core change with its own tests and
+the versioned golden; the P3 instruments (items 3–6) rerun on top
+of it; then the batteries rerun at both depths under item 7's
+letter. No PR, no activation, before the instruments are honest.
