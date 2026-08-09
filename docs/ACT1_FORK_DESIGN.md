@@ -567,12 +567,14 @@ vendetta (≤ −60) costs nothing extra — they started it.
 
 **Unlocks:** the **war board** — a morning readout of target strength,
 alertness/security word, your crew's health, turf status per district, and
-a running ledger of *where their strength went* (jobs / ovens / corners /
-the law), so the mixed campaign is visible on screen, not implied in prose.
+a running ledger of *where their strength went* (jobs / corners / ovens /
+the ledger / defense — the five channels of the canonical damage ledger,
+rev. 19), so the mixed campaign is visible on screen, not implied in
+prose.
 
 **How a rival organization actually breaks.** Raids alone must not be the
 answer — that is the grinding alertness was built to prevent — so the
-branch specifies four damage channels, every one flowing through the
+branch specifies five damage channels, every one flowing through the
 existing simulation:
 
 - **Jobs** (existing): stock theft −12 strength, sabotage −10, ledger
@@ -595,6 +597,10 @@ existing simulation:
   case, not yours — but a cornered organization comes back meaner: their
   violence factor rises permanently. Leaning (−15, +$2,000, consumable)
   remains the greedy alternative. Either way the leverage is spent.
+- **Defense** (incidental): a repelled or landed counter-raid costs the
+  attacker strength through the same authority — never a strategy you
+  choose, always visible in the ledger (rev. 14: incidental damage is
+  a channel because the reconciliation oracle counts every hundredth).
 
 Victory arithmetic at the reference save (Vinnie, strength 58): one stock
 job (−12) and one sabotage (−10, plus ~−8 oven bleed over four days), ~45
@@ -617,9 +623,14 @@ meter) — so the branch's real clock is whether you can finish the war
 before the file finishes you. Alertness economics (the $752 → $556 → $413 decline
 curve, FINDINGS round 5 — round 4's $781 → $597 → $438 was inflated by the
 issue-4 noise-timeout bug and superseded there; citation corrected rev. 13)
-make raid-spam self-defeating by construction —
-winning requires *pacing*, mixing routes-in-their-turf, sabotage windows,
-and raids on the days their security word says sleepy.
+make raid-spam a TRADE, not a free lunch — the honest thesis, measured
+at rev. 18-19's instruments: grinding can buy tempo by spending bodies
+(more attempts, more raw damage, nearly double the injured-crew days);
+pacing preserves crew and improves damage efficiency per person-night,
+and must not worsen campaign outcomes (the §2.7 outcome bar). Mixing
+routes-in-their-turf, sabotage windows, and jobs on the days their
+security word says sleepy is how a campaign spends people it wants to
+keep.
 
 **Systems carry-forward:** *Clean money* keeps the shop alive under
 coupon-blitz siege — a war run that lets the restaurant die loses its
@@ -627,8 +638,11 @@ laundering, its cover, and then the war. *Dirty money* funds war pay and
 tribute-to-the-bystander. *The Case* is the doomsday clock; the ledger
 play is its one release valve (their case, not yours). *Heat* becomes
 territorial denial: raiding a district spikes its heat (+12 today), which
-suppresses *your* routes there — burn a neighborhood taking it and you've
-taken ash; heat is finally load-bearing per district (§2.6). *Rivals*:
+suppresses *your* routes there — burn a neighborhood taking it and the
+routes through it pay for it: heat is a LOCAL ROUTE TAX per district
+(§2.6, amended rev. 17-19 — enforced and priced at planning and at the
+route's own capacity and corner take; campaign-level load is unproven
+and stays an honest finding, never asserted by this paper). *Rivals*:
 alertness, relation, telegraphs, tribute, poaching — every existing wheel,
 spun to maximum, plus side-picking. *Raids*: the branch's spine —
 **gated on the issue #4 fix** (the noise-timeout branch currently awards
@@ -848,10 +862,19 @@ seeds 24/39/8 remains the test of fun.
      below its fork-day value in ≥ 60% of runs: the first falling
      Case in the game's history, earned against the branch's own
      crime clock.
-   - *War bot (amended rev. 14):* median target strength at end ≤ 50% of
-     its fork-day value; pattern+physical ≥ 50% of **gross post-fork
-     evidence accrued** (measured before remediation, never net Case
-     growth); **channel mix:** in successful runs no single damage
+   - *War bot (amended rev. 14; letters replaced rev. 16-18):* median
+     target strength at end ≤ 50% of its fork-day value; **remediation
+     resistance on true accruals** — the median share of post-fork
+     ACCRUED evidence surviving as permanent residue ≥ 50%, and Case
+     above its fork-day value despite remediation in ≥ 60% of wars
+     (the retired pattern+physical kind-share ships as decomposition);
+     **the pacing letters** — at 500 seeds the alertness-aware full
+     policy must not trail the cooldown policy (the outcome bar), the
+     fleet comparison reported as a paired observational decomposition
+     under exact names (executed-job, executed person-night,
+     planned/committed efficiency), and the causal claim carried by a
+     state-matched fixed-opportunity experiment, calendar-keyed dice,
+     reported as measured; **channel mix:** in successful runs no single damage
      channel (jobs / corners / ovens / ledger / defense) accounts for
      > 60% of **applied damage in the broken campaign** (aggregate mix
      across campaigns reported as a diagnostic); a raid-only ablation
@@ -913,10 +936,13 @@ seeds 24/39/8 remains the test of fun.
    rate lands in a 25–70% band (no auto-win, no hopeless chair), and
    removing the branch's stated counterplay drops it by ≥ 20 points:
    a Straight Path bot that never settles witnesses or retains counsel; a
-   War bot that raids on cooldown ignoring alertness; a Partner bot that
-   pays points from pizza margins only; an Escrow bot that keeps stash on
-   premises. If an ablation *doesn't* hurt, the pressure is decorative and
-   the branch fails review.
+   Partner bot that pays points from pizza margins only; an Escrow bot
+   that keeps stash on premises. (The war's cooldown ablation left this
+   clause by ruling — rev. 16 retired its arbitrary 20-point magnitude
+   and the pacing requirement lives in the §2.7 war letters above; the
+   war's ≥ 20-class ablation is the raid-only and empire rows.) If an
+   ablation *doesn't* hurt, the pressure is decorative and the branch
+   fails review.
 6. **The control stands — exactly, per seed (two-trace contract,
    rev. 5).** For every seed, a flag-on stand-pat run and a flag-off run
    must match — not a matching distribution, the same runs. The earlier
@@ -2326,7 +2352,7 @@ throughout: structure is the decision, numbers are tuning, and any
     premiums, gunfire, bodies, seizures and external witnesses,
     almost all immune by taxonomy, so the file ratchets in practice
     with counsel retained; that is the §2.7 war row's own claim
-    (pattern+physical ≥ 50% of post-fork growth). Turning the verbs
+    (the remediation-resistance letters, as replaced rev. 16-17). Turning the verbs
     off would also orphan the dual-use counsel ceiling and make
     retention dormancy — the §2.6 primitive war pay itself extends —
     dead in the one branch that pays people the most.
@@ -2380,10 +2406,10 @@ throughout: structure is the decision, numbers are tuning, and any
     decoy defense when the stash is light. Ablations: `RaidOnlyBot`
     (jobs channel only — must trail the mixed bot's success rate by
     ≥ 15 points) and `CooldownRaiderBot` (raids on cooldown ignoring
-    alertness — the branch-good ablation, drop ≥ 20). The gate is
-    the §2.7 war letter, nothing softened: median end strength ≤ 50%
-    of fork-day value; pattern+physical ≥ 50% of post-fork Case
-    growth; channel mix ≤ 60% in successful runs; the branch-good
+    alertness — the pacing letters' comparison fleet, rev. 16-18).
+    The gate is the §2.7 war letter, nothing softened: median end
+    strength ≤ 50% of fork-day value; the remediation-resistance
+    letters; channel mix ≤ 60% in successful runs; the branch-good
     band 25–70%; plus the standing rows — pairwise vectors, ledger
     transparency, telegraphy, crash-freedom (a `ChaosWar` fleet),
     reachability unchanged — and the raid-pricing decline curve
@@ -2962,3 +2988,81 @@ thesis strongly supported, healthy ending diversity). After these
 five contracts close and both identity gates and the 150/500
 batteries rerun, P3 can proceed to a PR review. The chair stays
 unreleased until then.
+
+**Revision 19** responds to the re-review of the rev. 18 pass at
+8fdb243, which reproduced every check and the 150-seed battery,
+confirmed the planner genuinely fixes the player's 12-unit wall —
+and found four blocking root contracts plus one canonical
+story/spec reconciliation. Recorded before implementation; no
+balance constant moves and no feature expands.
+
+1. **Storage becomes one SAFE authority.** The rev. 18 authority
+   accepted impossible live inventory: `move_goods(..., True)`
+   moved one unit; `1.5` created fractional stock; an unknown
+   location ("bogus") silently ALIASED the warehouse; `place_haul`
+   accepted booleans, floats and negatives; `space_used({"g": -2})`
+   reported zero instead of refusing. Rulings: ONE shared
+   inventory-map validator — exact integers (`type(x) is int`),
+   known goods, no negatives — and explicit storage locations,
+   consumed by `space_used`, `units_that_fit`, `move_goods`,
+   `place_haul`, the rendering, and persistence. The vocabulary
+   contract finishes: player-facing inventory says only "space" —
+   the card's "cargo-space", escrow's "bulk", and README's "cargo
+   slots"/"bulk storage" all align.
+2. **The historical ledgers bind to the actual domains.** The
+   typed records accepted impossible history: a 100-person crew
+   (planning caps at three), damage 99.99 strength (the largest
+   job begins at 12), cool@0.5 and amber@1.0 band/multiplier
+   pairs, a successfully executed RED route (planning and commit
+   both refuse red), 999 units from a 24-space wagon, contested
+   turf at an ownerless district, corner damage past the −8
+   mechanical cap, future-dated and reverse-ordered logs.
+   Rulings: every field binds to its mechanical domain;
+   band↔multiplier consistency is enforced (and preferably BY
+   CONSTRUCTION from the authoritative RouteMarket view);
+   cross-state validation adds chronology — no record post-dates
+   the state's day, and each log's days are non-decreasing.
+   Studies must be unable to invent combinations gameplay cannot
+   produce.
+3. **The fixed-opportunity experiment is paired in fact.** Only
+   bot-choice RNG was keyed per night; raid-mechanics RNG was one
+   persistent stream per arm, so a skipped night shifted every
+   later night's dice — and the day was incremented before the
+   decay guard, diverging from production's transition. The
+   review's calendar-keyed diagnostic changed the conclusion
+   substantially (damage approximately TIED, efficiency and
+   injury advantages retained) — encouraging for the mechanic,
+   and proof the published 11.4-vs-12.4 is not certified;
+   WITHDRAWN. Rulings: extract the quiet-night alertness
+   transition into one canonical home used by production and the
+   experiment alike; key decision AND mechanics RNG by seed,
+   calendar day and channel; pin that skipping one night cannot
+   shift a later night's dice; rerun without tuning. The
+   full-policy outcome bar stands and currently passes.
+4. **The baseline contract is independent, not self-asserted.**
+   `check()` only required nonempty metadata — a golden mutated
+   to version −9, commit "banana", predecessor "garbage", seeds 1
+   still passed. Rulings: the harness carries an ACTIVE-BASELINE
+   contract of its own — exact version, generation commit,
+   predecessor checksum, reason identifier, seeds, bots, and the
+   active file's sha256 — asserted before any run comparison;
+   mutation tests alter every field independently and require
+   rejection.
+5. **The canonical text describes the current rules.** The body
+   still asserted the retired pattern+physical 50% bar, the
+   retired 20-point cooldown drop, "winning requires pacing",
+   campaign-load-bearing heat, and four damage channels. The
+   canonical sections themselves are updated (not amended): the
+   honest thesis — grinding buys tempo by spending bodies; pacing
+   preserves crew and improves damage efficiency, and must not
+   worsen campaign outcomes — replaces the retired claims; heat
+   is a local route tax; the ledger has five channels. The
+   "Harbor Is Yours" epilogue also derives and NAMES the actual
+   captured turf (Sal's fall captures Little Sicily; Vinnie's
+   captures Old Harbor and the Meadows) instead of one generic
+   district.
+
+After these corrections: both identity gates, the 150/500
+batteries, and the corrected pacing experiment rerun; the war
+chair stays unreleased; the new head returns for one final
+review. No balance movement, no feature expansion.
