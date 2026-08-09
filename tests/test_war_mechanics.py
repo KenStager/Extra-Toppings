@@ -6,6 +6,8 @@ menus and night phase wherever a real path exists."""
 import unittest
 
 from extra_toppings import data, game, phases, raids, rivals, war
+from extra_toppings import models as models_mod
+from extra_toppings import save as save_mod
 from extra_toppings.config import GameConfig
 from extra_toppings.game import new_state
 from extra_toppings.models import (BranchState, SitdownSnapshot,
@@ -87,8 +89,18 @@ def war_state(target="vinnie", declared_day=14):
 
 
 def break_target(state, target="vinnie"):
+    """Break a rival through LEGAL history (rev. 20 item 2): one job
+    a night, the attempt booked, the calendar advanced — the
+    execution-history reconciliation holds on every fixture."""
+    from extra_toppings.models import RaidAttemptRecord
     while state.rivals[target].alive:
+        state.day += 1
+        before = round(state.rivals[target].strength * 100)
         apply_rival_damage(state, target, "jobs", 12)
+        state.raid_log.append(RaidAttemptRecord(
+            day=state.day, rival=target, outcome="succeeded", crew=1,
+            damage_h=before - round(state.rivals[target].strength
+                                    * 100)))
 
 
 WAR_ON = GameConfig(fork_enabled=True, enabled_branches=frozenset({"war"}))
@@ -591,13 +603,21 @@ class TestWarPersistenceMidCampaign(unittest.TestCase):
 
     def test_a_second_campaign_round_trips(self):
         from extra_toppings import save
+        from extra_toppings.models import RouteExecutionRecord
         state = war_state()
         break_target(state)
         war.declare(state, "sal", Quiet())
-        apply_rival_damage(state, "sal", "corners", 1.35)
+        # Corner damage rides a LEGAL route record (rev. 20 item 2:
+        # the ledgers reconcile both ways at persistence).
+        applied = apply_rival_damage(state, "sal", "corners", 1.35)
+        state.route_log.append(RouteExecutionRecord(
+            day=state.day, district="little_sicily", heat_band="cool",
+            capacity_mult=1.0, units_sold=9,
+            corner_damage_h=round(applied * 100), contested=True))
         d = save.state_to_dict(state)
         restored = save.state_from_dict(d)
         self.assertEqual(restored.branch_state, state.branch_state)
+
 
 
 if __name__ == "__main__":
@@ -1051,10 +1071,11 @@ class TestRevision17Instruments(unittest.TestCase):
                 "table_warned": True, "wagon_free": True}
         # Guard prompts answered by script; an exhausted script
         # aborts the job — either way the attempt is booked.
+        base = len(state.raid_log)      # break_target booked its jobs
         raids.run_raid(state, plan, Scripted([1, 1, 1, 1]),
                        Streams(7).raids)
-        self.assertEqual(len(state.raid_log), 1)
-        entry = state.raid_log[0]
+        self.assertEqual(len(state.raid_log), base + 1)
+        entry = state.raid_log[-1]
         self.assertIn(entry.outcome, ("succeeded", "failed"))
         self.assertEqual(entry.crew, 2)
         self.assertEqual(entry.day, state.day)
@@ -1258,6 +1279,93 @@ class TestRevision19Ending(unittest.TestCase):
         self.assertIsNotNone(line)
         self.assertIn("Old Harbor", line)
         self.assertIn("Meadows", line)
+
+
+
+
+class TestRevision20History(unittest.TestCase):
+    """Rev. 20 item 2: the ledgers validate the HISTORY they claim —
+    reconciled against the campaign record, both directions."""
+
+    def _legal_war(self):
+        state = war_state()
+        state.day = 16
+        before = round(state.rivals["vinnie"].strength * 100)
+        apply_rival_damage(state, "vinnie", "jobs", 12)
+        jobs_h = before - round(state.rivals["vinnie"].strength * 100)
+        state.raid_log.append(models_mod.RaidAttemptRecord(
+            day=16, rival="vinnie", outcome="succeeded", crew=2,
+            damage_h=jobs_h))
+        return state
+
+    def test_a_boolean_multiplier_is_not_a_float(self):
+        state = self._legal_war()
+        d = save_mod.state_to_dict(state)
+        d["route_log"] = [{"day": 15, "district": "university",
+                           "heat_band": "cool", "capacity_mult": True,
+                           "units_sold": 0, "corner_damage_h": 0,
+                           "contested": False}]
+        with self.assertRaises(ValueError):
+            save_mod.state_from_dict(d)
+
+    def test_amber_halves_the_corner_ceiling(self):
+        state = self._legal_war()
+        d = save_mod.state_to_dict(state)
+        d["route_log"] = [{"day": 15, "district": "old_harbor",
+                           "heat_band": "amber", "capacity_mult": 0.5,
+                           "units_sold": 20, "corner_damage_h": 800,
+                           "contested": True}]
+        with self.assertRaises(ValueError):
+            save_mod.state_from_dict(d)
+
+    def test_a_contested_route_needs_its_war(self):
+        # An Act I state where no war ever existed cannot carry a
+        # contested Old Harbor route; nor may one predate the
+        # declaration.
+        state = game.new_state()
+        d = save_mod.state_to_dict(state)
+        d["route_log"] = [{"day": 1, "district": "old_harbor",
+                           "heat_band": "cool", "capacity_mult": 1.0,
+                           "units_sold": 5, "corner_damage_h": 0,
+                           "contested": True}]
+        with self.assertRaises(ValueError):
+            save_mod.state_from_dict(d)
+        state = self._legal_war()
+        d = save_mod.state_to_dict(state)
+        d["route_log"] = [{"day": 13, "district": "old_harbor",
+                           "heat_band": "cool", "capacity_mult": 1.0,
+                           "units_sold": 5, "corner_damage_h": 0,
+                           "contested": True}]        # declared day 14
+        with self.assertRaises(ValueError):
+            save_mod.state_from_dict(d)
+
+    def test_raid_damage_reconciles_with_the_campaign(self):
+        # A raid claiming damage the campaign never booked, and
+        # campaign damage no raid ever produced — both refused.
+        state = self._legal_war()
+        d = save_mod.state_to_dict(state)
+        d["raid_log"].append({"day": 17, "rival": "vinnie",
+                              "outcome": "succeeded", "crew": 2,
+                              "damage_h": 1200})
+        with self.assertRaises(ValueError):
+            save_mod.state_from_dict(d)
+        d = save_mod.state_to_dict(state)
+        d["raid_log"] = []                 # the booked 12 now orphaned
+        with self.assertRaises(ValueError):
+            save_mod.state_from_dict(d)
+
+    def test_one_job_a_night_binds_the_logs(self):
+        state = self._legal_war()
+        d = save_mod.state_to_dict(state)
+        d["raid_log"].append(dict(d["raid_log"][-1]))   # duplicate day
+        with self.assertRaises(ValueError):
+            save_mod.state_from_dict(d)
+
+    def test_a_legal_history_round_trips(self):
+        state = self._legal_war()
+        d = save_mod.state_to_dict(state)
+        restored = save_mod.state_from_dict(d)
+        self.assertEqual(save_mod.state_to_dict(restored), d)
 
 
 if __name__ == "__main__":

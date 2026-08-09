@@ -905,8 +905,22 @@ def validate_cross_state(state: "State") -> None:
             raise ValueError(
                 f"{where} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
-    # Chronology (rev. 19 item 2): history cannot post-date the state
-    # it lives in, and an append-only log's days never run backward.
+    validate_execution_history(state)
+    _validate_witnesses_and_campaigns(state)
+
+
+def validate_execution_history(state: "State") -> None:
+    """Rev. 20 item 2: the ledgers must BE the history they claim,
+    not merely well-typed rows. Chronology is strict (one route and
+    one raid per night); the capacity multiplier is the canonical
+    TYPE (Boolean equality satisfies nothing); contested is DERIVED
+    from the campaign's declared/broken interval, so a contested
+    route cannot predate its war or load into an Act I state; corner
+    damage sits under the band-adjusted ceiling; and the campaign
+    ledger reconciles against the execution records BOTH ways —
+    succeeded raid damage against jobs-channel damage, and route
+    corner damage against corners-channel damage, by day and rival.
+    Refused, never repaired."""
     for name, log, kind in (("raid_log", state.raid_log,
                              RaidAttemptRecord),
                             ("route_log", state.route_log,
@@ -918,10 +932,77 @@ def validate_cross_state(state: "State") -> None:
             if rec.day > state.day:
                 raise ValueError(f"{name}[{i}]: day {rec.day} post-dates "
                                  f"the state's day {state.day}")
-            if rec.day < prev:
-                raise ValueError(f"{name}[{i}]: days run backward "
+            if rec.day <= prev:
+                raise ValueError(f"{name}[{i}]: one job a night — days "
+                                 f"must strictly increase "
                                  f"({prev} → {rec.day})")
             prev = rec.day
+
+    camps = (state.branch_state.campaigns
+             if state.branch == "war" and state.branch_state is not None
+             else [])
+
+    def covered(rival_key: str, day: int) -> bool:
+        return any(c.rival_key == rival_key and c.declared_day <= day
+                   and (c.broken_day is None or day <= c.broken_day)
+                   for c in camps)
+
+    for i, rec in enumerate(state.route_log):
+        if type(rec.capacity_mult) is not float:
+            raise ValueError(f"route_log[{i}]: the capacity multiplier "
+                             f"is a float, got "
+                             f"{type(rec.capacity_mult).__name__}")
+        owner = data.DISTRICTS[rec.district]["rival"]
+        should = owner is not None and covered(owner, rec.day)
+        if rec.contested != should:
+            raise ValueError(f"route_log[{i}]: contested={rec.contested} "
+                             f"contradicts the campaign record for "
+                             f"{rec.district} on day {rec.day}")
+        ceiling = round(CORNER_DAMAGE_MAX_H * rec.capacity_mult)
+        if rec.corner_damage_h > ceiling:
+            raise ValueError(f"route_log[{i}]: corner damage "
+                             f"{rec.corner_damage_h} over the "
+                             f"{rec.heat_band}-band ceiling {ceiling}")
+
+    booked_jobs: dict = {}
+    booked_corners: dict = {}
+    for c in camps:
+        for dr in c.damage:
+            if dr.channel == "jobs":
+                key = (c.rival_key, dr.day)
+                booked_jobs[key] = booked_jobs.get(key, 0) + dr.hundredths
+            elif dr.channel == "corners":
+                key = (c.rival_key, dr.day)
+                booked_corners[key] = (booked_corners.get(key, 0)
+                                       + dr.hundredths)
+    claimed_jobs: dict = {}
+    for rec in state.raid_log:
+        if rec.outcome == "succeeded" and rec.damage_h \
+                and covered(rec.rival, rec.day):
+            key = (rec.rival, rec.day)
+            claimed_jobs[key] = claimed_jobs.get(key, 0) + rec.damage_h
+    if booked_jobs != claimed_jobs:
+        raise ValueError(f"execution history: campaign jobs damage "
+                         f"{booked_jobs} does not reconcile with the "
+                         f"raid ledger {claimed_jobs}")
+    claimed_corners: dict = {}
+    for rec in state.route_log:
+        if rec.corner_damage_h:
+            owner = data.DISTRICTS[rec.district]["rival"]
+            key = (owner, rec.day)
+            claimed_corners[key] = (claimed_corners.get(key, 0)
+                                    + rec.corner_damage_h)
+    if booked_corners != claimed_corners:
+        raise ValueError(f"execution history: campaign corners damage "
+                         f"{booked_corners} does not reconcile with "
+                         f"the route ledger {claimed_corners}")
+
+
+def _validate_witnesses_and_campaigns(state: "State") -> None:
+    """The roster/ledger/campaign coherence half of cross-state
+    validation (split for readability when the execution-history
+    reconciliation joined, rev. 20)."""
+    keys = {e.key for e in state.employees}
     aware = {e.key for e in state.employees if e.aware}
     hired = {e.key for e in state.employees if e.hired}
     for i, r in enumerate(state.evidence):
@@ -1192,12 +1273,26 @@ def units_that_fit(state: "State", where: str, good: str) -> int:
     return room // data.GOODS[good]["bulk"]
 
 
+def storage_preflight(state: "State", where: str) -> dict:
+    """THE storage-state preflight (rev. 20 item 1): a location's
+    map is valid AND within its space cap, or the operation that
+    would touch it refuses before mutating anything. Returns the
+    stash for the caller."""
+    stash = _stash_at(state, where)
+    validate_inventory_map(stash, where)
+    if space_used(stash) > space_cap(state, where):
+        raise ValueError(f"{where}: {space_used(stash)} space used "
+                         f"over the {space_cap(state, where)}-space cap")
+    return stash
+
+
 def move_goods(state: "State", src: str, dst: str, good: str,
                units: int) -> None:
-    """THE transactional transfer: refused whole — never partially
-    applied, never over a destination's capacity (rev. 18 item 2),
-    never a boolean, a fraction, or an unknown location (rev. 19
-    item 1)."""
+    """THE transactional transfer: BOTH locations preflighted before
+    any mutation (rev. 20 item 1 — a source holding True, 1.5 or an
+    unknown row refuses whole), never over a destination's capacity,
+    never a boolean, a fraction, or an unknown location. Any refusal
+    leaves every stash byte-identical."""
     if type(units) is not int:
         raise ValueError(f"cannot move {units!r} units — exact "
                          f"integers only")
@@ -1205,7 +1300,8 @@ def move_goods(state: "State", src: str, dst: str, good: str,
         raise ValueError(f"unknown good {good!r}")
     if units < 0:
         raise ValueError(f"cannot move {units} units")
-    a, b = _stash_at(state, src), _stash_at(state, dst)
+    a = storage_preflight(state, src)
+    b = storage_preflight(state, dst)
     if units == 0:
         return
     if a.get(good, 0) < units:
@@ -1223,25 +1319,47 @@ def place_haul(state: "State", haul: dict) -> tuple:
     (kept, left_behind). Raid payoffs and the salvage pickup both
     consume this — the loop lives once, its arithmetic is the
     storage authority's, and space caps can never be quietly
-    skipped again. The haul map passes the shared validator first
-    (rev. 19 item 1: no boolean, fractional or negative hauls)."""
+    skipped again. Preflight-then-commit (rev. 20 item 1): the haul
+    map AND every destination are validated first, the COMPLETE
+    allocation is computed locally, and only then does anything
+    mutate — a refusal leaves every stash byte-identical, never a
+    half-placed haul."""
     validate_inventory_map(haul, "haul")
+    storage_preflight(state, "shop")
+    if state.warehouse is not None:
+        storage_preflight(state, "warehouse")
+    shop_room = space_cap(state, "shop") - space_used(state.shop_stash)
+    wh_room = (space_cap(state, "warehouse")
+               - space_used(state.warehouse)
+               if state.warehouse is not None else 0)
+    to_shop_all: dict = {}
+    to_wh_all: dict = {}
     left_behind = 0
     kept: dict = {}
     for g, u in haul.items():
-        room = units_that_fit(state, "shop", g)
-        to_shop = min(u, room)
-        if to_shop:
-            state.shop_stash[g] = state.shop_stash.get(g, 0) + to_shop
+        bulk = data.GOODS[g]["bulk"]
+        to_shop = min(u, max(0, shop_room) // bulk)
+        shop_room -= to_shop * bulk
         rest = u - to_shop
+        to_wh = 0
         if rest and state.warehouse is not None:
-            to_wh = min(rest, units_that_fit(state, "warehouse", g))
-            if to_wh:
-                state.warehouse[g] = state.warehouse.get(g, 0) + to_wh
+            to_wh = min(rest, max(0, wh_room) // bulk)
+            wh_room -= to_wh * bulk
             rest -= to_wh
+        if to_shop:
+            to_shop_all[g] = to_shop
+        if to_wh:
+            to_wh_all[g] = to_wh
         left_behind += rest
         if u - rest:
             kept[g] = u - rest
+    for g, u in to_shop_all.items():             # the ONE commit
+        state.shop_stash[g] = state.shop_stash.get(g, 0) + u
+    if to_wh_all:
+        wh = state.warehouse
+        assert wh is not None                    # allocation implies rented
+        for g, u in to_wh_all.items():
+            wh[g] = wh.get(g, 0) + u
     return kept, left_behind
 
 

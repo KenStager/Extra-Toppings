@@ -1359,6 +1359,17 @@ def _raid_decline_at_war_cadence(trials: int = 2000) -> None:
                 e.hired = e.aware = True
             rival = st.rivals["vinnie"]
             for attempt in range(3):
+                if attempt:
+                    # Legal calendar (rev. 20 item 3): quiet nights sit
+                    # strictly BETWEEN attempts, and every attempt takes
+                    # a fresh day — the decay count per gap is unchanged
+                    # (the canonical tick is blocked on raid nights), so
+                    # the alertness arithmetic and the curve hold.
+                    from extra_toppings.models import alertness_decay_tick
+                    for _ in range(spacing_nights):
+                        st.day += 1
+                        alertness_decay_tick(rival, st.day)
+                    st.day += 1
                 def stock_value(s):
                     total = sum(u * data.GOODS[g]["base"]
                                 for g, u in s.shop_stash.items())
@@ -1378,11 +1389,6 @@ def _raid_decline_at_war_cadence(trials: int = 2000) -> None:
                 succ[attempt] += gained > 0
                 for e in crew:
                     e.injured_days = 0
-                for _ in range(spacing_nights):
-                    st.day += 1
-                    # THE canonical quiet-night transition (rev. 19).
-                    from extra_toppings.models import alertness_decay_tick
-                    alertness_decay_tick(rival, st.day)
         return values, succ
 
     def mean_se(vals):

@@ -255,6 +255,49 @@ class TestRevision19Storage(unittest.TestCase):
             save.state_from_dict(save.state_to_dict(state))
 
 
+class TestRevision20Storage(unittest.TestCase):
+    """Rev. 20 item 1: storage is transactionally safe — both
+    locations preflighted, complete allocation before one commit,
+    every refusal leaving every stash byte-identical."""
+
+    def test_an_invalid_source_refuses_the_move_whole(self):
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.warehouse = {}
+        for bad_source in ({"oregano": True}, {"oregano": 1.5},
+                           {"fake": 3}):
+            state.shop_stash = dict(bad_source)
+            frozen = dict(state.shop_stash)
+            with self.assertRaises(ValueError):
+                models.move_goods(state, "shop", "warehouse",
+                                  "oregano", 1)
+            self.assertEqual(state.shop_stash, frozen)
+            self.assertEqual(state.warehouse, {})
+
+    def test_place_haul_never_leaves_a_partial_placement(self):
+        # The reviewer's repro: 40 mushrooms landed in the shop, THEN
+        # the invalid warehouse was discovered — the partial mutation
+        # stayed. Preflight-then-commit refuses with zero footprint.
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.shop_stash = {}
+        state.warehouse = {"oregano": 1.5}          # invalid
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"mushrooms": 60})
+        self.assertEqual(state.shop_stash, {})
+        self.assertEqual(state.warehouse, {"oregano": 1.5})
+
+    def test_place_haul_refuses_an_over_cap_warehouse(self):
+        from extra_toppings import models
+        state, _rng = fresh(2)
+        state.shop_stash = {}
+        state.warehouse = {"mushrooms": 250}        # already over cap
+        with self.assertRaises(ValueError):
+            models.place_haul(state, {"mushrooms": 5})
+        self.assertEqual(state.shop_stash, {})
+        self.assertEqual(state.warehouse, {"mushrooms": 250})
+
+
 class TestSharedCapacity(unittest.TestCase):
     def _plan(self, load_units):
         state, rng = fresh(2)

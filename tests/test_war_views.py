@@ -49,10 +49,18 @@ def war_state(target="vinnie", declared_day=14):
 
 
 def break_target(state, target="vinnie"):
-    """Capture through the real authority: enough jobs to zero them."""
+    """Capture through the real authority, as LEGAL history (rev. 20
+    item 2): one job a night, booked, the calendar advanced."""
+    from extra_toppings.models import RaidAttemptRecord
     camp = live_campaign(state, target)
     while state.rivals[target].alive:
+        state.day += 1
+        before = round(state.rivals[target].strength * 100)
         apply_rival_damage(state, target, "jobs", 12)
+        state.raid_log.append(RaidAttemptRecord(
+            day=state.day, rival=target, outcome="succeeded", crew=1,
+            damage_h=before - round(state.rivals[target].strength
+                                    * 100)))
     return camp
 
 

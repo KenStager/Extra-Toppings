@@ -326,9 +326,22 @@ class TestCampaignValidation(unittest.TestCase):
 
 class TestWarPersistence(unittest.TestCase):
     def test_a_campaign_round_trips_exactly(self):
+        from extra_toppings.models import (RaidAttemptRecord,
+                                           RouteExecutionRecord)
         state = war_state()
+        # The damage rides LEGAL execution records (rev. 20 item 2:
+        # persistence reconciles the campaign ledger both ways).
+        before = round(state.rivals["vinnie"].strength * 100)
         apply_rival_damage(state, "vinnie", "jobs", RAID_STOCK_STRENGTH)
-        apply_rival_damage(state, "vinnie", "corners", 1.35)
+        jobs_h = before - round(state.rivals["vinnie"].strength * 100)
+        state.raid_log.append(RaidAttemptRecord(
+            day=state.day, rival="vinnie", outcome="succeeded", crew=2,
+            damage_h=jobs_h))
+        corner = apply_rival_damage(state, "vinnie", "corners", 1.35)
+        state.route_log.append(RouteExecutionRecord(
+            day=state.day, district="old_harbor", heat_band="cool",
+            capacity_mult=1.0, units_sold=9,
+            corner_damage_h=round(corner * 100), contested=True))
         d = save.state_to_dict(state)
         restored = save.state_from_dict(d)
         self.assertEqual(restored.branch_state, state.branch_state)
