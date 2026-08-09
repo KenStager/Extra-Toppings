@@ -2674,3 +2674,103 @@ where item 3 intentionally moves them, recorded; clean ablation
 entry identity; the corrected 2,000-trial raid comparison; the war
 gates rerun at 150 and 500; and no activation until the cooldown
 criterion genuinely passes.
+
+**Revision 16** responds to the re-review of the rev. 15 correction
+pass at e0c5bef, which reproduced every reported number and gate,
+accepted the fronting movement — and found four root contracts still
+false and two core mechanics not yet load-bearing. Recorded on paper
+before further work; the corrections below are the review's rulings.
+
+1. **Evidence grows an immutable accrual.** The study's "gross"
+   collector read records at the night hook, AFTER counsel and
+   settlements had mutated them (reproduced: 10.0 of paper accrued,
+   4.0 seen) — so the 46%/50% kind-share readings overestimate and
+   cannot decide any criterion. Root fix: every record carries an
+   immutable `accrued` magnitude beside the mutable effective one,
+   written at accrual (and moved in lockstep by the suspicion
+   record's top-ups, which are genuine accrual); validation binds
+   `0 ≤ effective ≤ accrued` at the persistence boundary; migration
+   loads absent `accrued` as the stored magnitude (pre-contest
+   values are unrecoverable, said plainly); the study reads accrued
+   values only.
+2. **The night-assignment view owns commitment AND execution —
+   really.** The night still recomputed
+   `wagon_free = plans.get("route") is None`, ignoring salvage
+   (reproduced: the pickup used the wagon at service and the raid
+   got it back after dark). The expression is replaced by the one
+   view, and the route/raid/salvage matrix is exhaustively pinned:
+   one employee executes at most one job; route and salvage are
+   mutually exclusive wagon owners; a raid gets the wagon only when
+   neither committed job owns it; scrubbing one job produces one
+   deterministic reassignment (a route scrubbed at commit frees the
+   wagon for the raid's carry — the flag-off behavior; a pickup
+   scrubbed at execution keeps its commitment — the wagon went out
+   and came back empty).
+3. **"Every active branch" includes the Quiet Sale.** Two empty
+   payroll-short escrow nights left game_over None and validation
+   accepted it. The sale gets the shared transition and the
+   persistence invariant (insolvent_days joins its field set); its
+   battery reruns and any movement is recorded. The
+   narratively-tempting exemption is declined, per the ruling.
+4. **The second campaign gets exercised, measured, and named.**
+   Zero Syndicate endings across every fleet at both depths traced
+   to two seams: the study still recognized the retired
+   survived-plus-two-broken form instead of the `syndicate`
+   terminal, and the bot carried one global broken flag plus a
+   hardcoded "Vinnie's turf" — after declaring on Sal it stopped
+   pursuing jobs and corners entirely. Corrections: terminal
+   classification gets one canonical vocabulary (war.GOOD_ENDINGS,
+   consumed by grade and the study); the bot derives its live
+   target, its turf and its board state from the morning board
+   each day (no stale globals); and the study adds longitudinal
+   rows — second-front declarations, salvage collections, second
+   captures, Syndicate endings.
+5. **The cooldown criterion is replaced on paper — the pacing
+   requirement stays, the arbitrary 20-point magnitude retires.**
+   The raid-only row validates channel diversity, not pacing; a
+   naive cooldown policy beating the paced one 55–36 means the
+   player lesson is still "attack whenever physically possible."
+   The new letter: (a) a controlled equal-opportunity comparison
+   must show paced attacks produce better applied strength damage
+   per committed crew-night and lower retaliation/injury exposure;
+   (b) at 500 seeds the alertness-aware full policy must NOT trail
+   the cooldown policy; (c) the war board shows the actual
+   job-impact and retaliation multipliers, not adjectives. Per the
+   ruling this needs a smarter expected-value pacing policy or a
+   positive quiet-window benefit, not another slope tweak — the
+   paced bot's two-night minimum gap (which forgoes open windows
+   the world already priced) is replaced by window-rational
+   raiding: full-price attacks whenever the security word says the
+   window is open, waiting only when it is shut.
+6. **The pattern+physical kind-share bar is replaced with actual
+   remediation resistance** (measured on true accruals, item 1;
+   the taxonomy is untouched — employee testimony is narratively
+   correct): (i) the median share of post-fork ACCRUED evidence
+   still effective at the ending, bar proposed ≥ 50% (permanent
+   mutations only — reversible retention dormancy is not
+   remediation and does not reduce "effective" here); (ii) the
+   proportion of war runs ending with the Case above its fork-day
+   value despite remediation, bar proposed ≥ 60%. Both proposed
+   values are flagged for confirmation; the structure is the
+   ruling's.
+7. **Heat's consequence flows through the customer pool.** With
+   teeth on/off the ending rates and corner-damage medians were
+   identical — the −4/night corner cap masks the halved capacity.
+   RouteMarket now applies the heat capacity multiplier to the
+   EFFECTIVE corner cap (amber halves tonight's divertible
+   custom, exactly as it halves the stops), heat stays war-local,
+   and the study measures target-turf units and corner damage on
+   exposure-matched seeds — never a noisy global ending-rate
+   swing.
+8. **The Syndicate epilogue renders from the damage ledger.** The
+   ending named the prosecutor even for a player who never spent a
+   ledger with the law; the text now names only the channels the
+   campaigns actually used, with the gray-suit clause keyed to a
+   prosecution (violence_raised), not to victory.
+
+Verification expected after the pass: the standing green (suite,
+lint, types, both identity gates exact), the Straight battery
+unchanged, the Sale battery rerun after truthful insolvency with
+movement recorded, ablation entry identity at zero, and the war
+gates rerun at both depths under the replaced criteria. No
+activation before the new pacing letter genuinely passes.
