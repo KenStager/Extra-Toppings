@@ -3,6 +3,7 @@ iterator, retention dormancy, counsel's contest queue, settlements, the
 paid-points cap, the institutional-suspicion floor, and the persistence
 contracts for all of it."""
 
+import random
 import unittest
 
 from extra_toppings import evidence as ev
@@ -590,6 +591,171 @@ class _Scripted(Quiet):
             return len(options) - 1
         ans = self.script.pop(0) if self.script else len(options) - 1
         return max(0, min(ans, len(options) - 1))
+
+
+# ══ The status matrix and the arrest (rev. 12 item 1) ═════════════
+
+class TestWitnessStatusMatrix(unittest.TestCase):
+    def _state_with(self, *, settled=False, arrested=False, hired=True,
+                    morale=8):
+        state = straight_state()
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        e.hired = hired
+        e.morale = morale
+        e.arrested = arrested
+        if settled:
+            state.branch_state.settled_witnesses.append(e.key)
+            e.hired = False      # the closed lifecycle: settled-out
+        return state, e
+
+    def test_the_complete_ordered_matrix(self):
+        from extra_toppings.models import witness_status
+        cases = [
+            (dict(settled=True), "settled"),
+            (dict(settled=True, arrested=True), "settled"),
+            (dict(arrested=True), "beyond_reach"),
+            (dict(arrested=True, morale=9), "beyond_reach"),
+            (dict(arrested=True, hired=False), "beyond_reach"),
+            (dict(), "protected"),
+            (dict(morale=5), "protected"),
+            (dict(morale=4), "reachable"),
+            (dict(hired=False), "reachable"),
+            (dict(hired=False, morale=2), "reachable"),
+        ]
+        for kwargs, expected in cases:
+            state, e = self._state_with(**kwargs)
+            self.assertEqual(witness_status(state, e.key), expected,
+                             msg=f"{kwargs} -> {expected}")
+
+    def test_arrested_witnesses_receive_no_loyalty_relief(self):
+        # The review's exhibit: arrested Rosa, morale 8, 20 witness +
+        # 30 physical — the ledger read 40 while the docket cited
+        # custody. The one authority now answers for both.
+        state, e = self._state_with(arrested=True)
+        state.add_case(20, "detective talk", kind="witness", source=e.key)
+        state.add_case(30, "seizures", kind="physical")
+        self.assertNotIn(e.key, state.dormant_sources())
+        self.assertEqual(state.case, 50.0)
+        view = ev.build_ledger_view(state)
+        line = next(li for li in view.lines if li.why == "detective talk")
+        self.assertEqual(line.disposition, "beyond_reach")
+        self.assertFalse(line.relieved)
+
+    def test_the_real_route_bust_raises_the_case_as_the_cuffs_close(self):
+        # Through the actual solo-route arrest transition, not a
+        # hand-set flag: the driver's protection dies with the bust.
+        from extra_toppings import routes
+        for seed in range(200):
+            state = straight_state()
+            phases.market.roll_prices(state, random.Random(7))
+            rosa = next(x for x in state.employees
+                        if x.name.startswith("Rosa"))
+            rosa.aware = True
+            rosa.morale = 8
+            state.add_case(20, "detective talk", kind="witness",
+                           source=rosa.key)
+            state.add_case(30, "seizures", kind="physical")
+            self.assertEqual(state.case, 40.0)     # protection live
+            state.shop_stash = {"mushrooms": 6}
+            plan = {"district": "university", "driver": rosa,
+                    "ride_along": False, "cargo": {"mushrooms": 6},
+                    "legit": 0, "disposal": True}
+            routes.resolve_route(state, plan, Quiet(),
+                                 random.Random(seed))
+            if rosa.arrested:
+                break
+        else:
+            self.fail("no seed produced the route arrest")
+        # The bust books its own physical record AND wakes hers.
+        self.assertGreaterEqual(state.case, 50.0)
+        self.assertNotIn(rosa.key, state.dormant_sources())
+
+
+# ══ The closed-form allocator (rev. 12 item 2) ════════════════════
+
+class TestClosedFormRelief(unittest.TestCase):
+    def _protected_ledger(self, magnitudes, extra=()):
+        state = straight_state()
+        e = next(x for x in state.employees if x.name.startswith("Rosa"))
+        e.aware = True
+        e.morale = 8
+        for m in magnitudes:
+            state.evidence.append(Evidence(
+                day=1, magnitude=m, kind="witness", why="w",
+                source=e.key))
+        for m in extra:
+            state.evidence.append(Evidence(
+                day=2, magnitude=m, kind="physical", why="p"))
+        return state, e
+
+    def test_a_legal_zero_record_is_skipped_not_a_stop(self):
+        # The review's exhibit: 0.6, 0.6, 12, 8 protected read 10.6;
+        # zeroing the second record ABORTED every later cut and jumped
+        # the Case to 20.3. Skip means it falls to 10.3 instead.
+        state, _e = self._protected_ledger([0.6, 0.6, 12.0, 8.0])
+        self.assertAlmostEqual(state.case, 10.6)
+        state.evidence[0 + 1].magnitude = 0.0     # the second record
+        self.assertAlmostEqual(state.case, 10.3)
+
+    def test_floor_bound_displays_are_exactly_the_floor(self):
+        # Deterministic probing over legal values: whenever relief is
+        # floor-bound, the display is 10.0 — never an ulp under.
+        rng = random.Random(0)
+        pool = [0.0, 0.1, 0.3, 0.5, 0.6, 2.0, 4.1, 8.0, 12.0, 45.7]
+        found_bound = 0
+        for _trial in range(300):
+            mags = [rng.choice(pool) for _ in range(rng.randint(1, 6))]
+            extra = [rng.choice(pool) for _ in range(rng.randint(0, 3))]
+            state, _e = self._protected_ledger(mags, extra)
+            raw = sum(r.magnitude for r in state.evidence)
+            halvable = sum(m * 0.5 for m in mags)
+            if raw > 10.0 and halvable >= raw - 10.0:
+                found_bound += 1
+                self.assertEqual(state.case, 10.0)
+        self.assertGreater(found_bound, 20)       # the probe has teeth
+
+    def test_generated_monotonicity_over_accepted_magnitudes(self):
+        # Generated, not single examples (rev. 12): accrual never
+        # lowers, reduction never raises, protection toggles never
+        # move the display the wrong way — zeros included.
+        rng = random.Random(1)
+        pool = [0.0, 0.2, 0.5, 0.6, 1.0, 3.0, 8.0, 12.0, 20.0]
+        for _trial in range(200):
+            mags = [rng.choice(pool) for _ in range(rng.randint(1, 5))]
+            extra = [rng.choice(pool) for _ in range(rng.randint(0, 3))]
+            state, e = self._protected_ledger(mags, extra)
+            before = state.case
+            # (a) accrual never lowers
+            state.add_case(rng.choice(pool[1:]), "new", kind="paper")
+            self.assertGreaterEqual(state.case, before - 1e-9)
+            # (b) reducing any record never raises
+            target = rng.randrange(len(state.evidence))
+            before = state.case
+            state.evidence[target].magnitude *= rng.choice([0.0, 0.4])
+            self.assertLessEqual(state.case, before + 1e-9)
+            # (c) losing protection never lowers; regaining never
+            # raises
+            before = state.case
+            e.morale = 3
+            self.assertGreaterEqual(state.case, before - 1e-9)
+            lost = state.case
+            e.morale = 8
+            self.assertLessEqual(state.case, lost + 1e-9)
+
+    def test_generated_docket_sums_match_the_meter(self):
+        rng = random.Random(2)
+        pool = [0.0, 0.5, 0.6, 2.0, 8.0, 12.0]
+        for _trial in range(100):
+            mags = [rng.choice(pool) for _ in range(rng.randint(1, 5))]
+            extra = [rng.choice(pool) for _ in range(rng.randint(0, 3))]
+            state, _e = self._protected_ledger(mags, extra)
+            view = ev.build_ledger_view(state)
+            self.assertEqual(view.total, state.case)
+            self.assertAlmostEqual(
+                max(0.0, min(100.0,
+                             sum(li.effective for li in view.lines))),
+                view.total)
 
 
 # ══ Persistence ═══════════════════════════════════════════════════

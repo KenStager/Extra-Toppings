@@ -105,20 +105,27 @@ def case_prefix(evidence: list):
         yield record, total
 
 
+def _halvable(evidence: list, dormant_sources: frozenset) -> float:
+    """Total retention relief available: half of every protected
+    witness record's magnitude, summed left to right."""
+    total = 0.0
+    for record in evidence:
+        if record.kind == "witness" and record.source in dormant_sources:
+            total += record.magnitude * (1 - DORMANT_FACTOR)
+    return total
+
+
 def dormant_relief(evidence: list,
                    dormant_sources: frozenset) -> tuple:
-    """THE relief allocation (rev. 11 item 1): (index, cut) pairs for
-    the derived retention halving, per record and PARTIAL at the
-    boundary. Allowance A = max(0, raw total − floor); each protected
-    witness record in ledger order takes cut = min(half its magnitude,
-    A − relief already allocated). Total relief is therefore exactly
-    min(total halvable, A), which makes the display monotone in every
-    direction the design promises: nonnegative accrual never lowers
-    it, remediation never raises it, losing protection never lowers
-    it, gaining protection never raises it — the rev. 10
-    all-or-nothing allocation violated all four at the boundary. Pure:
-    the fold, the docket, the settlement lock-in and the harness
-    oracle all consume this one contract."""
+    """The DISPLAY allocation of the closed-form relief (rev. 12
+    item 2): (index, cut) pairs distributing min(total halvable,
+    raw − floor) across protected witness records in ledger order,
+    partial at the boundary. Zero-halving records are SKIPPED, never
+    a reason to stop; the loop breaks only when the allowance is
+    exhausted. The docket's per-record effective magnitudes and the
+    settlement lock-in read this; the TOTAL a fold displays comes
+    from the closed form in fold_case, never from summing these
+    cuts."""
     if not dormant_sources:
         return ()
     total = 0.0
@@ -131,10 +138,12 @@ def dormant_relief(evidence: list,
     pairs = []
     for i, record in enumerate(evidence):
         if record.kind == "witness" and record.source in dormant_sources:
-            cut = min(record.magnitude * (1 - DORMANT_FACTOR),
-                      allowance - allocated)
+            half = record.magnitude * (1 - DORMANT_FACTOR)
+            if half <= 0:
+                continue                    # a legal zero: skip, not stop
+            cut = min(half, allowance - allocated)
             if cut <= 0:
-                break
+                break                       # allowance exhausted
             allocated += cut
             pairs.append((i, cut))
     return tuple(pairs)
@@ -143,17 +152,26 @@ def dormant_relief(evidence: list,
 def fold_case(evidence: list, dormant_sources: frozenset = frozenset()) \
         -> float:
     """THE full-ledger Case-total fold (rev. 6 completion, context-
-    aware per rev. 10, monotone per rev. 11): the raw left-to-right
-    sum, less the per-record relief allocation, clamped to 0..100.
+    aware per rev. 10, closed-form per rev. 12): the raw left-to-right
+    sum, less relief = min(total halvable, max(0, raw − floor)),
+    clamped to 0..100 — and a floor-BOUND display canonicalizes to
+    exactly the floor, never an ulp under it (sequential per-cut
+    subtraction failed that by 2e-15 under review's probing).
     `dormant_sources` is the live protected set — State.case supplies
-    it, so no cached flag can go stale between a morale slip and the
-    grade. An empty set (every pre-branch caller) leaves the
-    arithmetic bit-identical to the pre-dormancy fold."""
+    it through the witness-status authority, so no cached flag and no
+    second derivation can go stale. An empty set (every pre-branch
+    caller) leaves the arithmetic bit-identical to the pre-dormancy
+    fold."""
     total = 0.0
     for _record, running in case_prefix(evidence):
         total = running
-    for _i, cut in dormant_relief(evidence, dormant_sources):
-        total -= cut
+    if dormant_sources:
+        halvable = _halvable(evidence, dormant_sources)
+        allowance = total - CASE_FLOOR
+        if halvable > 0 and allowance > 0:
+            if halvable >= allowance:
+                return CASE_FLOOR           # floor-bound: canonical
+            total -= halvable
     return max(0.0, min(100.0, total))
 
 
@@ -473,23 +491,29 @@ def validate_evidence(records: list) -> None:
 
 
 def witness_status(state: "State", key: str) -> str:
-    """THE witness-relationship authority (rev. 11 item 2): one answer
-    for a sourced witness, read by the docket, the settlement target
-    list, hostile-witness grading, hiring eligibility and cross-state
+    """THE witness-relationship authority (rev. 11 item 2, ordered
+    matrix per rev. 12): one answer for a sourced witness, read by the
+    docket, the settlement target list, the derived protection set,
+    hostile-witness grading, hiring eligibility and cross-state
     validation alike:
       "settled"     — their peace is bought; nothing reopens it
-      "beyond_reach"— arrested: the statement is the state's now
-      "protected"   — current, aware, content: retention is holding
-                      their records down for free
+      "beyond_reach"— arrested: the statement is the state's now, and
+                      no loyalty halves it
+      "protected"   — current, aware, content, at liberty: retention
+                      is holding their records down for free
       "reachable"   — a settlement can reach them tonight
-    Callers guarantee the key names a roster employee."""
+    Precedence is the listed order — settled beats arrested beats
+    protected. Protection is derived HERE and nowhere else (rev. 12
+    item 1: dormant_sources consumes this answer; it no longer
+    re-derives a version of its own that forgot the arrest). Callers
+    guarantee the key names a roster employee."""
     if state.branch_state is not None \
             and key in state.branch_state.settled_witnesses:
         return "settled"
     e = next(x for x in state.employees if x.key == key)
     if e.arrested:
         return "beyond_reach"
-    if key in state.dormant_sources():
+    if e.hired and e.aware and e.morale >= DORMANT_MORALE:
         return "protected"
     return "reachable"
 
@@ -671,17 +695,17 @@ class State:
     # ── the Case, derived from its records ───────────────────────
     def dormant_sources(self) -> frozenset:
         """The retention-protected set, derived from the LIVE roster
-        at every read (rev. 10): a current aware employee at morale ≥
-        DORMANT_MORALE, not already settled, keeps their own records
-        at half weight. No cache, no reconciliation event — a poach or
-        a morale slip changes the display the moment it happens."""
+        at every read (rev. 10) — and derived through the one
+        witness-relationship authority (rev. 12 item 1): exactly the
+        aware employees whose witness_status IS "protected". No cache,
+        no reconciliation event, and no second derivation to forget
+        what the authority knows — an arrest, a poach or a morale slip
+        changes the display the moment it happens."""
         if self.branch != "straight" or self.branch_state is None:
             return frozenset()
-        settled = set(self.branch_state.settled_witnesses)
         return frozenset(
             e.key for e in self.employees
-            if e.hired and e.aware and e.morale >= DORMANT_MORALE
-            and e.key not in settled)
+            if e.aware and witness_status(self, e.key) == "protected")
 
     @property
     def case(self) -> float:

@@ -390,35 +390,34 @@ def fork(seeds: int) -> None:
 
 
 def _display_case(state) -> float:
-    """The ledger-transparency oracle (§2.7 criterion 4, context-aware
-    per rev. 10): an INDEPENDENT recomputation of what the visible
-    records display — the raw left-to-right sum, less the derived
-    retention relief (protected sources from the live roster, halvings
-    allocated in ledger order within raw-total-minus-floor, subtracted
-    in that same order), clamped. Deliberately reimplemented here
-    rather than imported, the way the golden harness reimplements the
-    legacy projection."""
+    """The ledger-transparency oracle (§2.7 criterion 4, closed-form
+    per rev. 12): an INDEPENDENT recomputation of what the visible
+    records display — raw sum, less relief = min(total halvable,
+    max(0, raw − 10)), floor-bound displays exactly 10 — certifying
+    the CONTRACT rather than repeating the allocator's loop (the
+    rev. 11 oracle mirrored the allocator's break and certified its
+    own defect). Protection is re-derived from first principles:
+    hired, aware, morale ≥ 5, unsettled, and NOT under arrest.
+    Deliberately reimplemented here rather than imported, the way the
+    golden harness reimplements the legacy projection."""
     settled = set(state.branch_state.settled_witnesses) \
         if state.branch_state is not None else set()
     protected = {e.key for e in state.employees
                  if e.hired and e.aware and e.morale >= 5
-                 and e.key not in settled}
+                 and not e.arrested and e.key not in settled}
     total = 0.0
     for r in state.evidence:
         total += r.magnitude
-    display = total
-    if protected and total > 10.0:
-        allowance = total - 10.0
-        acc = 0.0
-        for r in state.evidence:
-            if r.kind == "witness" and r.source in protected:
-                # Per-record, partial at the boundary (rev. 11).
-                cut = min(r.magnitude * 0.5, allowance - acc)
-                if cut <= 0:
-                    break
-                acc += cut
-                display -= cut
-    return max(0.0, min(100.0, display))
+    halvable = 0.0
+    for r in state.evidence:
+        if r.kind == "witness" and r.source in protected:
+            halvable += r.magnitude * 0.5
+    allowance = total - 10.0
+    if halvable > 0 and allowance > 0:
+        if halvable >= allowance:
+            return 10.0
+        total -= halvable
+    return max(0.0, min(100.0, total))
 
 
 def _redemption_state():
