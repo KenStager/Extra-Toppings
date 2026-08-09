@@ -751,7 +751,7 @@ regression. The morning header notes what you turned down, once.
 | Partner | one payment outstanding | On the Hook |
 | War | no rival broken | A Long War |
 | War | one rival broken | The Harbor Is Yours (text variant when a second vendetta is open — rev. 14: a second war never erases the first victory) |
-| War | both rivals broken | The Syndicate |
+| War | both rivals broken | The Syndicate (an explicit `syndicate` terminal — rev. 15 overturned the no-new-id ruling: an outcome matrix must not depend on generic epilogue ordering) |
 | Sale | (never reaches day 30 in-branch) | closes at fork+4 or reverts |
 | Stand-pat | as today | the existing survived grades |
 
@@ -2565,3 +2565,112 @@ this revision's commit.
     fixed study target; Sal's extra tip record withdrawn. With
     these contracts recorded, P3 implementation begins from a model
     that supports the whole campaign.
+
+**Revision 15** responds to the review of the P3 implementation at
+7b4e53a (FINDINGS round 10), which confirmed the mixed-war core —
+the legible damage ledger, jobs a minority of the damage, the
+raid-only collapse, the rival personalities, the campaign and
+mutation authorities — and found seven blocking defects, "mostly at
+system boundaries — the exact place where one-off patches would be
+dangerous." Recorded on paper before the correction pass; every
+correction below is the review's ruling.
+
+1. **The declared target takes no tribute.** `incoming_raid` offered
+   tribute from anyone — reproduced: Vinnie's raid averted for
+   $1,500 the same week the declaration closed his tribute door
+   forever. ONE incoming-raid policy: the declared target's raid
+   offers no tribute at all; the bystander's still does; the WarBot
+   pays only the bystander. Raid constants stay frozen until this
+   lands — closing the escape hatch may itself re-price the
+   cooldown grinder.
+2. **Night assignments and physical storage get shared
+   authorities.** Salvage shipped two regressions (both
+   reproduced): a driver could take the pickup at service and the
+   raid the same night, and the pickup stuffed 49 bulk into a
+   40-bulk stash while ignoring the warehouse; a planned pickup
+   also could not be cancelled. The structural fix, not another
+   reserved= list: ONE NightAssignments authority owns employee and
+   wagon reservations for routes, raids and salvage — planning and
+   execution revalidate the same view; ONE haul-placement authority
+   fills shop then warehouse then reports what stayed behind, and
+   the raid payoff and the salvage pickup both consume it (the raid
+   storage loop is extracted, never duplicated).
+3. **Post-payoff economic failure exists in every active branch.**
+   Clean insolvency was Straight-only scope (rev. 9 item 11); at
+   war, three empty payroll-short nights left game_over None — and
+   worse, Carmine still fronted groceries onto a PAID debt
+   (reproduced: zero pantry, zero debt → 40 pantry, $300 debt).
+   Corrections: Carmine's emergency credit exists only while the
+   Act I debt is genuinely alive — gated for ACTIVE Act II branches
+   (the sale loses mid-escrow fronting; recorded as an intentional
+   battery-moving change); flag-off Act I and stand-pat keep the
+   old behavior TO THE BYTE, because the golden and stand-pat
+   surfaces are frozen and stand-pat is the control — the carve-out
+   is stated here, not hidden. One shared post-payoff insolvency
+   transition (two consecutive payroll-short nights with no stock
+   and no dirty anywhere → broke) with one persistence contract,
+   consumed by Straight and War alike; arrest keeps precedence.
+   Straight and Sale batteries rerun and any movement is recorded,
+   never grandfathered.
+4. **The Syndicate becomes an explicit terminal (`syndicate`).**
+   Grading two captures as generic "survived" let the epilogue's
+   ordering print the legitimate-exit text over a two-capture war
+   (reproduced: both rivals broken, Case 0, net > $20k). The
+   earlier no-new-id ruling is OVERTURNED: the §2.5 cell now names
+   its own id (body amended). Also corrected: RaidResult's
+   damage_added reports the actual delta (damage 1 → 2 reported 2,
+   not 1).
+5. **The approved territorial route-market view gets built.** The
+   calculation stayed split across resolve_route, the per-stop
+   demand, corner_diversion and the display, and the market board
+   never explained capture demand or amber capacity. The promised
+   immutable view now drives the market display and route labels,
+   automated and interactive capacity, per-stop demand, the capture
+   bonus, the heat policy, and the corner terms — with flag-off
+   arithmetic exact (the frozen expressions move INTO the view
+   unchanged; every flag-off adjustment stays +0.0 / ×1.0 by
+   construction).
+6. **Insurance persistence completes.** Paying the invoice now
+   cancels an outstanding Sal raid warning, with narration ("seven
+   quiet nights" was a lie to a telegraphed raid); declaring on Sal
+   clears any remaining coverage; cross-state validation requires
+   paid insurance to belong to a living, undeclared-upon Sal — the
+   impossible payload is refused.
+7. **The law's calm is four rival phases, not five.** The spend
+   lands before that night's rival phase and the inclusive
+   day + 4 comparison suppressed five actions. The window is
+   restated as a phase count and pinned by counting actual
+   suppressed rival phases through real nights.
+
+Rulings on the round-10 misses, verbatim in substance: the
+pattern+physical bar stays FROZEN at ≥ 50 for the corrected-engine
+rerun — no reclassifying employee testimony (it is narratively
+correct), no artificially funded bot; if it still misses, the
+thesis is revised toward actual remediation resistance, not the
+taxonomy. The cooldown grinder remains blocking: no flat Case or
+injury constant; first close the tribute and assignment escape
+hatches, and only if grinding still wins does target alertness feed
+ONE visible war-pressure policy — declining job impact and rising
+target retaliation, so a failed attempt worsens the future
+campaign instead of merely failing tonight. The neglect study is
+INVALID as run: NeglectWarBot's cover_stops changed Act I (79 vs 76
+entries, seven divergent entry seeds) and Carmine's grocery credit
+subsidized it — every branch ablation must hold pre-fork state-hash
+equality per seed, asserted by the harness, with paired outcomes
+compared from identical entries (common-entry deltas read 14.9 at
+150 / 24.6 at 500, dispositive only after isolation is repaired).
+The raid-price "drift" is RETRACTED: round 5 ran 2,000 trials and
+current code reproduces it exactly at that depth ($752 → $556 →
+$413 consecutive; $752 → $675 → $607 at two quiet nights); the
+probe propagates one trial count and reports paired uncertainty. A
+causal heat report joins the study — amber/red exposures, lost
+target-turf capacity, and corner damage with the heat policy on
+versus off — because unit tests prove the formula exists, not that
+heat became load-bearing.
+
+The expected green after the pass: the full suite, lint and types;
+both identity gates exact; Straight/Sale batteries unchanged except
+where item 3 intentionally moves them, recorded; clean ablation
+entry identity; the corrected 2,000-trial raid comparison; the war
+gates rerun at 150 and 500; and no activation until the cooldown
+criterion genuinely passes.
