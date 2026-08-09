@@ -15,10 +15,10 @@ import json
 from dataclasses import asdict
 
 from . import data
-from .models import (ActiveEvent, BranchState, District, Employee, Evidence,
-                     Rival, Shop, SitdownSnapshot, State,
-                     validate_branch_state, validate_cross_state,
-                     validate_evidence)
+from .models import (ActiveEvent, BranchState, DamageRecord, District,
+                     Employee, Evidence, Rival, Shop, SitdownSnapshot, State,
+                     WarCampaignState, validate_branch_state,
+                     validate_cross_state, validate_evidence)
 from .rng import Streams
 
 SAVE_VERSION = 3
@@ -150,7 +150,23 @@ def _branch_state_from(payload: dict | None) -> BranchState | None:
     if "escrow_discount" in payload and "escrow_discount_pct" not in payload:
         payload["escrow_discount_pct"] = round(
             payload.pop("escrow_discount") * 100)
-    return BranchState(**payload)
+    if payload.get("campaigns"):
+        # War campaigns are typed (rev. 14 item 2): rebuild the nested
+        # dataclasses here so validate_branch_state judges real
+        # campaign objects. A payload whose shape does not fit the
+        # types is refused, not repaired.
+        try:
+            payload["campaigns"] = [
+                WarCampaignState(**{
+                    **c, "damage": [DamageRecord(**r)
+                                    for r in c.get("damage", [])]})
+                for c in payload["campaigns"]]
+        except TypeError as exc:
+            raise ValueError(f"war: malformed campaign payload ({exc})")
+    try:
+        return BranchState(**payload)
+    except TypeError as exc:
+        raise ValueError(f"malformed branch-state payload ({exc})")
 
 
 def save_game(state: State, streams: Streams, path: str) -> None:

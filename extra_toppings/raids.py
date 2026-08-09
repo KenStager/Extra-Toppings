@@ -6,7 +6,7 @@ Violence works, and always costs more than it looks like it costs.
 
 import random
 
-from . import data
+from . import data, models
 from .models import State
 from .ui import Console, money
 
@@ -153,7 +153,7 @@ def run_raid(state: State, plan: dict, con: Console, rng: random.Random) -> None
 
     if aborted or not team:
         state.add_heat(rspec["home"], 8)
-        rival.relation -= 10
+        models.adjust_relation(state, rival.key, -10)
         rival.alertness = min(10.0, rival.alertness + 1.0)
         rival.last_raided_day = state.day
         con.say("  You got out with nothing but your skins.")
@@ -236,8 +236,9 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
             left_behind += rest
             if u - rest:
                 kept[g] = u - rest
-        rival.strength -= 12
-        rival.relation -= 25
+        models.apply_rival_damage(state, rival.key, "jobs",
+                                  models.RAID_STOCK_STRENGTH)
+        models.adjust_relation(state, rival.key, -25)
         if kept:
             got = ", ".join(f"{u}x {data.GOODS[g]['label']}" for g, u in kept.items())
             con.say(f"  You take what hands and storage can hold: {got}.")
@@ -251,14 +252,16 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
             state.districts[rspec["home"]].sold_yesterday[g] = -8
     elif objective == "ledger":
         rival.ledger_stolen = True
-        rival.strength -= 8
-        rival.relation -= 15
+        models.apply_rival_damage(state, rival.key, "jobs",
+                                  models.RAID_LEDGER_STRENGTH)
+        models.adjust_relation(state, rival.key, -15)
         con.say("  Forty pages of names, dates and numbers on film.")
         con.say("  Leverage now — or a gift to a prosecutor later.")
     else:  # sabotage
         rival.ovens_wrecked_days = 4
-        rival.strength -= 10
-        rival.relation -= 20
+        models.apply_rival_damage(state, rival.key, "jobs",
+                                  models.RAID_SABOTAGE_STRENGTH)
+        models.adjust_relation(state, rival.key, -20)
         con.say("  Thermostats smashed, gas lines capped, deck stones cracked.")
         con.say(f"  {rspec['short']}'s shop serves nothing for days — no cover for his routes.")
 
@@ -289,7 +292,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
     tribute = rival.tribute_demanded or 1500
     if choice == 2 and state.dirty >= tribute:
         state.dirty -= tribute
-        rival.relation += 15
+        models.adjust_relation(state, rival_key, 15)
         rival.raid_warning = 0
         con.say("  Money changes hands in a parking lot. The cars drive away.")
         con.say("  Everyone on your payroll knows you paid.")
@@ -317,7 +320,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         else:
             con.say("  They wreck the front and find an empty walk-in. "
                     "Message received — both ways.")
-        rival.relation -= 5
+        models.adjust_relation(state, rival_key, -5)
         rival.raid_warning = 0
         return True
 
@@ -327,8 +330,9 @@ def incoming_raid(state: State, rival_key: str, con: Console,
     attack = 4 + rival.strength / 12 + rng.uniform(0, 4)
     if strength + rng.uniform(0, 4) >= attack:
         con.say("  It's loud and brief. They leave one man's jacket and all their nerve.")
-        rival.strength -= 10
-        rival.relation -= 20
+        models.apply_rival_damage(state, rival_key, "defense",
+                                  models.DEFENSE_STRENGTH)
+        models.adjust_relation(state, rival_key, -20)
         state.add_heat(data.HOME_DISTRICT, 15)
         state.add_case(3, "a brawl at your shop made the police blotter")
     else:

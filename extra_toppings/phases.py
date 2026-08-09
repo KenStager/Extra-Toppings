@@ -7,7 +7,7 @@ by anything the player does. Player-facing dice use persistent streams.
 
 import random
 
-from . import data, escrow, market, raids, rivals, routes, shop, straight
+from . import data, escrow, market, models, raids, rivals, routes, shop, straight
 from .config import GameConfig
 from .models import SitdownSnapshot, State, case_prefix
 from .rng import Streams
@@ -695,7 +695,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
 
     # The city cools a little overnight.
     for d in state.districts.values():
-        d.heat = max(0.0, d.heat - 5)
+        d.heat = max(0.0, d.heat - models.HEAT_DECAY)
     state.day += 1
 
 

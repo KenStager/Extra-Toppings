@@ -216,6 +216,68 @@ class SitdownSnapshot:
     evidence_count_at_lockup: int
 
 
+# ── The Harbor War: canonical constants (§2.4.3, rev. 13–14) ─────
+# THE damage channels. "ledger" covers both spends of the same
+# leverage — the prosecution AND the greedy lean — so the accounting
+# can never silently omit one (rev. 14 item 3). "defense" is the
+# fifth channel: repelling their raid already removes strength, and
+# folding it into "jobs" would cook the §2.7 mix row it feeds.
+WAR_CHANNELS = ("jobs", "corners", "ovens", "ledger", "defense")
+# Job prices exactly as PR #3 left them, moved to canonical homes so
+# the payoff and the war board's ledger read the same numbers
+# (rev. 13 item 2) — integers, because the flag-off arithmetic is
+# integer subtraction and must stay bit-identical.
+RAID_STOCK_STRENGTH = 12
+RAID_SABOTAGE_STRENGTH = 10
+RAID_LEDGER_STRENGTH = 8
+DEFENSE_STRENGTH = 10        # repelling their raid (the fifth channel)
+OVEN_BLEED = 2               # per day while their ovens are wrecked
+OVEN_BLEED_FLOOR = 1         # attrition softens but never kills (rev. 13)
+LEDGER_LEAN_STRENGTH = 15    # the greedy spend — existing behavior
+LEDGER_LAW_STRENGTH = 20     # the prosecution spend (war-only, §2.4.3)
+LEDGER_LAW_CALM_DAYS = 4     # their lawyers keep them busy
+# THE vendetta band (rev. 13 item 5): one home for −60 —
+# straight.FEUD_RELATION and the sit-down's scene line consume this.
+# Escrow's WAR_RELATION (−50) is deliberately NOT unified: it is the
+# buyer's looser clause, ruled in rev. 8's constants pass.
+VENDETTA_RELATION = -60.0
+# THE flat nightly heat cooling (flag-off letter) — an integer,
+# because the night phase always subtracted the literal 5.
+HEAT_DECAY = 5
+
+
+@dataclass
+class DamageRecord:
+    """One applied strength reduction, in integer hundredths of a
+    point (rev. 14 item 3): 0.15/unit corner damage must never
+    recreate the project's floating-point scars. Append-only —
+    records are written once by the damage authority and never
+    mutated."""
+    day: int
+    channel: str          # WAR_CHANNELS
+    hundredths: int       # actual damage applied, net of overkill
+
+
+@dataclass
+class WarCampaignState:
+    """One declared war against one rival (rev. 14 item 2): the
+    campaign owns its own history, so a second declaration appends a
+    new campaign instead of overwriting the first. Strength
+    bookkeeping is integer hundredths; the §2.7 oracle asserts
+    nightly that starting strength minus current strength reconciles
+    exactly with the damage records."""
+    rival_key: str
+    declared_day: int
+    starting_hundredths: int          # rival strength at declaration
+    broken_day: int | None = None
+    damage: list = field(default_factory=list)   # DamageRecord, append-only
+    law_calm_until: int | None = None  # aggression halved through this day
+    violence_raised: bool = False      # the prosecution's permanent price
+    salvage_available: bool = False    # capture's one-use pickup, uncollected
+    salvage_day: int | None = None     # day collected; None if not/never
+    captured_pre_latch: bool = False   # capture completed on a live run
+
+
 @dataclass
 class BranchState:
     """Act II branch-specific state — None until the sit-down seats a
@@ -237,9 +299,14 @@ class BranchState:
     points_due_day: int | None = None
     points_missed: int = 0
     vig_owed: int = 0
-    # The Harbor War
-    war_target: str | None = None
-    declared_day: int | None = None
+    # The Harbor War (rev. 14: campaigns per rival — flat one-war
+    # fields could not represent a second declaration without
+    # overwriting history). Only genuinely branch-wide facts live
+    # here; everything campaign-shaped is WarCampaignState.
+    campaigns: list = field(default_factory=list)   # WarCampaignState
+    war_pay_paid: int = 0             # bonuses actually paid, cumulative
+    war_pay_short_nights: int = 0     # nights the bonus bounced
+    insurance_paid_until: int | None = None  # bystander coverage through
     # The Quiet Sale
     diligence_day: int = 0
     escrow_mark: int = 0
@@ -268,8 +335,14 @@ class BranchState:
         return cls(points_due_day=points_due_day)
 
     @classmethod
-    def war(cls, *, war_target: str, declared_day: int) -> "BranchState":
-        return cls(war_target=war_target, declared_day=declared_day)
+    def war(cls, *, war_target: str, declared_day: int,
+            starting_strength: float) -> "BranchState":
+        """The declaration seats the first campaign (rev. 14 item 2);
+        starting strength is captured here, in hundredths, so the
+        reconciliation oracle has its baseline from night one."""
+        return cls(campaigns=[WarCampaignState(
+            rival_key=war_target, declared_day=declared_day,
+            starting_hundredths=round(starting_strength * 100))])
 
     @classmethod
     def quiet_sale(cls, *, diligence_day: int = 1,
@@ -298,7 +371,8 @@ _BRANCH_FIELDS = {
                  "counsel_days", "remediation_used", "settled_witnesses",
                  "ad_days_left", "insolvent_days"},
     "partner": {"points_due_day", "points_missed", "vig_owed"},
-    "war": {"war_target", "declared_day"},
+    "war": {"campaigns", "war_pay_paid", "war_pay_short_nights",
+            "insurance_paid_until"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
                    "escrow_discount_pct", "severance_outcome",
                    "severance_paid", "closing_headcount"},
@@ -317,7 +391,7 @@ if set(_BRANCH_FIELDS) != ACTIVE_BRANCHES:      # import-time consistency
 _BRANCH_REQUIRED = {
     "straight": (),
     "partner": ("points_due_day",),
-    "war": ("war_target", "declared_day"),
+    "war": (),                    # rev. 14: _validate_war owns the shape
     "quiet_sale": ("diligence_day",),
 }
 
@@ -358,6 +432,8 @@ def validate_branch_state(branch: str | None,
         _validate_severance(branch_state, game_over)
     elif branch == "straight":
         _validate_straight(branch_state, game_over)
+    elif branch == "war":
+        _validate_war(branch_state)
 
 
 def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
@@ -400,6 +476,121 @@ def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
     if days >= 2 and game_over != "broke":
         raise ValueError("straight: two clean-insolvent nights end the run "
                          "— a live run cannot carry them")
+
+
+def _validate_war(bs: "BranchState") -> None:
+    """The war's field contracts (rev. 14): campaigns are typed,
+    append-only-shaped and internally reconciled — a doctored payload
+    is refused, not repaired. Cross-world facts (the rival's actual
+    strength, the vendetta lock) bind in validate_cross_state."""
+    camps = bs.campaigns
+    if not isinstance(camps, list) or not camps:
+        raise ValueError("war: a declared war carries at least one "
+                         "campaign")
+    live = 0
+    seen_rivals: set = set()
+    prev_broken: int | None = None
+    for i, c in enumerate(camps):
+        if not isinstance(c, WarCampaignState):
+            raise ValueError(f"war: campaigns[{i}] is not a campaign "
+                             f"payload")
+        if c.rival_key not in data.RIVALS:
+            raise ValueError(f"war: campaigns[{i}] names unknown rival "
+                             f"{c.rival_key!r}")
+        if c.rival_key in seen_rivals:
+            raise ValueError(f"war: campaigns[{i}] re-declares on "
+                             f"{c.rival_key!r} — one campaign per rival")
+        seen_rivals.add(c.rival_key)
+        if type(c.declared_day) is not int or c.declared_day < 1:
+            raise ValueError(f"war: campaigns[{i}] declared_day must be "
+                             f"a positive day, got {c.declared_day!r}")
+        if type(c.starting_hundredths) is not int \
+                or c.starting_hundredths <= 0:
+            raise ValueError(f"war: campaigns[{i}] starting strength "
+                             f"must be a positive integer in hundredths, "
+                             f"got {c.starting_hundredths!r}")
+        if i > 0 and (prev_broken is None or c.declared_day < prev_broken):
+            raise ValueError(f"war: campaigns[{i}] declared before the "
+                             f"previous campaign broke — one front at a "
+                             f"time (rev. 14)")
+        prev_broken = c.broken_day
+        if c.broken_day is not None and (
+                type(c.broken_day) is not int
+                or c.broken_day < c.declared_day):
+            raise ValueError(f"war: campaigns[{i}] broken_day must be on "
+                             f"or after the declaration, got "
+                             f"{c.broken_day!r}")
+        if c.broken_day is None:
+            live += 1
+        total = 0
+        last_day = c.declared_day
+        if not isinstance(c.damage, list):
+            raise ValueError(f"war: campaigns[{i}] damage must be a list")
+        for j, r in enumerate(c.damage):
+            if not isinstance(r, DamageRecord):
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] is "
+                                 f"not a damage record")
+            if r.channel not in WAR_CHANNELS:
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] "
+                                 f"unknown channel {r.channel!r}")
+            if type(r.hundredths) is not int or r.hundredths <= 0:
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] must "
+                                 f"record a positive integer number of "
+                                 f"hundredths, got {r.hundredths!r}")
+            if type(r.day) is not int or r.day < last_day:
+                raise ValueError(f"war: campaigns[{i}].damage[{j}] day "
+                                 f"{r.day!r} breaks append-only order")
+            last_day = r.day
+            total += r.hundredths
+        if total > c.starting_hundredths:
+            raise ValueError(f"war: campaigns[{i}] records more damage "
+                             f"than the rival had strength — overkill is "
+                             f"never recorded")
+        if c.broken_day is not None and total != c.starting_hundredths:
+            raise ValueError(f"war: campaigns[{i}] is broken but its "
+                             f"damage records do not reconcile to its "
+                             f"starting strength")
+        if c.broken_day is None and total == c.starting_hundredths:
+            raise ValueError(f"war: campaigns[{i}] records the rival at "
+                             f"zero with no capture recorded — the "
+                             f"authority detects capture exactly once")
+        if c.broken_day is None and (
+                c.salvage_available or c.salvage_day is not None
+                or c.captured_pre_latch):
+            raise ValueError(f"war: campaigns[{i}] carries capture state "
+                             f"without a capture")
+        if c.salvage_available and c.salvage_day is not None:
+            raise ValueError(f"war: campaigns[{i}] salvage cannot be both "
+                             f"waiting and collected")
+        if c.salvage_day is not None and (
+                type(c.salvage_day) is not int
+                or c.broken_day is None or c.salvage_day < c.broken_day):
+            raise ValueError(f"war: campaigns[{i}] salvage_day must be on "
+                             f"or after the capture, got {c.salvage_day!r}")
+        if c.law_calm_until is not None and (
+                type(c.law_calm_until) is not int
+                or c.law_calm_until < c.declared_day):
+            raise ValueError(f"war: campaigns[{i}] law_calm_until must be "
+                             f"a day on or after the declaration, got "
+                             f"{c.law_calm_until!r}")
+        if not isinstance(c.violence_raised, bool):
+            raise ValueError(f"war: campaigns[{i}] violence_raised must "
+                             f"be a bool")
+        if not isinstance(c.captured_pre_latch, bool):
+            raise ValueError(f"war: campaigns[{i}] captured_pre_latch "
+                             f"must be a bool")
+    if live > 1:
+        raise ValueError("war: at most one campaign may be live — one "
+                         "front at a time (rev. 14)")
+    for name in ("war_pay_paid", "war_pay_short_nights"):
+        v = getattr(bs, name)
+        if type(v) is not int or v < 0:
+            raise ValueError(f"war: {name} must be a non-negative "
+                             f"integer, got {v!r}")
+    ins = bs.insurance_paid_until
+    if ins is not None and (type(ins) is not int or ins < 1):
+        raise ValueError(f"war: insurance_paid_until must be None or a "
+                         f"positive day, got {ins!r}")
 
 
 def _validate_escrow_pricing(bs: "BranchState") -> None:
@@ -601,6 +792,115 @@ def validate_cross_state(state: "State") -> None:
                 raise ValueError(f"straight: settled witness {k!r} is "
                                  f"still on the payroll — settled-out "
                                  f"names cannot be rehired (rev. 11)")
+    if state.branch == "war" and state.branch_state is not None:
+        # The campaign payload must cohere with the WORLD it claims to
+        # describe (rev. 14): the reconciliation identity binds at the
+        # persistence boundary exactly as the nightly oracle asserts it
+        # in play, and the vendetta lock is a fact of the save, not a
+        # hope of the runtime.
+        for i, c in enumerate(state.branch_state.campaigns):
+            if c.rival_key not in state.rivals:
+                raise ValueError(f"war: campaigns[{i}] names a rival "
+                                 f"missing from the world")
+            rv = state.rivals[c.rival_key]
+            spent = sum(r.hundredths for r in c.damage)
+            if round(rv.strength * 100) != c.starting_hundredths - spent:
+                raise ValueError(
+                    f"war: campaigns[{i}] does not reconcile — "
+                    f"{c.rival_key!r} reads {rv.strength}, the records "
+                    f"say {(c.starting_hundredths - spent) / 100}")
+            if rv.relation > VENDETTA_RELATION:
+                raise ValueError(
+                    f"war: campaigns[{i}] rival {c.rival_key!r} sits "
+                    f"above the vendetta band — the lock is permanent")
+
+
+def live_campaign(state: "State",
+                  rival_key: str | None = None) -> "WarCampaignState | None":
+    """The one live (unbroken) war campaign, optionally only if it
+    targets rival_key. None outside the war branch — every consumer's
+    flag-off path is 'no campaign'."""
+    if state.branch != "war" or state.branch_state is None:
+        return None
+    for c in state.branch_state.campaigns:
+        if c.broken_day is None and (rival_key is None
+                                     or c.rival_key == rival_key):
+            return c
+    return None
+
+
+def apply_rival_damage(state: "State", rival_key: str, channel: str,
+                       amount: float, *,
+                       floor: float | None = None) -> float:
+    """THE rival-damage authority (rev. 14 item 3): every strength
+    reduction in the engine flows through here — jobs, the oven
+    bleed, both ledger spends, defense, and the war's corners.
+
+    Without a live campaign on this rival the arithmetic is the exact
+    subtraction the call sites always did, bit for bit (plain
+    subtraction, or max(floor, …) where the caller always had a
+    floor). With a live campaign, damage quantizes to integer
+    hundredths, overkill is cut at the floor (capture at zero; the
+    oven bleed's floor of 1 still binds above it), the applied amount
+    is appended to the campaign's ledger, and capture is detected
+    exactly once — the moment strength reaches zero. Returns the
+    damage actually applied."""
+    if channel not in WAR_CHANNELS:
+        raise ValueError(f"unknown damage channel {channel!r}")
+    rival = state.rivals[rival_key]
+    camp = live_campaign(state, rival_key)
+    if camp is None:
+        before = rival.strength
+        if floor is None:
+            rival.strength = before - amount
+        else:
+            rival.strength = max(floor, before - amount)
+        return before - rival.strength
+    before_h = round(rival.strength * 100)
+    floor_h = 0 if floor is None else round(floor * 100)
+    applied_h = max(0, min(round(amount * 100), before_h - floor_h))
+    if applied_h:
+        rival.strength = (before_h - applied_h) / 100
+        camp.damage.append(DamageRecord(
+            day=state.day, channel=channel, hundredths=applied_h))
+        if before_h - applied_h == 0:
+            # Capture, detected here and only here (rev. 14 item 3):
+            # the transition is recorded on whatever run state exists
+            # THIS moment — a latch that already fired means the
+            # verdict beat the victory (§2.5 precedence, rev. 14).
+            camp.broken_day = state.day
+            camp.salvage_available = True
+            camp.captured_pre_latch = state.game_over is None
+    return applied_h / 100
+
+
+def vendetta_locked(state: "State", rival_key: str) -> bool:
+    """A rival named by any war campaign — live or broken — is
+    vendetta-locked for the rest of the run (§2.4.3: no truce, ever)."""
+    return (state.branch == "war" and state.branch_state is not None
+            and any(c.rival_key == rival_key
+                    for c in state.branch_state.campaigns))
+
+
+def adjust_relation(state: "State", rival_key: str, delta: float) -> None:
+    """THE relation-mutation authority (rev. 14 item 4): every
+    relation write flows through here, so the vendetta lock is
+    enforced at the mutation site — never by an eventual-consistency
+    sweep. Flag-off the arithmetic is the exact `+=` it replaced."""
+    rival = state.rivals[rival_key]
+    rival.relation = rival.relation + delta
+    if vendetta_locked(state, rival_key):
+        rival.relation = min(rival.relation, VENDETTA_RELATION)
+
+
+def set_relation(state: "State", rival_key: str, value: float) -> None:
+    """Absolute-value sibling of adjust_relation (the truce's
+    max(relation, 25) is a set, not a delta); the lock binds here
+    identically."""
+    rival = state.rivals[rival_key]
+    rival.relation = value
+    if vendetta_locked(state, rival_key):
+        rival.relation = min(rival.relation, VENDETTA_RELATION)
 
 
 @dataclass

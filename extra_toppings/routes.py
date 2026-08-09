@@ -2,7 +2,7 @@
 
 import random
 
-from . import data, market, straight
+from . import data, market, models, straight
 from .models import Employee, State
 from .ui import Console, money
 
@@ -182,7 +182,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     # Rival turf: they notice volume moving through their neighborhood.
     owner = dspec["rival"]
     if owner and report["sold"] > 0 and state.rivals[owner].alive:
-        state.rivals[owner].relation -= report["sold"] * 0.4
+        models.adjust_relation(state, owner, -(report["sold"] * 0.4))
         report["lines"].append(
             f"{data.RIVALS[owner]['short']}'s people watched the car all night.")
 

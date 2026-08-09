@@ -19,7 +19,7 @@ trade.
 
 import random
 
-from . import data, escrow, evidence
+from . import data, escrow, evidence, models
 from .models import BranchState, State
 from .rng import Streams
 from .ui import Console, money
@@ -31,7 +31,9 @@ GOAL_DIRTY = 200            # unlaundered cash anywhere, at most
 CLEAN_DAYS_REQUIRED = 5
 LIQUIDATION_DEADLINE = 25   # the last day a crime still leaves 5 clean days
 HOSTILE_MORALE = 5          # a departed aware witness below this is hostile
-FEUD_RELATION = -60.0       # §2.1's vendetta band: an open feud
+# §2.1's vendetta band: an open feud. Rebound to THE canonical home
+# (rev. 13 item 5) — same value, one spelling.
+FEUD_RELATION = models.VENDETTA_RELATION
 
 # Disposal pricing (rev. 2 item 4, rev. 9 items 6 and 9).
 FIRE_SALE_RATE = 0.40           # of base book value
@@ -274,7 +276,8 @@ def fire_sale(state: State, con: Console, streams: Streams) -> bool:
                 "meeting, no crime, no money.")
         return False
     state.dirty += take
-    sal.relation = min(100.0, sal.relation + FIRE_SALE_RELATION)
+    models.set_relation(state, "sal",
+                        min(100.0, sal.relation + FIRE_SALE_RELATION))
     crime_committed(state)
     con.say(f"  Sal's man pays {money(take)} dirty for {sold_units} units "
             f"at forty cents on the book. His truck does the driving; "

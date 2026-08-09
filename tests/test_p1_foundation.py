@@ -615,7 +615,8 @@ class TestBranchStateValidation(unittest.TestCase):
         validate_branch_state("partner",
                               BranchState.partner(points_due_day=19))
         validate_branch_state("war", BranchState.war(war_target="vinnie",
-                                                     declared_day=14))
+                                                     declared_day=14,
+                                                     starting_strength=70))
         validate_branch_state("quiet_sale", BranchState.quiet_sale())
 
     def test_stand_pat_and_prefork_require_no_branch_state(self):
@@ -632,13 +633,13 @@ class TestBranchStateValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_branch_state("partner", BranchState())   # no due day
         with self.assertRaises(ValueError):
-            validate_branch_state("war", BranchState(war_target="vinnie"))
+            validate_branch_state("war", BranchState())   # no campaign
         with self.assertRaises(ValueError):
             validate_branch_state("quiet_sale",
                                   BranchState(diligence_day=0))
 
     def test_mixed_branch_payloads_are_rejected(self):
-        mixed = BranchState(diligence_day=1, war_target="vinnie")
+        mixed = BranchState(diligence_day=1, war_pay_paid=40)
         with self.assertRaises(ValueError):
             validate_branch_state("quiet_sale", mixed)
         with self.assertRaises(ValueError):
@@ -684,7 +685,7 @@ class TestSaveRoundTrips(unittest.TestCase):
         d = save.state_to_dict(state)
         d["branch"] = "quiet_sale"
         d["branch_state"] = save.asdict(
-            BranchState(diligence_day=1, war_target="vinnie"))
+            BranchState(diligence_day=1, war_pay_paid=40))
         with self.assertRaises(ValueError):
             save.state_from_dict(d)
         d["branch"] = "stand_pat"

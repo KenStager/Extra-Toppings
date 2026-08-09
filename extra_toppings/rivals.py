@@ -2,7 +2,7 @@
 
 import random
 
-from . import data, straight
+from . import data, models, straight
 from .models import State
 from .ui import Console, money
 
@@ -16,7 +16,8 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
 
         if rival.ovens_wrecked_days:
             rival.ovens_wrecked_days -= 1
-            rival.strength = max(1, rival.strength - 2)
+            models.apply_rival_damage(state, key, "ovens", models.OVEN_BLEED,
+                                      floor=models.OVEN_BLEED_FLOOR)
         # Guards get bored again, slowly — but not on a night you hit them.
         if rival.last_raided_day != state.day:
             rival.alertness = max(0.0, rival.alertness - 0.34)
@@ -123,20 +124,21 @@ def negotiate(state: State, con: Console, rng: random.Random) -> None:
 
     if c == 0 and state.dirty >= 1000:
         state.dirty -= 1000
-        rival.relation += 12
+        models.adjust_relation(state, key, 12)
         con.say(f"  {spec['short']} accepts the envelope. The temperature drops a degree.")
     elif c == 1:
         odds = 0.3 + (state.rivals[key].strength < 40) * 0.3 + max(0, rival.relation) / 200
         if rng.random() < odds:
-            rival.relation = max(rival.relation, 25)
+            models.set_relation(state, key, max(rival.relation, 25))
             rival.tribute_demanded = 0
             con.say("  Handshakes over espresso. Your trucks stay out of each other's mirrors.")
         else:
-            rival.relation -= 5
+            models.adjust_relation(state, key, -5)
             con.say(f"  {spec['short']} laughs. 'Come back when you own something.'")
     elif rival.ledger_stolen and c == 2:
-        rival.strength -= 15
-        rival.relation -= 10
+        models.apply_rival_damage(state, key, "ledger",
+                                  models.LEDGER_LEAN_STRENGTH)
+        models.adjust_relation(state, key, -10)
         rival.tribute_demanded = 0
         rival.ledger_stolen = False   # leverage used is leverage gone
         state.dirty += 2000

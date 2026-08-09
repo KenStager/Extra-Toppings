@@ -23,7 +23,7 @@ with a schema version bump there.
 
 from dataclasses import dataclass
 
-from . import straight
+from . import models, straight
 from .config import GameConfig
 from .models import (BRANCH_ORDER, BranchState, SitdownSnapshot, State,
                      case_prefix, fold_case, validate_branch_state)
@@ -211,7 +211,8 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
         con.say("  Carmine stands when you come in. He does not do that. "
                 "'Paid in a week. I have known men thirty years I trust "
                 "less.' The offer he makes will remember this morning.")
-    if any(rv.alive and (rv.raid_warning > 0 or rv.relation <= -60)
+    if any(rv.alive and (rv.raid_warning > 0
+                         or rv.relation <= models.VENDETTA_RELATION)
            for rv in state.rivals.values()):
         con.say("  Unfamiliar cars idle across the street the whole meal. "
                 "Carmine glances at them once and decides they can wait.")
