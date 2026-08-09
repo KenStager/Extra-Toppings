@@ -1996,3 +1996,63 @@ before the correction pass:
    drop ≥ 20 points. The dirty-month bot remains an ecological
    confirmation, not an acceptance fixture. The reference state is a
    harness-owned literal, like the frozen scene schema.
+
+**Revision 11** responds to the re-review of revision 10, which
+reproduced every number, accepted all eight corrections in
+architecture — derived retention, the docket, honest settlements, the
+tip's reclassification, external immunity, the disposal voice, the
+two cohorts, the RNG ownership — and found the replacement ledger
+non-monotone at the floor plus a disposition authority that still
+disagrees with reality. Both rulings on the round-10 flags were
+taken: no criterion amendment (the natural 61% passes as written and
+must re-clear after this fold correction or it fails; the redemption
+exit rate is not a failure and gets no band). Recorded on paper
+before the correction pass:
+
+1. *The relief allocation becomes per-record and partial — Case is
+   monotone again.* The all-or-nothing allocation made the meter
+   move the wrong way at the boundary, both directions reproduced by
+   review: adding 1 point of paper dropped Case 15 → 10 (the new
+   allowance let a previously-too-big halving fit), and a −2.46
+   contest raised Case 10.1 → 13.6 (the shrunken allowance evicted
+   it). The contract is now: allowance A = max(0, raw − 10); for
+   each protected record in ledger order, cut_i = min(half the
+   magnitude, A − relief already allocated); Case = clamp(raw −
+   Σ cut). Total relief is therefore exactly min(total halvable, A),
+   which is monotone in every direction the design promises:
+   nonnegative accrual never lowers the Case, remediation never
+   raises it, losing protection never lowers it, gaining protection
+   never raises it. The boundary record's relief may be PARTIAL and
+   renders honestly in the docket. The fold, the docket, the
+   settlement lock-in (the free portion of a settlement is the cut
+   the allocation was already giving; the paid portion is the rest
+   of the halving) and the independent oracle all consume this one
+   allocation. All six properties are pinned, including both review
+   repros.
+2. *One witness-relationship authority, and the lifecycle closes.*
+   `remediation_disposition` gains the state it needed: a sourced
+   witness record answers settled ("their peace is bought"), beyond
+   reach (arrested — the statement is the state's), or settleable —
+   and the docket, the settlement target list, hostile-witness
+   grading, hiring eligibility and cross-state validation all read
+   the same answer. The lifecycle exploit closes per the review's
+   recommendation: **a settled-out employee cannot be rehired on the
+   Straight Path** — the hiring pool refuses them in-branch, and a
+   straight-branch payload carrying a settled name that is also
+   hired is refused at load. Validation additionally requires unique
+   employee keys and refuses employee-sourced witness testimony
+   attached to someone never made aware.
+3. *The docket honors round 6's aggregation promise.* Storage stays
+   per-tick (float identity); the display groups the routine hum
+   into one line carrying the entry count and exact base/effective
+   totals. The counsel status line stops naming a next target that
+   cannot be contested: cap exhausted and floor-bound states say so
+   instead.
+4. *The reporter tells the truth about which numbers bind.* The
+   cohort contract moves into an explicit specification: the
+   natural-entry cohort prints its band and paired bar as bars and
+   its absolute ΔCase as reported context; the redemption cohort
+   prints the original ΔCase letter as bars and its exit rate as
+   reported context; every dirty-month line is labeled diagnostic.
+   Counsel-only and settlement-only redemption runs are added as
+   labeled diagnostics (the review's suggestion), not bars.
