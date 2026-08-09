@@ -51,6 +51,10 @@ def rival_policy(state: State, key: str) -> RivalPolicy:
         camp = models.live_campaign(state, key)
         act_chance *= war.WAR_AGGRESSION
         notes.append("at war — they come bigger and more often")
+        press = war.pressure(state, key)
+        act_chance *= press.retaliation_mult
+        if press.note:
+            notes.append(press.note)
         if camp is not None and camp.law_calm_until is not None \
                 and state.day <= camp.law_calm_until:
             act_chance *= war.LAW_CALM_ACT

@@ -197,6 +197,14 @@ def epilogue(state: State, con: Console) -> None:
   You still owe {money(state.debt)}. The shop is his now; the recipes too.
   You keep your legs — a courtesy, he says, to your uncle.
   ENDING: The debt came due.""")
+    elif e == "syndicate":
+        con.say("""
+  Moretti's is a mattress store now. Vinnie's is a parking lot. You
+  declared both wars at a breakfast table and finished both before the
+  month did — jobs, corners, cold ovens, and a woman in a gray suit
+  who thinks you're a very lucky bystander. Every warmer bag in the
+  city rides in one of your wagons.
+  ENDING: The syndicate. Nothing moves without extra toppings.""")
     elif e == "burned_out":
         con.say("""
   They warned you twice — once with cars in the mirror, once with the
@@ -257,18 +265,7 @@ def epilogue(state: State, con: Console) -> None:
   The city eventually forgets there was anything to remember.
   ENDING: The legitimate exit. The rarest pie on the menu.""")
         elif rivals_alive == 0:
-            if state.branch == "war":
-                # The §2.5 upgraded text: the same ending id, earned
-                # on purpose — two declared campaigns, two captures.
-                con.say("""
-  Moretti's is a mattress store now. Vinnie's is a parking lot. You
-  declared both wars at a breakfast table and finished both before the
-  month did — jobs, corners, cold ovens, and a woman in a gray suit
-  who thinks you're a very lucky bystander. Every warmer bag in the
-  city rides in one of your wagons.
-  ENDING: The syndicate. Nothing moves without extra toppings.""")
-            else:
-                con.say("""
+            con.say("""
   Moretti's is a mattress store now. Vinnie's is a parking lot. Every
   warmer bag in the city rides in one of your wagons.
   ENDING: The syndicate. Nothing moves without extra toppings.""")

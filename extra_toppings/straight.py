@@ -58,7 +58,9 @@ AD_DEMAND_MULT = 1.15
 
 # The siege (rev. 9 item 13).
 RETREAT_AGGRESSION = 1.5
-INSOLVENT_NIGHTS = 2
+# Rebound to THE shared insolvency contract (rev. 15 item 3) — same
+# value, one home, every active branch.
+INSOLVENT_NIGHTS = models.INSOLVENT_NIGHTS
 
 
 def live(state: State) -> BranchState:
@@ -357,19 +359,14 @@ def night_tick(state: State, con: Console, payroll_short: bool) -> None:
                                     state.shop.reputation + AD_REP_PER_NIGHT)
         con.say(f"  The advertising works its shift: reputation "
                 f"{state.shop.reputation:.0f}.")
-    if payroll_short and state.total_stock_units() == 0 \
-            and state.unlaundered_total() == 0:
-        bs.insolvent_days += 1
-        if bs.insolvent_days >= INSOLVENT_NIGHTS:
-            state.game_over = "broke"
-            con.say("  Two nights running: no payroll, no stock, no "
-                    "hidden dollar. The clean life has a rent too.")
-        else:
-            con.bullet("Payroll missed with nothing left to sell and "
-                       "nothing left hidden. One more night like this "
-                       "and the oven goes cold.")
-    else:
-        bs.insolvent_days = 0
+    outcome = models.insolvency_tick(state, payroll_short)
+    if outcome == "broke":
+        con.say("  Two nights running: no payroll, no stock, no "
+                "hidden dollar. The clean life has a rent too.")
+    elif outcome == "warned":
+        con.bullet("Payroll missed with nothing left to sell and "
+                   "nothing left hidden. One more night like this "
+                   "and the oven goes cold.")
 
 
 def search_spook(state: State, con: Console) -> None:

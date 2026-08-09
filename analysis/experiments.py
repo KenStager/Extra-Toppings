@@ -716,15 +716,31 @@ def _fork_war(seeds: int) -> None:
           f"{seeds - crashes}/{seeds} runs")
 
     def war_run(bot_cls, seed):
+        import hashlib
+        import json as _json
+        from extra_toppings import save as _save
         bot = bot_cls(random.Random(seed))
         recon_bad = ledger_bad = 0
         gross: Counter = Counter()
-        seen = {"n": None}
+        seen = {"n": None, "pre": None}
+        amber_nights = {"n": 0}
 
         def on_night(state, streams):
             nonlocal recon_bad, ledger_bad
+            if state.branch is None:
+                # The entry fingerprint (rev. 15): every branch
+                # ablation must reach the fork from a state-hash-
+                # identical month — the last pre-branch night's full
+                # state is the fingerprint the fleets must share.
+                seen["pre"] = hashlib.md5(_json.dumps(
+                    _save.state_to_dict(state),
+                    sort_keys=True).encode()).hexdigest()
             if state.branch != "war" or state.branch_state is None:
                 return
+            for dk in data.DISTRICTS:
+                from extra_toppings.models import district_heat_policy
+                if district_heat_policy(state, dk).band != "cool":
+                    amber_nights["n"] += 1
             if seen["n"] is None:
                 # First war night: everything before the lock-up count
                 # is pre-fork by construction (the scene adds nothing).
@@ -755,7 +771,7 @@ def _fork_war(seeds: int) -> None:
         s = run(seed, bot, config=war_on, on_night=on_night)
         entered = getattr(bot, "_entered_war", False) or s.branch == "war"
         if not entered or not s.branch_state or not s.branch_state.campaigns:
-            return {"entered": False}
+            return {"entered": False, "pre_hash": seen["pre"]}
         camps = s.branch_state.campaigns
         first = camps[0]
         ratio = (round(s.rivals[first.rival_key].strength * 100)
@@ -778,6 +794,8 @@ def _fork_war(seeds: int) -> None:
                                                            0.0)
         good = s.game_over == "harbor_yours" or (
             s.game_over == "survived" and len(broken) >= 2)
+        corner_h = sum(dr.hundredths for c in camps for dr in c.damage
+                       if dr.channel == "corners")
         return {"entered": True, "ending": s.game_over, "ratio": ratio,
                 "broken": len(broken), "mixes": mixes, "agg": agg,
                 "pp_share": pp / g_total if g_total else None,
@@ -785,7 +803,9 @@ def _fork_war(seeds: int) -> None:
                 "gross": dict(gross), "g_total": g_total,
                 "post_raids": s.raids_led - seen.get("raids0", s.raids_led),
                 "good": good, "recon_bad": recon_bad,
-                "ledger_bad": ledger_bad,
+                "ledger_bad": ledger_bad, "pre_hash": seen["pre"],
+                "amber_nights": amber_nights["n"],
+                "corner_damage": corner_h / 100,
                 "war_pay": s.branch_state.war_pay_paid,
                 "short": s.branch_state.war_pay_short_nights}
 
@@ -800,10 +820,16 @@ def _fork_war(seeds: int) -> None:
         pay_tot = short_tot = 0
         kind_shares: dict = defaultdict(list)
         post_raids = []
+        per_seed = {}
+        amber_tot = 0
+        corner_tot: list = []
         for seed in range(seeds):
             r = war_run(cls, seed)
+            per_seed[seed] = r
             if not r["entered"]:
                 continue
+            amber_tot += r["amber_nights"]
+            corner_tot.append(r["corner_damage"])
             entered += 1
             endings[r["ending"]] += 1
             ratios.append(r["ratio"])
@@ -862,15 +888,34 @@ def _fork_war(seeds: int) -> None:
               f"{short_tot} short nights")
         print(f"  reconciliation oracle: {recon_bad} bad nights (bar 0); "
               f"ledger transparency: {ledger_bad} bad nights (bar 0)")
-        return rate
+        return rate, per_seed, amber_tot, corner_tot
 
-    mixed = war_rows("war", WarBot, "the mixed campaign — bars bind here")
-    raid_only = war_rows("raid-only", RaidOnlyBot,
-                         "ablation: no proactive non-job channel")
-    cooldown = war_rows("cooldown", CooldownRaiderBot,
-                        "ablation: raids on cooldown ignoring alertness")
-    neglect = war_rows("neglect", NeglectWarBot,
-                       "ablation: no cover, no pantry")
+    mixed, war_seed, war_amber, war_corner = war_rows(
+        "war", WarBot, "the mixed campaign — bars bind here")
+    fleets = {
+        "raid-only": war_rows("raid-only", RaidOnlyBot,
+                              "ablation: no proactive non-job channel"),
+        "cooldown": war_rows("cooldown", CooldownRaiderBot,
+                             "ablation: raids on cooldown ignoring "
+                             "alertness"),
+        "neglect": war_rows("neglect", NeglectWarBot,
+                            "ablation: no cover, no pantry"),
+    }
+    # Ablation entry identity (rev. 15): every fleet reaches the fork
+    # from the same month, seed by seed — pre-fork state hash AND the
+    # entered flag must agree with the mixed bot's.
+    divergent = 0
+    for name, (_r, per_seed, _a, _c) in fleets.items():
+        for seed in range(seeds):
+            a, b = war_seed[seed], per_seed[seed]
+            if a["entered"] != b["entered"] \
+                    or a["pre_hash"] != b["pre_hash"]:
+                divergent += 1
+    print(f"ablation entry identity: {divergent} divergent "
+          f"(fleet, seed) pairs (bar 0)")
+    raid_only = fleets["raid-only"][0]
+    cooldown = fleets["cooldown"][0]
+    neglect = fleets["neglect"][0]
     print(f"raid-only trails mixed: {mixed:.0%} → {raid_only:.0%} "
           f"({(mixed - raid_only) * 100:.0f} points; bar ≥ 15)")
     print(f"cooldown ablation drop: {mixed:.0%} → {cooldown:.0%} "
@@ -878,16 +923,38 @@ def _fork_war(seeds: int) -> None:
     print(f"restaurant-neglect trails mixed: {mixed:.0%} → {neglect:.0%} "
           f"({(mixed - neglect) * 100:.0f} points; bar ≥ 15)")
 
-    _raid_decline_at_war_cadence()
+    # The causal heat report (rev. 15): the same mixed fleet with the
+    # district teeth neutralized — heat's contribution measured, not
+    # asserted by unit test. Diagnostic; the teeth constants restore
+    # before anything else runs.
+    from extra_toppings import models as _models
+    saved = (_models.HEAT_AMBER, _models.HEAT_RED)
+    try:
+        _models.HEAT_AMBER = _models.HEAT_RED = 10 ** 9
+        off_rate, off_seed, off_amber, off_corner = war_rows(
+            "war-no-heat-teeth", WarBot,
+            "diagnostic: heat policy off — the causal report")
+    finally:
+        _models.HEAT_AMBER, _models.HEAT_RED = saved
+    med = statistics.median
+    print(f"causal heat report [diagnostic]: teeth ON — "
+          f"{war_amber} amber/red district-nights across the fleet, "
+          f"median corner damage {med(war_corner) if war_corner else 0:g}, "
+          f"branch-good {mixed:.0%}; teeth OFF — {off_amber} exposure "
+          f"nights, median corner damage "
+          f"{med(off_corner) if off_corner else 0:g}, branch-good "
+          f"{off_rate:.0%}")
+
+    _raid_decline_at_war_cadence(trials=2000)
 
 
-def _raid_decline_at_war_cadence(trials: int = 300) -> None:
+def _raid_decline_at_war_cadence(trials: int = 2000) -> None:
     """The §7 P3 gate's last row: the alertness decline curve
     re-verified AT WAR CADENCE — the same three-job probe as the
-    `raids` study, but seated in a declared war (the target's
-    aggression scaled, the raid edge live) and paced like the war
-    bot actually raids: two quiet nights of alertness decay between
-    attempts. Reported beside the round-5 consecutive numbers."""
+    `raids` study, seated in a declared war, paced like the war bot
+    actually raids. ONE propagated trial count (rev. 15: the round-10
+    'drift' was a 300-vs-2,000 comparison, retracted), 2,000 being
+    round 5's recorded depth, with paired per-attempt uncertainty."""
     from extra_toppings.models import BranchState, VENDETTA_RELATION
     from extra_toppings.models import set_relation
 
@@ -895,7 +962,7 @@ def _raid_decline_at_war_cadence(trials: int = 300) -> None:
         # The raid_roi decline probe's exact setup — same crew, same
         # storage removal, same stock-value metric, same per-attempt
         # bot seeds — seated in a declared war.
-        totals = [0.0, 0.0, 0.0]
+        values: list = [[], [], []]
         succ = [0, 0, 0]
         for seed in range(trials):
             rng = random.Random(seed)
@@ -933,7 +1000,7 @@ def _raid_decline_at_war_cadence(trials: int = 300) -> None:
                     st, plan, BotConsole(random.Random(seed * 3 + attempt)),
                     rng)
                 gained = stock_value(st) - before
-                totals[attempt] += gained
+                values[attempt].append(gained)
                 succ[attempt] += gained > 0
                 for e in crew:
                     e.injured_days = 0
@@ -941,15 +1008,30 @@ def _raid_decline_at_war_cadence(trials: int = 300) -> None:
                     st.day += 1
                     if rival.last_raided_day != st.day:
                         rival.alertness = max(0.0, rival.alertness - 0.34)
-        return totals, succ
+        return values, succ
 
+    def mean_se(vals):
+        m = statistics.fmean(vals)
+        se = (statistics.stdev(vals) / (len(vals) ** 0.5)
+              if len(vals) > 1 else 0.0)
+        return m, se
+
+    curves = {}
     for spacing, label in ((0, "consecutive (the round-5 comparison)"),
                            (2, "war cadence (two quiet nights between)")):
-        totals, succ = probe(spacing)
-        row = " → ".join(f"${totals[i] / trials:,.0f}" for i in range(3))
+        values, succ = probe(spacing)
+        curves[spacing] = values
+        row = " → ".join("${:,.0f}±{:.0f}".format(*mean_se(values[i]))
+                         for i in range(3))
         rates = " / ".join(f"{succ[i] / trials:.0%}" for i in range(3))
-        print(f"raid decline at war posture, {label}: expected $/attempt "
-              f"{row} (success {rates})")
+        print(f"raid decline at war posture ({trials} trials), {label}: "
+              f"expected $/attempt {row} (success {rates})")
+    # Paired uncertainty: same seeds, spacing 2 minus spacing 0.
+    diffs = []
+    for i in range(3):
+        paired = [b - a for a, b in zip(curves[0][i], curves[2][i])]
+        diffs.append("+${:,.0f}±{:.0f}".format(*mean_se(paired)))
+    print(f"  pacing's paired repayment per attempt: {' / '.join(diffs)}")
 
 
 def main() -> None:

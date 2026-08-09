@@ -795,6 +795,14 @@ class WarBot(MarketBot):
                 self._done_today.add(oneshot)
         return pick
 
+    def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
+        # In-branch only (rev. 15): the neglect ablation refuses cover
+        # AT WAR — its Act I must stay byte-identical to its siblings'.
+        if self._at_war and not self.keep_cover \
+                and prompt.startswith("Delivery orders to run"):
+            return lo
+        return super().ask_int(prompt, lo, hi, default)
+
     def _special_menu(self, prompt: str, options: list[str]) -> int | None:
         if self._at_war:
             if prompt.startswith("The job:"):
@@ -871,9 +879,10 @@ class NeglectWarBot(WarBot):
     """The restaurant-neglect ablation (rev. 14 item 10): no pantry
     care, no cover on the wagon — a war fought without the pizzeria.
     Must trail the complete bot by >= 15 points or the tycoon half is
-    decorative."""
+    decorative. Every knob is consumed IN-BRANCH ONLY (rev. 15: the
+    round-10 study was invalid because cover_stops changed Act I —
+    ablations must enter the fork from state-hash-identical months)."""
     keep_cover = False
-    cover_stops = 0
 
 
 BOTS = {

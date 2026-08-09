@@ -101,6 +101,35 @@ def remediation_unlocked(state: "State") -> bool:
         and state.branch_state is not None
 
 
+# THE clean-insolvency contract (rev. 15 item 3): post-payoff economic
+# failure exists in every active branch — two consecutive
+# payroll-short nights with no stock anywhere and no dirty dollar
+# hidden anywhere end the run. One transition, one nightly rule; the
+# branches narrate it in their own voices.
+INSOLVENT_NIGHTS = 2
+
+
+def insolvency_tick(state: "State", payroll_short: bool) -> str | None:
+    """THE shared post-payoff insolvency transition. Returns None
+    (solvent tonight — counter reset), "warned" (one bad night on the
+    books), or "broke" (the run ends). The arrest latch keeps
+    precedence by construction: accrual set game_over first, and the
+    branch night ticks only run on live games."""
+    bs = state.branch_state
+    if bs is None:
+        raise ValueError("insolvency_tick called outside an active branch")
+    if payroll_short and state.total_stock_units() == 0 \
+            and state.unlaundered_total() == 0:
+        bs.insolvent_days += 1
+        if bs.insolvent_days >= INSOLVENT_NIGHTS:
+            if state.game_over is None:
+                state.game_over = "broke"
+            return "broke"
+        return "warned"
+    bs.insolvent_days = 0
+    return None
+
+
 def case_prefix(evidence: list):
     """THE shared prefix iterator (rev. 9 item 15): yields (record,
     running_total) with the same explicit left-to-right addition as
@@ -426,7 +455,9 @@ _BRANCH_FIELDS = {
             # The shared remediation fields (rev. 14 item 8): the war
             # unlocks the same verbs through the same machinery.
             "counsel_retained", "counsel_days", "remediation_used",
-            "settled_witnesses"},
+            "settled_witnesses",
+            # The shared insolvency counter (rev. 15 item 3).
+            "insolvent_days"},
     "quiet_sale": {"diligence_day", "escrow_mark", "escrow_incidents",
                    "escrow_discount_pct", "severance_outcome",
                    "severance_paid", "closing_headcount"},
@@ -487,7 +518,7 @@ def validate_branch_state(branch: str | None,
     elif branch == "straight":
         _validate_straight(branch_state, game_over)
     elif branch == "war":
-        _validate_war(branch_state)
+        _validate_war(branch_state, game_over)
 
 
 def _validate_remediation_fields(branch: str, bs: "BranchState") -> None:
@@ -530,16 +561,24 @@ def _validate_straight(bs: "BranchState", game_over: str | None) -> None:
     if type(bs.ad_days_left) is not int or bs.ad_days_left < 0:
         raise ValueError(f"straight: ad_days_left must be a non-negative "
                          f"integer, got {bs.ad_days_left!r}")
+    _validate_insolvency("straight", bs, game_over)
+
+
+def _validate_insolvency(branch: str, bs: "BranchState",
+                         game_over: str | None) -> None:
+    """The shared insolvency persistence contract (rev. 15 item 3):
+    the counter binds identically in every active branch that runs
+    the transition."""
     days = bs.insolvent_days
     if type(days) is not int or days < 0:
-        raise ValueError(f"straight: insolvent_days must be a non-negative "
+        raise ValueError(f"{branch}: insolvent_days must be a non-negative "
                          f"integer, got {days!r}")
-    if days >= 2 and game_over != "broke":
-        raise ValueError("straight: two clean-insolvent nights end the run "
-                         "— a live run cannot carry them")
+    if days >= INSOLVENT_NIGHTS and game_over != "broke":
+        raise ValueError(f"{branch}: two clean-insolvent nights end the "
+                         f"run — a live run cannot carry them")
 
 
-def _validate_war(bs: "BranchState") -> None:
+def _validate_war(bs: "BranchState", game_over: str | None) -> None:
     """The war's field contracts (rev. 14): campaigns are typed,
     append-only-shaped and internally reconciled — a doctored payload
     is refused, not repaired. Cross-world facts (the rival's actual
@@ -653,6 +692,7 @@ def _validate_war(bs: "BranchState") -> None:
         raise ValueError(f"war: insurance_paid_until must be None or a "
                          f"positive day, got {ins!r}")
     _validate_remediation_fields("war", bs)
+    _validate_insolvency("war", bs, game_over)
 
 
 def _validate_escrow_pricing(bs: "BranchState") -> None:
@@ -876,6 +916,19 @@ def validate_cross_state(state: "State") -> None:
                 raise ValueError(
                     f"war: campaigns[{i}] rival {c.rival_key!r} sits "
                     f"above the vendetta band — the lock is permanent")
+        ins = state.branch_state.insurance_paid_until
+        if ins is not None:
+            # Rev. 15 item 6: paid coverage belongs to a living,
+            # undeclared-upon Sal — anything else is an impossible
+            # payload, refused.
+            sal = state.rivals.get("sal")
+            if sal is None or not sal.alive:
+                raise ValueError("war: insurance held on a dead or "
+                                 "missing merchant")
+            if any(c.rival_key == "sal"
+                   for c in state.branch_state.campaigns):
+                raise ValueError("war: insurance cannot survive a "
+                                 "declaration on Sal")
 
 
 def security_word(alertness: float) -> str:
@@ -889,6 +942,36 @@ def security_word(alertness: float) -> str:
     if alertness >= 2:
         return "wary"
     return "sleepy"
+
+
+def place_haul(state: "State", haul: dict) -> tuple:
+    """THE haul-placement authority (rev. 15 item 2): stolen or
+    salvaged goods fill the shop stash first, then the warehouse if
+    rented, and anything past that stays where it was found. Returns
+    (kept, left_behind). Raid payoffs and the salvage pickup both
+    consume this — the loop lives once, and bulk caps can never be
+    quietly skipped again."""
+    left_behind = 0
+    kept: dict = {}
+    for g, u in haul.items():
+        bulk = data.GOODS[g]["bulk"]
+        room = max(0, state.shop.stash_cap
+                   - state.stash_bulk(state.shop_stash)) // bulk
+        to_shop = min(u, room)
+        if to_shop:
+            state.shop_stash[g] = state.shop_stash.get(g, 0) + to_shop
+        rest = u - to_shop
+        if rest and state.warehouse is not None:
+            wh_room = max(0, data.WAREHOUSE_CAP
+                          - state.stash_bulk(state.warehouse)) // bulk
+            to_wh = min(rest, wh_room)
+            if to_wh:
+                state.warehouse[g] = state.warehouse.get(g, 0) + to_wh
+            rest -= to_wh
+        left_behind += rest
+        if u - rest:
+            kept[g] = u - rest
+    return kept, left_behind
 
 
 def live_campaign(state: "State",

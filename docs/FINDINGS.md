@@ -1369,6 +1369,145 @@ misses and the probe drift go to review with their decompositions;
 the pairwise eight-component vectors remain the P4 full-battery
 item per §7.
 
+### Round 10 correction (review — design rev. 15)
+
+Review confirmed the mixed-war core — the legible ledger, jobs a
+minority of damage, the raid-only collapse, the personalities, the
+authorities — and found seven blocking defects at system boundaries,
+plus one claim of ours to retract. All corrected at the root,
+recorded as revision 15 on paper first; every reviewer repro is
+pinned as a failing-then-passing regression.
+
+- **The declared target took tribute.** Vinnie's raid could be
+  averted for $1,500 the same week his tribute door closed forever.
+  One incoming-raid policy now: the target's raid offers no envelope
+  at all ("he isn't collecting — he's collecting on you"); the
+  bystander's raid keeps the option; flag-off keeps all three
+  choices to the byte.
+- **Night assignments and physical storage lacked authorities.**
+  Reproduced: the salvage driver could also raid the same night, and
+  the pickup stuffed 49 bulk into a 40-bulk stash while ignoring the
+  warehouse. Now: `phases.night_reserved`/`wagon_job` — ONE
+  assignment view consulted by route, raid and salvage planning AND
+  by their executions; `models.place_haul` — ONE placement loop
+  (shop, then warehouse, then left behind), extracted verbatim from
+  the raid payoff and consumed by salvage too; the pickup is
+  cancellable from the board ("Recall the wagon").
+- **Post-payoff economic failure now exists in every active
+  branch.** Carmine fronted groceries onto a PAID debt (reproduced:
+  zero pantry, zero debt → 40 pantry, $300 debt); his credit is now
+  gated to a genuinely-alive Act I debt for active branches, with
+  the stand-pat/flag-off carve-out stated in rev. 15 (frozen
+  surfaces). One shared insolvency transition
+  (`models.insolvency_tick`, two short empty nights → broke) and one
+  persistence contract now serve Straight and War alike; a live war
+  payload carrying two insolvent nights is refused at load.
+- **The Syndicate is an explicit terminal.** The generic epilogue's
+  ordering printed the legitimate-exit text over a two-capture war
+  (both broken, Case 0, net > $20k — reproduced and pinned); the
+  no-new-id ruling is overturned and `war.grade` returns
+  `syndicate`. RaidResult.damage_added now reports the actual delta
+  (1 → 2 reports 1).
+- **The territorial route-market view exists for real.**
+  `market.RouteMarket` composes base underground, event multiplier,
+  capture bonus, heat policy and the corner terms in one immutable
+  view; the drops count, per-stop want, route labels, the market
+  board (which now explains captured turf and amber capacity) and
+  corner_diversion all consume it. Flag-off arithmetic moved into
+  the view verbatim, gate-verified.
+- **Insurance persistence completed.** Paying the invoice cancels an
+  already-telegraphed Sal raid, with narration; declaring on Sal
+  voids remaining coverage; cross-state validation refuses coverage
+  held on a dead or declared-upon Sal.
+- **The law's calm is four rival phases, not five** — the inclusive
+  day + 4 window suppressed five; pinned by counting actual
+  suppressed phases through the policy view.
+
+**The retraction.** Round 10's raid-price "drift" was our comparison
+error: round 5 ran 2,000 trials and we compared 300. At 2,000,
+current code reproduces round 5 EXACTLY — consecutive
+$752±35 → $556±29 → $413±24 — and at war cadence (two quiet nights
+between attempts) $752±35 → $675±32 → $607±30, pacing's paired
+repayment +$120±15 and +$194±18 on attempts two and three. The probe
+now propagates one trial count and prints paired uncertainty.
+
+**The sanctioned pressure policy, and what it measured.** With the
+tribute and assignment hatches closed, the cooldown grinder still
+won (51% vs 33% at 150 seeds), so the rev. 15 sanction applied:
+target alertness feeds ONE visible war-pressure policy —
+`war.pressure`, declining job impact and rising retaliation,
+consumed by the raid payoff, the rival-policy view and the board. A
+flat per-point slope narrowed the gap but dragged the paced bot to
+29% (its own quiet-window jobs paid the tax); the recorded
+calibration puts the policy's KNEE at the hardened band (alertness
+4, `security_word`'s own threshold), so raiding into sleepy windows
+stays full price — the pacing thesis — and grinding into a fortress
+lands at 0.4–0.6 impact under 1.4–1.6× retaliation.
+
+**The cooldown row still misses, and the decomposition says why no
+constant should be asked to fix it.** Post-correction, the grinder
+leads the paced bot by ONE median post-fork job (3 vs 2): at war
+scale, injuries, scrubbed crews and a sixteen-day horizon already
+throttle the grind physically, so "raids on cooldown ignoring
+alertness" and "paced raiding" barely diverge in realized behavior —
+about 80% of their campaigns are the same campaign. The pressure
+policy taxes what little gap exists; the residual 15–18-point
+advantage is the paced heuristic FORGOING windows (its board-read
+security word stays hardened for days) rather than the grinder
+winning by grinding. The anti-grind thesis is carried by the
+raid-only row (which trails by 18–19 points with its channel mix
+degenerating exactly as designed). Whether this ablation's bar is
+re-aimed (the criterion imagined a ten-job grinder the simulation's
+physics do not permit), the paced policy is sharpened, or the miss
+stands as a design debt is review's call — the decomposition ships
+in the harness, and no further constant moved.
+
+**The causal heat report (as requested): heat is enforced, not yet
+load-bearing.** Teeth ON: 312 amber/red district-nights across the
+mixed fleet, median corner damage 2.1, branch-good 33%. Teeth OFF
+(patched thresholds, diagnostic): 0 exposure nights, the SAME median
+corner damage, branch-good 34%. The RED refusal and amber capacity
+bind at the planning surface, but at current constants they do not
+move war outcomes — the corner channel's own −4/night cap binds
+before amber's halving does. Reported as measured; the §2.6 "take it
+hot and you take ash" promise is currently a route-revenue fact, not
+a campaign fact, and the constants stay §6.3 placeholders pending a
+ruling.
+
+**Intentional battery movement, recorded.** The fronting gate moved
+the escrow SLOPPY fleet by one close at 150 seeds (60 → 59; careful
+unchanged at 93%; valuation $2,370 → $2,350, flips 27/59 = 46%
+against ≥ 40) — mid-escrow grocery credit no longer subsidizes a
+careless week. Straight rows, redemption rows and both identity
+gates are untouched to the byte (300/300 × 2 on 3.11 AND 3.12, with
+the goldens never regenerated).
+
+**The corrected war gate** (150 seeds, 500 in parentheses):
+
+| Row | Bar | Measured | Verdict |
+| --- | --- | --- | --- |
+| Ablation entry identity | 0 divergent | **0** (0) — 79 (258) entered in every fleet | pass |
+| Crash-freedom | all | 150/150 (500/500) | pass |
+| Median end strength | ≤ 50% | 8% (8%) | pass |
+| Pattern+physical of gross | ≥ 50% (frozen) | **46%** (**50%**) | **miss at 150 / meets at 500** |
+| Channel mix over 60% | 0 | 0 (0); median worst 40% | pass |
+| Branch-good band | 25–70% | 33% (36%) | pass |
+| Raid-only trails | ≥ 15 | 18 (21) | pass |
+| Cooldown drop | ≥ 20 | **−18** (**−18**) | **miss, stable at depth** |
+| Restaurant-neglect trails | ≥ 15 | **30** (31), isolation clean | pass |
+| Reconciliation + transparency | 0 bad | 0 (0) | pass |
+
+The pattern+physical row misses its frozen bar by four points at the
+standing 150-seed protocol and lands exactly ON the letter at 500 —
+the witness bulk is still employee testimony from the war-pay bleed,
+and per the ruling, if review reads the 150-seed letter as binding,
+the next step is a thesis revision toward actual remediation
+resistance, never taxonomy surgery. The cooldown miss is stable at
+both depths and carries the one-median-job decomposition above. The
+chair remains unreleased; both rows, the heat finding and the
+recorded escrow movement (sloppy 186/280 closes, valuation $2,429,
+flips 44% at 500) go to review.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P2 complete, merged and
@@ -1381,10 +1520,22 @@ item per §7.
   18/16 points where it must lose by 20 (raid failure is priced too
   cheap to make pacing matter in sixteen days), and
   restaurant-neglect trails by 14 at the 150-seed letter while
-  clearing by 24 at 500. The misses are decomposed, nothing was tuned, the
-  chair stays unreleased, and the ruling is the reviewer's. The
-  round-5 decline-curve citation is also found drifted (pre-P3,
-  probe-only, gates blind to it) and flagged.
+  clearing by 24 at 500. **The rev. 15 correction pass then closed
+  seven boundary defects (round 10 correction): the target's tribute
+  door, the night-assignment and haul-placement authorities, the
+  post-payoff fronting gate with shared insolvency, the explicit
+  syndicate terminal, the real route-market view, completed
+  insurance persistence, and the four-phase law calm — with the
+  sanctioned alertness pressure policy landed (knee at the hardened
+  band), the "drift" claim retracted (round 5 was 2,000 trials;
+  reproduced exactly at depth), ablation entry identity asserted at
+  zero divergence, and the causal heat report showing the teeth
+  enforced but not yet outcome-load-bearing.** After correction:
+  cooldown still wins by 18 at both depths (decomposed — one median
+  job separates the policies; the simulation's physics already
+  throttle the grind), and pattern+physical reads 46% at 150 /
+  exactly 50% at 500 against the frozen bar. The chair stays
+  unreleased; the rulings are the reviewer's.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds

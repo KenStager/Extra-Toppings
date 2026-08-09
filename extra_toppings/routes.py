@@ -35,10 +35,11 @@ def plan_route(state: State, con: Console, rng: random.Random,
         heat = state.heat(dk)
         owner = d["rival"]
         owner_s = f", {data.RIVALS[owner]['short']}'s turf" if owner else ""
-        if war.district_captured(state, dk):
+        rm = market.route_market(state, dk)
+        if rm.captured:
             owner_s = ", your turf now"
-        band = models.district_heat_policy(state, dk).band
-        band_s = f" [{band.upper()}]" if band != "cool" else ""
+        band_s = f" [{rm.heat.band.upper()}]" if rm.heat.band != "cool" \
+            else ""
         labels.append(f"{d['label']} (heat {heat:.0f}{owner_s}){band_s}")
     labels.append("Cancel — no route today")
     pick = con.menu("Run today's route where?", labels)
@@ -181,17 +182,11 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
         driver.routes_survived += 1
         return report
 
-    # Territorial adjustments compose here and only here (rev. 14
-    # item 5): the capture bonus adds to the underground factor, and
-    # amber heat halves the night's capacity ONCE — on the drops
-    # count, never again per stop. The legacy factors keep their exact
-    # expressions (the flag-off adjustments are +0.0 and ×1.0 — bit
-    # identity by construction, the P0 scar's lesson).
-    und_mult = dspec["underground"] * market.event_mult(state, dk, "underground")
-    stops_base = (2 + 2 * len(cargo)) * und_mult
-    stops_bonus = (2 + 2 * len(cargo)) * war.underground_bonus(state, dk)
-    capacity = models.district_heat_policy(state, dk).capacity_mult
-    drops = max(2, int((stops_base + stops_bonus) * capacity))
+    # THE route-market view (rev. 15 item 5): every territorial factor
+    # composes in market.route_market, and this resolution consumes
+    # the view and nothing else.
+    rm = market.route_market(state, dk)
+    drops = rm.drops(len(cargo))
 
     if plan["ride_along"]:
         _interactive_drops(state, plan, drops, con, rng, report)
@@ -207,8 +202,10 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
             f"{data.RIVALS[owner]['short']}'s people watched the car all night.")
         # The corner channel (§2.4.3): in the war, units sold in the
         # target's turf divert their income through the one damage
-        # authority. A capture mid-route is detected by the authority.
-        war.corner_diversion(state, dk, owner, report["sold"], report)
+        # authority, priced by the same route-market view that shaped
+        # the night. A capture mid-route is detected by the authority.
+        war.corner_diversion(state, dk, owner, report["sold"], report,
+                             rate=rm.corner_rate, cap=rm.corner_cap)
         if models.vendetta_locked(state, owner) \
                 and not state.rivals[owner].alive:
             report["lines"].append(
@@ -255,9 +252,7 @@ def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
                            straight.DISPOSAL_HAIRCUT_HI) \
             if plan.get("disposal") else rng.uniform(0.85, 1.2)
         offer = int(base_price * mult)
-        top_want = max(2, int(4 * data.DISTRICTS[dk]["underground"]
-                              * market.event_mult(state, dk, "underground")
-                              + 4 * war.underground_bonus(state, dk)))
+        top_want = market.route_market(state, dk).top_want()
         want = min(cargo[g], rng.randint(1, top_want))
         choice = con.menu(
             voice["stop"].format(n=stop + 1, want=want, label=spec["label"],

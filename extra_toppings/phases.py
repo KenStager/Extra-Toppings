@@ -17,6 +17,33 @@ from .ui import Console, money
 QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
 
 
+# ── THE night-assignment authority (rev. 15 item 2) ───────────────
+
+def night_reserved(plans: dict, but: str | None = None) -> list:
+    """Who is spoken for tonight by every job EXCEPT `but`. Routes and
+    the salvage pickup reserve their driver; the raid reserves its
+    team. Planning menus and the night's execution both consult this
+    one derivation — never another ad-hoc reserved= list."""
+    out: list = []
+    for job in ("route", "salvage", "raid"):
+        plan = plans.get(job)
+        if not plan or job == but:
+            continue
+        if job == "raid":
+            out.extend(plan["team"])
+        else:
+            out.append(plan["driver"])
+    return out
+
+
+def wagon_job(plans: dict, but: str | None = None) -> str | None:
+    """The wagon does one job a night: the route or the pickup."""
+    for job in ("route", "salvage"):
+        if job != but and plans.get(job):
+            return job
+    return None
+
+
 # ══ MORNING ═══════════════════════════════════════════════════════
 
 def morning(state: State, con: Console, streams: Streams) -> dict:
@@ -55,10 +82,16 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
                                "a staff walkout mid-diligence")
 
     # Carmine won't let his investment starve: he fronts stock — onto
-    # the debt. On the Straight Path there is no investment left to
-    # protect: a starving pantry is the branch's own problem.
+    # the debt. His emergency credit exists only while the Act I debt
+    # is genuinely alive (rev. 15 item 3): once an active branch is
+    # chosen, the payoff ended his stake, and a starving pantry is the
+    # branch's own problem. Flag-off Act I and stand-pat keep the old
+    # behavior to the byte — the golden and stand-pat surfaces are
+    # frozen, and stand-pat is the control (the carve-out is recorded
+    # in rev. 15, not hidden here).
+    active_branch = state.branch is not None and state.branch != "stand_pat"
     if state.shop.ingredients < 10 and state.clean < 200 \
-            and state.branch != "straight":
+            and not active_branch:
         shop.stock_pantry(state, 40)
         state.debt += 40 * data.INGREDIENT_COST[state.shop.quality] + 100
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
@@ -112,18 +145,18 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         elif c == 5:
             _improvements(state, con)
         elif c == 6:
-            reserved = plans["raid"]["team"] if plans.get("raid") else []
-            plans["route"] = routes.plan_route(state, con, streams.routes,
-                                               reserved=reserved)
+            plans["route"] = routes.plan_route(
+                state, con, streams.routes,
+                reserved=night_reserved(plans, but="route"))
         elif c == 7:
             route = plans.get("route")
-            reserved = [route["driver"]] if route else []
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
-            plans["raid"] = raids.plan_raid(state, con, streams.raids,
-                                            reserved=reserved,
-                                            wagon_free=route is None)
+            plans["raid"] = raids.plan_raid(
+                state, con, streams.raids,
+                reserved=night_reserved(plans, but="raid"),
+                wagon_free=wagon_job(plans) is None)
         elif c == 8:
             break
     return plans
@@ -199,8 +232,12 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
                 (f"Name the next war — "
                  f"{data.RIVALS[next_front]['label']} still stands",
                  "declare"))
-        if war.salvage_ready(state) is not None \
-                and plans.get("salvage") is None:
+        if plans.get("salvage"):
+            # A plan is an intention (rev. 15 item 2): the pickup can
+            # be recalled and the wagon freely replanned.
+            entries.append(("Recall the wagon — cancel tonight's pickup",
+                            "salvage_cancel"))
+        elif war.salvage_ready(state) is not None:
             entries.append(("Send the wagon for the salvage", "salvage"))
         entries.append(("Open for service →", "open"))
         key = entries[con.menu("Morning at the shop:",
@@ -218,22 +255,23 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
         elif key == "improve":
             _improvements(state, con)
         elif key == "route":
-            if plans.get("salvage"):
+            if wagon_job(plans, but="route") is not None:
                 con.say("  The wagon is spoken for tonight — the pickup "
-                        "has it.")
+                        "has it. Recall it first if the route matters "
+                        "more.")
                 continue
-            reserved = plans["raid"]["team"] if plans.get("raid") else []
-            plans["route"] = routes.plan_route(state, con, streams.routes,
-                                               reserved=reserved)
+            plans["route"] = routes.plan_route(
+                state, con, streams.routes,
+                reserved=night_reserved(plans, but="route"))
         elif key == "raid":
             route = plans.get("route")
-            reserved = [route["driver"]] if route else []
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
             plans["raid"] = raids.plan_raid(
-                state, con, streams.raids, reserved=reserved,
-                wagon_free=route is None and plans.get("salvage") is None)
+                state, con, streams.raids,
+                reserved=night_reserved(plans, but="raid"),
+                wagon_free=wagon_job(plans) is None)
         elif key == "board":
             war.board(state, con)
         elif key == "case":
@@ -248,7 +286,13 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
                 war.declare(state, next_front, con)
         elif key == "salvage":
             plans["salvage"] = war.plan_salvage(
-                state, con, route_planned=plans.get("route") is not None)
+                state, con,
+                reserved=night_reserved(plans, but="salvage"),
+                wagon_taken=wagon_job(plans, but="salvage") is not None)
+        elif key == "salvage_cancel":
+            plans["salvage"] = None
+            con.say("  The wagon stays home tonight. The stockroom "
+                    "isn't going anywhere.")
         else:
             break
 
@@ -346,6 +390,15 @@ def _market_board(state: State, con: Console) -> None:
     for dk, dspec in data.DISTRICTS.items():
         d = state.districts[dk]
         con.say(f"  {dspec['label']} — heat {d.heat:.0f}  ({dspec['flavor']})")
+        # The board explains the territory (rev. 15 item 5): capture
+        # demand and heat capacity come from the same route-market
+        # view the routes run on. Flag-off these lines never print.
+        rm = market.route_market(state, dk)
+        if rm.captured:
+            con.say("      your turf now — the coded customers call "
+                    "your board (covert demand up)")
+        if rm.heat.band != "cool":
+            con.say(f"      {rm.heat.band.upper()} — {rm.heat.note}")
         if d.known_price_age == 0:
             for g, p in state.prices[dk].items():
                 con.say(f"      {data.GOODS[g]['label']:<24} {money(p)}/unit")
@@ -631,8 +684,10 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
             con.say(f"  Route take: {money(r['cash'])} dirty, {r['sold']} units moved.")
     if plans.get("salvage") and not state.game_over:
         # The capture pickup rolls with the wagon at service — the
-        # reserved war stream's one draw per pickup (rev. 14 item 6).
-        war.run_salvage(state, plans["salvage"], con, streams.war)
+        # reserved war stream's one draw per pickup (rev. 14 item 6),
+        # revalidated against the same assignment view that planned it.
+        war.run_salvage(state, plans["salvage"], con, streams.war,
+                        reserved=night_reserved(plans, but="salvage"))
     if state.branch == "quiet_sale":
         # The buyer's man walks the shop every diligence afternoon.
         escrow.walkthrough(state, con, streams)
@@ -711,8 +766,12 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         raid_plan = None
     if raid_plan:
         # The day happened between planning and doing: anyone arrested,
-        # injured or gone since morning is off the job.
-        team = [e for e in raid_plan["team"] if e.available]
+        # injured or gone since morning is off the job — and anyone
+        # the assignment view says another job owns tonight (rev. 15
+        # item 2: execution revalidates the same view planning used).
+        taken = night_reserved(plans, but="raid")
+        team = [e for e in raid_plan["team"]
+                if e.available and e not in taken]
         if not team:
             con.say("  The night job is scrubbed — the crew you picked this "
                     "morning didn't make it to nightfall intact.")
@@ -837,6 +896,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         straight.night_tick(state, con, payroll_short)
     elif state.branch == "war" and not state.game_over:
         war.night_obligation(state, con, payroll_short)
+        war.night_insolvency(state, con, payroll_short)
 
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams.daily(state.day, "law"))

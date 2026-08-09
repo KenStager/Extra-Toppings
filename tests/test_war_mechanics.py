@@ -233,8 +233,10 @@ class TestTheLedgerSpends(unittest.TestCase):
         camp = live_campaign(state, "vinnie")
         self.assertEqual(before - rv.strength, LEDGER_LAW_STRENGTH)
         self.assertFalse(rv.ledger_stolen)
+        # Four suppressed rival PHASES, counted from tonight's
+        # (rev. 15 item 7) — day + DAYS was five.
         self.assertEqual(camp.law_calm_until,
-                         state.day + LEDGER_LAW_CALM_DAYS)
+                         state.day + LEDGER_LAW_CALM_DAYS - 1)
         self.assertTrue(camp.violence_raised)
         self.assertEqual(camp.damage[-1].channel, "ledger")
         self.assertEqual(state.dirty, new_state().dirty)   # no money
@@ -273,12 +275,40 @@ class TestDefenseTaxonomy(unittest.TestCase):
         return raids.incoming_raid(state, "vinnie", Scripted(script),
                                    Streams(seed).raids)
 
-    def test_tribute_averts(self):
+    def test_the_declared_target_takes_no_tribute(self):
+        # Rev. 15 item 1: the declaration closed the tribute door, and
+        # the raid menu must not reopen it — two options, no envelope.
         state = war_state()
         state.dirty = 5000
-        r = self._incoming(state, [2])
+        state.rivals["vinnie"].raid_warning = 1
+        con = Scripted([2])          # the old tribute index, clamped
+        r = raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
+        _prompt, options = con.menus[-1]
+        self.assertEqual(len(options), 2)
+        self.assertFalse(any("tribute" in o for o in options))
+        self.assertIsNotNone(con.find("no envelope"))
+        self.assertNotEqual(r.outcome, "averted")
+        self.assertEqual(state.dirty, 5000)   # no money moved
+
+    def test_the_bystander_still_takes_tribute(self):
+        state = war_state(target="sal")
+        set_relation(state, "sal",
+                     min(state.rivals["sal"].relation, VENDETTA_RELATION))
+        state.dirty = 5000
+        r = self._incoming(state, [2])   # vinnie is the bystander here
         self.assertEqual(r.outcome, "averted")
         self.assertFalse(r.landed)
+        self.assertLess(state.dirty, 5000)
+
+    def test_flag_off_tribute_is_untouched(self):
+        state = new_state()
+        state.dirty = 5000
+        state.rivals["vinnie"].raid_warning = 1
+        con = Scripted([2])
+        r = raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
+        _prompt, options = con.menus[-1]
+        self.assertEqual(len(options), 3)
+        self.assertEqual(r.outcome, "averted")
 
     def test_the_decoy_lands_with_pre_impact_damage_recorded(self):
         state = war_state()
@@ -347,7 +377,11 @@ class TestBurnedOut(unittest.TestCase):
         self.assertEqual(state.shop.damage_days, 2)
 
     def test_an_averted_raid_never_burns_out(self):
-        state = war_state()
+        # The bystander's raid — the target takes no tribute now
+        # (rev. 15 item 1), so aversion belongs to the third party.
+        state = war_state(target="sal")
+        set_relation(state, "sal",
+                     min(state.rivals["sal"].relation, VENDETTA_RELATION))
         state.clean = 5000
         state.dirty = 5000
         state.shop.damage_days = 2
@@ -416,7 +450,8 @@ class TestSalvage(unittest.TestCase):
         state, rosa = self._captured()
         camp = war.campaign_for(state, "vinnie")
         self.assertTrue(camp.salvage_available)
-        plan = war.plan_salvage(state, Scripted([0]), route_planned=False)
+        plan = war.plan_salvage(state, Scripted([0]), reserved=[],
+                                 wagon_taken=False)
         self.assertEqual(plan, {"rival": "vinnie", "driver": rosa})
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
         self.assertFalse(camp.salvage_available)
@@ -436,12 +471,14 @@ class TestSalvage(unittest.TestCase):
     def test_the_wagon_does_one_job_a_night(self):
         state, _rosa = self._captured()
         self.assertIsNone(
-            war.plan_salvage(state, Quiet(), route_planned=True))
+            war.plan_salvage(state, Quiet(), reserved=[],
+                             wagon_taken=True))
 
     def test_a_missing_driver_scrubs_transactionally(self):
         state, rosa = self._captured()
         camp = war.campaign_for(state, "vinnie")
-        plan = war.plan_salvage(state, Scripted([0]), route_planned=False)
+        plan = war.plan_salvage(state, Scripted([0]), reserved=[],
+                                 wagon_taken=False)
         rosa.injured_days = 3
         stash_before = dict(state.shop_stash)
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
@@ -476,7 +513,9 @@ class TestEndings(unittest.TestCase):
         war.declare(state, "sal", Quiet())
         self.assertEqual(war.grade(state), "harbor_yours")
         break_target(state, "sal")
-        self.assertEqual(war.grade(state), "survived")
+        # An explicit terminal (rev. 15 item 4): a two-capture war
+        # must never depend on the generic epilogue's ordering.
+        self.assertEqual(war.grade(state), "syndicate")
 
     def test_won_the_war_lost_the_verdict_is_transition_ordered(self):
         state = war_state()
@@ -510,16 +549,31 @@ class TestEndings(unittest.TestCase):
         con = Quiet()
         game.epilogue(state, con)
         self.assertIsNotNone(con.find("The Harbor Is Yours"))
-        # Both broken: the existing Syndicate text, war-flavored.
+        # Both broken: the explicit syndicate terminal (rev. 15).
         state = war_state()
         break_target(state)
         war.declare(state, "sal", Quiet())
         break_target(state, "sal")
-        state.game_over = "survived"
+        state.game_over = "syndicate"
         con = Quiet()
         game.epilogue(state, con)
         self.assertIsNotNone(con.find("The syndicate"))
         self.assertIsNotNone(con.find("declared both wars"))
+
+    def test_a_rich_clean_syndicate_never_prints_the_exit(self):
+        # The reviewer's repro (rev. 15 item 4): both rivals broken,
+        # Case 0, net worth over $20k — the generic epilogue's
+        # legitimate-exit arm must never shadow the war's outcome.
+        state = war_state()
+        break_target(state)
+        war.declare(state, "sal", Quiet())
+        break_target(state, "sal")
+        state.clean = 50000
+        state.game_over = war.grade(state)
+        con = Quiet()
+        game.epilogue(state, con)
+        self.assertIsNotNone(con.find("The syndicate"))
+        self.assertIsNone(con.find("rarest pie"))
 
 
 class TestWarPersistenceMidCampaign(unittest.TestCase):
@@ -605,3 +659,211 @@ class TestSharedRemediation(unittest.TestCase):
         sale.branch = "quiet_sale"
         sale.branch_state = BranchState.quiet_sale()
         self.assertFalse(remediation_unlocked(sale))
+
+
+class TestRevision15Boundaries(unittest.TestCase):
+    """The rev. 15 batch-1 pins: the tribute door, the calm's phase
+    count, insurance persistence, and the honest damage delta."""
+
+    def test_paying_insurance_cancels_the_telegraphed_raid(self):
+        state = war_state(target="vinnie")
+        state.dirty = 1000
+        state.rivals["sal"].raid_warning = 2
+        war.insurance_card(state, Scripted([0]))
+        self.assertEqual(state.rivals["sal"].raid_warning, 0)
+
+    def test_declaring_on_sal_tears_up_the_policy(self):
+        state = war_state(target="vinnie")
+        state.branch_state.insurance_paid_until = state.day + 6
+        break_target(state)
+        con = Quiet()
+        war.declare(state, "sal", con)
+        self.assertIsNone(state.branch_state.insurance_paid_until)
+        self.assertIsNotNone(con.find("void"))
+        validate_cross_state(state)
+
+    def test_impossible_insurance_payloads_are_refused(self):
+        from extra_toppings import save
+        state = war_state(target="vinnie")
+        state.branch_state.insurance_paid_until = state.day + 6
+        d = save.state_to_dict(state)
+        d["branch_state"]["campaigns"].append(
+            {"rival_key": "sal", "declared_day": state.day + 1,
+             "starting_hundredths": 6000, "broken_day": None,
+             "damage": [], "law_calm_until": None,
+             "violence_raised": False, "salvage_available": False,
+             "salvage_day": None, "captured_pre_latch": False})
+        d["branch_state"]["campaigns"][0]["broken_day"] = state.day
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)
+        state2 = war_state(target="vinnie")
+        state2.branch_state.insurance_paid_until = state2.day + 6
+        d2 = save.state_to_dict(state2)
+        d2["rivals"]["sal"]["strength"] = 0
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d2)
+
+    def test_the_calm_suppresses_exactly_four_rival_phases(self):
+        state = war_state()
+        state.rivals["vinnie"].ledger_stolen = True
+        rivals.negotiate(state, Scripted([1, 1]), Streams(9).rivals)
+        suppressed = 0
+        for day in range(state.day, state.day + 8):
+            state.day = day
+            calm = rival_policy(state, "vinnie")
+            camp = live_campaign(state, "vinnie")
+            saved = camp.law_calm_until
+            camp.law_calm_until = None
+            loud = rival_policy(state, "vinnie")
+            camp.law_calm_until = saved
+            if calm.act_chance < loud.act_chance:
+                suppressed += 1
+        self.assertEqual(suppressed, 4)
+
+    def test_damage_added_is_the_actual_delta(self):
+        state = war_state(target="sal")
+        set_relation(state, "sal",
+                     min(state.rivals["sal"].relation, VENDETTA_RELATION))
+        state.shop.damage_days = 1
+        state.rivals["vinnie"].raid_warning = 1
+        r = raids.incoming_raid(state, "vinnie", Scripted([1]),
+                                Streams(7).raids)
+        self.assertEqual(r.damage_before, 1)
+        self.assertEqual(r.damage_added, 1)    # 1 → 2 adds one, not two
+
+
+class TestNightAssignmentsAndStorage(unittest.TestCase):
+    """Rev. 15 item 2: one assignment view, one placement authority."""
+
+    def _crewed_war(self):
+        state = war_state()
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.hired = True
+        rosa.aware = True
+        return state, rosa
+
+    def test_the_salvage_driver_cannot_also_raid(self):
+        state, rosa = self._crewed_war()
+        break_target(state)
+        war.declare(state, "sal", Quiet())    # a live front to raid
+        plans = {"route": None, "raid": None,
+                 "salvage": {"rival": "vinnie", "driver": rosa}}
+        reserved = phases.night_reserved(plans, but="raid")
+        self.assertIn(rosa, reserved)
+        con = Scripted([])
+        plan = raids.plan_raid(state, con, Streams(3).raids,
+                               reserved=reserved,
+                               wagon_free=phases.wagon_job(plans) is None)
+        self.assertIsNone(plan)               # she was the only crew
+
+    def test_execution_revalidates_the_same_view(self):
+        state, rosa = self._crewed_war()
+        camp = live_campaign(state, "vinnie")
+        del camp
+        plans = {"route": None,
+                 "raid": {"rival": "vinnie", "objective": "steal_stock",
+                          "team": [rosa], "armed": False,
+                          "table_warned": True},
+                 "salvage": {"rival": "vinnie", "driver": rosa}}
+        con = Scripted([6])                   # lock up (war night menu)
+        phases.night(state, plans, {}, con, Streams(11))
+        self.assertIsNotNone(con.find("didn't make it to nightfall")
+                             or con.find("scrubbed"))
+        self.assertEqual(state.raids_led, 0)
+
+    def test_salvage_lands_through_the_placement_authority(self):
+        state, rosa = self._crewed_war()
+        break_target(state)
+        # Pack the stash to its cap in BULK; salvage must not
+        # overflow it (the reviewer's 49-in-40 repro).
+        bulk = data.GOODS["oregano"]["bulk"]
+        state.shop_stash = {"oregano": state.shop.stash_cap // bulk}
+        plan = {"rival": "vinnie", "driver": rosa}
+        war.run_salvage(state, plan, Quiet(), Streams(21).war)
+        self.assertLessEqual(state.stash_bulk(state.shop_stash),
+                             state.shop.stash_cap)
+
+    def test_salvage_overflow_reaches_a_rented_warehouse(self):
+        state, rosa = self._crewed_war()
+        break_target(state)
+        state.warehouse = {}
+        bulk = data.GOODS["oregano"]["bulk"]
+        state.shop_stash = {"oregano": state.shop.stash_cap // bulk}
+        plan = {"rival": "vinnie", "driver": rosa}
+        war.run_salvage(state, plan, Quiet(), Streams(21).war)
+        self.assertLessEqual(state.stash_bulk(state.shop_stash),
+                             state.shop.stash_cap)
+        self.assertGreater(sum(state.warehouse.values()), 0)
+
+    def test_the_pickup_can_be_recalled_and_the_wagon_replanned(self):
+        state, rosa = self._crewed_war()
+        break_target(state)
+        plans = {"route": None, "raid": None,
+                 "salvage": {"rival": "vinnie", "driver": rosa}}
+        self.assertEqual(phases.wagon_job(plans), "salvage")
+        plans["salvage"] = None               # the recall
+        self.assertIsNone(phases.wagon_job(plans))
+        self.assertNotIn(rosa, phases.night_reserved(plans, but="route"))
+
+
+class TestPostPayoffEconomy(unittest.TestCase):
+    """Rev. 15 item 3: Carmine's stake ends at the payoff; insolvency
+    exists in every active branch."""
+
+    def _skint_war(self):
+        state = war_state()
+        state.clean = 0
+        state.dirty = 0
+        state.shop.ingredients = 0
+        state.shop_stash = {}
+        state.warehouse = None
+        rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
+        rosa.hired = True
+        return state, rosa
+
+    def test_carmine_fronts_nothing_onto_a_paid_debt(self):
+        state, _rosa = self._skint_war()
+        con = Scripted([9])                   # straight to service
+        phases.morning(state, con, Streams(5))
+        self.assertEqual(state.debt, 0)
+        self.assertEqual(state.shop.ingredients, 0)
+        self.assertIsNone(con.find("on account"))
+
+    def test_act_one_fronting_is_untouched(self):
+        state = new_state()
+        state.debt = 5000
+        state.clean = 0
+        state.shop.ingredients = 0
+        con = Scripted([8])
+        phases.morning(state, con, Streams(5))
+        self.assertGreater(state.shop.ingredients, 0)
+        self.assertGreater(state.debt, 5000)
+
+    def test_two_empty_short_nights_end_the_war(self):
+        state, _rosa = self._skint_war()
+        con = Quiet()
+        for _ in range(2):
+            war.night_obligation(state, con, payroll_short=True)
+            war.night_insolvency(state, con, payroll_short=True)
+        self.assertEqual(state.game_over, "broke")
+        self.assertEqual(state.branch_state.insolvent_days, 2)
+        validate_branch_state("war", state.branch_state,
+                              game_over=state.game_over)
+
+    def test_a_solvent_night_resets_the_counter(self):
+        state, _rosa = self._skint_war()
+        con = Quiet()
+        war.night_insolvency(state, con, payroll_short=True)
+        self.assertEqual(state.branch_state.insolvent_days, 1)
+        state.dirty = 500                     # a dollar hidden somewhere
+        war.night_insolvency(state, con, payroll_short=True)
+        self.assertEqual(state.branch_state.insolvent_days, 0)
+        self.assertIsNone(state.game_over)
+
+    def test_a_live_war_cannot_carry_two_insolvent_nights(self):
+        from extra_toppings import save
+        state = war_state()
+        state.branch_state.insolvent_days = 2
+        d = save.state_to_dict(state)
+        with self.assertRaises(ValueError):
+            save.state_from_dict(d)

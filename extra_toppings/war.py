@@ -11,6 +11,7 @@ only on a recorded ruling.
 """
 
 import random
+from dataclasses import dataclass
 
 from . import data, evidence, models
 from .models import State, WarCampaignState
@@ -31,6 +32,55 @@ OPPORTUNIST_MULT = 1.25   # bystander Vinnie, when you look weak
 TIP_RUNG_MULT = 3.0       # bystander Sal's tip rung, while uninsured
 TIP_RUNG_MAX = 0.60       # ...but tipping never swallows his whole ladder
 RAID_RUNG_CAP = 0.95      # no rung may swallow the ladder (rev. 14 item 4)
+
+# ── The alertness pressure policy (rev. 15, sanctioned) ───────────
+# The round-10 cooldown grinder won because a failed attempt only
+# failed tonight. The review's sanctioned correction: target alertness
+# feeds ONE visible war-pressure policy — declining job impact and
+# rising retaliation — so every swing teaches him, and what he learns
+# makes the rest of the campaign harder. The policy has a KNEE at the
+# hardened band (models.security_word's own threshold): a sleepy or
+# wary target has hardened nothing, so raiding INTO the quiet windows
+# stays full price — which is the pacing thesis — while grinding into
+# a hardened fortress is exactly what pays less and provokes more.
+# Placeholders per §6.3; FINDINGS reports the calibration.
+ALERT_PRESSURE_KNEE = 4.0  # the hardened band: pressure starts here
+ALERT_IMPACT = 0.10        # impact lost per alertness point past the knee
+ALERT_IMPACT_FLOOR = 0.4   # a landed job always costs him something
+ALERT_RETALIATION = 0.10   # act-chance gained per point past the knee
+
+
+@dataclass(frozen=True)
+class WarPressure:
+    """One derivation, three consumers (the board explains what the
+    payoff and the rival policy execute — they cannot disagree)."""
+    impact_mult: float        # scales a job's strength damage
+    retaliation_mult: float   # scales the target's act chance
+    note: str
+
+
+def pressure(state: State, rival_key: str) -> "WarPressure":
+    if models.live_campaign(state, rival_key) is None:
+        return WarPressure(1.0, 1.0, "")
+    hard = max(0.0, state.rivals[rival_key].alertness
+               - ALERT_PRESSURE_KNEE)
+    if hard == 0.0:
+        return WarPressure(1.0, 1.0, "")
+    impact = max(ALERT_IMPACT_FLOOR, 1.0 - hard * ALERT_IMPACT)
+    note = ("his security has learned the handwriting — jobs land "
+            "softer now, and he hits back harder")
+    return WarPressure(impact, 1.0 + hard * ALERT_RETALIATION, note)
+
+
+def job_damage(state: State, rival_key: str, base: int) -> float:
+    """A job's strength price under the pressure policy. Flag-off (and
+    at alertness zero) this returns the caller's own int unchanged —
+    the damage authority's flag-off arithmetic stays bit-identical."""
+    p = pressure(state, rival_key)
+    if p.impact_mult == 1.0:
+        return base
+    return base * p.impact_mult
+
 
 # ── The paid-loyalty primitive's third face (rev. 13 item 7) ──────
 WAR_PAY_PER_HEAD = 20     # per read-in name, per night at war
@@ -129,6 +179,12 @@ def declare(state: State, rival_key: str, con: Console) -> None:
     land here — one path, one lock."""
     bs = _bs(state)
     rival = state.rivals[rival_key]
+    if rival_key == "sal" and bs.insurance_paid_until is not None:
+        # Rev. 15 item 6: coverage cannot outlive the merchant's
+        # neutrality — declaring on Sal tears up his own policy.
+        bs.insurance_paid_until = None
+        con.say("  Sal's retainer is void the moment his name goes on "
+                "the table. Nobody asks for a refund.")
     bs.campaigns.append(WarCampaignState(
         rival_key=rival_key, declared_day=state.day,
         starting_hundredths=round(rival.strength * 100)))
@@ -195,6 +251,9 @@ def _board_lines(state: State, compact: bool) -> list:
                                 for ch in models.WAR_CHANNELS
                                 if ch in spent)
             lines.append(f"where his strength went: {ledger}")
+        press = pressure(state, camp.rival_key)
+        if press.note:
+            lines.append(press.note)
         if rv.ledger_stolen:
             lines.append("his ledger sits in your safe — lean on it, or "
                          "hand it to the woman in the gray suit")
@@ -280,6 +339,22 @@ def night_obligation(state: State, con: Console,
             f"name(s), street money first.")
 
 
+def night_insolvency(state: State, con: Console,
+                     payroll_short: bool) -> None:
+    """The shared clean-insolvency transition, in the war's voice
+    (rev. 15 item 3): a war fought from an empty till ends the same
+    way every empty till does."""
+    outcome = models.insolvency_tick(state, payroll_short)
+    if outcome == "broke":
+        con.say("  Two nights running: no payroll, no stock, no hidden "
+                "dollar — and a war still on the books. The crew walks "
+                "off the battlefield; the ovens never reopen.")
+    elif outcome == "warned":
+        con.bullet("Payroll missed with nothing left to sell and "
+                   "nothing hidden. Wars run on money; one more night "
+                   "like this ends yours.")
+
+
 # ── Sal's insurance (rev. 14 item 1c: a predictable invoice) ──────
 
 def insurance_due(state: State) -> bool:
@@ -316,6 +391,15 @@ def insurance_card(state: State, con: Console) -> None:
         bs.insurance_paid_until = state.day + INSURANCE_NIGHTS - 1
         con.say("  The envelope changes hands. Sal stays a merchant — "
                 "for a week.")
+        sal = state.rivals.get("sal")
+        if sal is not None and sal.raid_warning > 0:
+            # Rev. 15 item 6: "seven quiet nights" must cancel a raid
+            # already telegraphed — coverage that lets the cars keep
+            # circling is not coverage.
+            sal.raid_warning = 0
+            con.say("  Across the street, the unfamiliar cars start "
+                    "their engines and leave. A merchant honors his "
+                    "coverage.")
     else:
         con.say("  He nods slowly and writes nothing down. Sal never "
                 "writes anything down.")
@@ -335,7 +419,10 @@ def spend_ledger_law(state: State, rival_key: str, con: Console) -> None:
     models.apply_rival_damage(state, rival_key, "ledger",
                               models.LEDGER_LAW_STRENGTH)
     if camp is not None and camp.broken_day is None:
-        camp.law_calm_until = state.day + models.LEDGER_LAW_CALM_DAYS
+        # Four suppressed rival PHASES (rev. 15 item 7): the spend
+        # lands before tonight's rival phase, so tonight is the first
+        # of the four — day + DAYS was five.
+        camp.law_calm_until = state.day + models.LEDGER_LAW_CALM_DAYS - 1
         camp.violence_raised = True
     con.say("  The woman in the gray suit reads three pages, then asks "
             "if there are more. There are forty.")
@@ -356,22 +443,27 @@ def salvage_ready(state: State):
     return None
 
 
-def plan_salvage(state: State, con: Console,
-                 route_planned: bool) -> dict | None:
+def plan_salvage(state: State, con: Console, reserved: list,
+                 wagon_taken: bool) -> dict | None:
     """Morning: assign the wagon and a driver to the dead man's
-    stockroom. The wagon does one job a night — a planned route keeps
-    it; execution and inventory commit at service, transactionally."""
+    stockroom. Reservations come from THE night-assignment view
+    (rev. 15 item 2): people already spoken for by the route or the
+    raid are not offered, and the wagon does one job a night.
+    Execution and inventory commit at service, transactionally,
+    against the same view."""
     camp = salvage_ready(state)
     if camp is None:
         return None
-    if route_planned:
+    if wagon_taken:
         con.say("  The wagon is spoken for tonight — the stockroom "
                 "isn't going anywhere.")
         return None
     drivers = [e for e in state.hired()
-               if e.available and e.aware and e.driving >= 4]
+               if e.available and e.aware and e.driving >= 4
+               and e not in reserved]
     if not drivers:
-        con.say("  Nobody read-in is fit to drive the pickup tonight.")
+        con.say("  Nobody read-in is fit and free to drive the pickup "
+                "tonight.")
         return None
     spec = data.RIVALS[camp.rival_key]
     names = [f"{e.name} (drive {e.driving})" for e in drivers] + ["Not tonight"]
@@ -383,19 +475,23 @@ def plan_salvage(state: State, con: Console,
 
 
 def run_salvage(state: State, plan: dict, con: Console,
-                rng: random.Random) -> None:
-    """Service: the pickup rolls. Revalidated transactionally — the
-    driver must still be standing and the salvage still waiting; carry
-    and storage limits bind exactly as a raid haul's do. Draw budget:
-    EXACTLY ONE draw on the war stream per pickup (the want roll,
-    §2.7-pinned); the split across goods is deterministic value-first."""
+                rng: random.Random, reserved: list | None = None) -> None:
+    """Service: the pickup rolls. Revalidated transactionally against
+    the SAME assignment view that planned it (rev. 15 item 2) — the
+    driver must still be standing and still unclaimed by any other
+    job, and the salvage still waiting. The wagon carries a wagonload;
+    what comes home lands through THE haul-placement authority (shop,
+    then warehouse, then left behind) exactly as a raid haul does.
+    Draw budget: EXACTLY ONE draw on the war stream per pickup (the
+    want roll, §2.7-pinned); the split across goods is deterministic
+    value-first."""
     camp = campaign_for(state, plan["rival"])
     driver = plan["driver"]
     if camp is None or not camp.salvage_available:
         return
-    if not driver.available:
+    if not driver.available or driver in (reserved or []):
         con.bullet(f"The pickup is scrubbed — {driver.name} isn't "
-                   f"around to drive it.")
+                   f"free to drive it after all.")
         return
     rival = state.rivals[camp.rival_key]
     spec = data.RIVALS[camp.rival_key]
@@ -405,21 +501,21 @@ def run_salvage(state: State, plan: dict, con: Console,
     want = int(rng.randint(4, 10 + camp.starting_hundredths // 1000)
                * thin)                                     # the ONE draw
     space = data.VEHICLE_CARGO
-    kept: dict = {}
-    left_behind = 0
+    haul: dict = {}
+    wagon_left = 0
     for g in ("hot_honey", "mushrooms", "oregano"):        # value-first
         if want <= 0:
             break
         bulk = data.GOODS[g]["bulk"]
         share = max(0, want // 2) if g != "oregano" else want
         take = min(share, space // bulk)
-        rest = share - take
         if take:
-            state.shop_stash[g] = state.shop_stash.get(g, 0) + take
-            kept[g] = take
+            haul[g] = take
             space -= take * bulk
-        left_behind += rest
+        wagon_left += max(0, share - take)
         want -= share
+    kept, storage_left = models.place_haul(state, haul)
+    left_behind = wagon_left + storage_left
     state.add_heat(data.RIVALS[camp.rival_key]["home"], SALVAGE_HEAT)
     if kept:
         got = ", ".join(f"{u}x {data.GOODS[g]['label']}"
@@ -439,7 +535,10 @@ def run_salvage(state: State, plan: dict, con: Console,
 def grade(state: State) -> str:
     broken = len(broken_keys(state))
     if broken >= 2:
-        return "survived"     # the existing Syndicate text, earned properly
+        # An explicit terminal (rev. 15 item 4): the outcome matrix
+        # must not depend on generic epilogue ordering — a two-capture
+        # war was printing the legitimate-exit text.
+        return "syndicate"
     if broken == 1:
         return "harbor_yours"
     return "long_war"
@@ -453,22 +552,23 @@ def won_then_lost(state: State) -> bool:
 
 
 def corner_diversion(state: State, dk: str, owner: str, sold: int,
-                     report: dict) -> float:
+                     report: dict, *, rate: float, cap: float) -> float:
     """Units sold in the target's turf divert their income: strength
-    −CORNER_RATE per unit, capped per night, doubled while their ovens
-    are cold — the §2.4.3 outage window. One route runs per night, so
-    the per-route cap IS the per-night cap. Books to the 'corners'
-    channel through the one damage authority."""
+    −rate per unit, capped per night, doubled while their ovens are
+    cold — the §2.4.3 outage window. The terms come from THE
+    route-market view (rev. 15 item 5), which prices them alongside
+    everything else territorial; a zero rate is the view saying no
+    live campaign owns this turf. One route runs per night, so the
+    per-route cap IS the per-night cap. Books to the 'corners' channel
+    through the one damage authority."""
     camp = models.live_campaign(state, owner)
-    if camp is None or data.DISTRICTS[dk]["rival"] != owner or sold <= 0:
+    if camp is None or rate <= 0.0 or sold <= 0:
         return 0.0
-    outage = state.rivals[owner].ovens_wrecked_days > 0
-    mult = OUTAGE_MULT if outage else 1
-    amount = min(CORNER_CAP * mult, sold * CORNER_RATE * mult)
+    amount = min(cap, sold * rate)
     applied = models.apply_rival_damage(state, owner, "corners", amount)
     if applied > 0:
         window = (" — his ovens are cold and his customers keep your number"
-                  if outage else "")
+                  if state.rivals[owner].ovens_wrecked_days > 0 else "")
         report["lines"].append(
             f"His corner customers took your number tonight{window} "
             f"(strength −{applied:g}).")

@@ -222,28 +222,12 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
                 carry_bulk -= take * bulk
         # Stolen goods still need somewhere to live: shop stash, then the
         # warehouse if rented — anything past that stays in their alley.
-        left_behind = 0
-        kept: dict = {}
-        for g, u in haul.items():
-            bulk = data.GOODS[g]["bulk"]
-            room = max(0, state.shop.stash_cap
-                       - state.stash_bulk(state.shop_stash)) // bulk
-            to_shop = min(u, room)
-            if to_shop:
-                state.shop_stash[g] = state.shop_stash.get(g, 0) + to_shop
-            rest = u - to_shop
-            if rest and state.warehouse is not None:
-                wh_room = max(0, data.WAREHOUSE_CAP
-                              - state.stash_bulk(state.warehouse)) // bulk
-                to_wh = min(rest, wh_room)
-                if to_wh:
-                    state.warehouse[g] = state.warehouse.get(g, 0) + to_wh
-                rest -= to_wh
-            left_behind += rest
-            if u - rest:
-                kept[g] = u - rest
-        models.apply_rival_damage(state, rival.key, "jobs",
-                                  models.RAID_STOCK_STRENGTH)
+        # (THE placement authority, rev. 15 item 2 — the loop moved to
+        # models.place_haul verbatim; salvage consumes the same one.)
+        kept, left_behind = models.place_haul(state, haul)
+        models.apply_rival_damage(
+            state, rival.key, "jobs",
+            war.job_damage(state, rival.key, models.RAID_STOCK_STRENGTH))
         models.adjust_relation(state, rival.key, -25)
         if kept:
             got = ", ".join(f"{u}x {data.GOODS[g]['label']}" for g, u in kept.items())
@@ -258,15 +242,17 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
             state.districts[rspec["home"]].sold_yesterday[g] = -8
     elif objective == "ledger":
         rival.ledger_stolen = True
-        models.apply_rival_damage(state, rival.key, "jobs",
-                                  models.RAID_LEDGER_STRENGTH)
+        models.apply_rival_damage(
+            state, rival.key, "jobs",
+            war.job_damage(state, rival.key, models.RAID_LEDGER_STRENGTH))
         models.adjust_relation(state, rival.key, -15)
         con.say("  Forty pages of names, dates and numbers on film.")
         con.say("  Leverage now — or a gift to a prosecutor later.")
     else:  # sabotage
         rival.ovens_wrecked_days = 4
-        models.apply_rival_damage(state, rival.key, "jobs",
-                                  models.RAID_SABOTAGE_STRENGTH)
+        models.apply_rival_damage(
+            state, rival.key, "jobs",
+            war.job_damage(state, rival.key, models.RAID_SABOTAGE_STRENGTH))
         models.adjust_relation(state, rival.key, -20)
         con.say("  Thermostats smashed, gas lines capped, deck stones cracked.")
         con.say(f"  {rspec['short']}'s shop serves nothing for days — no cover for his routes.")
@@ -322,12 +308,22 @@ def incoming_raid(state: State, rival_key: str, con: Console,
 
     damage_before = state.shop.damage_days
     fatal_ground = state.branch == "war" and damage_before > 0
+    # THE incoming-raid policy (rev. 15 item 1): a DECLARED rival's
+    # raid offers no tribute at all — the declaration closed that door
+    # forever, and money must not reopen it mid-raid. The bystander's
+    # raid keeps the option; flag-off nothing changes.
+    target_raid = models.vendetta_locked(state, rival_key)
     options = ["Defend the shop (your crew's nerve)",
-               "Empty the stash into the wagon and let them find crumbs",
-               f"Pay tribute ({money(rival.tribute_demanded or 1500)} dirty)"]
+               "Empty the stash into the wagon and let them find crumbs"]
+    if not target_raid:
+        options.append(
+            f"Pay tribute ({money(rival.tribute_demanded or 1500)} dirty)")
     has_guard = "guard" in state.shop.upgrades
     if has_guard:
         options[0] += " — night security helps"
+    if target_raid:
+        con.say("  There is no envelope for this one. He isn't "
+                "collecting — he's collecting on you.")
     if fatal_ground:
         # The explicit fatal-choice warning (rev. 14 item 6): Burned
         # Out is always a risk knowingly accepted (invariant 7).
@@ -338,7 +334,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
     choice = con.menu("The unfamiliar cars are circling. Your move:", options)
 
     tribute = rival.tribute_demanded or 1500
-    if choice == 2 and state.dirty >= tribute:
+    if not target_raid and choice == 2 and state.dirty >= tribute:
         state.dirty -= tribute
         models.adjust_relation(state, rival_key, 15)
         rival.raid_warning = 0
@@ -370,7 +366,8 @@ def incoming_raid(state: State, rival_key: str, con: Console,
                     "Message received — both ways.")
         models.adjust_relation(state, rival_key, -5)
         rival.raid_warning = 0
-        return RaidResult("landed", damage_before, state.shop.damage_days,
+        return RaidResult("landed", damage_before,
+                          max(0, state.shop.damage_days - damage_before),
                           0.0)
 
     # Fight.
@@ -406,4 +403,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         state.add_heat(data.HOME_DISTRICT, 20)
         state.add_case(4, "an armed robbery at your address raised questions")
     rival.raid_warning = 0
-    return RaidResult("landed", damage_before, state.shop.damage_days, 0.0)
+    # damage_added is the ACTUAL delta (rev. 15 item 4): a shop already
+    # limping reports what tonight added, not tonight's absolute level.
+    return RaidResult("landed", damage_before,
+                      max(0, state.shop.damage_days - damage_before), 0.0)

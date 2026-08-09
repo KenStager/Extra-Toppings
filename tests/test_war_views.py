@@ -280,3 +280,103 @@ class TestRaidEdge(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRouteMarketView(unittest.TestCase):
+    """Rev. 15 item 5: THE territorial route-market view."""
+
+    def test_flag_off_methods_are_the_legacy_arithmetic(self):
+        from extra_toppings import market
+        state = new_state()
+        for dk in data.DISTRICTS:
+            rm = market.route_market(state, dk)
+            base = data.DISTRICTS[dk]["underground"]
+            ev = market.event_mult(state, dk, "underground")
+            for n in (0, 1, 2, 3):
+                self.assertEqual(rm.drops(n),
+                                 max(2, int((2 + 2 * n) * (base * ev))))
+            self.assertEqual(rm.top_want(), max(2, int(4 * base * ev)))
+            self.assertEqual(rm.bonus, 0.0)
+            self.assertEqual(rm.corner_rate, 0.0)
+            self.assertFalse(rm.captured)
+
+    def test_the_view_prices_the_corner_terms(self):
+        from extra_toppings import market
+        state = war_state(target="vinnie")
+        rm = market.route_market(state, "old_harbor")
+        self.assertEqual((rm.corner_rate, rm.corner_cap),
+                         (war.CORNER_RATE, war.CORNER_CAP))
+        state.rivals["vinnie"].ovens_wrecked_days = 2
+        rm = market.route_market(state, "old_harbor")
+        self.assertEqual((rm.corner_rate, rm.corner_cap),
+                         (war.CORNER_RATE * war.OUTAGE_MULT,
+                          war.CORNER_CAP * war.OUTAGE_MULT))
+        # The bystander's turf prices no corners.
+        rm = market.route_market(state, "little_sicily")
+        self.assertEqual(rm.corner_rate, 0.0)
+
+    def test_capture_and_amber_flow_through_the_view(self):
+        from extra_toppings import market
+        state = war_state(target="vinnie")
+        break_target(state, "vinnie")
+        rm = market.route_market(state, "old_harbor")
+        self.assertTrue(rm.captured)
+        self.assertEqual(rm.bonus, war.CAPTURE_UNDERGROUND)
+        state.districts["old_harbor"].heat = 60.0
+        rm2 = market.route_market(state, "old_harbor")
+        self.assertEqual(rm2.heat.band, "amber")
+        self.assertEqual(rm2.drops(2), max(2, int(
+            ((2 + 4) * (rm2.base * rm2.event)
+             + (2 + 4) * rm2.bonus) * 0.5)))
+
+
+class TestAlertnessPressure(unittest.TestCase):
+    """Rev. 15's sanctioned war-pressure policy: one derivation for
+    the payoff, the rival policy, and the board."""
+
+    def test_flag_off_job_damage_is_the_same_object(self):
+        state = new_state()
+        base = 12
+        self.assertIs(war.job_damage(state, "vinnie", base), base)
+
+    def test_alert_targets_take_softer_jobs(self):
+        from extra_toppings.models import apply_rival_damage
+        state = war_state(target="vinnie")
+        state.rivals["vinnie"].alertness = 6.0
+        dmg = war.job_damage(state, "vinnie", 12)
+        hard = 6.0 - war.ALERT_PRESSURE_KNEE
+        self.assertAlmostEqual(dmg, 12 * (1.0 - hard * war.ALERT_IMPACT))
+        applied = apply_rival_damage(state, "vinnie", "jobs", dmg)
+        camp = live_campaign(state, "vinnie")
+        self.assertEqual(camp.damage[-1].hundredths, round(dmg * 100))
+        self.assertEqual(applied, round(dmg * 100) / 100)
+
+    def test_the_impact_floor_holds(self):
+        state = war_state(target="vinnie")
+        state.rivals["vinnie"].alertness = 10.0
+        self.assertAlmostEqual(
+            war.job_damage(state, "vinnie", 12),
+            12 * war.ALERT_IMPACT_FLOOR)
+
+    def test_the_quiet_window_carries_no_pressure(self):
+        # The knee (rev. 15): a sleepy or wary target has hardened
+        # nothing — raiding into the window stays full price.
+        state = war_state(target="vinnie")
+        state.rivals["vinnie"].alertness = war.ALERT_PRESSURE_KNEE
+        self.assertIs(war.job_damage(state, "vinnie", 12), 12)
+        self.assertEqual(war.pressure(state, "vinnie").retaliation_mult,
+                         1.0)
+
+    def test_alert_targets_retaliate_harder(self):
+        state = war_state(target="vinnie")
+        calm = rival_policy(state, "vinnie")
+        state.rivals["vinnie"].alertness = 6.0
+        angry = rival_policy(state, "vinnie")
+        self.assertGreater(angry.act_chance, calm.act_chance)
+        self.assertTrue(any("learned the handwriting" in n
+                            for n in angry.notes))
+
+    def test_the_bystander_feels_no_pressure_policy(self):
+        state = war_state(target="vinnie")
+        state.rivals["sal"].alertness = 8.0
+        self.assertEqual(war.pressure(state, "sal").impact_mult, 1.0)
