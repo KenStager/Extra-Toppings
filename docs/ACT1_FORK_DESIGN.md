@@ -623,11 +623,13 @@ meter) — so the branch's real clock is whether you can finish the war
 before the file finishes you. Alertness economics (the $752 → $556 → $413 decline
 curve, FINDINGS round 5 — round 4's $781 → $597 → $438 was inflated by the
 issue-4 noise-timeout bug and superseded there; citation corrected rev. 13)
-make raid-spam a TRADE, not a free lunch — the honest thesis, measured
-at rev. 18-19's instruments: grinding can buy tempo by spending bodies
-(more attempts, more raw damage, nearly double the injured-crew days);
-pacing preserves crew and improves damage efficiency per person-night,
-and must not worsen campaign outcomes (the §2.7 outcome bar). Mixing
+make raid-spam a TRADE, not a free lunch — the honest thesis, certified
+at rev. 19's calendar-keyed experiment: grinding tries to buy tempo
+with twice the attempts and nearly three times the injuries; it does
+not outperform pacing (total damage statistically tied; efficiency
+0.55 vs 0.32 per committed person-night). Pacing preserves crew and
+improves damage efficiency, and must not worsen campaign outcomes
+(the §2.7 outcome bar). Mixing
 routes-in-their-turf, sabotage windows, and jobs on the days their
 security word says sleepy is how a campaign spends people it wants to
 keep.
@@ -3066,3 +3068,57 @@ After these corrections: both identity gates, the 150/500
 batteries, and the corrected pacing experiment rerun; the war
 chair stays unreleased; the new head returns for one final
 review. No balance movement, no feature expansion.
+
+**Revision 20** responds to the final-review hold at bdc52aa,
+which accepted the pacing and independent-baseline contracts,
+reproduced every number, and left two model-boundary contracts
+open plus stale status prose. A bounded pass; no constants, no
+mechanics, no features.
+
+1. **Storage becomes transactionally safe.** Rev. 19 validated the
+   REQUESTED quantity and destination but not the source inventory
+   it mutated: a source holding True moved; 1.5 became 0.5 after a
+   move; an unknown "fake" row mutated without refusal; place_haul
+   added 40 mushrooms to the shop, then discovered an invalid
+   warehouse and raised — leaving the partial mutation behind; an
+   already-over-cap warehouse was accepted. Rulings: ONE
+   storage-state preflight (map validity AND space_used ≤
+   space_cap); move_goods preflights BOTH locations before any
+   mutation; place_haul preflights every destination, computes the
+   complete allocation locally, then commits once; any refusal
+   leaves every stash byte-identical. Pins: invalid source maps,
+   invalid and over-cap warehouses, the partial-placement repro.
+2. **The ledgers validate the HISTORY they claim, not just their
+   rows.** Reproduced: capacity_mult=True passed as cool 1.0
+   (Boolean equality); amber accepted 800 corner hundredths though
+   amber halves the ceiling to 400; a contested Old Harbor route
+   loaded into an Act I state where no war ever existed; contested
+   routes predating the declaration; a raid claiming 12 damage
+   while the campaign records none; campaign jobs/corners damage
+   with no matching execution records; duplicate records on one
+   day despite one route and one raid per night. Ruling: a
+   `validate_execution_history(state)` reconciliation — canonical
+   multiplier TYPE (no Boolean satisfying float equality);
+   strictly increasing log days; contested derived from the
+   campaign's declared/broken interval; the heat-band-adjusted
+   corner ceiling; successful raid damage reconciled against
+   jobs-channel damage by day and rival, and route corner damage
+   against corners-channel damage by day and rival — both
+   directions. Test fixtures that fabricate impossible histories
+   become legal-history helpers (one job per night, records
+   booked, the calendar advanced).
+3. **The war-cadence probe simulates legal history.** Its
+   "consecutive" arm ran three jobs on one calendar day, and the
+   cadence arm applied the second quiet tick on the next attack's
+   own day. Corrected: each attempt takes a fresh calendar day;
+   quiet nights sit strictly between. The alertness arithmetic and
+   the reported curve are preserved (the decay count per gap is
+   unchanged); only the simulated calendar becomes legal.
+4. **The status prose tells the current truth.** The §2.4.3 thesis
+   sentence now reads the certified numbers (tied damage, ~2×
+   attempts, ~2.7× injured days); FINDINGS' "Still open" section
+   states P3's CURRENT result in place of the stale three-miss
+   status, without extending the archaeological chain.
+
+After the pass: the unchanged gates and the batteries rerun; the
+chair stays unreleased; the head returns for a short final review.
