@@ -85,7 +85,7 @@ def run_night(state, plans, con, service_report=None, seed=11,
     populated authority instead of re-deriving one from intentions."""
     wagons = phases.WagonNight(state)
     for wagon_key, by in (departed or {}).items():
-        assert wagons.claim_key(wagon_key, by)
+        assert wagons.claim_key(wagon_key, by).claimed
     report = {**(service_report or {}), "wagons": wagons}
     phases.night(state, plans, report, con, Streams(seed))
     return con

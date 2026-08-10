@@ -633,6 +633,46 @@ class PlannedWagon:
         return self.free[0]
 
 
+@dataclass(frozen=True)
+class ClaimResult:
+    """What happened when a job tried to spend the wagon it named.
+
+    The authority that decides ALREADY KNOWS why, so it says so here
+    rather than returning a bare boolean and leaving each caller to
+    reconstruct prose from the address. That reconstruction breaks
+    under a fleet: asking an address why its wagon is gone returns
+    nothing at all when a DIFFERENT wagon is still parked there, and
+    the route would announce "the wagon is gone" about an address
+    that has one. Same anti-contradiction contract as
+    `WagonAvailability` and `PlannedWagon`: the outcome and its
+    reason travel as one value and are validated together."""
+
+    claimed: bool
+    wagon_key: str
+    blocked_by: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        if type(self.wagon_key) is not str or not self.wagon_key:
+            raise ValueError(
+                f"a claim names a wagon, got {self.wagon_key!r}")
+        if self.claimed:
+            if self.blocked_by or self.note:
+                raise ValueError("a spent wagon carries no refusal")
+            return
+        if self.blocked_by not in WAGON_BLOCKS:
+            raise ValueError(
+                f"unknown wagon block {self.blocked_by!r} — the "
+                f"vocabulary is {sorted(WAGON_BLOCKS)}")
+        if not self.note:
+            raise ValueError("a refused claim must say where it is")
+
+    @property
+    def sentence(self) -> str:
+        """The refusal as the player reads it, from the one home."""
+        return wagon_gone_line(self.blocked_by, self.note)
+
+
 def claimable_wagons(state: "State", shop_key: str) -> tuple:
     """The wagons an address could send out tonight IF nothing had
     taken them — the LIFECYCLE answer alone, in stable key order.
@@ -692,7 +732,7 @@ def plan_origin(state: "State", plan: dict) -> str:
     return origin
 
 
-def wagon_gone_line(wagon: PlannedWagon) -> str:
+def wagon_gone_line(blocked_by: str, note: str) -> str:
     """THE sentence-initial rendering of a missing wagon.
 
     Two registers, one home: `note` is a mid-sentence CLAUSE ("out on
@@ -702,15 +742,15 @@ def wagon_gone_line(wagon: PlannedWagon) -> str:
     is what produced "The wagon is the University Hill wagon is still
     at the contractor's yard".
     """
-    if wagon.available:
+    if not blocked_by:
         raise ValueError("a free wagon has no absence to explain")
-    if wagon.blocked_by in ("lifecycle", "unhoused"):
-        return wagon.note[0].upper() + wagon.note[1:]
+    if blocked_by in ("lifecycle", "unhoused"):
+        return note[0].upper() + note[1:]
     # RENDERED FROM THE BLOCKING JOB, not from whichever job the
     # sentence happened to be written for. The literal that used to
     # sit here named the route unconditionally, so a wagon the PICKUP
     # had was described as being out on the route.
-    return f"The wagon is {WAGON_NOTES[wagon.blocked_by]}"
+    return f"The wagon is {WAGON_NOTES[blocked_by]}"
 # THE released set (§7): the Straight Path and the Quiet Sale lifted
 # together on the P2 merge approval; the Harbor War joined on the P3
 # merge disposition ("keep activation as a separate, minimal

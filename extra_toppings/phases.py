@@ -190,27 +190,34 @@ class WagonNight:
         self.claims[free[0].key] = by
         return free[0].key
 
-    def claim_key(self, wagon_key: str, by: str) -> bool:
+    def claim_key(self, wagon_key: str, by: str) -> models.ClaimResult:
         """Take THE wagon a plan named, and say whether it was still
         there. This is the execution revalidation the contract asks
         for: a plan records an identity at morning, and the night
         spends THAT vehicle or none — never a different wagon that
         happens to sit at the same address.
 
-        Returns False rather than raising when the wagon is gone,
-        because a job losing its wagon between planning and nightfall
-        is ordinary play: a route that departed, a site that has not
-        opened. Raises only on incoherence — an unknown wagon, or an
-        unknown consumer."""
+        Returns a typed result rather than raising when the wagon is
+        gone, because a job losing its wagon between planning and
+        nightfall is ordinary play: a route that departed, a site that
+        has not opened. The result carries WHY, because this method
+        is what knows — a caller asking the address instead gets
+        nothing when a different wagon is still parked there. Raises
+        only on incoherence: an unknown wagon, or an unknown
+        consumer."""
         if by not in WAGON_NOTES:
             raise ValueError(f"unknown wagon consumer {by!r}")
         self.state.wagon_by_key(wagon_key)      # KeyError on a ghost
-        if wagon_key in self.claims:
-            return False
-        if not models.wagon_claim(self.state, wagon_key).available:
-            return False
+        held = self.claims.get(wagon_key)
+        if held is not None:
+            return models.ClaimResult(False, wagon_key, held,
+                                      WAGON_NOTES[held])
+        lifecycle = models.wagon_claim(self.state, wagon_key)
+        if not lifecycle.available:
+            return models.ClaimResult(False, wagon_key, "lifecycle",
+                                      lifecycle.note)
         self.claims[wagon_key] = by
-        return True
+        return models.ClaimResult(True, wagon_key)
 
 
 # ══ MORNING ═══════════════════════════════════════════════════════
@@ -1005,9 +1012,9 @@ def _commit_route(state: State, plan: dict, con: Console,
     # wagon that left on another job scrubs this one with the stash
     # and pantry untouched, and never substitutes a different
     # vehicle that happens to sit at the same address.
-    if not wagons.claim_key(wagon_key, "route"):
-        con.bullet(f"Tonight's route is scrubbed — "
-                   f"{wagons.note_at(origin.key) or 'the wagon is gone'}.")
+    spent = wagons.claim_key(wagon_key, "route")
+    if not spent.claimed:
+        con.bullet(f"Tonight's route is scrubbed. {spent.sentence}.")
         return False
     for g, take in committed.cargo.items():
         origin.stash[g] = origin.stash.get(g, 0) - take
@@ -1051,10 +1058,16 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     # actually departed, so the night inherits the truth rather than
     # reconstructing it from intentions and a report.
     wagon = service_report.get("wagons")
-    if wagon is None:
+    if not isinstance(wagon, WagonNight):
         raise ValueError(
-            "night was given no wagon-assignment authority — service "
-            "opens it and every departure spends it")
+            f"night was given no wagon-assignment authority — service "
+            f"opens it and every departure spends it; got "
+            f"{type(wagon).__name__}")
+    if wagon.state is not state:
+        raise ValueError(
+            "the wagon-assignment authority belongs to a different "
+            "state — claims made against another world say nothing "
+            "about this one")
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight
@@ -1120,7 +1133,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             planned_key = raid_plan.get("wagon_key")
             raid_plan["wagon_free"] = bool(
                 planned_key is not None
-                and wagon.claim_key(planned_key, "raid"))
+                and wagon.claim_key(planned_key, "raid").claimed)
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():

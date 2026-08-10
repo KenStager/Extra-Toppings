@@ -27,7 +27,7 @@ def _departed(state, *jobs, **report):
     already claimed the home wagon when it rolled."""
     wagons = phases.WagonNight(state)
     for job in jobs:
-        assert wagons.claim_key(models_mod.HOME_WAGON_KEY, job)
+        assert wagons.claim_key(models_mod.HOME_WAGON_KEY, job).claimed
     return {**report, "wagons": wagons}
 
 
@@ -486,7 +486,8 @@ class TestSalvage(unittest.TestCase):
         self.assertEqual(plan, {"rival": "vinnie", "driver": rosa,
                                 "origin_shop": models_mod.HOME_SHOP_KEY,
                            "wagon_key": models_mod.HOME_WAGON_KEY})
-        war.run_salvage(state, plan, Quiet(), Streams(21).war)
+        war.run_salvage(state, plan, Quiet(), Streams(21).war,
+                        wagons=phases.WagonNight(state))
         self.assertFalse(camp.salvage_available)
         self.assertEqual(camp.salvage_day, state.day)
         self.assertIsNone(war.salvage_ready(state))
@@ -499,7 +500,8 @@ class TestSalvage(unittest.TestCase):
         plan = {"rival": "vinnie", "driver": rosa,
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                              "wagon_key": models_mod.HOME_WAGON_KEY}
-        war.run_salvage(state, plan, Quiet(), streams.war)
+        war.run_salvage(state, plan, Quiet(), streams.war,
+                        wagons=phases.WagonNight(state))
         control.war.randint(4, 10 + camp.starting_hundredths // 1000)
         self.assertEqual(streams.war.getstate(), control.war.getstate())
 
@@ -520,7 +522,8 @@ class TestSalvage(unittest.TestCase):
                                  origin_shop=models_mod.HOME_SHOP_KEY)
         rosa.injured_days = 3
         stash_before = dict(state.shop_stash)
-        war.run_salvage(state, plan, Quiet(), Streams(21).war)
+        war.run_salvage(state, plan, Quiet(), Streams(21).war,
+                        wagons=phases.WagonNight(state))
         self.assertTrue(camp.salvage_available)   # still waiting
         self.assertEqual(state.shop_stash, stash_before)
 
@@ -836,7 +839,8 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         plan = {"rival": "vinnie", "driver": rosa,
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                              "wagon_key": models_mod.HOME_WAGON_KEY}
-        war.run_salvage(state, plan, Quiet(), Streams(21).war)
+        war.run_salvage(state, plan, Quiet(), Streams(21).war,
+                        wagons=phases.WagonNight(state))
         self.assertLessEqual(state.stash_bulk(state.shop_stash),
                              state.shop.stash_cap)
 
@@ -849,7 +853,8 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         plan = {"rival": "vinnie", "driver": rosa,
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                              "wagon_key": models_mod.HOME_WAGON_KEY}
-        war.run_salvage(state, plan, Quiet(), Streams(21).war)
+        war.run_salvage(state, plan, Quiet(), Streams(21).war,
+                        wagons=phases.WagonNight(state))
         self.assertLessEqual(state.stash_bulk(state.shop_stash),
                              state.shop.stash_cap)
         self.assertGreater(sum(state.warehouse.values()), 0)
@@ -1104,9 +1109,12 @@ class TestRevision17Instruments(unittest.TestCase):
     def test_run_salvage_returns_scrubbed_without_departing(self):
         state, rosa, _marcus = self._two_front_war()
         rosa.injured_days = 3
-        result = war.run_salvage(state, {"rival": "vinnie",
-                                         "driver": rosa},
-                                 Quiet(), Streams(21).war)
+        result = war.run_salvage(
+            state, {"rival": "vinnie", "driver": rosa,
+                    "origin_shop": models_mod.HOME_SHOP_KEY,
+                    "wagon_key": models_mod.HOME_WAGON_KEY},
+            Quiet(), Streams(21).war,
+            wagons=phases.WagonNight(state))
         self.assertEqual(result.outcome, "scrubbed")
         self.assertIs(result.wagon_used, False)
         camp = next(c for c in state.branch_state.campaigns
@@ -1115,13 +1123,19 @@ class TestRevision17Instruments(unittest.TestCase):
 
     def test_a_collected_pickup_reports_the_departure(self):
         state, rosa, _marcus = self._two_front_war()
+        wagons = phases.WagonNight(state)
         result = war.run_salvage(
             state, {"rival": "vinnie", "driver": rosa,
                     "origin_shop": models_mod.HOME_SHOP_KEY,
                     "wagon_key": models_mod.HOME_WAGON_KEY},
-            Quiet(), Streams(21).war)
+            Quiet(), Streams(21).war, wagons=wagons)
         self.assertEqual(result.outcome, "collected")
         self.assertIs(result.wagon_used, True)
+        # No pickup can collect without a RECORDED claim: the
+        # authority is not optional, and reporting a departure that
+        # spent nothing was the bypass this closes.
+        self.assertEqual(wagons.claims,
+                         {models_mod.HOME_WAGON_KEY: "salvage"})
 
     def test_the_attempt_ledger_books_crew_and_actual_damage(self):
         # Rev. 17 item 4: the denominator's record — committed crew

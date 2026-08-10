@@ -474,7 +474,7 @@ def plan_salvage(state: State, con: Console, reserved: list,
     if not wagon.available:
         # The lifecycle names the address it is talking about; every
         # pre-existing cause keeps the sentence the game ships.
-        con.say(f"  {models.wagon_gone_line(wagon)} — the stockroom "
+        con.say(f"  {models.wagon_gone_line(wagon.blocked_by, wagon.note)} — the stockroom "
                 f"isn't going anywhere."
                 if wagon.blocked_by in ("lifecycle", "unhoused") else
                 "  The wagon is spoken for tonight — the stockroom "
@@ -520,7 +520,7 @@ class SalvageResult:
 def run_salvage(state: State, plan: dict, con: Console,
                 rng: random.Random,
                 reserved: list | None = None,
-                wagons=None) -> SalvageResult:
+                *, wagons) -> SalvageResult:
     """Service: the pickup rolls. Revalidated transactionally against
     the SAME assignment view that planned it (rev. 15 item 2) — the
     driver must still be standing and still unclaimed by any other
@@ -543,8 +543,9 @@ def run_salvage(state: State, plan: dict, con: Console,
     # the salvage is consumed, so a pickup that cannot roll scrubs
     # with the campaign's stockroom still waiting (P4b.1a).
     wagon_key = models.plan_wagon(state, plan)
-    if wagons is not None and not wagons.claim_key(wagon_key, "salvage"):
-        con.bullet("The pickup is scrubbed — the wagon is already out.")
+    spent = wagons.claim_key(wagon_key, "salvage")
+    if not spent.claimed:
+        con.bullet(f"The pickup is scrubbed. {spent.sentence}.")
         return SalvageResult(outcome="scrubbed", wagon_used=False)
     rival = state.rivals[camp.rival_key]
     spec = data.RIVALS[camp.rival_key]

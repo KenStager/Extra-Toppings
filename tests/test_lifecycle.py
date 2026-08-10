@@ -554,15 +554,15 @@ class TestTheAbsenceSentenceNamesTheRightJob(unittest.TestCase):
                 ("salvage", "The wagon is out on tonight's pickup"),
                 ("raid", "The wagon is out with the night crew"),
                 ("decoy", "The wagon is already loaded and gone")):
-            view = models.PlannedWagon(blocked_by=job,
-                                       note=models.WAGON_NOTES[job])
-            self.assertEqual(models.wagon_gone_line(view), expected)
+            self.assertEqual(
+                models.wagon_gone_line(job, models.WAGON_NOTES[job]),
+                expected)
 
     def test_the_lifecycle_names_the_address(self):
         view = phases.planned_wagon(
             _with_site(day=6, acceptance=5), {}, "shop2")
         self.assertEqual(
-            models.wagon_gone_line(view),
+            models.wagon_gone_line(view.blocked_by, view.note),
             "The University Hill wagon is still at the contractor's yard")
 
     def test_a_salvage_held_wagon_no_longer_claims_the_route(self):
@@ -581,7 +581,7 @@ class TestTheAbsenceSentenceNamesTheRightJob(unittest.TestCase):
 
     def test_a_free_wagon_has_no_absence_to_explain(self):
         with self.assertRaises(ValueError):
-            models.wagon_gone_line(models.PlannedWagon(("wagon1",)))
+            models.wagon_gone_line("", "")
 
 
 class TestTheOneShopPlanningPathIsUnchanged(unittest.TestCase):
@@ -661,7 +661,7 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
     def test_execution_spends_the_named_wagon(self):
         state = _with_site(day=7, acceptance=5)
         night = phases.WagonNight(state)
-        self.assertTrue(night.claim_key("wagon2", "route"))
+        self.assertTrue(night.claim_key("wagon2", "route").claimed)
         self.assertEqual(night.claims, {"wagon2": "route"})
         # The home wagon is untouched: a named key spends one vehicle.
         self.assertTrue(night.available_at(HOME_SHOP_KEY))
@@ -673,14 +673,23 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
         state = _with_site(day=7, acceptance=5)
         state.wagons.append(Wagon(key="wagon3", shop_key="shop2"))
         night = phases.WagonNight(state)
-        self.assertTrue(night.claim_key("wagon2", "route"))
-        self.assertFalse(night.claim_key("wagon2", "raid"))
+        self.assertTrue(night.claim_key("wagon2", "route").claimed)
+        # The refusal names the job that HAS it — asking the address
+        # would say nothing, because wagon3 is still parked there.
+        spent = night.claim_key("wagon2", "raid")
+        self.assertFalse(spent.claimed)
+        self.assertEqual(spent.blocked_by, "route")
+        self.assertEqual(spent.sentence,
+                         "The wagon is out on tonight's route")
+        self.assertTrue(night.available_at("shop2"))
         self.assertEqual(night.claims, {"wagon2": "route"})
 
     def test_a_construction_wagon_cannot_be_claimed_by_key(self):
         state = _with_site(day=6, acceptance=5)
-        self.assertFalse(phases.WagonNight(state).claim_key("wagon2",
-                                                            "route"))
+        spent = phases.WagonNight(state).claim_key("wagon2", "route")
+        self.assertFalse(spent.claimed)
+        self.assertEqual(spent.blocked_by, "lifecycle")
+        self.assertIn("contractor's yard", spent.note)
 
     def test_claiming_a_ghost_wagon_is_incoherence_not_bad_luck(self):
         state = _with_site(day=7, acceptance=5)
@@ -693,8 +702,8 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
     def test_two_addresses_spend_their_own_wagons_independently(self):
         state = _with_site(day=7, acceptance=5)
         night = phases.WagonNight(state)
-        self.assertTrue(night.claim_key(models.HOME_WAGON_KEY, "route"))
-        self.assertTrue(night.claim_key("wagon2", "route"))
+        self.assertTrue(night.claim_key(models.HOME_WAGON_KEY, "route").claimed)
+        self.assertTrue(night.claim_key("wagon2", "route").claimed)
         self.assertEqual(night.claims,
                          {models.HOME_WAGON_KEY: "route",
                           "wagon2": "route"})
@@ -813,6 +822,90 @@ class TestDepartureIsWhenTheWagonIsClaimed(unittest.TestCase):
         state, _home, _driver = self._world()
         with self.assertRaises(ValueError):
             phases.night(state, {}, {}, Listening(), Streams(3))
+
+
+class TestTheClaimCarriesItsOwnReason(unittest.TestCase):
+    """The authority that decides why a named wagon cannot leave says
+    so in its result. Reconstructing the reason from the ADDRESS is
+    what breaks under a fleet."""
+
+    def _two_wagons(self):
+        state = _with_site(day=7, acceptance=5)
+        state.wagons.append(Wagon(key="wagon3", shop_key="shop2"))
+        return state
+
+    def test_the_reason_survives_a_second_wagon_at_the_address(self):
+        # THE fleet repro. wagon2 is spoken for; wagon3 is parked
+        # right there. Asking the address "why is the wagon gone?"
+        # answers "it isn't" — so a caller reconstructing prose that
+        # way announces "the wagon is gone" about an address that has
+        # one. The claim result knows better.
+        state = self._two_wagons()
+        night = phases.WagonNight(state)
+        self.assertTrue(night.claim_key("wagon2", "route").claimed)
+        self.assertEqual(night.note_at("shop2"), "")     # nothing gone
+        spent = night.claim_key("wagon2", "raid")
+        self.assertFalse(spent.claimed)
+        self.assertEqual(spent.wagon_key, "wagon2")
+        self.assertEqual(spent.blocked_by, "route")
+        self.assertEqual(spent.sentence,
+                         "The wagon is out on tonight's route")
+
+    def test_a_claim_result_cannot_contradict_itself(self):
+        with self.assertRaises(ValueError):      # spent, yet refused
+            models.ClaimResult(True, "wagon2", "route",
+                               models.WAGON_NOTES["route"])
+        with self.assertRaises(ValueError):      # refused, no reason
+            models.ClaimResult(False, "wagon2")
+        with self.assertRaises(ValueError):      # refused, silent
+            models.ClaimResult(False, "wagon2", "route", "")
+        with self.assertRaises(ValueError):      # outside the words
+            models.ClaimResult(False, "wagon2", "banana", "somewhere")
+        with self.assertRaises(ValueError):      # names no wagon
+            models.ClaimResult(True, "")
+
+    def test_a_route_scrub_reads_the_result_not_the_address(self):
+        # Through the REAL commit path, with a second wagon parked at
+        # the origin so the address-derived note would be empty.
+        state = new_state()
+        market.roll_prices(state, random.Random(3))
+        state.wagons.append(Wagon(key="wagon9",
+                                  shop_key=HOME_SHOP_KEY))
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.stash, home.ingredients, home.delivery_pool = (
+            {"mushrooms": 4}, 40, 10)
+        wagons = phases.WagonNight(state)
+        wagons.claim_key(models.HOME_WAGON_KEY, "raid")
+        con = Listening()
+        plan = {"district": "old_harbor", "driver": driver,
+                "ride_along": False, "cargo": {"mushrooms": 2},
+                "legit": 3, "origin_shop": HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
+        self.assertFalse(phases._commit_route(state, plan, con, wagons))
+        self.assertTrue(con.said("The wagon is out with the night crew"),
+                        con.lines)
+        self.assertFalse(con.said("the wagon is gone"))
+        self.assertEqual(home.stash["mushrooms"], 4)
+
+
+class TestNightRefusesAForeignAuthority(unittest.TestCase):
+    def test_a_non_authority_is_refused(self):
+        state = new_state()
+        for bogus in ({}, "wagons", 3, object()):
+            with self.assertRaises(ValueError, msg=repr(bogus)):
+                phases.night(state, {}, {"wagons": bogus}, Listening(),
+                             Streams(3))
+
+    def test_an_authority_from_another_world_is_refused(self):
+        # A quiet night would never notice: no claims, no complaint,
+        # and every question answered about the wrong world.
+        state, other = new_state(), new_state()
+        with self.assertRaises(ValueError) as caught:
+            phases.night(state, {}, {"wagons": phases.WagonNight(other)},
+                         Listening(), Streams(3))
+        self.assertIn("different state", str(caught.exception))
 
 
 class TestLifecycleValidation(unittest.TestCase):
