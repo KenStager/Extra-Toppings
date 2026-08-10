@@ -202,18 +202,23 @@ REQUIRED_META = ("version", "engine", "generated_at_commit",
 # fails the gate before a single run is compared. Updated only as
 # part of a recorded, sanctioned regeneration.
 ACTIVE_BASELINE: dict = {
-    "version": 2,
-    "generated_at_commit": "57f2c4bf9e1d4731d8174225a865ab862ab46e7e",
-    "predecessor_sha256": "75d9199fdb5cda6c4b652f9ba0eec5269a6"
-                          "1a37952919e249914e7a40f090839",
-    "reason": "design rev. 17-18 sanctioned regeneration: the "
-              "RouteManifest inventory contract replaced the 12-pizza "
-              "planner defect the prior trace pinned; final baseline "
-              "established after the contract completed",
+    "version": 3,
+    "generated_at_commit": "b11c311525123cac36df9619f60b36fc60364457",
+    "predecessor_sha256": "13d9eeba742aff279b149c16d42ffd3bfce"
+                          "7d28b029a7985ddde1b776e7828fd",
+    "reason": "P3.5 decoy correction (design rev. 25 item 1, rev. 26): "
+              "the incoming-raid decoy now consults the same "
+              "night-assignment authority the outgoing raid consults, "
+              "so a wagon already out on a route, a pickup, a departed "
+              "stock theft or an earlier decoy can no longer be loaded "
+              "twice. Measured before regeneration: 194 of 454 decoy "
+              "menus in the prior 300 runs sat on a wagon-already-spent "
+              "night (all from a departed route), 75 of them chosen by "
+              "the bot, changing 110 of 300 runs.",
     "seeds": 150,
     "bots": ["greedy", "random"],
-    "file_sha256": "13d9eeba742aff279b149c16d42ffd3bfce"
-                   "7d28b029a7985ddde1b776e7828fd",
+    "file_sha256": "7a62b2afd51ca4a5ae5ac2ab24f7687ebb6"
+                   "e4d7f02e1cde2075f15fecf89b85f",
 }
 
 
