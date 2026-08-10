@@ -1052,6 +1052,95 @@ def raid_target(state: "State", rival_key: str) -> str:
     return state.shops[0].key
 
 
+# ── the address lifecycle (§2.4.2; rev. 29 items 3–4) ────────────
+# THE canonical capability vocabulary. §2.4.2's capability ruling,
+# spelled once: every surface that wonders what an address may do asks
+# `address_allows` with one of these names — no consumer decides for
+# itself what a building site may do, and an unknown capability is a
+# caller bug, refused rather than defaulted either way.
+ADDRESS_CAPABILITIES = (
+    "demand",              # the order book: rolling and serving demand
+    "service",             # running a service phase at all
+    "routes",              # originating delivery routes
+    "cover",               # counting as cover for concealed drops
+    "laundering",          # contributing a believable ceiling
+    "rent",                # being charged rent
+    "rival_targeting",     # a rival may move against it
+    "law_targeting",       # the law phase may search it
+    "contraband_storage",  # holding stash
+    "wagon_use",           # its wagon leaving the yard (any consumer)
+    "staffing",            # assigning employees to it
+    "pantry_supply",       # buying ingredients for opening preparation
+)
+# Under construction, ALLOWED: staffing, and pantry supply for opening
+# preparation. Everything else is DISALLOWED (§2.4.2's central ruling:
+# today's engine would roll demand for a building site and charge it
+# rent the moment the record exists). Opening enables the complete
+# address in ONE transition — there is no third, partially-capable
+# phase.
+CONSTRUCTION_ALLOWED = frozenset({"staffing", "pantry_supply"})
+# THE construction span (rev. 29 item 4): opening day = acceptance
+# day + 2, deterministically — Carmine's own contractor, no dice.
+CONSTRUCTION_DAYS = 2
+
+
+def shop_is_open(shop: "Shop", day: int) -> bool:
+    """THE lifecycle question (§2.4.2's three recorded phases, made
+    operational). An address with no recorded dates is a founding
+    address: open since the world began. An address with dates stands
+    under construction until its recorded opening day and opens at
+    the start of that morning — `day >= opening_day` — after which it
+    cannot close (raid damage limps a shop, never shutters it)."""
+    if shop.opening_day is None:
+        return True
+    return day >= shop.opening_day
+
+
+def open_shops(state: "State") -> list:
+    """Every address that is open TODAY, in storage order — the
+    filtering authority behind every morning/service/night surface
+    that operates over 'the shops'. While every address is open this
+    is exactly `state.shops`, which is why P4b.1a's conversion is
+    behaviour-equivalent by construction on every released path."""
+    return [s for s in state.shops if shop_is_open(s, state.day)]
+
+
+def address_allows(shop: "Shop", day: int, capability: str) -> bool:
+    """THE central capability decision (§2.4.2, rev. 29 item 3): one
+    lifecycle view decides what an address can do. Open addresses do
+    everything; a building site does nothing but prepare — staffing
+    and pantry supply — and no consumer gets to reach a different
+    answer by asking a different question."""
+    if capability not in ADDRESS_CAPABILITIES:
+        raise ValueError(f"unknown address capability {capability!r} — "
+                         f"the vocabulary is ADDRESS_CAPABILITIES")
+    if shop_is_open(shop, day):
+        return True
+    return capability in CONSTRUCTION_ALLOWED
+
+
+def wagon_claim(state: "State", wagon_key: str) -> "WagonAvailability":
+    """THE lifecycle leg of wagon claimability (rev. 29 item 3): a
+    wagon exists from acceptance — an address keeps its wagon from the
+    same transaction — but it is unclaimable until its address opens.
+    Consulted by routes, outgoing raids, salvage and the decoy alike,
+    at planning AND at execution, and the refusal is visible, in the
+    player's words — a silent absence would read as a bug, and the
+    whole point of the construction window is that the player can see
+    what they are waiting for.
+
+    This answers only the lifecycle question. Whether the wagon is
+    out tonight is the night-assignment ledger's question (P3.5);
+    the two authorities compose, they do not merge."""
+    wagon = state.wagon_by_key(wagon_key)
+    home = state.shop_by_key(wagon.shop_key)
+    if address_allows(home, state.day, "wagon_use"):
+        return WAGON_FREE
+    return WagonAvailability(
+        False, f"the {home.district} wagon is still at the "
+               f"contractor's yard")
+
+
 def validate_addresses(state: "State") -> None:
     """Shops and wagons are identified by key, so the keys must BE
     identities (rev. 27 item 1): present, non-empty, unique within
@@ -1073,6 +1162,39 @@ def validate_addresses(state: "State") -> None:
         if s.district not in data.DISTRICTS:
             raise ValueError(f"shops[{i}]: unknown district "
                              f"{s.district!r}")
+        # The lifecycle dates bind together (§2.4.2, rev. 29 item 4):
+        # both or neither, whole calendar days (a bool is not a day —
+        # `type(...) is int`, the save layer's own rule), and the
+        # recorded relationship exactly. Absence is the founding
+        # state; a present-but-malformed value is refused, because
+        # repairing it would silently open or un-open an address.
+        acc, opn = s.acceptance_day, s.opening_day
+        if (acc is None) != (opn is None):
+            raise ValueError(
+                f"shops[{i}]: an address records both its acceptance "
+                f"and its opening day or neither — got acceptance "
+                f"{acc!r}, opening {opn!r}")
+        if acc is not None:
+            if type(acc) is not int or type(opn) is not int:
+                raise ValueError(
+                    f"shops[{i}]: lifecycle dates are whole calendar "
+                    f"days, got acceptance {acc!r}, opening {opn!r}")
+            if acc < 1:
+                raise ValueError(
+                    f"shops[{i}]: acceptance day {acc} predates the "
+                    f"calendar")
+            if opn != acc + CONSTRUCTION_DAYS:
+                raise ValueError(
+                    f"shops[{i}]: opening day {opn} must be "
+                    f"acceptance day {acc} + {CONSTRUCTION_DAYS} — "
+                    f"the construction span is recorded, not chosen")
+    # A world with no open address has no subject for morning, service
+    # or night: the founding shop is open by construction (it records
+    # no dates), and no path un-opens an address — so a payload where
+    # every shop is still a building site is malformed, not lean.
+    if not any(shop_is_open(s, state.day) for s in state.shops):
+        raise ValueError("no address is open — a state must keep at "
+                         "least one open shop")
     wagon_keys: set = set()
     housed: set = set()
     for i, w in enumerate(state.wagons):
@@ -1807,6 +1929,16 @@ class Shop:
     demand_today: int = 0
     delivery_pool: int = 0
     legit_revenue_today: int = 0
+    # The lifecycle dates (§2.4.2, rev. 29 item 4): BOTH persisted on
+    # the address, their relationship validated, and the opening day
+    # never duplicated in BranchState — two homes for one date is two
+    # dates. Absent on every address written before the Partner branch
+    # existed, and absence migrates as the founding state: open since
+    # the world began (`Shop(**payload)` leaves an omitted field at
+    # this default, which is exactly P4a's absence-only discipline).
+    # A PRESENT-but-malformed value is refused in validate_addresses.
+    acceptance_day: int | None = None
+    opening_day: int | None = None
 
     @property
     def stash_cap(self) -> int:
