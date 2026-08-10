@@ -613,7 +613,8 @@ class TestWarPersistenceMidCampaign(unittest.TestCase):
         state.route_log.append(RouteExecutionRecord(
             day=state.day, district="little_sicily", heat_band="cool",
             capacity_mult=1.0, units_sold=9,
-            corner_damage_h=round(applied * 100), contested=True))
+            corner_damage_h=round(applied * 100), contested=True,
+            origin_shop=models_mod.HOME_SHOP_KEY))
         d = save.state_to_dict(state)
         restored = save.state_from_dict(d)
         self.assertEqual(restored.branch_state, state.branch_state)

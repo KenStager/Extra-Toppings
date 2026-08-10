@@ -786,8 +786,13 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     shop_at = models.operating_shop(state)
     con.header(f"DAY {state.day} — SERVICE")
     plan = plans.get("route")
-    if plan and not _commit_route(state, shop_at, plan, con):
+    if plan and not _commit_route(state, plan, con):
         plans["route"] = plan = None
+    # The cover pizzas were cooked and deducted at the address the
+    # plan NAMED; the shift below is this surface's address. They are
+    # the same shop while one exists, and `operating_shop` refuses the
+    # moment they could differ — the shift going per-address is P4b's
+    # work, not something to half-build here.
     route_legit = plan["legit"] if plan else 0
     report = shop.simulate_shift(state, shop_at, route_legit,
                                  streams.daily(state.day, "critic"))
@@ -821,11 +826,22 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     return report
 
 
-def _commit_route(state: State, shop_at: Shop, plan: dict,
-                  con: Console) -> bool:
+def _commit_route(state: State, plan: dict, con: Console) -> bool:
     """Morning plans are intentions; resources commit when service starts.
     Cancelled or replaced plans never touch inventory. Returns False (and
-    commits nothing) if the plan can no longer run at all."""
+    commits nothing) if the plan can no longer run at all.
+
+    The stash and pantry spent here belong to the address the plan
+    NAMED, resolved from the plan itself and never from whichever
+    address the surface happens to be about (rev. 22 item 1). A plan
+    that names no origin, or names one that does not exist, is a bug
+    and refuses BEFORE any inventory moves (rev. 27 item 7) — the
+    alternative is a wagon loading out of a shop nobody owns."""
+    origin_key = plan.get("origin_shop")
+    if not origin_key:
+        raise KeyError("route plan names no origin address — a wagon "
+                       "cannot load where nobody said it was")
+    origin = state.shop_by_key(origin_key)
     driver = plan["driver"]
     if not driver.available:
         con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
@@ -848,7 +864,7 @@ def _commit_route(state: State, shop_at: Shop, plan: dict,
     # first; only then does its inventory transaction apply, atomically.
     committed = routes.RouteManifest()
     for g, want in planned.cargo.items():
-        have = shop_at.stash.get(g, 0)
+        have = origin.stash.get(g, 0)
         take = min(want, have)
         if take < want:
             con.bullet(f"Only {take}x {data.GOODS[g]['label']} left to load — "
@@ -856,16 +872,16 @@ def _commit_route(state: State, shop_at: Shop, plan: dict,
         if take:
             committed.cargo[g] = take
     # Cover pizzas are real orders AND real oven time.
-    committed.legit = min(planned.legit, shop_at.delivery_pool,
-                          shop_at.kitchen_cap, shop_at.ingredients)
+    committed.legit = min(planned.legit, origin.delivery_pool,
+                          origin.kitchen_cap, origin.ingredients)
     if committed.legit < planned.legit:
         con.bullet(f"The kitchen fills {committed.legit} of "
                    f"{planned.legit} planned delivery orders — orders, "
                    f"ovens and pantry set the limit.")
     committed.validate()
     for g, take in committed.cargo.items():
-        shop_at.stash[g] = shop_at.stash.get(g, 0) - take
-    shop_at.ingredients -= committed.legit
+        origin.stash[g] = origin.stash.get(g, 0) - take
+    origin.ingredients -= committed.legit
     if isinstance(plan, routes.RoutePlan):
         plan.manifest = committed
     else:                       # legacy dict plans (tests only)

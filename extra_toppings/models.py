@@ -26,6 +26,15 @@ class Employee:
     trait: str
     wage: int
     bio: str
+    # WHERE they work (design rev. 27 item 1). One person, one job,
+    # one address: staffing two shops off one roster is the Partner
+    # branch's binding constraint, so the assignment is persisted
+    # rather than re-derived. REQUIRED, with no home default — a
+    # roster entry that names no address is a bug, and rev. 27 item 7
+    # forbids the fallback that would hide it (the one place the
+    # founding address may be inferred is the one-address save
+    # migration).
+    shop_key: str
     hired: bool = False
     aware: bool = False          # read in on the real business
     morale: int = 6              # 0-10
@@ -34,12 +43,6 @@ class Employee:
     routes_survived: int = 0
     familiarity: dict = field(default_factory=dict)   # district -> routes driven there
     resignation_pending: bool = False    # confronted you; one chance to fix it
-    # WHERE they work (design rev. 27 item 1). One person, one job,
-    # one address: staffing two shops off one roster is the Partner
-    # branch's binding constraint, so the assignment is persisted
-    # rather than re-derived. Defaults to the founding address, which
-    # is the only one any existing payload could mean.
-    shop_key: str = HOME_SHOP_KEY
 
     @property
     def available(self) -> bool:
@@ -503,10 +506,15 @@ ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
 class Wagon:
     """A vehicle, owned by one address. Capacity is NOT a field: it is
     fixed by the model (`data.VEHICLE_CARGO`), exactly as
-    RouteManifest already states — no payload chooses its own wagon."""
+    RouteManifest already states — no payload chooses its own wagon.
 
-    key: str = HOME_WAGON_KEY
-    shop_key: str = HOME_SHOP_KEY
+    Both identities are REQUIRED (rev. 27 item 7): a wagon that names
+    neither itself nor where it is kept is not a lean record, it is a
+    vehicle nobody can find. The founding wagon is inferred in exactly
+    one place — the one-address save migration."""
+
+    key: str
+    shop_key: str
 
 
 @dataclass(frozen=True)
@@ -1419,10 +1427,12 @@ class RouteExecutionRecord:
     # WHICH address the wagon rolled out of (design rev. 22 item 1).
     # Chronology is keyed on (day, origin), so without it a second
     # address's route is indistinguishable from a duplicate of the
-    # first's. Additive with the founding address as its default: a
-    # record written before origins existed came from the only
-    # address that existed.
-    origin_shop: str = HOME_SHOP_KEY
+    # first's. REQUIRED (rev. 27 item 7): a record that names no
+    # origin would silently book itself against the founding address
+    # and collide with a route that really ran there. Pre-origin
+    # payloads are migrated at the one-address save boundary, which is
+    # the only place the founding address may be assumed.
+    origin_shop: str
 
     def __post_init__(self) -> None:
         if type(self.day) is not int or self.day < 1:
@@ -1774,7 +1784,13 @@ def set_relation(state: "State", rival_key: str, value: float) -> None:
 class Shop:
     # THE address's stable identity (rev. 27 item 1) — never its index
     # in state.shops, which changes the moment a second address opens.
-    key: str = HOME_SHOP_KEY
+    # REQUIRED (rev. 27 item 7): an address that does not say which
+    # one it is cannot be looked up, targeted or staffed, and quietly
+    # becoming the home shop is precisely the silent default that put
+    # every stolen crate in DiNapoli's. The founding address is named
+    # once, where the world is built; a keyless payload is inferred
+    # once, at the one-address save migration.
+    key: str
     quality: str = "standard"        # purchasing policy: cheap / standard / gourmet
     price: str = "standard"          # cheap / standard / gourmet  (menu pricing)
     ingredients: int = 40            # one unit = one order
@@ -1812,8 +1828,14 @@ class State:
     clean: int = data.START_CLEAN
     dirty: int = data.START_DIRTY
     debt: int = data.START_DEBT
-    shops: list = field(default_factory=lambda: [Shop()])  # keyed, not indexed
-    wagons: list = field(default_factory=lambda: [Wagon()])
+    # The founding address and its wagon, NAMED — not inferred. A
+    # bare State() is still the one-shop world every test and study
+    # starts from; what it may no longer do is build an address whose
+    # identity nobody stated.
+    shops: list = field(          # keyed, not indexed
+        default_factory=lambda: [Shop(key=HOME_SHOP_KEY)])
+    wagons: list = field(default_factory=lambda: [
+        Wagon(key=HOME_WAGON_KEY, shop_key=HOME_SHOP_KEY)])
     warehouse: dict | None = None                        # good -> units, None = not rented
     warehouse_cash: int = 0                              # dirty cash stashed off-site
     employees: list = field(default_factory=list)
@@ -2007,15 +2029,20 @@ class State:
 
 def new_state() -> State:
     s = State()
-    s.shops = [Shop(district=data.HOME_DISTRICT)]
+    # The founding address, its stash and its roster all name the one
+    # address they belong to at the moment the world is built. Nothing
+    # here reads a one-shop alias to get there.
+    s.shops = [Shop(key=HOME_SHOP_KEY, district=data.HOME_DISTRICT,
+                    stash=dict(data.START_STASH))]
+    s.wagons = [Wagon(key=HOME_WAGON_KEY, shop_key=HOME_SHOP_KEY)]
     s.employees = [
-        Employee(key=f"e{i}", **spec) for i, spec in enumerate(data.EMPLOYEE_POOL)
+        Employee(key=f"e{i}", shop_key=HOME_SHOP_KEY, **spec)
+        for i, spec in enumerate(data.EMPLOYEE_POOL)
     ]
     # You start with Rosa (driver) and Tony (cook) already on payroll.
     for e in s.employees:
         if e.name.startswith(("Rosa", "Tony")):
             e.hired = True
-    s.shop_stash = dict(data.START_STASH)
     s.districts = {k: District(key=k) for k in data.DISTRICTS}
     s.districts[data.HOME_DISTRICT].known_price_age = 0
     s.rivals = {k: Rival(key=k, strength=v["strength"]) for k, v in data.RIVALS.items()}

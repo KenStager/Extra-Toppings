@@ -6,12 +6,14 @@ are coming for, wagons are answered per address, and consequences land
 where they were aimed. Behavior-neutral while one shop exists.
 """
 
+import random
 import unittest
 
 from extra_toppings import models, phases, save
 from extra_toppings.models import (HOME_SHOP_KEY, HOME_WAGON_KEY,
                                    RaidWarning, RouteExecutionRecord,
                                    Shop, Wagon, new_state)
+from extra_toppings.ui import ScriptedConsole
 
 
 def two_addresses():
@@ -179,12 +181,264 @@ class TestRouteOrigin(unittest.TestCase):
         with self.assertRaises(ValueError):
             save.state_from_dict(save.state_to_dict(state))
 
-    def test_a_record_written_before_origins_reads_as_the_founding_one(self):
-        rec = RouteExecutionRecord(
-            day=2, district="university", heat_band="cool",
-            capacity_mult=1.0, units_sold=0, corner_damage_h=0,
-            contested=False)
-        self.assertEqual(rec.origin_shop, HOME_SHOP_KEY)
+    def test_a_record_that_names_no_origin_cannot_be_built_at_all(self):
+        # The founding-address assumption used to live in the record's
+        # own default, where every caller inherited it. It now lives at
+        # the save migration and nowhere else.
+        with self.assertRaises(TypeError):
+            RouteExecutionRecord(                  # type: ignore[call-arg]
+                day=2, district="university", heat_band="cool",
+                capacity_mult=1.0, units_sold=0, corner_damage_h=0,
+                contested=False)
+
+    def test_a_pre_origin_record_migrates_at_the_one_address_boundary(self):
+        state = new_state()
+        state.day = 5
+        state.route_log = [self._rec(2, HOME_SHOP_KEY)]
+        payload = save.state_to_dict(state)
+        self.assertEqual(save.state_from_dict(payload).route_log[0]
+                         .origin_shop, HOME_SHOP_KEY)      # baseline
+        del payload["route_log"][0]["origin_shop"]
+        back = save.state_from_dict(payload)
+        self.assertEqual(back.route_log[0].origin_shop, HOME_SHOP_KEY)
+
+    def test_a_pre_origin_record_is_refused_in_a_multi_address_save(self):
+        state, _home, _second = two_addresses()
+        state.day = 5
+        state.route_log = [self._rec(2, HOME_SHOP_KEY)]
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        del payload["route_log"][0]["origin_shop"]
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("cannot be inferred", str(caught.exception))
+
+
+class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
+    """The bug this pins: service resolved ONE address at its boundary
+    and spent that address's stash and pantry, whatever origin the plan
+    named. A route planned out of the second shop emptied the first
+    shop's shelves, and a plan naming an address that does not exist
+    committed successfully."""
+
+    def _plan(self, driver, origin, **over):
+        plan = {"district": "old_harbor", "driver": driver,
+                "ride_along": False, "cargo": {"mushrooms": 2},
+                "legit": 3, "origin_shop": origin}
+        plan.update(over)
+        return plan
+
+    def _world(self):
+        state, home, second = two_addresses()
+        state.day = 6
+        driver = next(e for e in state.employees
+                      if e.name.startswith("Rosa"))
+        driver.hired = True
+        for s in (home, second):
+            s.stash = {"mushrooms": 4}
+            s.ingredients = 40
+            s.delivery_pool = 10
+        return state, home, second, driver
+
+    def test_it_loads_out_of_the_address_the_plan_named(self):
+        state, home, second, driver = self._world()
+        self.assertTrue(phases._commit_route(
+            state, self._plan(driver, "shop2"), ScriptedConsole()))
+        self.assertEqual(second.stash["mushrooms"], 2)
+        self.assertEqual(second.ingredients, 37)
+        self.assertEqual(home.stash["mushrooms"], 4)
+        self.assertEqual(home.ingredients, 40)
+
+    def test_a_ghost_origin_refuses_before_anything_is_spent(self):
+        state, home, second, driver = self._world()
+        with self.assertRaises(KeyError):
+            phases._commit_route(state, self._plan(driver, "shop9"),
+                                 ScriptedConsole())
+        for s in (home, second):
+            self.assertEqual(s.stash["mushrooms"], 4)
+            self.assertEqual(s.ingredients, 40)
+
+    def test_an_unnamed_origin_refuses_before_anything_is_spent(self):
+        state, home, second, driver = self._world()
+        plan = self._plan(driver, "shop2")
+        del plan["origin_shop"]
+        with self.assertRaises(KeyError):
+            phases._commit_route(state, plan, ScriptedConsole())
+        for s in (home, second):
+            self.assertEqual(s.stash["mushrooms"], 4)
+            self.assertEqual(s.ingredients, 40)
+
+
+class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
+    """Commitment and resolution are two chances to spend the wrong
+    address's night. Both read the plan, and both refuse the same two
+    ways."""
+
+    def _plan(self, driver, origin):
+        plan = {"district": "old_harbor", "driver": driver,
+                "ride_along": False, "cargo": {}, "legit": 2,
+                "origin_shop": origin}
+        if origin is None:
+            del plan["origin_shop"]
+        return plan
+
+    def _world(self):
+        state, home, second = two_addresses()
+        state.day = 6
+        driver = next(e for e in state.employees
+                      if e.name.startswith("Rosa"))
+        driver.hired = True
+        for s in (home, second):
+            s.legit_revenue_today = 0
+        return state, home, second, driver
+
+    def test_a_ghost_origin_refuses_at_resolution(self):
+        from extra_toppings import routes
+        state, home, second, driver = self._world()
+        with self.assertRaises(KeyError):
+            routes.resolve_route(state, self._plan(driver, "shop9"),
+                                 ScriptedConsole(), random.Random(3))
+        for s in (home, second):
+            self.assertEqual(s.legit_revenue_today, 0)
+
+    def test_an_unnamed_origin_refuses_at_resolution(self):
+        from extra_toppings import routes
+        state, home, second, driver = self._world()
+        with self.assertRaises(KeyError):
+            routes.resolve_route(state, self._plan(driver, None),
+                                 ScriptedConsole(), random.Random(3))
+        for s in (home, second):
+            self.assertEqual(s.legit_revenue_today, 0)
+
+    def test_the_named_address_books_the_cover_revenue(self):
+        from extra_toppings import routes
+        state, home, second, driver = self._world()
+        routes.resolve_route(state, self._plan(driver, "shop2"),
+                             ScriptedConsole(), random.Random(3))
+        self.assertGreater(second.legit_revenue_today, 0)
+        self.assertEqual(home.legit_revenue_today, 0)
+
+
+class TestNothingOutsideTheSaveInfersAnAddress(unittest.TestCase):
+    """rev. 27 item 7, enforced at the type: the founding address is
+    named where the world is built and inferred where a one-address
+    payload is migrated. Every other construction must say which
+    address it means."""
+
+    # The founding constants may be NAMED in exactly three scopes:
+    # the State defaults and new_state, which build the world, and
+    # state_from_dict, which migrates a one-address payload. Anywhere
+    # else they are the old silent default wearing a constant's name —
+    # which is how a defect survives a refactor that claims to end it.
+    SANCTIONED = {"models.py:State", "models.py:new_state",
+                  "save.py:state_from_dict"}
+
+    def test_the_founding_keys_are_named_only_where_they_may_be(self):
+        import ast
+        import pathlib
+        root = pathlib.Path(models.__file__).parent
+        seen = set()
+        for path in sorted(root.glob("*.py")):
+            tree = ast.parse(path.read_text(), filename=str(path))
+            scopes: dict = {}
+
+            def walk(node, scope):
+                for child in ast.iter_child_nodes(node):
+                    here = child.name if isinstance(
+                        child, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                ast.ClassDef)) else scope
+                    scopes[id(child)] = here
+                    walk(child, here)
+
+            walk(tree, "<module>")
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name) \
+                        and node.id in ("HOME_SHOP_KEY", "HOME_WAGON_KEY") \
+                        and scopes.get(id(node)) != "<module>":
+                    seen.add(f"{path.name}:{scopes.get(id(node))}")
+                elif isinstance(node, ast.Attribute) \
+                        and node.attr in ("HOME_SHOP_KEY", "HOME_WAGON_KEY"):
+                    seen.add(f"{path.name}:{scopes.get(id(node))}")
+        self.assertEqual(seen, self.SANCTIONED)
+
+    def test_a_shop_must_say_which_address_it_is(self):
+        with self.assertRaises(TypeError):
+            Shop()                            # type: ignore[call-arg]
+
+    def test_a_wagon_must_say_which_one_it_is_and_where_it_is_kept(self):
+        with self.assertRaises(TypeError):
+            Wagon()                           # type: ignore[call-arg]
+        with self.assertRaises(TypeError):
+            Wagon(key="wagon2")               # type: ignore[call-arg]
+
+    def test_an_employee_must_say_where_they_work(self):
+        with self.assertRaises(TypeError):
+            models.Employee(                  # type: ignore[call-arg]
+                key="e0", name="Nobody", role="cook", food=1, driving=1,
+                nerve=1, loyalty=1, trait="", wage=10, bio="")
+
+    def test_a_route_plan_must_say_where_the_wagon_loads(self):
+        from extra_toppings import routes
+        with self.assertRaises(TypeError):
+            routes.RoutePlan(                 # type: ignore[call-arg]
+                district="old_harbor", driver=None, ride_along=False,
+                manifest=routes.RouteManifest())
+
+    def test_a_multi_address_save_missing_an_employee_address_refuses(self):
+        state, _home, _second = two_addresses()
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        del payload["employees"][0]["shop_key"]
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("cannot be inferred", str(caught.exception))
+
+    def test_a_multi_address_save_missing_a_wagon_address_refuses(self):
+        state, _home, _second = two_addresses()
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        del payload["wagons"][0]["shop_key"]
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("cannot be inferred", str(caught.exception))
+
+    def test_a_multi_address_save_missing_a_shop_key_refuses(self):
+        state, _home, _second = two_addresses()
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        del payload["shops"][1]["key"]
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("cannot be inferred", str(caught.exception))
+
+    def test_a_multi_address_save_with_an_untargeted_warning_refuses(self):
+        state, _home, _second = two_addresses()
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        payload["rivals"]["vinnie"].pop("warning", None)
+        payload["rivals"]["vinnie"]["raid_warning"] = 2
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("cannot be inferred", str(caught.exception))
+
+    def test_a_one_address_save_keyed_otherwise_infers_ITS_key(self):
+        # The migration means "the only address there was", not "the
+        # home key by reflex" — inferring shop1 into a lone shop2
+        # would mint a reference to an address that does not exist.
+        state = new_state()
+        state.shops[0].key = "shop2"
+        state.wagons[0].shop_key = "shop2"
+        for e in state.employees:
+            e.shop_key = "shop2"
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        for e in payload["employees"]:
+            e.pop("shop_key", None)
+        del payload["wagons"]
+        back = save.state_from_dict(payload)
+        self.assertTrue(all(e.shop_key == "shop2"
+                            for e in back.employees))
+        self.assertEqual([w.shop_key for w in back.wagons], ["shop2"])
 
 
 class TestAddressedHaul(unittest.TestCase):
@@ -248,34 +502,98 @@ class TestTheWagonFleet(unittest.TestCase):
         self.assertEqual(view.note, "already loaded and gone")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestTheBoundaryIsClosed(unittest.TestCase):
     """rev. 27 item 6: by the end of P4a.3 no production module reads
     the one-shop aliases, and no identity-based answer depends on the
     order shops or wagons happen to sit in a list."""
 
-    ALIASES = ("state.shop_stash", "state.demand_today",
-               "state.delivery_pool", "state.legit_revenue_today")
+    # The five one-shop aliases, by the name they are READ under —
+    # not by the receiver they happen to be read from. `state.shop`
+    # and `s.shop` are the same defect; a guard that only knows the
+    # first spelling certifies nothing.
+    ALIASES = ("shop", "shop_stash", "demand_today", "delivery_pool",
+               "legit_revenue_today")
 
-    def test_no_production_module_consumes_an_alias(self):
+    def test_the_aliases_are_still_the_five_this_guard_knows(self):
+        # If an alias is renamed or retired, this guard must be told —
+        # silently guarding names that no longer exist would pass
+        # forever while the real ones went unwatched.
+        for name in self.ALIASES:
+            self.assertIsInstance(vars(models.State).get(name), property,
+                                  f"{name} is no longer a State alias")
+
+    def test_no_production_module_names_an_alias_on_any_receiver(self):
+        """Static half: `.shop` and `.shop_stash` exist ONLY as State
+        aliases — no other type in the engine has either — so any
+        attribute of that name, on any receiver whatsoever, is an
+        alias read. The other three collide with real Shop fields and
+        cannot be judged from the text; the runtime half below judges
+        them exactly."""
+        import ast
         import pathlib
-        import re
         root = pathlib.Path(models.__file__).parent
         offenders = []
         for path in sorted(root.glob("*.py")):
-            text = path.read_text()
-            for alias in self.ALIASES:
-                if alias in text:
-                    offenders.append(f"{path.name}: {alias}")
-            # `state.shop` but not `state.shop_stash` / `state.shops`
-            for m in re.finditer(r"state\.shop\b(?!_|s)", text):
-                line = text[:m.start()].count("\n") + 1
-                offenders.append(f"{path.name}:{line}: state.shop")
+            tree = ast.parse(path.read_text(), filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Attribute) \
+                        and node.attr in ("shop", "shop_stash"):
+                    offenders.append(f"{path.name}:{node.lineno}: "
+                                     f".{node.attr}")
         self.assertEqual(offenders, [],
                          "P4a.3 leaves no production alias reads")
+
+    def test_no_production_module_touches_an_alias_while_playing(self):
+        """Runtime half: the aliases themselves report who read them.
+        This is blind to spelling, to the receiver's name and to
+        getattr indirection — it records the file and line of whatever
+        actually reached the property during a full game, a save
+        round-trip and world creation."""
+        import pathlib
+        import random
+        import sys
+        from extra_toppings import game
+        from extra_toppings.bot import BOTS
+
+        package = pathlib.Path(models.__file__).resolve().parent
+        offenders: set = set()
+
+        def instrumented(name, prop):
+            def record():
+                fr = sys._getframe(2)   # record → fget/fset → the reader
+                path = pathlib.Path(fr.f_code.co_filename).resolve()
+                if path.parent == package:
+                    offenders.add(f"{path.name}:{fr.f_lineno}: .{name}")
+
+            def fget(self):
+                record()
+                return prop.fget(self)
+
+            if prop.fset is None:
+                return property(fget)
+
+            def fset(self, value):
+                record()
+                prop.fset(self, value)
+
+            return property(fget, fset)
+
+        original = {n: vars(models.State)[n] for n in self.ALIASES}
+        for name, prop in original.items():
+            setattr(models.State, name, instrumented(name, prop))
+        try:
+            new_state()
+            for seed in (0, 1, 2):
+                con = BOTS["greedy"](random.Random(seed), verbose=False)
+                end = game.run(seed, con)
+                save.state_from_dict(save.state_to_dict(end))
+        finally:
+            for name, prop in original.items():
+                setattr(models.State, name, prop)
+        self.assertEqual(sorted(offenders), [],
+                         "no production module reads a one-shop alias "
+                         "during a played game")
 
     def test_reordering_shops_changes_no_identity_answer(self):
         state, _home, _second = two_addresses()
@@ -312,3 +630,7 @@ class TestTheBoundaryIsClosed(unittest.TestCase):
         self.assertEqual([w.key for w in back.wagons], [HOME_WAGON_KEY])
         self.assertTrue(all(e.shop_key == HOME_SHOP_KEY
                             for e in back.employees))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -203,7 +203,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
                 "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
-        phases._commit_route(state, state.shop, plan, ScriptedConsole())
+        phases._commit_route(state, plan, ScriptedConsole())
         state.demand_today = 100
         report = shop.simulate_shift(state, state.shop, plan["legit"], random.Random(1))
         self.assertLessEqual(report["orders"] + plan["legit"],
@@ -216,7 +216,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
                 "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
-        phases._commit_route(state, state.shop, plan, ScriptedConsole())
+        phases._commit_route(state, plan, ScriptedConsole())
         self.assertEqual(plan["legit"], 3)
 
 
@@ -254,7 +254,7 @@ class TestTransactionalPlanning(unittest.TestCase):
     def test_commit_takes_exactly_the_plan_once(self):
         state, rng = self._fresh_planner()
         plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng)
-        phases._commit_route(state, state.shop, plan, ScriptedConsole())
+        phases._commit_route(state, plan, ScriptedConsole())
         self.assertEqual(state.shop_stash["oregano"], 4)
         self.assertEqual(state.shop.ingredients, 36)
 
@@ -324,7 +324,7 @@ class TestDriverRevalidation(unittest.TestCase):
         plan = self._plan(state, rng)
         plan["driver"].hired = False               # fired after planning
         before = (dict(state.shop_stash), state.shop.ingredients)
-        ok = phases._commit_route(state, state.shop, plan, ScriptedConsole())
+        ok = phases._commit_route(state, plan, ScriptedConsole())
         self.assertFalse(ok)
         self.assertEqual((dict(state.shop_stash), state.shop.ingredients), before)
 

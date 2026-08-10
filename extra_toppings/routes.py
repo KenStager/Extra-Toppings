@@ -83,10 +83,13 @@ class RoutePlan:
     driver: Employee
     ride_along: bool
     manifest: RouteManifest
-    disposal: bool = False
     # The address this wagon rolls out of (design rev. 22 item 1).
-    # Named at planning, carried into the execution record.
-    origin_shop: str = models.HOME_SHOP_KEY
+    # Named at planning, carried into the execution record — and
+    # REQUIRED, because a plan that says nothing about where the
+    # wagon loads would load it at the founding address by default
+    # (rev. 27 item 7).
+    origin_shop: str
+    disposal: bool = False
 
     @property
     def cargo(self) -> dict:

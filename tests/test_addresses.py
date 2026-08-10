@@ -49,7 +49,7 @@ class TestStableIdentities(unittest.TestCase):
             state.shop_by_key(HOME_SHOP_KEY)
         self.assertIn("ambiguous", str(caught.exception))
         state2 = new_state()
-        state2.wagons.append(Wagon(key=HOME_WAGON_KEY))
+        state2.wagons.append(Wagon(key=HOME_WAGON_KEY, shop_key=HOME_SHOP_KEY))
         with self.assertRaises(KeyError) as caught:
             state2.wagon_by_key(HOME_WAGON_KEY)
         self.assertIn("ambiguous", str(caught.exception))
@@ -135,7 +135,7 @@ class TestAddressValidation(unittest.TestCase):
 
     def test_duplicate_wagon_keys_are_refused(self):
         state = self._valid()
-        state.wagons.append(Wagon(key=HOME_WAGON_KEY))
+        state.wagons.append(Wagon(key=HOME_WAGON_KEY, shop_key=HOME_SHOP_KEY))
         with self.assertRaises(ValueError) as caught:
             validate_addresses(state)
         self.assertIn("duplicate wagon key", str(caught.exception))

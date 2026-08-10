@@ -9,6 +9,7 @@ import argparse
 import random
 from collections import Counter
 
+from . import models
 from .bot import BOTS, StrategyBot
 from .game import run
 from .ui import BotConsole
@@ -56,7 +57,7 @@ def run_bench(seeds: int, verbose: bool = True) -> dict:
                 "case": s.case,
                 "clean": s.clean,
                 "dirty": s.dirty + s.warehouse_cash,
-                "rep": s.shop.reputation,
+                "rep": models.operating_shop(s).reputation,
                 "laundered": s.total_laundered,
                 "raids": s.raids_led,
                 "net": s.net_worth(),

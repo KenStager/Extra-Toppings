@@ -121,7 +121,7 @@ class TestRevision18Inventory(unittest.TestCase):
                 "cargo": {"oregano": 12}, "origin_shop": models.HOME_SHOP_KEY}          # 25 space in 24
         con = ScriptedConsole([])
         with self.assertRaises(ValueError):
-            phases._commit_route(state, state.shop, plan, con)
+            phases._commit_route(state, plan, con)
         self.assertEqual(state.shop_stash, {"oregano": 12})
         self.assertEqual(state.shop.ingredients, 30)
 
@@ -225,7 +225,8 @@ class TestRevision19Storage(unittest.TestCase):
         from extra_toppings.models import RouteExecutionRecord
         ok = {"day": 15, "district": "old_harbor", "heat_band": "cool",
               "capacity_mult": 1.0, "units_sold": 5,
-              "corner_damage_h": 0, "contested": False}
+              "corner_damage_h": 0, "contested": False,
+              "origin_shop": models.HOME_SHOP_KEY}
         RouteExecutionRecord(**ok)
         for change in ({"heat_band": "cool", "capacity_mult": 0.5},
                        {"heat_band": "amber", "capacity_mult": 1.0},
