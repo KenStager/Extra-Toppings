@@ -65,3 +65,15 @@ states, signage variants are the recorded next candidates).
   Critical-red reservation, not aesthetics.
 - Oven/counter i170 over i120: donor fidelity and less texture noise
   ("twice the resolution, not twice the visual noise").
+
+## Resolution (2026-08-10): family APPROVED
+
+All four assets approved by the user and moved to
+`.private_art/experiment_03/approved/` (`pizza_slice_32`,
+`box_closed_32`, `box_open_32`, `box_stack_32`) with their generation
+provenance beside them. One revision during approval, and the rule it
+produced: **stamps follow visible geometry** — the box_stack's "D" was
+removed because a lid print cannot appear on stacked box SIDES; lid
+stamps remain on box_closed and box_open where the lid face is
+actually visible. The approved family (canon pizza + these four) is
+the reference exemplar for prop-family workflows.
