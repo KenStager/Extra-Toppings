@@ -286,20 +286,20 @@ class TestLifecycleValidation(unittest.TestCase):
         # every save carries exactly one undated address.
         validate_addresses(new_state())
 
-    def test_no_open_address_is_refused_as_a_derived_invariant(self):
-        # Ruled licensed in review as a DERIVED invariant, not a new
-        # mechanic. With the undated rule in force it is now
-        # defense-in-depth — an all-sites world is refused by the
-        # undated rule first — so this asserts the invariant directly
-        # rather than through a payload that can no longer reach it.
-        state = _with_site(day=6, acceptance=5)
-        home = state.shop_by_key(HOME_SHOP_KEY)
-        home.acceptance_day = 5
-        home.opening_day = 5 + CONSTRUCTION_DAYS
-        self.assertFalse(any(shop_is_open(s, state.day)
-                             for s in state.shops))
-        with self.assertRaises(ValueError):
+    def test_a_validated_world_always_keeps_an_open_address(self):
+        # The open-address guarantee is a CONSEQUENCE of the undated
+        # rule, not a check of its own: an undated shop has no opening
+        # day, so it is open on every day, and exactly one address is
+        # always undated. Asserted as the property it is — over the
+        # states validation actually admits — rather than through a
+        # payload that only ever reached the undated refusal.
+        for state in (new_state(),
+                      _with_site(day=5, acceptance=5),   # site today
+                      _with_site(day=6, acceptance=5),   # mid-build
+                      _with_site(day=7, acceptance=5)):  # opened
             validate_addresses(state)
+            self.assertTrue(any(shop_is_open(s, state.day)
+                                for s in state.shops))
 
 
 class TestLifecycleSaveLoad(unittest.TestCase):

@@ -1224,19 +1224,20 @@ def validate_addresses(state: "State") -> None:
     # it is a shop that silently claims to have been open since the
     # beginning — the same silent default that put every stolen crate
     # in DiNapoli's, wearing a lifecycle instead of an origin.
+    #
+    # THIS INVARIANT ALSO PROVES THE WORLD ALWAYS HAS AN OPEN ADDRESS,
+    # which morning, service and night all require a subject for: an
+    # undated shop has no opening day, so `shop_is_open` returns True
+    # on every day, and exactly one address is always undated. A
+    # separate "at least one shop is open" check was written here and
+    # removed — once this check passes it could never fire, and a
+    # guard that cannot fire is worse than none, because it reads as
+    # live. It is not restated as a second check ordered before this
+    # one either: that would be two authorities for one fact.
     if len(undated) != 1:
         raise ValueError(
             f"exactly one address is undated (the founding shop); "
             f"{len(undated)} are: {sorted(undated)}")
-    # DERIVED invariant, not a new mechanic (ruled licensed in
-    # review): the founding address records no dates and is therefore
-    # open on every day, construction never closes an open address,
-    # and no transition un-opens one — so a payload in which every
-    # shop is a building site describes a world no play can reach,
-    # and morning, service and night would have no subject.
-    if not any(shop_is_open(s, state.day) for s in state.shops):
-        raise ValueError("no address is open — a state must keep at "
-                         "least one open shop")
     wagon_keys: set = set()
     housed: set = set()
     for i, w in enumerate(state.wagons):
