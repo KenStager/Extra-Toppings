@@ -192,11 +192,16 @@ def state_from_dict(d: dict) -> State:
         if d.get("sitdown_snapshot") is not None else None,
         # Typed, validated at construction (rev. 18 items 3-4):
         # malformed or inconsistent log entries are refused, never
-        # round-tripped.
-        raid_log=[RaidAttemptRecord(**e) for e in d.get("raid_log") or []],
+        # round-tripped. The same presence rule as the address
+        # references: an ABSENT log is history from before the ledgers
+        # existed and migrates to empty; a PRESENT one must be a list,
+        # because rewriting a malformed log into "nothing ever
+        # happened" is the loudest silent repair in the file.
+        raid_log=[RaidAttemptRecord(**e)
+                  for e in _log(d, "raid_log")],
         route_log=[RouteExecutionRecord(
             **_addressed(e, "origin_shop", "a route record"))
-            for e in d.get("route_log") or []],
+            for e in _log(d, "route_log")],
     )
     # A payload naming a branch must carry a coherent BranchState — a
     # mixed, impossible, or terminally-contradictory combination is
@@ -212,25 +217,76 @@ def state_from_dict(d: dict) -> State:
     return state
 
 
+def _log(d: dict, name: str) -> list:
+    """One execution ledger, read by the presence rule. Absent means a
+    payload written before the ledgers existed — empty history is the
+    only thing it could have meant. Present means the save claims to
+    carry one, so it must actually be a list; None, False, "" and {}
+    are malformed, and quietly reading them as "no history" would
+    erase a campaign's whole record without a word."""
+    if name not in d:
+        return []
+    value = d[name]
+    if not isinstance(value, list):
+        raise ValueError(f"{name}: a ledger is a list of records, got "
+                         f"{value!r}")
+    return value
+
+
 def _rival_from(payload: dict, sole_key: str) -> Rival:
     """A telegraphed raid is a typed value carrying its target address
     (design rev. 23 item 2). A payload written before warnings named
     an address carries the bare countdown, and with one address there
     was only one target it could ever have meant — `sole_key` is empty
     when the payload carries several, and an untargeted countdown is
-    then refused rather than aimed at a guess."""
+    then refused rather than aimed at a guess.
+
+    The two spellings are an EXACT SCHEMA UNION: canonical `warning`
+    or legacy `raid_warning`, exactly one of them, never both and
+    never neither. A payload carrying both is two sources of truth
+    about the same raid with no rule for which wins; a payload
+    carrying neither is a rival record shaped like no version this
+    game ever wrote. Both are refused. Nothing here coerces: a
+    countdown is an `int` or it is not a countdown, and erasing or
+    inventing a telegraphed raid across a reload is a story failure,
+    not a rounding error."""
     v = dict(payload)
+    has_typed = "warning" in v
+    has_legacy = "raid_warning" in v
     warning = v.pop("warning", None)
-    nights = v.pop("raid_warning", None)          # pre-typed payloads
-    if warning is not None:
-        v["warning"] = models.RaidWarning(**warning)
-    elif nights:
-        if not sole_key:
-            raise ValueError(
-                "a telegraphed raid names no target address and the "
-                "payload carries several — which shop the crew was "
-                "coming for cannot be inferred")
-        v["warning"] = models.RaidWarning(int(nights), sole_key)
+    nights = v.pop("raid_warning", None)
+    if has_typed and has_legacy:
+        raise ValueError(
+            "a rival carries both a typed warning and a legacy "
+            "countdown — two answers about the same raid, with no "
+            "rule for which one is true")
+    if not has_typed and not has_legacy:
+        raise ValueError(
+            "a rival carries no warning field at all — every version "
+            "wrote one of the two, so this payload is malformed")
+    if has_typed:
+        if warning is None:
+            v["warning"] = None                   # no raid on the board
+        elif isinstance(warning, dict):
+            v["warning"] = models.RaidWarning(**warning)
+        else:
+            raise ValueError(f"a typed warning must be a record or "
+                             f"nothing, got {warning!r}")
+    else:
+        # `True` is not an int here — `type(...) is int` — because a
+        # boolean countdown is a malformed save, not a one-night raid.
+        if type(nights) is not int or nights < 0:
+            raise ValueError(f"a legacy countdown must be a whole "
+                             f"number of nights, got {nights!r}")
+        if nights == 0:
+            v["warning"] = None                   # 0 always meant none
+        else:
+            if not sole_key:
+                raise ValueError(
+                    "a telegraphed raid names no target address and "
+                    "the payload carries several — which shop the "
+                    "crew was coming for cannot be inferred")
+            v["warning"] = models.RaidWarning(nights, sole_key)
     return Rival(**v)
 
 

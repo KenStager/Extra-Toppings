@@ -382,6 +382,118 @@ class TestTheMigrationReadsPresenceNotTruthiness(unittest.TestCase):
         self.assertNotIn("cannot be inferred", str(caught.exception))
 
 
+class TestTheWarningSchemaIsAnExactUnion(unittest.TestCase):
+    """A telegraphed raid is the loudest thing on the board: the
+    player has been told a crew is coming and has spent nights
+    preparing. Erasing one across a reload, or inventing one that was
+    never telegraphed, is a story failure — so the two spellings are
+    an exact union, and neither coerces."""
+
+    def _payload(self, **rival):
+        state = new_state()
+        payload = save.state_to_dict(state)
+        v = payload["rivals"]["vinnie"]
+        v.pop("warning", None)
+        v.update(rival)
+        return payload
+
+    def test_the_canonical_spelling_round_trips(self):
+        state = new_state()
+        state.rivals["vinnie"].warning = RaidWarning(2, HOME_SHOP_KEY)
+        back = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(back.rivals["vinnie"].warning,
+                         RaidWarning(2, HOME_SHOP_KEY))
+
+    def test_a_legacy_countdown_migrates(self):
+        back = save.state_from_dict(self._payload(raid_warning=2))
+        self.assertEqual(back.rivals["vinnie"].warning,
+                         RaidWarning(2, HOME_SHOP_KEY))
+
+    def test_a_legacy_zero_always_meant_no_raid(self):
+        back = save.state_from_dict(self._payload(raid_warning=0))
+        self.assertIsNone(back.rivals["vinnie"].warning)
+
+    def test_a_malformed_countdown_is_refused_never_read_as_none(self):
+        # Every one of these used to load as "no raid coming".
+        for bad in ("", None, False, [], {}, -1):
+            with self.subTest(repr(bad)):
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(self._payload(raid_warning=bad))
+
+    def test_a_countdown_is_never_coerced_into_one(self):
+        # "2" used to become two nights, 1.5 and True one night. A
+        # save that says something impossible is malformed, not a
+        # rounding problem.
+        for bad in ("2", 1.5, True, 2.0):
+            with self.subTest(repr(bad)):
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(self._payload(raid_warning=bad))
+
+    def test_a_malformed_typed_warning_is_refused(self):
+        for bad in ("2", 2, [], False):
+            with self.subTest(repr(bad)):
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(self._payload(warning=bad))
+
+    def test_carrying_both_spellings_is_refused(self):
+        payload = self._payload(warning=None, raid_warning=2)
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("both", str(caught.exception))
+
+    def test_carrying_neither_spelling_is_refused(self):
+        payload = self._payload()          # both keys removed
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("no warning field", str(caught.exception))
+
+
+class TestALedgerIsAbsentOrItIsAList(unittest.TestCase):
+    """`d.get(name) or []` read a malformed ledger as "nothing ever
+    happened" — the quietest way to lose a whole campaign's record."""
+
+    def _payload(self):
+        state = new_state()
+        state.day = 5
+        state.route_log = [RouteExecutionRecord(
+            day=2, district="university", heat_band="cool",
+            capacity_mult=1.0, units_sold=0, corner_damage_h=0,
+            contested=False, origin_shop=HOME_SHOP_KEY)]
+        state.raid_log = [models.RaidAttemptRecord(
+            day=3, rival="vinnie", outcome="scrubbed", crew=1,
+            damage_h=0)]
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        return payload
+
+    def test_an_absent_ledger_migrates_to_empty(self):
+        for name in ("raid_log", "route_log"):
+            with self.subTest(name):
+                payload = self._payload()
+                del payload[name]
+                back = save.state_from_dict(payload)
+                self.assertEqual(getattr(back, name), [])
+
+    def test_a_present_empty_ledger_is_still_empty(self):
+        for name in ("raid_log", "route_log"):
+            with self.subTest(name):
+                payload = self._payload()
+                payload[name] = []
+                self.assertEqual(
+                    getattr(save.state_from_dict(payload), name), [])
+
+    def test_a_present_non_list_ledger_is_refused(self):
+        for name in ("raid_log", "route_log"):
+            for bad in (None, False, "", {}, 0):
+                with self.subTest(f"{name}={bad!r}"):
+                    payload = self._payload()
+                    payload[name] = bad
+                    with self.assertRaises(ValueError) as caught:
+                        save.state_from_dict(payload)
+                    self.assertIn("ledger is a list",
+                                  str(caught.exception))
+
+
 class TestNothingOutsideTheSaveInfersAnAddress(unittest.TestCase):
     """rev. 27 item 7, enforced at the type: the founding address is
     named where the world is built and inferred where a one-address
@@ -685,7 +797,11 @@ class TestTheBoundaryIsClosed(unittest.TestCase):
         del payload["wagons"]
         del payload["shops"][0]["key"]
         for r in payload["rivals"].values():
+            # A pre-typed payload did not omit the warning — it stored
+            # the bare countdown, 0 for "none". Deleting the field
+            # instead modelled a save no version ever wrote.
             r.pop("warning", None)
+            r["raid_warning"] = 0
         for e in payload["employees"]:
             e.pop("shop_key", None)
         back = save.state_from_dict(payload)
