@@ -10,7 +10,7 @@ one-shop world can reach must give the answer it always gave.
 import random
 import unittest
 
-from extra_toppings import data, models, phases, shop
+from extra_toppings import data, models, phases, save, shop
 from extra_toppings.models import (HOME_SHOP_KEY, Shop, Wagon, new_state)
 from extra_toppings.ui import ScriptedConsole
 
@@ -97,6 +97,35 @@ class TestStorageNamesItsAddress(unittest.TestCase):
         self.assertEqual((home.stash, second.stash), before,
                          "a refused move leaves every stash untouched")
 
+    def test_transfer_refusals_never_expose_a_key(self):
+        # rev. 27 item 3: keys are internal. A refusal names the
+        # warehouse or the shop by district, never shop1/shop2.
+        state, home, second = two_addresses()
+        home.stash = {"oregano": 1}
+        state.warehouse = {}
+        for args in ((HOME_SHOP_KEY, "shop2", "oregano", 1),
+                     (HOME_SHOP_KEY, models.WAREHOUSE, "oregano", 5)):
+            with self.assertRaises(ValueError) as caught:
+                models.move_goods(state, *args)
+            message = str(caught.exception)
+            for key in (HOME_SHOP_KEY, "shop2"):
+                self.assertNotIn(key, message,
+                                 f"raw key leaked: {message}")
+            self.assertIn("Old Harbor", message)
+
+    def test_a_bogus_endpoint_is_an_unknown_location_not_a_bad_transfer(self):
+        # Both endpoints preflight FIRST, so a non-location fails as
+        # what it is rather than being misclassified.
+        state, home, _second = two_addresses()
+        home.stash = {"oregano": 1}
+        # Both endpoints non-warehouse is the case that used to be
+        # misread: the shop-to-shop rule fired before anything checked
+        # that "atlantis" is not a place.
+        with self.assertRaises(ValueError) as caught:
+            models.move_goods(state, "atlantis", "shop2", "oregano", 1)
+        self.assertIn("unknown storage location", str(caught.exception))
+        self.assertNotIn("no direct transfer", str(caught.exception))
+
     def test_storage_locations_lists_every_address(self):
         state, _home, _second = two_addresses()
         self.assertEqual(models.storage_locations(state),
@@ -177,6 +206,44 @@ class TestStaffAreAssigned(unittest.TestCase):
         cook.shop_key = "shop2"
         self.assertEqual(shop.cooks_skill(state, home), 2)
         self.assertGreater(shop.cooks_skill(state, second), 2)
+
+    def test_an_assignment_to_no_real_address_is_refused(self):
+        # The ghost-shop repro: it used to load fine, and then every
+        # kitchen quietly ran at the no-cook floor.
+        state, _home, _second = two_addresses()
+        models.validate_addresses(state)               # baseline
+        state.employees[0].shop_key = "ghost-shop"
+        with self.assertRaises(ValueError) as caught:
+            models.validate_addresses(state)
+        self.assertIn("unknown address", str(caught.exception))
+
+    def test_even_an_unhired_employee_must_work_somewhere_real(self):
+        state, _home, _second = two_addresses()
+        ghost = next(e for e in state.employees if not e.hired)
+        ghost.shop_key = "ghost-shop"
+        with self.assertRaises(ValueError):
+            models.validate_addresses(state)
+
+    def test_a_ghost_assignment_is_refused_at_load(self):
+        state, _home, _second = two_addresses()
+        pristine = save.state_to_dict(state)
+        save.state_from_dict(pristine)                 # baseline loads
+        doctored = save.state_to_dict(state)
+        doctored["employees"][0]["shop_key"] = "ghost-shop"
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(doctored)
+        self.assertIn("unknown address", str(caught.exception))
+
+    def test_a_second_address_assignment_round_trips(self):
+        state, _home, _second = two_addresses()
+        cook = next(e for e in state.employees if e.role == "cook")
+        cook.hired = True
+        cook.shop_key = "shop2"
+        back = save.state_from_dict(save.state_to_dict(state))
+        restored = next(e for e in back.employees if e.key == cook.key)
+        self.assertEqual(restored.shop_key, "shop2")
+        self.assertGreater(shop.cooks_skill(back, back.shop_by_key("shop2")), 2)
+        self.assertEqual(shop.cooks_skill(back, back.shop_by_key(HOME_SHOP_KEY)), 2)
 
     def test_everyone_starts_at_the_founding_address(self):
         state = new_state()

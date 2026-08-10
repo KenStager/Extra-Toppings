@@ -1010,6 +1010,15 @@ def validate_addresses(state: "State") -> None:
         if s.key not in housed:
             raise ValueError(f"shop {s.key!r} keeps no wagon — an "
                              f"address and its wagon arrive together")
+    # Everyone works somewhere real — hired or not. An assignment to a
+    # shop that does not exist loads without complaint and then simply
+    # never matches, so both kitchens quietly run at the no-cook floor:
+    # a silent capability loss, which is precisely what validation
+    # exists to turn into a refusal.
+    for i, e in enumerate(state.employees):
+        if e.shop_key not in seen:
+            raise ValueError(f"employees[{i}] ({e.key}): assigned to "
+                             f"unknown address {e.shop_key!r}")
 
 
 def validate_cross_state(state: "State") -> None:
@@ -1464,22 +1473,31 @@ def move_goods(state: "State", src: str, dst: str, good: str,
         raise ValueError(f"unknown good {good!r}")
     if units < 0:
         raise ValueError(f"cannot move {units} units")
+    # BOTH endpoints are preflighted before anything else is decided,
+    # so an endpoint that is not a location at all fails as an unknown
+    # location rather than being misread as a prohibited transfer —
+    # and so the labels below exist to name what went wrong. Keys are
+    # internal (rev. 27 item 3): every refusal below speaks in labels.
+    a = storage_preflight(state, src)
+    b = storage_preflight(state, dst)
+    src_label = location_label(state, src)
+    dst_label = location_label(state, dst)
     # No free address-to-address transfer (design rev. 22 item 9):
     # goods move between shops by wagon or they do not move. The
     # storage authority shuttles stock between an address and the
     # warehouse, and refuses to teleport it across the city.
     if src != WAREHOUSE and dst != WAREHOUSE:
         raise ValueError(
-            f"no direct transfer between addresses ({src!r} → "
-            f"{dst!r}) — goods travel by wagon or not at all")
-    a = storage_preflight(state, src)
-    b = storage_preflight(state, dst)
+            f"no direct transfer between addresses ({src_label} → "
+            f"{dst_label}) — goods travel by wagon or not at all")
     if units == 0:
         return
     if a.get(good, 0) < units:
-        raise ValueError(f"only {a.get(good, 0)}x {good} at {src}")
+        raise ValueError(f"only {a.get(good, 0)}x {good} at the "
+                         f"{src_label}")
     if units > units_that_fit(state, dst, good):
-        raise ValueError(f"{units}x {good} does not fit at {dst}")
+        raise ValueError(f"{units}x {good} does not fit at the "
+                         f"{dst_label}")
     a[good] -= units
     b[good] = b.get(good, 0) + units
 
