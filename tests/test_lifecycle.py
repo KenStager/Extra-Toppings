@@ -1301,10 +1301,12 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
 
 
 class TestOneRouteIsARouteAtAll(unittest.TestCase):
-    """The per-route contract, beside the plan it describes. Falsy is
-    not malformed: a pizzas-only run on a quiet night with the owner
-    at home is `cargo={}`, `legit=0`, `ride_along=False` — and every
-    one of those is legal. Falsy of the WRONG SHAPE is not."""
+    """The per-route contract, beside the plan it describes. Falsy
+    is not malformed: an EMPTY-MANIFEST route with the owner at home
+    is `cargo={}`, `legit=0`, `ride_along=False`, and every one of
+    those is legal. (A pizzas-only run is `cargo={}` with `legit`
+    above zero — a different route, named differently.) Falsy of the
+    WRONG SHAPE is not legal."""
 
     def _plan(self, **over):
         state = new_state()
@@ -1315,13 +1317,18 @@ class TestOneRouteIsARouteAtAll(unittest.TestCase):
         plan.update(over)
         return state, plan
 
-    def test_the_legal_falsy_route_passes(self):
+    def test_the_empty_manifest_route_passes(self):
         state, plan = self._plan(cargo={}, legit=0, ride_along=False)
         routes.validate_route_plan(state, plan)      # a quiet night
 
+    def test_the_pizzas_only_route_passes_too(self):
+        # Distinct from the empty manifest: real cover, no product.
+        state, plan = self._plan(cargo={}, legit=4, ride_along=False)
+        routes.validate_route_plan(state, plan)
+
     def test_malformed_cargo_is_not_an_empty_load(self):
-        # `plan.get("cargo") or {}` turned each of these into a legal
-        # pizzas-only run.
+        # `plan.get("cargo") or {}` turned each of these into a
+        # legal empty-manifest route.
         for bad in (False, "", [], None, 0, ["mushrooms"]):
             state, plan = self._plan(cargo=bad)
             with self.assertRaises(ValueError, msg=repr(bad)):
@@ -1375,6 +1382,85 @@ class TestOneRouteIsARouteAtAll(unittest.TestCase):
         state, plan = self._plan(wagon_key="ghost")
         with self.assertRaises(KeyError):
             routes.validate_route_plan(state, plan)
+
+
+class TestEveryDoorConsumesTheOneContract(unittest.TestCase):
+    """A contract only one caller applies is a contract with a side
+    entrance. `routes_planned` is the single door routes come out of
+    storage through, so validation lives THERE — and every reader
+    downstream is reading checked plans by construction."""
+
+    def _stored(self, **broken):
+        state = new_state()
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+                      driver=driver)
+        for field in broken.pop("drop", ()):
+            del plan[field]
+        plan.update(broken)
+        return state, {"routes": {HOME_SHOP_KEY: plan}}
+
+    def test_night_reserved_refuses_a_malformed_stored_route(self):
+        # It used to hand back the driver of a route that could never
+        # run, reserving a person for a job with no wagon named.
+        state, plans = self._stored(drop=("ride_along",))
+        with self.assertRaises(ValueError):
+            phases.night_reserved(state, plans)
+
+    def test_the_availability_view_refuses_one_too(self):
+        state, plans = self._stored(drop=("wagon_key",))
+        with self.assertRaises(ValueError):
+            phases.planned_wagon(state, plans, HOME_SHOP_KEY)
+
+    def test_the_reservation_count_refuses_one_too(self):
+        state, plans = self._stored(cargo=False)
+        with self.assertRaises(ValueError):
+            phases.planned_jobs_at(state, plans, HOME_SHOP_KEY)
+
+    def test_the_schedule_refuses_one_too(self):
+        state, plans = self._stored(legit=None)
+        with self.assertRaises(ValueError):
+            phases.route_schedule(state, plans)
+
+    def test_service_refuses_before_it_commits_anything(self):
+        # Commit and resolution cannot bypass the canonical contract:
+        # the stored route is malformed, so nothing is spent.
+        state, plans = self._stored(drop=("ride_along",))
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.stash = {"mushrooms": 4}
+        before = (dict(home.stash), home.ingredients)
+        with self.assertRaises(ValueError):
+            phases.service(state, plans, Listening([0]), Streams(3))
+        self.assertEqual((home.stash, home.ingredients), before)
+
+
+class TestTheManifestReaderIsStrict(unittest.TestCase):
+    def test_absence_is_not_the_legal_zero(self):
+        for missing in ({}, {"cargo": {}}, {"legit": 0}):
+            with self.assertRaises(ValueError, msg=repr(missing)):
+                routes.RouteManifest.of_plan(missing)
+
+    def test_a_cover_of_nothing_at_all_is_refused(self):
+        with self.assertRaises(ValueError):
+            routes.RouteManifest.of_plan({"cargo": {}, "legit": None})
+
+    def test_the_legal_zero_still_reads(self):
+        m = routes.RouteManifest.of_plan({"cargo": {}, "legit": 0})
+        self.assertEqual((m.cargo, m.legit), ({}, 0))
+
+    def test_a_typed_plan_without_a_manifest_is_refused(self):
+        # A deliberate refusal, not an AttributeError from the next
+        # line that happens to touch it.
+        state = new_state()
+        driver = next(e for e in state.employees if e.driving >= 4)
+        for bogus in (None, {}, "manifest"):
+            plan = routes.RoutePlan(
+                district="old_harbor", driver=driver, ride_along=False,
+                manifest=bogus, origin_shop=HOME_SHOP_KEY,
+                wagon_key=models.HOME_WAGON_KEY)
+            with self.assertRaises(ValueError, msg=repr(bogus)):
+                routes.RouteManifest.of_plan(plan)
 
 
 class TestAWalkingRaidClaimsNothingAtNight(unittest.TestCase):

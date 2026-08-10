@@ -8,6 +8,25 @@ from .models import Employee, State
 from .ui import Console, money
 
 
+
+# Every field a route plan must name. Its ONE home is here, beside
+# the plan it describes.
+ROUTE_FIELDS = ("district", "driver", "ride_along", "cargo", "legit",
+                "origin_shop", "wagon_key")
+
+
+def _named(plan, name: str):
+    """A canonical field, PRESENT. Absence is refused here rather
+    than surfacing later as a KeyError from whichever line happened
+    to read it first."""
+    try:
+        return plan[name]
+    except (KeyError, TypeError):
+        raise ValueError(
+            f"the route names no {name!r} — a plan missing a "
+            f"canonical field is malformed, not lean")
+
+
 @dataclass
 class RouteManifest:
     """THE wagon inventory model (rev. 17 item 1, hardened rev. 18
@@ -62,19 +81,31 @@ class RouteManifest:
         (rev. 18 item 1: no int() coercion — True, 1.5 and "3" are
         refused, not repaired) and refused if illegal."""
         if isinstance(plan, RoutePlan):
+            # A typed plan is not automatically a valid one: a
+            # manifest that is missing or of the wrong type is a
+            # deliberate refusal here, not an AttributeError from the
+            # next line that touches it.
+            if not isinstance(plan.manifest, RouteManifest):
+                raise ValueError(
+                    f"a route plan carries a manifest, got "
+                    f"{plan.manifest!r}")
             plan.manifest.validate()
             return plan.manifest
-        legit = plan.get("legit", 0)
-        cargo = plan.get("cargo", {})
-        # NOT `or {}`: False, "" and [] are malformed cargo, and
-        # coercing them to an empty load silently turns a broken plan
-        # into a legal pizzas-only run.
+        # PRESENCE, never a default. An absent `cargo` or `legit` is
+        # a malformed plan, and filling it in with the legal zero is
+        # how a broken plan becomes an empty-manifest route nobody
+        # planned. `None` is refused for the same reason.
+        cargo = _named(plan, "cargo")
+        legit = _named(plan, "legit")
         if type(cargo) is not dict:
             raise ValueError(
                 f"a route's cargo is a mapping of good -> units, got "
                 f"{cargo!r}")
-        m = cls(cargo=dict(cargo),
-                legit=0 if legit is None else legit)
+        if legit is None:
+            raise ValueError(
+                "a route's cover is a whole number of orders, not "
+                "nothing at all")
+        m = cls(cargo=dict(cargo), legit=legit)
         m.validate()
         return m
 
@@ -162,24 +193,6 @@ def route_suspicion(covert: int, legit: int) -> float:
     return covert / total
 
 
-# Every field a route plan must name. Its ONE home is here, beside
-# the plan it describes.
-ROUTE_FIELDS = ("district", "driver", "ride_along", "cargo", "legit",
-                "origin_shop", "wagon_key")
-
-
-def _named(plan, name: str):
-    """A canonical field, PRESENT. Absence is refused here rather
-    than surfacing later as a KeyError from whichever line happened
-    to read it first."""
-    try:
-        return plan[name]
-    except (KeyError, TypeError):
-        raise ValueError(
-            f"the route names no {name!r} — a plan missing a "
-            f"canonical field is malformed, not lean")
-
-
 def validate_route_plan(state: State, plan) -> None:
     """THE per-route contract (P4b.1a review).
 
@@ -190,9 +203,11 @@ def validate_route_plan(state: State, plan) -> None:
     route at all.
 
     Falsy is not malformed: `cargo={}`, `legit=0` and
-    `ride_along=False` are ordinary legal values (a pizzas-only run
-    on a quiet night, with the owner staying home). What is refused
-    is falsy of the WRONG SHAPE — `cargo=False`, a missing
+    `ride_along=False` are ordinary legal values — an EMPTY-MANIFEST
+    route with the owner staying home (a pizzas-only run is
+    `cargo={}` with `legit` above zero; naming them the same thing
+    would be a lie about what the plan carries). What is refused is
+    falsy of the WRONG SHAPE — `cargo=False`, a missing
     `ride_along`, a driver who is not one of this world's people."""
     for name in ROUTE_FIELDS:
         _named(plan, name)

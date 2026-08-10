@@ -55,6 +55,14 @@ def routes_planned(state: "State", plans: dict) -> dict:
                 f"the route filed under {key!r} is not a plan, got "
                 f"{plan!r}")
         state.shop_by_key(key)          # KeyError on a ghost address
+        # THE per-route contract, applied HERE — at the only place
+        # routes are read from storage. Validating in `route_schedule`
+        # alone left every earlier reader (`night_reserved`, the
+        # morning menus, `planned_jobs_at`) looking at unchecked
+        # plans, so a missing field still surfaced as a KeyError from
+        # whichever line touched it first. Nothing downstream sees an
+        # unvalidated route now, because there is no other door.
+        routes.validate_route_plan(state, plan)
         origin = plan_origin(state, plan)
         if origin != key:
             raise ValueError(
@@ -80,12 +88,11 @@ def route_schedule(state: "State", plans: dict) -> list:
     drivers: dict = {}
     riding: list = []
     for shop_key, plan in scheduled.items():
-        # Each route, complete, on its own terms first.
-        routes.validate_route_plan(state, plan)
-        # Then the facts only the SET can know. The driver is keyed
-        # by identity, which `validate_route_plan` has already proved
-        # is one of this world's people — so a look-alike cannot slip
-        # past as a second person here either.
+        # `routes_planned` has already applied the per-route
+        # contract, so ONLY the facts a single route cannot know are
+        # left here. The driver is keyed by identity, which that
+        # contract has already proved is one of this world's people,
+        # so a look-alike cannot slip past as a second person.
         driver = plan["driver"]
         seen = drivers.get(id(driver))
         if seen is not None:
