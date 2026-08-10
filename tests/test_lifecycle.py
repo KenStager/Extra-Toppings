@@ -315,10 +315,58 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # is never described as sitting at the contractor's yard.
         state = _with_site(day=7, acceptance=5)
         view = phases.planned_wagon(
-            state, {"salvage": {"rival": "vinnie"}}, "shop2")
+            state, {"salvage": {"rival": "vinnie",
+                                "origin_shop": "shop2"}}, "shop2")
         self.assertFalse(view.available)
-        self.assertEqual(view.blocked_by, "planned")
+        self.assertEqual(view.blocked_by, "salvage")
         self.assertEqual(view.note, phases.WAGON_NOTES["salvage"])
+
+    def test_one_addresss_route_never_grounds_anothers_wagon(self):
+        # THE cross-address repro. A route out of the home shop is a
+        # reservation of the HOME wagon; shop 2's wagon is a different
+        # vehicle at a different address, and a global "the wagon does
+        # one job a night" is exactly the single-wagon model P4a
+        # removed. Invisible to every gate — no released branch can
+        # build two addresses — so it is pinned directly.
+        state = _with_site(day=7, acceptance=5)          # shop2 OPEN
+        plans = {"route": {"origin_shop": HOME_SHOP_KEY,
+                           "driver": None}}
+        home = phases.planned_wagon(state, plans, HOME_SHOP_KEY)
+        self.assertFalse(home.available)
+        self.assertEqual(home.blocked_by, "route")
+        away = phases.planned_wagon(state, plans, "shop2")
+        self.assertTrue(away.available)
+        self.assertEqual(away.free, ("wagon2",))
+
+    def test_two_routes_can_leave_two_addresses_the_same_night(self):
+        # Canon: both wagons run real routes, simultaneously, one per
+        # address per night (rev. 22 items 1 and 4).
+        state = _with_site(day=7, acceptance=5)
+        plans = {"route": {"origin_shop": HOME_SHOP_KEY}}
+        self.assertTrue(
+            phases.planned_wagon(state, plans, "shop2").available)
+        plans["route2"] = {"origin_shop": "shop2"}      # not yet a job
+        self.assertTrue(
+            phases.planned_wagon(state, plans, "shop2").available)
+
+    def test_the_view_names_which_wagons_not_merely_whether(self):
+        # Identity, not a boolean: an address with two wagons must be
+        # representable, and a consumer must know WHICH one it takes.
+        state = _with_site(day=7, acceptance=5)
+        state.wagons.append(Wagon(key="wagon3", shop_key="shop2"))
+        view = phases.planned_wagon(state, {}, "shop2")
+        self.assertEqual(view.free, ("wagon2", "wagon3"))
+        self.assertEqual(view.first, "wagon2")
+        plans = {"route": {"origin_shop": "shop2"}}
+        one_left = phases.planned_wagon(state, plans, "shop2")
+        self.assertTrue(one_left.available)
+        self.assertEqual(one_left.free, ("wagon3",))
+
+    def test_a_free_view_refuses_to_name_a_wagon_it_has_not_got(self):
+        blocked = phases.planned_wagon(
+            _with_site(day=6, acceptance=5), {}, "shop2")
+        with self.assertRaises(RuntimeError):
+            blocked.first
 
     def test_planning_and_execution_agree_on_every_day(self):
         # The two halves must never disagree — that disagreement is
@@ -340,12 +388,20 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         self.assertTrue(phases.WagonNight(state).available_at("shop2"))
 
     def test_a_contradictory_planning_answer_cannot_be_built(self):
-        with self.assertRaises(ValueError):
-            phases.PlannedWagon(True, "out on tonight's route", "planned")
-        with self.assertRaises(ValueError):
-            phases.PlannedWagon(False, "", "")
-        with self.assertRaises(ValueError):
-            phases.PlannedWagon(False, "somewhere", "")
+        with self.assertRaises(ValueError):     # free, yet blocked
+            models.PlannedWagon(("wagon2",), "route", "out on a route")
+        with self.assertRaises(ValueError):     # blocked by nothing
+            models.PlannedWagon()
+        with self.assertRaises(ValueError):     # blocked, but silent
+            models.PlannedWagon(blocked_by="route", note="")
+
+    def test_an_unknown_block_is_refused_not_carried(self):
+        # The vocabulary is closed: arbitrary prose in `blocked_by`
+        # would become a case no consumer knows how to render, and
+        # the renderer would silently fall through to the route line.
+        for bogus in ("banana", "planned", "Route", ""):
+            with self.assertRaises(ValueError, msg=bogus):
+                models.PlannedWagon(blocked_by=bogus, note="somewhere")
 
 
 class TestTheRefusalReachesThePlayer(unittest.TestCase):
@@ -353,17 +409,22 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
     lifecycle's words must arrive in the player's prose, and every
     pre-existing cause must keep the sentence it already had."""
 
-    def _yard_note(self):
+    def _yard_view(self):
         state = _with_site(day=6, acceptance=5)
-        return phases.planned_wagon(state, {}, "shop2").note
+        return phases.planned_wagon(state, {}, "shop2")
 
     def test_a_raid_says_the_wagon_is_at_the_yard(self):
         state = new_state()
         con = Listening()
         raids.plan_raid(state, con, random.Random(3), reserved=[],
-                        wagon_free=False, wagon_note=self._yard_note())
-        self.assertTrue(con.said("contractor's yard"))
-        self.assertTrue(con.said("carry on foot"))
+                        wagon=self._yard_view())
+        # THE COMPLETE SENTENCE, not fragments: the first cut read
+        # "The wagon is the University Hill wagon is still at the
+        # contractor's yard", and every fragment assertion passed.
+        self.assertTrue(con.said(
+            "  The University Hill wagon is still at the contractor's "
+            "yard — whatever the crew takes, they carry on foot."),
+            con.lines)
 
     def test_a_raid_without_a_note_keeps_its_existing_sentence(self):
         # Regression guard on the wiring: the note is supplied ONLY
@@ -371,7 +432,9 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
         state = new_state()
         con = Listening()
         raids.plan_raid(state, con, random.Random(3), reserved=[],
-                        wagon_free=False)
+                        wagon=models.PlannedWagon(
+                            blocked_by="route",
+                            note=models.WAGON_NOTES["route"]))
         self.assertTrue(con.said(
             "The wagon is out on tonight's route — whatever the crew "
             "takes, they carry on foot."))
@@ -382,23 +445,28 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
         state = new_state()
         con = Listening()
         raids.plan_raid(state, con, random.Random(3), reserved=[],
-                        wagon_free=True)
+                        wagon=models.PlannedWagon(("wagon1",)))
         self.assertFalse(con.said("contractor's yard"))
 
     def test_salvage_says_the_wagon_is_at_the_yard(self):
         state, _rosa = war_mechanics.TestSalvage._captured(
             war_mechanics.TestSalvage())
         con = Listening()
-        plan = war.plan_salvage(state, con, reserved=[], wagon_taken=True,
-                                wagon_note=self._yard_note())
+        plan = war.plan_salvage(state, con, reserved=[],
+                                wagon=self._yard_view())
         self.assertIsNone(plan)
-        self.assertTrue(con.said("contractor's yard"))
+        self.assertTrue(con.said(
+            "  The University Hill wagon is still at the contractor's "
+            "yard — the stockroom isn't going anywhere."), con.lines)
 
     def test_salvage_without_a_note_keeps_its_existing_sentence(self):
         state, _rosa = war_mechanics.TestSalvage._captured(
             war_mechanics.TestSalvage())
         con = Listening()
-        war.plan_salvage(state, con, reserved=[], wagon_taken=True)
+        war.plan_salvage(state, con, reserved=[],
+                         wagon=models.PlannedWagon(
+                             blocked_by="route",
+                             note=models.WAGON_NOTES["route"]))
         self.assertTrue(con.said(
             "The wagon is spoken for tonight — the stockroom "
             "isn't going anywhere."))

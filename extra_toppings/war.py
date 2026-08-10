@@ -460,7 +460,8 @@ def salvage_ready(state: State):
 
 
 def plan_salvage(state: State, con: Console, reserved: list,
-                 wagon_taken: bool, wagon_note: str = "") -> dict | None:
+                 wagon: models.PlannedWagon,
+                 origin_shop: str = "") -> dict | None:
     """Morning: assign the wagon and a driver to the dead man's
     stockroom. Reservations come from THE night-assignment view
     (rev. 15 item 2): people already spoken for by the route or the
@@ -470,10 +471,12 @@ def plan_salvage(state: State, con: Console, reserved: list,
     camp = salvage_ready(state)
     if camp is None:
         return None
-    if wagon_taken:
-        # `wagon_note` arrives only from the address lifecycle
-        # (P4b.1a); every existing cause keeps its existing sentence.
-        con.say(f"  No pickup tonight — {wagon_note}." if wagon_note else
+    if not wagon.available:
+        # The lifecycle names the address it is talking about; every
+        # pre-existing cause keeps the sentence the game ships.
+        con.say(f"  {models.wagon_gone_line(wagon)} — the stockroom "
+                f"isn't going anywhere."
+                if wagon.blocked_by in ("lifecycle", "unhoused") else
                 "  The wagon is spoken for tonight — the stockroom "
                 "isn't going anywhere.")
         return None
@@ -490,7 +493,11 @@ def plan_salvage(state: State, con: Console, reserved: list,
                     f"who drives?", names)
     if pick == len(drivers):
         return None
-    return {"rival": camp.rival_key, "driver": drivers[pick]}
+    # The pickup NAMES the address it leaves from (P4b.1a): a wagon
+    # job with no origin cannot be answered per address, and the
+    # per-address availability view refuses to guess one.
+    return {"rival": camp.rival_key, "driver": drivers[pick],
+            "origin_shop": origin_shop or models.exactly_one_shop(state).key}
 
 
 @dataclass(frozen=True)

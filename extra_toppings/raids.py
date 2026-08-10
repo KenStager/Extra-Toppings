@@ -13,22 +13,19 @@ from .ui import Console, money
 
 def plan_raid(state: State, con: Console, rng: random.Random,
               reserved: list | None = None,
-              wagon_free: bool = True,
-              wagon_note: str = "") -> dict | None:
+              wagon: "models.PlannedWagon | None" = None) -> dict | None:
     """`reserved` employees (tonight's driver) already have a job. If the
     wagon runs a route tonight, the crew hauls what duffel bags hold.
 
-    `wagon_note` is supplied only when the ADDRESS LIFECYCLE is what
-    withheld the wagon (P4b.1a) — a site still being built — because
-    the existing sentence names tonight's route whatever the real
-    reason was, and correcting that for the other causes would be a
-    player-visible change inside a refactor. It is deliberately left
-    for its own commit."""
-    if not wagon_free:
-        con.say(f"  The wagon is {wagon_note} — whatever the crew "
-                f"takes, they carry on foot." if wagon_note else
-                "  The wagon is out on tonight's route — whatever the crew "
-                "takes, they carry on foot.")
+    `wagon` arrives as ONE typed value (P4b.1a review) rather than a
+    boolean plus loose prose: availability and its reason cannot be
+    passed in contradicting each other, and the sentence below is
+    rendered FROM the structured block instead of pasting a phrase
+    into the middle of another sentence."""
+    wagon = wagon if wagon is not None else models.PlannedWagon(("any",))
+    if not wagon.available:
+        con.say(f"  {models.wagon_gone_line(wagon)} — whatever the crew "
+                f"takes, they carry on foot.")
     targets = [k for k, r in state.rivals.items() if r.alive]
     if state.branch == "war":
         # One front at a time (rev. 14 item 9): outgoing jobs go to the

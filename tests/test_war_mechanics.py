@@ -463,8 +463,9 @@ class TestSalvage(unittest.TestCase):
         camp = war.campaign_for(state, "vinnie")
         self.assertTrue(camp.salvage_available)
         plan = war.plan_salvage(state, Scripted([0]), reserved=[],
-                                 wagon_taken=False)
-        self.assertEqual(plan, {"rival": "vinnie", "driver": rosa})
+                                 wagon=models_mod.PlannedWagon(("wagon1",)))
+        self.assertEqual(plan, {"rival": "vinnie", "driver": rosa,
+                                "origin_shop": models_mod.HOME_SHOP_KEY})
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
         self.assertFalse(camp.salvage_available)
         self.assertEqual(camp.salvage_day, state.day)
@@ -484,13 +485,15 @@ class TestSalvage(unittest.TestCase):
         state, _rosa = self._captured()
         self.assertIsNone(
             war.plan_salvage(state, Quiet(), reserved=[],
-                             wagon_taken=True))
+                             wagon=models_mod.PlannedWagon(
+                                 blocked_by="route",
+                                 note=models_mod.WAGON_NOTES["route"])))
 
     def test_a_missing_driver_scrubs_transactionally(self):
         state, rosa = self._captured()
         camp = war.campaign_for(state, "vinnie")
         plan = war.plan_salvage(state, Scripted([0]), reserved=[],
-                                 wagon_taken=False)
+                                 wagon=models_mod.PlannedWagon(("wagon1",)))
         rosa.injured_days = 3
         stash_before = dict(state.shop_stash)
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
@@ -768,13 +771,16 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         break_target(state)
         war.declare(state, "sal", Quiet())    # a live front to raid
         plans = {"route": None, "raid": None,
-                 "salvage": {"rival": "vinnie", "driver": rosa}}
+                 "salvage": {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY}}
         reserved = phases.night_reserved(plans, but="raid")
         self.assertIn(rosa, reserved)
         con = Scripted([])
         plan = raids.plan_raid(state, con, Streams(3).raids,
                                reserved=reserved,
-                               wagon_free=phases.wagon_job(plans) is None)
+                               wagon=phases.planned_wagon(
+                                   state, plans,
+                                   models_mod.HOME_SHOP_KEY))
         self.assertIsNone(plan)               # she was the only crew
 
     def test_execution_revalidates_the_same_view(self):
@@ -820,7 +826,8 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         state, rosa = self._crewed_war()
         break_target(state)
         plans = {"route": None, "raid": None,
-                 "salvage": {"rival": "vinnie", "driver": rosa}}
+                 "salvage": {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY}}
         self.assertEqual(phases.wagon_job(plans), "salvage")
         plans["salvage"] = None               # the recall
         self.assertIsNone(phases.wagon_job(plans))

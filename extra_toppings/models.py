@@ -539,6 +539,92 @@ class WagonAvailability:
 
 
 WAGON_FREE = WagonAvailability(True)
+
+# Why a wagon is gone, in the player's words — ONE home, so the menu,
+# the raid line, the pickup line and the tests all read the same
+# sentence. Keyed by the night consumer that took it.
+WAGON_NOTES = {
+    "route": "out on tonight's route",
+    "salvage": "out on tonight's pickup",
+    "raid": "out with the night crew",
+    "decoy": "already loaded and gone",
+}
+# THE closed vocabulary of reasons no wagon can leave an address: a
+# night consumer took it, the lifecycle withholds it, or the address
+# keeps none. Closed deliberately — an arbitrary string would become
+# a category no consumer knows how to render, which is how a typo
+# turns into prose the player reads.
+WAGON_BLOCKS = frozenset(WAGON_NOTES) | {"lifecycle", "unhoused"}
+
+
+@dataclass(frozen=True)
+class PlannedWagon:
+    """WHICH wagons may leave an address tonight — and if none, why.
+
+    Identity, not a boolean (P4b.1a review): `free` carries the wagon
+    KEYS, in stable order, exactly as `WagonNight.free_at` returns
+    wagon records. A boolean cannot say WHICH wagon, so it cannot
+    represent an address with two of them, nor two routes leaving
+    different addresses on the same night — and the fleet is the whole
+    point of the Partner branch.
+
+    `blocked_by` is a value from `WAGON_BLOCKS`, never free prose, so
+    a consumer chooses its sentence by CASE and the note is rendered
+    from one home rather than pasted into another sentence's middle.
+    """
+
+    free: tuple = ()
+    blocked_by: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        if self.free:
+            if self.blocked_by or self.note:
+                raise ValueError(
+                    f"a free wagon carries no reason, got "
+                    f"{self.blocked_by!r}/{self.note!r}")
+            return
+        if self.blocked_by not in WAGON_BLOCKS:
+            raise ValueError(
+                f"unknown wagon block {self.blocked_by!r} — the "
+                f"vocabulary is {sorted(WAGON_BLOCKS)}")
+        if not self.note:
+            raise ValueError("a blocked wagon must say where it is")
+
+    @property
+    def available(self) -> bool:
+        return bool(self.free)
+
+    @property
+    def first(self) -> str:
+        """The wagon a consumer would take. Fails closed rather than
+        handing back a name when there is nothing to take."""
+        if not self.free:
+            raise RuntimeError(f"no wagon is free — {self.note}")
+        return self.free[0]
+
+
+def wagon_gone_line(wagon: PlannedWagon) -> str:
+    """THE sentence-initial rendering of a missing wagon.
+
+    Two registers, one home: `note` is a mid-sentence CLAUSE ("out on
+    tonight's route", "the University Hill wagon is still at the
+    contractor's yard") for use after a dash; this is the same fact
+    as a sentence OPENING. Pasting a clause where a sentence belongs
+    is what produced "The wagon is the University Hill wagon is still
+    at the contractor's yard".
+    """
+    if wagon.available:
+        raise ValueError("a free wagon has no absence to explain")
+    if wagon.blocked_by in ("lifecycle", "unhoused"):
+        return wagon.note[0].upper() + wagon.note[1:]
+    # PRESERVED EXACTLY AS THE GAME SHIPS IT, including the defect:
+    # every night-consumer cause renders as the route, so a wagon the
+    # PICKUP has is described as being out on the route. That is
+    # reachable in the released war branch, so correcting it moves
+    # player-visible text and lands in its own declared commit —
+    # never smuggled into a structural change (rev. 27 item 3).
+    return "The wagon is out on tonight's route"
 # THE released set (§7): the Straight Path and the Quiet Sale lifted
 # together on the P2 merge approval; the Harbor War joined on the P3
 # merge disposition ("keep activation as a separate, minimal
