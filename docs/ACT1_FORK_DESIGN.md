@@ -1659,12 +1659,36 @@ Ordered roughly by blast radius, smallest first:
   **3.11, 3.12 AND 3.13**, and all three merged batteries
   byte-identical **at both depths (150 and 500)**. A moved transcript,
   RNG state, ending or study digit is a refactor defect, and **no
-  golden regeneration is permitted anywhere in P4a**. *P4b* — the
-  branch itself: site
-  selection, the atomic capital, the construction window, the points
-  ledger, the manager and its vacancy, the address-level threat model,
-  endings, bots, study. *Gate: full §2.7 battery + human play on seeds
-  24/39/8, written up honestly in FINDINGS.*
+  golden regeneration is permitted anywhere in P4a**.
+
+  **P4b — the branch itself, five sequential PRs (rev. 28), on the
+  same never-stacked rule.**
+  - *P4b.1 — the deal and the address.* Site selection, the atomic
+    capital transaction, the second address and its wagon created
+    together, the three declared phases and the recorded opening day —
+    and the conversion of every `operating_shop` surface into an
+    address-choosing one, in the same PR that first makes two
+    addresses possible.
+  - *P4b.2 — the points ledger.* The two books, the cycle and its
+    vig, the early-payoff deferral, and the second-strike
+    `foreclosure` that ends the run that night.
+  - *P4b.3 — the manager, the vacancy and the two-front pressure.*
+    Appointment, the vacancy as a valid state and its penalties, the
+    address-targeting policy P4a deliberately left unruled, the
+    neighbour's response to expansion, tribute naming an address.
+  - *P4b.4 — the grade and the endings.* The one Partner grading
+    view, the tiers, the card that shows its work, `operation` and
+    `on_the_hook` with their texts, and the §2.5 matrix rows.
+  - *P4b.5 — bots, battery and study.* The Partner bot, both
+    ablations, the §2.7 letters measured, FINDINGS, and human play.
+
+  Both identity gates and all three merged batteries stay binding at
+  every P4b boundary as a **containment** check — P4b touches no
+  flag-off and no stand-pat surface — and **the golden is not
+  regenerated in P4b either**. *Gate: full §2.7 battery + human play
+  on seeds 24/39/8, written up honestly in FINDINGS.* **Activation —
+  adding `partner` to `RELEASED_BRANCHES` — is a separate sixth act
+  on the reviewer's explicit word**, never a side effect of P4b.5.
 
 Each phase ends with the standing workflow: tests + ruff + mypy, the
 relevant studies rerun, FINDINGS updated (including retractions if the
@@ -4249,3 +4273,146 @@ It amends §7's P4 bullet; everything else here is new contract.
    points ledger, site selection, the second shop itself, the
    targeting policy and the Partner story are all P4b, and none of
    them appears in P4a in any form.
+
+**Revision 28** records the P4b scope: the subdivision into sequential
+PRs, the work list assembled from the canon already ruled (§2.4.2,
+§2.5, §2.7, §3.2, §5 item 8, §6), and the judgment calls that need
+rulings before mechanics harden. Paper only; no P4b implementation
+accompanies it. It amends §7's P4b clause and nothing else — every
+other paragraph below is a proposal awaiting a ruling, not adopted
+contract.
+
+1. **P4b is five sequential PRs, never stacked**, on P4a's precedent
+   (rev. 27 item 1): each based on the previously MERGED one and
+   verified before the next begins, so a failure stays attributable
+   to one boundary. *P4b.1 — the deal and the address:* site
+   selection, the atomic capital transaction, the second address and
+   its wagon created together, the three declared phases and the
+   recorded opening day. *P4b.2 — the points ledger:* two books,
+   the cycle and its vig, the early-payoff deferral, and the
+   second-strike foreclosure that ends the run that night.
+   *P4b.3 — the manager, the vacancy and the two-front pressure:*
+   appointment, the vacancy as a valid state and its penalties, the
+   address-targeting POLICY that P4a left unruled, the neighbour's
+   response to expansion, and tribute naming an address. *P4b.4 —
+   the grade and the endings:* the one Partner grading view, the
+   tiers, the status card that shows its work, the two remaining
+   terminal ids and their texts, and the §2.5 matrix rows.
+   *P4b.5 — bots, battery and study:* the Partner bot, both
+   ablations, the §2.7 letters measured, FINDINGS, and human play on
+   seeds 24/39/8. **Activation — adding `partner` to
+   `RELEASED_BRANCHES` — is a SIXTH act, separate and explicit**, on
+   the Harbor War's precedent: it is the only change that moves what
+   a player can take, and it happens on the reviewer's word alone,
+   never as a side effect of the last implementation PR.
+
+2. **The gate P4b inherits, and the one it does not.** P4a's gate was
+   identity, because it touched the flag-off path. P4b touches no
+   flag-off and no stand-pat surface, so **both identity gates stay
+   binding at every PR boundary — 300/300 on 3.11, 3.12 AND 3.13,
+   stand-pat holding its 79 sit-downs** — but they are now a
+   *containment* check rather than the phase's proof: they say P4b
+   stayed inside its branch, and they say nothing whatever about
+   whether the branch works. The three merged batteries must also
+   stay byte-identical at both depths for the same reason. What
+   proves P4b is the §2.7 Partner battery, and it does not exist
+   until P4b.5. **The golden is not regenerated in P4b either**; a
+   moved digit is a containment failure, not a result.
+
+3. **The chair is visible and untakeable throughout.** `sitdown.py`
+   already prints an unreleased chair with a development-build
+   marker and refuses to seat it (§2.1's rule that an implementation
+   limitation must never become a permanent player decision), so
+   every P4b PR before activation leaves the sit-down transcript and
+   its 79-count exactly where they are. This is asserted, not
+   assumed: the stand-pat gate is the assertion.
+
+4. **JUDGMENT CALL — the points schema cannot carry two books
+   today.** §2.4.2 (rev. 22 item 7) requires *arrears* (dollars owed
+   right now) and a *strike* (a miss that happened and never
+   unhappens) as separate facts, and day-30 grading reads arrears
+   while foreclosure counts strikes. The live `BranchState` carries
+   `points_missed` and `vig_owed`, and `points_missed` is exactly the
+   one counter the ruling says cannot carry both. *Proposal:*
+   `points_arrears` (dollars currently owed) and `points_strikes`
+   (misses ever), with `vig_owed` retired into arrears — the next
+   bill is prior arrears + $2,500 + $500 vig, so the vig is a term of
+   the bill, not a second balance to reconcile against. No released
+   save can carry a partner `BranchState`, so this is a schema
+   correction rather than a migration; `_BRANCH_FIELDS["partner"]`
+   moves with it. **Needs a ruling before P4b.2.**
+
+5. **JUDGMENT CALL — "the softer of your two shops" needs an
+   executable definition.** §2.4.2 promises rivals may target it and
+   rev. 27 item 4 deliberately left the POLICY to P4b, with
+   `raid_target` failing closed on two addresses in the meantime. The
+   definition must be deterministic and must not reduce to list
+   position, which is the defect stable keys exist to abolish.
+   *Candidates:* lower reputation (the address the neighbourhood
+   would miss least); fewer staff assigned (the thinnest defence
+   allocation, which is what §2.4.2 calls the decision); lower
+   district heat (the easiest approach); or a stated composite.
+   *Proposal:* fewest assigned available staff, because §2.4.2 names
+   defence allocation as the player's lever and a policy that ignores
+   the lever makes the lever decorative — ties broken by lower
+   reputation, then by stable key so the answer is total. **Needs a
+   ruling before P4b.3.**
+
+6. **JUDGMENT CALL — the wagon exists before the shop opens.** The
+   $2,500 used wagon is inside the $13,000 committed atomically at
+   acceptance, and P4a's `validate_addresses` refuses an address that
+   keeps no wagon — so the second wagon must exist from acceptance,
+   during construction, at an address that serves nothing. *Proposal:*
+   it exists and is idle: a wagon kept at an unopened address is
+   visible in the fleet and may not be claimed for any job, because
+   the address it belongs to is not operating. The alternative —
+   letting it run routes out of a building site — would make the
+   construction window free capacity and contradict §3.2's D16, where
+   the second route becomes possible only once the shop opens.
+   **Needs a ruling before P4b.1.**
+
+7. **JUDGMENT CALL — the opening day.** §2.4.2 requires a recorded
+   opening day fixed deterministically by Carmine's contractor, with
+   nothing the player does able to move it. §3.2 walks D14 accept →
+   D16 open. *Proposal:* opening day = acceptance day + 2, stored on
+   the address rather than derived, so a save cannot recompute a
+   different one; a §6.3-class placeholder that the P4b.5 study may
+   move. **Needs a ruling before P4b.1.**
+
+8. **JUDGMENT CALL — the vacancy penalties are unnumbered.** §2.4.2
+   (rev. 22 item 6) fixes the SHAPE — vacancy is a valid state,
+   recorded with the day it emptied; the address stays open under
+   Carmine's nephew at reduced kitchen capacity and a reduced
+   believable ceiling; a stated window before the penalty bites at
+   full weight; appointing clears it — and fixes no magnitudes.
+   *Proposal:* adopt as §6.3-class placeholders, stated in one
+   authority and moved only by the recorded falsification workflow,
+   with P4b.5's first study reporting the distributions. The window
+   length, the capacity reduction and the ceiling reduction are three
+   separate numbers and should be named as three, not one. **Needs a
+   ruling before P4b.3.**
+
+9. **The surfaces that fail closed the moment shop 2 exists — and
+   why that is the design working.** P4a routed every single-address
+   surface through `operating_shop`, which refuses when there are
+   two. The morning, service and night blocks, the Straight Path and
+   the Quiet Sale therefore stop resolving an address the instant
+   the Partner branch creates one, BY CONSTRUCTION. P4b.1 must
+   convert those surfaces to address-choosing ones in the same PR
+   that makes a second address possible — that is the whole point of
+   having built the refusal — and the Straight Path, the Quiet Sale
+   and the Harbor War must continue to resolve their single address
+   through the same boundary, unchanged, because none of them can
+   ever have two. This is the largest single piece of P4b.1 and is
+   named here so it is scoped rather than discovered.
+
+10. **Held open, and NOT tuned inside P4b.** The §6.3 heat-weight
+    question and the human-play findings carried since round 10 stay
+    open and untouched; rev. 27's rule that P4a neither answers nor
+    tunes them extends to P4b's implementation PRs. P4b.5's study
+    may REPORT distributions that bear on them — the two grading
+    thresholds (combined net strictly greater than $8,000, shop 2
+    reputation ≥ 35) explicitly must — but a constant moves only
+    through the recorded falsification workflow, never because a
+    battery looked better afterwards. §6.4's ruling stands: war
+    capture does not reuse the multi-shop machinery in v1.
