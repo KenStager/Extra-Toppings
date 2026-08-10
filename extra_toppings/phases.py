@@ -20,13 +20,6 @@ QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
 
 # ── THE night-assignment authority (rev. 15 item 2) ───────────────
 
-# Every field a route plan must name. A plan missing one is
-# malformed, not lean — and accepting the gap "for test convenience"
-# is how a canonical field stops being canonical.
-ROUTE_FIELDS = ("district", "driver", "ride_along", "cargo", "legit",
-                "origin_shop", "wagon_key")
-
-
 def routes_planned(state: "State", plans: dict) -> dict:
     """Tonight's routes, keyed BY THE ADDRESS THEY LEAVE FROM, in
     stable key order (P4b.1a).
@@ -61,12 +54,6 @@ def routes_planned(state: "State", plans: dict) -> dict:
             raise ValueError(
                 f"the route filed under {key!r} is not a plan, got "
                 f"{plan!r}")
-        for name in ROUTE_FIELDS:
-            if plan.get(name) is None and name != "ride_along":
-                raise ValueError(
-                    f"the route filed under {key!r} names no "
-                    f"{name!r} — a plan missing a canonical field is "
-                    f"malformed, not lean")
         state.shop_by_key(key)          # KeyError on a ghost address
         origin = plan_origin(state, plan)
         if origin != key:
@@ -93,20 +80,20 @@ def route_schedule(state: "State", plans: dict) -> list:
     drivers: dict = {}
     riding: list = []
     for shop_key, plan in scheduled.items():
-        models.plan_wagon(state, plan)         # origin/wagon pairing
-        if plan["district"] not in data.DISTRICTS:
-            raise ValueError(
-                f"the route out of {shop_key!r} names no real "
-                f"district: {plan['district']!r}")
-        routes.RouteManifest.of_plan(plan).validate()
+        # Each route, complete, on its own terms first.
+        routes.validate_route_plan(state, plan)
+        # Then the facts only the SET can know. The driver is keyed
+        # by identity, which `validate_route_plan` has already proved
+        # is one of this world's people — so a look-alike cannot slip
+        # past as a second person here either.
         driver = plan["driver"]
-        seen = drivers.get(driver.key if hasattr(driver, "key") else id(driver))
+        seen = drivers.get(id(driver))
         if seen is not None:
             raise ValueError(
                 f"{driver.name} is driving the route out of {seen!r} "
                 f"and the one out of {shop_key!r} — one person, one "
                 f"job a night")
-        drivers[driver.key if hasattr(driver, "key") else id(driver)] = shop_key
+        drivers[id(driver)] = shop_key
         if plan["ride_along"]:
             riding.append(shop_key)
     if len(riding) > 1:

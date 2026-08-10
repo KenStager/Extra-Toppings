@@ -65,7 +65,15 @@ class RouteManifest:
             plan.manifest.validate()
             return plan.manifest
         legit = plan.get("legit", 0)
-        m = cls(cargo=dict(plan.get("cargo") or {}),
+        cargo = plan.get("cargo", {})
+        # NOT `or {}`: False, "" and [] are malformed cargo, and
+        # coercing them to an empty load silently turns a broken plan
+        # into a legal pizzas-only run.
+        if type(cargo) is not dict:
+            raise ValueError(
+                f"a route's cargo is a mapping of good -> units, got "
+                f"{cargo!r}")
+        m = cls(cargo=dict(cargo),
                 legit=0 if legit is None else legit)
         m.validate()
         return m
@@ -152,6 +160,72 @@ def route_suspicion(covert: int, legit: int) -> float:
     if total == 0:
         return 0.0
     return covert / total
+
+
+# Every field a route plan must name. Its ONE home is here, beside
+# the plan it describes.
+ROUTE_FIELDS = ("district", "driver", "ride_along", "cargo", "legit",
+                "origin_shop", "wagon_key")
+
+
+def _named(plan, name: str):
+    """A canonical field, PRESENT. Absence is refused here rather
+    than surfacing later as a KeyError from whichever line happened
+    to read it first."""
+    try:
+        return plan[name]
+    except (KeyError, TypeError):
+        raise ValueError(
+            f"the route names no {name!r} — a plan missing a "
+            f"canonical field is malformed, not lean")
+
+
+def validate_route_plan(state: State, plan) -> None:
+    """THE per-route contract (P4b.1a review).
+
+    One plan, checked completely, before it meets any other plan and
+    long before it moves a crate. Cross-route facts — one driver
+    twice, the owner riding two wagons — are the SCHEDULE's business
+    and stay there; this is only about whether a single route is a
+    route at all.
+
+    Falsy is not malformed: `cargo={}`, `legit=0` and
+    `ride_along=False` are ordinary legal values (a pizzas-only run
+    on a quiet night, with the owner staying home). What is refused
+    is falsy of the WRONG SHAPE — `cargo=False`, a missing
+    `ride_along`, a driver who is not one of this world's people."""
+    for name in ROUTE_FIELDS:
+        _named(plan, name)
+    if plan["district"] not in data.DISTRICTS:
+        raise ValueError(
+            f"the route names no real district: {plan['district']!r}")
+    # `type(...) is bool` — riding along is a decision, and 1, "yes"
+    # and None are not decisions.
+    if type(plan["ride_along"]) is not bool:
+        raise ValueError(
+            f"riding along is a decision, got {plan['ride_along']!r}")
+    if type(plan["cargo"]) is not dict:
+        raise ValueError(
+            f"a route's cargo is a mapping of good -> units, got "
+            f"{plan['cargo']!r}")
+    # `type(...) is int` excludes bool: True is not a count.
+    legit = plan["legit"]
+    if type(legit) is not int or legit < 0:
+        raise ValueError(
+            f"a route's cover is a whole number of orders, got "
+            f"{legit!r}")
+    # THE driver is one of this world's people, BY IDENTITY. A
+    # look-alike carrying a real key compares equal as a dataclass
+    # and would ride as a second copy of someone who is standing
+    # somewhere else — arrested, injured, or driving another wagon.
+    driver = plan["driver"]
+    if not any(person is driver for person in state.employees):
+        raise ValueError(
+            f"the route's driver is not one of this world's people: "
+            f"{getattr(driver, 'name', driver)!r}")
+    # Origin and wagon as a pair, through the shared authority.
+    models.plan_wagon(state, plan)
+    RouteManifest.of_plan(plan).validate()
 
 
 def plan_route(state: State, con: Console, rng: random.Random,

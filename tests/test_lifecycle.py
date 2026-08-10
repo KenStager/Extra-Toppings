@@ -1226,13 +1226,12 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
 
     def test_a_plan_missing_a_canonical_field_is_refused(self):
         state, drivers = self._two()
-        for field in ("district", "driver", "cargo", "legit",
-                      "origin_shop", "wagon_key"):
+        for field in routes.ROUTE_FIELDS:
             plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
                           driver=drivers[0])
             del plan[field]
             with self.assertRaises(ValueError, msg=field):
-                phases.routes_planned(
+                phases.route_schedule(
                     state, {"routes": {HOME_SHOP_KEY: plan}})
 
     def test_a_route_filed_under_a_ghost_address_is_refused(self):
@@ -1299,6 +1298,83 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
             phases.route_schedule(state, plans)
         self.assertEqual(home.stash["mushrooms"], 4)
         self.assertEqual(home.ingredients, 40)
+
+
+class TestOneRouteIsARouteAtAll(unittest.TestCase):
+    """The per-route contract, beside the plan it describes. Falsy is
+    not malformed: a pizzas-only run on a quiet night with the owner
+    at home is `cargo={}`, `legit=0`, `ride_along=False` — and every
+    one of those is legal. Falsy of the WRONG SHAPE is not."""
+
+    def _plan(self, **over):
+        state = new_state()
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+                      driver=driver)
+        plan.update(over)
+        return state, plan
+
+    def test_the_legal_falsy_route_passes(self):
+        state, plan = self._plan(cargo={}, legit=0, ride_along=False)
+        routes.validate_route_plan(state, plan)      # a quiet night
+
+    def test_malformed_cargo_is_not_an_empty_load(self):
+        # `plan.get("cargo") or {}` turned each of these into a legal
+        # pizzas-only run.
+        for bad in (False, "", [], None, 0, ["mushrooms"]):
+            state, plan = self._plan(cargo=bad)
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                routes.validate_route_plan(state, plan)
+
+    def test_ride_along_is_exactly_a_bool(self):
+        # It was EXEMPTED from the presence check, so a missing one
+        # surfaced later as a KeyError from whichever line read it.
+        for bad in (None, 1, 0, "yes", ""):
+            state, plan = self._plan(ride_along=bad)
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                routes.validate_route_plan(state, plan)
+        state, plan = self._plan()
+        del plan["ride_along"]
+        with self.assertRaises(ValueError):
+            routes.validate_route_plan(state, plan)
+
+    def test_the_cover_count_is_an_exact_whole_number(self):
+        for bad in (None, -1, 1.5, "3", True):
+            state, plan = self._plan(legit=bad)
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                routes.validate_route_plan(state, plan)
+
+    def test_a_foreign_driver_is_refused(self):
+        class Nobody:
+            name, key = "Nobody", "e0"
+            available = aware = hired = True
+            driving = 9
+        state, plan = self._plan(driver=Nobody())
+        with self.assertRaises(ValueError):
+            routes.validate_route_plan(state, plan)
+
+    def test_a_clone_carrying_a_real_key_is_not_that_person(self):
+        # THE case identity exists for: a dataclass copy compares
+        # EQUAL to the original, so a look-alike would ride as a
+        # second copy of someone standing somewhere else — arrested,
+        # injured, or driving another wagon.
+        import copy
+        state, plan = self._plan()
+        twin = copy.deepcopy(plan["driver"])
+        self.assertEqual(twin, plan["driver"])       # equal...
+        self.assertIsNot(twin, plan["driver"])       # ...not the same
+        plan["driver"] = twin
+        with self.assertRaises(ValueError):
+            routes.validate_route_plan(state, plan)
+
+    def test_a_bad_district_or_pairing_is_refused(self):
+        state, plan = self._plan(district="atlantis")
+        with self.assertRaises(ValueError):
+            routes.validate_route_plan(state, plan)
+        state, plan = self._plan(wagon_key="ghost")
+        with self.assertRaises(KeyError):
+            routes.validate_route_plan(state, plan)
 
 
 class TestAWalkingRaidClaimsNothingAtNight(unittest.TestCase):
