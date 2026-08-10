@@ -21,6 +21,48 @@ OXBLOOD = from_hex("#A81031")
 GOLD = from_hex("#FFE976")
 HEAT = from_hex("#FF8628")
 
+PLAQUE_HEIGHT = 16
+
+
+def build_status_plaque(
+    text: str,
+    warm: bool,
+    canvas: tuple[int, int] = (64, 32),
+) -> Image.Image:
+    """Door/window status plaque, centered on a transparent canvas.
+
+    Warm state (OPEN): oxblood enamel, cream lettering, gold trim —
+    oven warmth. Cold state (CLOSED): carbon ink, pale lettering, gray
+    trim — carbon-paper pressure. Canvas defaults to 64x32 so the
+    asset stays 32-grid aligned regardless of text length.
+    """
+    field_color = OXBLOOD if warm else INK
+    trim = GOLD if warm else GRAY
+    face = CREAM if warm else PALE
+    shadow = INK if warm else BLACK
+
+    tw = text_width(text, 1)
+    pw = tw + 10
+    if pw > canvas[0] or PLAQUE_HEIGHT > canvas[1]:
+        raise ValueError(f"plaque {pw}x{PLAQUE_HEIGHT} exceeds canvas {canvas}")
+    out = Image.new("RGBA", canvas, (0, 0, 0, 0))
+    d = ImageDraw.Draw(out)
+    x0 = (canvas[0] - pw) // 2
+    y0 = (canvas[1] - PLAQUE_HEIGHT) // 2
+    d.rounded_rectangle(
+        (x0, y0, x0 + pw - 1, y0 + PLAQUE_HEIGHT - 1),
+        radius=3, fill=field_color, outline=BLACK,
+    )
+    d.rounded_rectangle(
+        (x0 + 2, y0 + 2, x0 + pw - 3, y0 + PLAQUE_HEIGHT - 3),
+        radius=2, outline=trim,
+    )
+    # Cord holes at the plaque's top corners, inside the trim line.
+    out.putpixel((x0 + 3, y0 + 3), BLACK)
+    out.putpixel((x0 + pw - 4, y0 + 3), BLACK)
+    draw_text(out, text, x0 + 5, y0 + (PLAQUE_HEIGHT - 7) // 2 + 1, 1, face, shadow)
+    return out
+
 
 def build_emblem(size: int = 32) -> Image.Image:
     """Pizza-pan 'D' emblem: steel pan, cream pie field, oxblood D."""

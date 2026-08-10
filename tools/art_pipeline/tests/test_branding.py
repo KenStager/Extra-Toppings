@@ -2,6 +2,7 @@ import unittest
 
 from PIL import Image
 
+from tools.art_pipeline import branding
 from tools.art_pipeline.branding import CREAM, HEAT, OXBLOOD, apply_awning, build_emblem, build_sign
 from tools.art_pipeline.palettes import quantize_to_palette
 from tools.art_pipeline.pixel_font import GLYPH_HEIGHT, GLYPHS, draw_text, text_width
@@ -79,3 +80,45 @@ class Quantize(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StatusPlaqueTests(unittest.TestCase):
+    def test_open_and_closed_fit_the_default_canvas(self):
+        for text in ("OPEN", "CLOSED"):
+            plaque = branding.build_status_plaque(text, warm=(text == "OPEN"))
+            self.assertEqual(plaque.size, (64, 32))
+
+    def test_deterministic_and_states_differ(self):
+        a = branding.build_status_plaque("OPEN", warm=True)
+        b = branding.build_status_plaque("OPEN", warm=True)
+        self.assertEqual(list(a.getdata()), list(b.getdata()))
+        cold = branding.build_status_plaque("OPEN", warm=False)
+        self.assertNotEqual(list(a.getdata()), list(cold.getdata()))
+
+    def test_warm_state_is_oxblood_and_cream_cold_is_ink_and_pale(self):
+        warm = branding.build_status_plaque("OPEN", warm=True)
+        cold = branding.build_status_plaque("CLOSED", warm=False)
+        warm_colors = {c for _, c in warm.getcolors(4096) if c[3] == 255}
+        cold_colors = {c for _, c in cold.getcolors(4096) if c[3] == 255}
+        self.assertIn(branding.OXBLOOD, warm_colors)
+        self.assertIn(branding.CREAM, warm_colors)
+        self.assertNotIn(branding.OXBLOOD, cold_colors)
+        self.assertIn(branding.INK, cold_colors)
+        self.assertIn(branding.PALE, cold_colors)
+
+    def test_chip_discipline_and_hard_alpha(self):
+        chips = {
+            branding.BLACK, branding.INK, branding.GRAY, branding.PALE,
+            branding.CREAM, branding.OXBLOOD, branding.GOLD, branding.HEAT,
+        }
+        for text, warm in (("OPEN", True), ("CLOSED", False)):
+            plaque = branding.build_status_plaque(text, warm)
+            for _, color in plaque.getcolors(4096):
+                if color[3] == 0:
+                    continue
+                self.assertEqual(color[3], 255)
+                self.assertIn(color, chips)
+
+    def test_oversized_text_refuses(self):
+        with self.assertRaises(ValueError):
+            branding.build_status_plaque("ABSOLUTELY CLOSED", warm=False)
