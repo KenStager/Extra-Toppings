@@ -84,6 +84,9 @@ class RoutePlan:
     ride_along: bool
     manifest: RouteManifest
     disposal: bool = False
+    # The address this wagon rolls out of (design rev. 22 item 1).
+    # Named at planning, carried into the execution record.
+    origin_shop: str = models.HOME_SHOP_KEY
 
     @property
     def cargo(self) -> dict:
@@ -94,7 +97,7 @@ class RoutePlan:
         return self.manifest.legit
 
     _KEYS = ("district", "driver", "ride_along", "cargo", "legit",
-             "disposal")
+             "disposal", "origin_shop")
 
     def __getitem__(self, key):
         if key in self._KEYS:
@@ -285,7 +288,10 @@ def plan_route(state: State, con: Console, rng: random.Random,
         con.say("  With the debt this close to settled, remember: a bad stop "
                 "tonight goes into the file tomorrow's table reads.")
     return RoutePlan(district=dk, driver=driver, ride_along=ride_along,
-                     manifest=manifest)
+                     manifest=manifest,
+                     # Which address the wagon leaves from. With one
+                     # address that is it; P4b lets the player choose.
+                     origin_shop=models.exactly_one_shop(state).key)
 
 
 def _payoff_reachable_tonight(state: State, dk: str, cargo: dict) -> bool:
@@ -345,6 +351,9 @@ def _stop_risk(state: State, plan: dict) -> float:
 
 def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
     dk = plan["district"]
+    # The address this wagon rolled out of (design rev. 22 item 1) —
+    # the record carries it, and chronology is keyed on it.
+    origin = plan["origin_shop"]
     driver: Employee = plan["driver"]
     # Resolution-side refusal (rev. 17 item 1): the night runs no
     # manifest the wagon could not carry, whoever built the dict.
@@ -374,7 +383,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
         state.districts[dk].known_price_age = 0 if plan["ride_along"] else 1
         driver.routes_survived += 1
         state.route_log.append(models.RouteExecutionRecord.of_market(
-            state.day, rm, 0, 0))
+            state.day, rm, 0, 0, origin))
         return report
 
     drops = rm.drops(len(cargo))
@@ -411,7 +420,8 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
         driver.routes_survived += 1
         driver.familiarity[dk] = min(10, driver.familiarity.get(dk, 0) + 1)
     state.route_log.append(models.RouteExecutionRecord.of_market(
-        state.day, rm, report["sold"], round(corner_applied * 100)))
+        state.day, rm, report["sold"], round(corner_applied * 100),
+        origin))
     return report
 
 

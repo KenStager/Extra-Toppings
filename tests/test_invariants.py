@@ -118,7 +118,7 @@ class TestRevision18Inventory(unittest.TestCase):
         rosa.aware = True
         plan = {"district": "university", "driver": rosa,
                 "ride_along": False, "legit": 1,
-                "cargo": {"oregano": 12}}          # 25 space in 24
+                "cargo": {"oregano": 12}, "origin_shop": models.HOME_SHOP_KEY}          # 25 space in 24
         con = ScriptedConsole([])
         with self.assertRaises(ValueError):
             phases._commit_route(state, plan, con)
@@ -347,7 +347,7 @@ class TestSharedCapacity(unittest.TestCase):
         rosa.aware = True
         plan = {"district": "university", "driver": rosa,
                 "ride_along": False, "legit": 10,
-                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}}
+                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}, "origin_shop": models.HOME_SHOP_KEY}
         with self.assertRaises(ValueError):
             routes.resolve_route(state, plan, ScriptedConsole([]), rng)
 
@@ -412,7 +412,7 @@ class TestMoneySeparation(unittest.TestCase):
         driver = next(e for e in state.employees if e.hired and e.driving >= 4)
         driver.aware = True
         plan = {"district": "university", "driver": driver, "ride_along": False,
-                "cargo": {"mushrooms": 8}, "legit": 0}
+                "cargo": {"mushrooms": 8}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertEqual(state.clean, clean_before)
 

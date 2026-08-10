@@ -6,7 +6,7 @@ by anything the player does. Player-facing dice use persistent streams.
 """
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from . import (data, escrow, evidence, market, models, raids, rivals,
                routes, shop, straight, war)
@@ -57,49 +57,64 @@ WAGON_NOTES = {
 
 @dataclass
 class WagonNight:
-    """THE night's wagon assignment (design rev. 25 item 1): ONE
-    stateful answer, updated by each consumer as it executes.
+    """THE night's wagon assignments (design rev. 25 item 1, widened
+    to a fleet in P4a.3): ONE stateful answer per wagon, updated by
+    each consumer as it executes.
 
     A derived boolean cannot do this job. `wagon_used` below reads
     the morning's plans and the service report, so it is blind to
     everything that happens later the same night — the outgoing raid
-    that hauls with the wagon, and the decoy that loads it against
-    the first of two arriving rivals. The night therefore carries
-    this object and spends it exactly once; every later consumer
+    that hauls with a wagon, and the decoy that loads one against the
+    first of two arriving rivals. The night therefore carries this
+    object and spends each wagon exactly once; every later consumer
     asks it rather than re-deriving an answer that has gone stale.
+
+    Availability is answered PER ADDRESS, not globally: a second shop
+    with its own wagon is not grounded because the home wagon left.
     """
 
-    claimed_by: str | None = None
+    state: "State"
+    claims: dict = field(default_factory=dict)   # wagon key -> consumer
 
-    @property
-    def available(self) -> bool:
-        return self.claimed_by is None
+    def free_at(self, shop_key: str) -> list:
+        """Wagons still at an address, in stable key order."""
+        return [w for w in self.state.wagons_at(shop_key)
+                if w.key not in self.claims]
 
-    @property
-    def note(self) -> str:
-        """The player-facing reason, empty while the wagon is free."""
-        return WAGON_NOTES.get(self.claimed_by or "", "")
+    def available_at(self, shop_key: str) -> bool:
+        return bool(self.free_at(shop_key))
 
-    def view(self) -> models.WagonAvailability:
-        """The immutable answer consumers read. One value, so an
-        availability flag and its reason cannot arrive contradicting
-        each other."""
-        return models.WagonAvailability(self.available, self.note)
+    def note_at(self, shop_key: str) -> str:
+        """Why that address has nothing to load, empty while it has.
+        With several wagons gone, the FIRST claim in key order is the
+        reason given — one sentence, deterministic."""
+        if self.available_at(shop_key):
+            return ""
+        for w in self.state.wagons_at(shop_key):
+            if w.key in self.claims:
+                return WAGON_NOTES[self.claims[w.key]]
+        return "not kept at this address"
 
-    def claim(self, by: str) -> None:
-        """Take the wagon out, exclusively. Fails CLOSED: there is one
-        wagon, so a second claim is not a thing to absorb quietly — it
-        means a consumer asked `available` and acted on a stale answer,
-        which is exactly the class of bug this authority exists to end.
-        Every caller checks availability first, so no legitimate path
-        reaches a second claim."""
+    def view_at(self, shop_key: str) -> models.WagonAvailability:
+        """The immutable answer consumers read, for one address. One
+        value, so availability and its reason cannot contradict."""
+        return models.WagonAvailability(self.available_at(shop_key),
+                                        self.note_at(shop_key))
+
+    def claim_at(self, shop_key: str, by: str) -> str:
+        """Take a wagon out from an address, exclusively; returns the
+        wagon key. Fails CLOSED when that address has none left: it
+        means a consumer asked `available_at` and acted on a stale
+        answer, which is the bug class this authority exists to end."""
         if by not in WAGON_NOTES:
             raise ValueError(f"unknown wagon consumer {by!r}")
-        if self.claimed_by is not None:
+        free = self.free_at(shop_key)
+        if not free:
             raise RuntimeError(
-                f"the wagon is already {self.note} — {by!r} cannot "
-                f"take it too; there is only one wagon")
-        self.claimed_by = by
+                f"no wagon left at that address — {by!r} cannot take "
+                f"one; every wagon there is {self.note_at(shop_key)}")
+        self.claims[free[0].key] = by
+        return free[0].key
 
 
 def wagon_used(plans: dict, service_report: dict) -> bool:
@@ -852,10 +867,15 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     # did (a departed route or pickup holds it; a pickup scrubbed
     # before departure never took it out) and spent by each later
     # consumer in turn — design rev. 25 item 1.
-    wagon = WagonNight()
+    wagon = WagonNight(state)
     service_job = wagon_job(plans)
     if service_job is not None and wagon_used(plans, service_report):
-        wagon.claim(service_job)
+        # The service job left from the address it was planned at.
+        job_plan = plans[service_job]
+        origin = (job_plan.get("origin_shop")
+                  if service_job == "route"
+                  else None) or models.exactly_one_shop(state).key
+        wagon.claim_at(origin, service_job)
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight
@@ -903,7 +923,8 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # asks what actually happened tonight — a committed route
             # or a pickup that DEPARTED holds the wagon; a pickup
             # scrubbed before departure never took it out.
-            raid_plan["wagon_free"] = wagon.available
+            raid_home = raid_plan["return_shop"]
+            raid_plan["wagon_free"] = wagon.available_at(raid_home)
             # §2.1 rev. 4: the day's takings can put payoff in reach
             # after the job was planned — recheck once, before it runs.
             if not raid_plan.get("table_warned") and state.payoff_in_reach():
@@ -918,7 +939,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                     and raid_plan["wagon_free"]):
                 # Claimed BEFORE the job runs: departure is what
                 # consumes the wagon, not the outcome.
-                wagon.claim("raid")
+                wagon.claim_at(raid_home, "raid")
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():
@@ -926,10 +947,13 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # Both rivals can arrive on one night, and the first
             # decoy takes the wagon with it — the second gets the
             # truth, not the morning's answer (design rev. 25).
+            # The decoy loads a wagon kept at the address they are
+            # hitting — the home wagon cannot cover a shop across town.
+            hit = rival.warning.shop_key
             result = raids.incoming_raid(state, key, con, streams.raids,
-                                         wagon=wagon.view())
+                                         wagon=wagon.view_at(hit))
             if result.wagon_taken:
-                wagon.claim("decoy")
+                wagon.claim_at(hit, "decoy")
             # Escrow's truth table is the merged one: any raid that
             # arrives — fought off or not — is an incident.
             if result.outcome != "averted" and state.branch == "quiet_sale" \

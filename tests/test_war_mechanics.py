@@ -1126,7 +1126,7 @@ class TestRevision17Instruments(unittest.TestCase):
         market.roll_prices(state, _random.Random(3))
         plan = {"district": "little_sicily", "driver": rosa,
                 "ride_along": False, "legit": 0,
-                "cargo": {"mushrooms": 6}}
+                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY}
         report = routes.resolve_route(state, plan, Quiet(),
                                       _random.Random(4))
         state.districts["little_sicily"].sold_yesterday["mushrooms"] = -8
@@ -1144,7 +1144,7 @@ class TestRevision17Instruments(unittest.TestCase):
         state.districts["little_sicily"].heat = 60.0     # amber now
         plan = {"district": "little_sicily", "driver": rosa,
                 "ride_along": False, "legit": 0,
-                "cargo": {"mushrooms": 6}}
+                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY}
         routes.resolve_route(state, plan, Quiet(), _random.Random(4))
         state.districts["little_sicily"].heat = 0.0      # cools after
         record = state.route_log[-1]

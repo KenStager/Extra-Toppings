@@ -77,7 +77,7 @@ class TestRoutes(unittest.TestCase):
             driver.aware = True
             state.shop_stash = {}   # plan_route already moved cargo to the wagon
             plan = {"district": "university", "driver": driver,
-                    "ride_along": False, "cargo": {"mushrooms": 10}, "legit": 8}
+                    "ride_along": False, "cargo": {"mushrooms": 10}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY}
             report = routes.resolve_route(state, plan, BotConsole(random.Random(seed)), rng)
             if report["busted"]:
                 outcomes.add("busted")

@@ -5,7 +5,7 @@ exists."""
 
 import unittest
 
-from extra_toppings import data, phases, routes, war
+from extra_toppings import data, models, phases, routes, war
 from extra_toppings.game import new_state
 from extra_toppings.models import (BranchState, apply_rival_damage,
                                    district_heat_policy, live_campaign,
@@ -187,7 +187,7 @@ class TestHeatPolicy(unittest.TestCase):
         state.shop_stash["oregano"] = 10
         state.districts["old_harbor"].heat = HEAT_RED
         plan = {"district": "old_harbor", "driver": rosa,
-                "ride_along": False, "cargo": {"oregano": 6}, "legit": 0}
+                "ride_along": False, "cargo": {"oregano": 6}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
         con = Quiet()
         self.assertFalse(phases._commit_route(state, plan, con))
         self.assertEqual(state.shop_stash["oregano"], 10)
@@ -215,7 +215,7 @@ class TestTerritorialRoutes(unittest.TestCase):
         state.shop_stash[dk] = state.shop_stash.get(dk, 0)
         state.shop_stash["oregano"] = units
         plan = {"district": dk, "driver": rosa, "ride_along": False,
-                "cargo": {"oregano": units}, "legit": 0}
+                "cargo": {"oregano": units}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
         return routes.resolve_route(state, plan, Quiet(),
                                     Streams(seed).routes)
 

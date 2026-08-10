@@ -59,7 +59,7 @@ class TestCompleteLegitLedger(unittest.TestCase):
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         before = state.legit_revenue_today
         plan = {"district": "university", "driver": rosa, "ride_along": False,
-                "cargo": {}, "legit": 8}
+                "cargo": {}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertGreater(state.legit_revenue_today, before)
         self.assertGreater(shop.believable_ceiling(state, state.shop, state.legit_revenue_today),
@@ -202,7 +202,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state.shop.ingredients = 200
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False, "driver": rosa}
+                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
         phases._commit_route(state, plan, ScriptedConsole())
         state.demand_today = 100
         report = shop.simulate_shift(state, state.shop, plan["legit"], random.Random(1))
@@ -215,7 +215,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state.shop.ingredients = 3
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False, "driver": rosa}
+                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
         phases._commit_route(state, plan, ScriptedConsole())
         self.assertEqual(plan["legit"], 3)
 

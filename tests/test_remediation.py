@@ -7,7 +7,7 @@ import random
 import unittest
 
 from extra_toppings import evidence as ev
-from extra_toppings import phases, save, sitdown, straight
+from extra_toppings import models, phases, save, sitdown, straight
 from extra_toppings.models import (CASE_FLOOR, REMEDIATION_CAP, BranchState,
                                    Evidence, case_prefix, fold_case,
                                    new_state, validate_branch_state,
@@ -660,7 +660,7 @@ class TestWitnessStatusMatrix(unittest.TestCase):
             state.shop_stash = {"mushrooms": 6}
             plan = {"district": "university", "driver": rosa,
                     "ride_along": False, "cargo": {"mushrooms": 6},
-                    "legit": 0, "disposal": True}
+                    "legit": 0, "disposal": True, "origin_shop": models.HOME_SHOP_KEY}
             routes.resolve_route(state, plan, Quiet(),
                                  random.Random(seed))
             if rosa.arrested:

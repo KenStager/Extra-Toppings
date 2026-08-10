@@ -1130,22 +1130,41 @@ def validate_execution_history(state: "State") -> None:
     succeeded raid damage against jobs-channel damage, and route
     corner damage against corners-channel damage, by day and rival.
     Refused, never repaired."""
-    for name, log, kind in (("raid_log", state.raid_log,
-                             RaidAttemptRecord),
-                            ("route_log", state.route_log,
-                             RouteExecutionRecord)):
-        prev = 0
-        for i, rec in enumerate(log):
-            if not isinstance(rec, kind):
-                raise ValueError(f"{name}[{i}]: not a {kind.__name__}")
-            if rec.day > state.day:
-                raise ValueError(f"{name}[{i}]: day {rec.day} post-dates "
-                                 f"the state's day {state.day}")
-            if rec.day <= prev:
-                raise ValueError(f"{name}[{i}]: one job a night — days "
-                                 f"must strictly increase "
-                                 f"({prev} → {rec.day})")
-            prev = rec.day
+    # Raids stay one a night. Routes are ordered by day and unique on
+    # (day, ORIGIN) — design rev. 22 item 1: one wagon per address per
+    # night, so a second address may run its own route the same night
+    # while no address runs two. With one address that is exactly the
+    # old rule.
+    prev = 0
+    for i, rec in enumerate(state.raid_log):
+        if not isinstance(rec, RaidAttemptRecord):
+            raise ValueError(f"raid_log[{i}]: not a RaidAttemptRecord")
+        if rec.day > state.day:
+            raise ValueError(f"raid_log[{i}]: day {rec.day} post-dates "
+                             f"the state's day {state.day}")
+        if rec.day <= prev:
+            raise ValueError(f"raid_log[{i}]: one job a night — days "
+                             f"must strictly increase "
+                             f"({prev} → {rec.day})")
+        prev = rec.day
+    prev = 0
+    seen_routes: set = set()
+    for i, rec in enumerate(state.route_log):
+        if not isinstance(rec, RouteExecutionRecord):
+            raise ValueError(f"route_log[{i}]: not a "
+                             f"RouteExecutionRecord")
+        if rec.day > state.day:
+            raise ValueError(f"route_log[{i}]: day {rec.day} post-dates "
+                             f"the state's day {state.day}")
+        if rec.day < prev:
+            raise ValueError(f"route_log[{i}]: routes are booked in "
+                             f"calendar order ({prev} → {rec.day})")
+        if (rec.day, rec.origin_shop) in seen_routes:
+            raise ValueError(f"route_log[{i}]: one route per address "
+                             f"per night — day {rec.day} already has "
+                             f"one from that address")
+        seen_routes.add((rec.day, rec.origin_shop))
+        prev = rec.day
 
     camps = (state.branch_state.campaigns
              if state.branch == "war" and state.branch_state is not None
@@ -1367,10 +1386,20 @@ class RouteExecutionRecord:
     units_sold: int
     corner_damage_h: int
     contested: bool
+    # WHICH address the wagon rolled out of (design rev. 22 item 1).
+    # Chronology is keyed on (day, origin), so without it a second
+    # address's route is indistinguishable from a duplicate of the
+    # first's. Additive with the founding address as its default: a
+    # record written before origins existed came from the only
+    # address that existed.
+    origin_shop: str = HOME_SHOP_KEY
 
     def __post_init__(self) -> None:
         if type(self.day) is not int or self.day < 1:
             raise ValueError(f"route record: bad day {self.day!r}")
+        if not isinstance(self.origin_shop, str) or not self.origin_shop:
+            raise ValueError(f"route record: bad origin "
+                             f"{self.origin_shop!r}")
         if self.district not in data.DISTRICTS:
             raise ValueError(f"route record: unknown district "
                              f"{self.district!r}")
@@ -1403,16 +1432,18 @@ class RouteExecutionRecord:
 
     @classmethod
     def of_market(cls, day: int, rm, units_sold: int,
-                  corner_damage_h: int) -> "RouteExecutionRecord":
+                  corner_damage_h: int, origin_shop: str
+                  ) -> "RouteExecutionRecord":
         """The authoritative constructor: band, multiplier, district
         and contested flag come from the RouteMarket view the route
-        actually ran on."""
+        actually ran on, and the origin from the address it left."""
         return cls(day=day, district=rm.district,
                    heat_band=rm.heat.band,
                    capacity_mult=rm.heat.capacity_mult,
                    units_sold=units_sold,
                    corner_damage_h=corner_damage_h,
-                   contested=rm.corner_rate > 0.0)
+                   contested=rm.corner_rate > 0.0,
+                   origin_shop=origin_shop)
 
 
 # ── THE storage capacity authority (rev. 18 item 2, made SAFE per

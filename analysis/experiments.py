@@ -17,7 +17,7 @@ import statistics
 from collections import Counter, defaultdict
 from typing import ClassVar
 
-from extra_toppings import data, escrow, market, phases, raids
+from extra_toppings import data, escrow, market, models, phases, raids
 from extra_toppings import war as war_mod
 from extra_toppings.bot import (BOTS, CooldownRaiderBot, CounselOnlyBot,
                                 CrimeHeavyBot, EscrowBot, GreedyBot,
@@ -154,7 +154,7 @@ def raid_roi(trials: int) -> None:
             before_stash = dict(st.shop_stash)
             before_case = st.case
             plan = {"rival": "vinnie", "objective": objective,
-                    "team": list(crew), "armed": False}
+                    "team": list(crew), "armed": False, "return_shop": models.HOME_SHOP_KEY}
             raids.run_raid(st, plan, BotConsole(random.Random(seed)), rng)
             r = st.rivals["vinnie"]
             ok = ((objective == "steal_stock"
@@ -197,7 +197,7 @@ def raid_roi(trials: int) -> None:
             before = stock_value(st)
             plan = {"rival": "vinnie", "objective": "steal_stock",
                     "team": [e for e in crew if e.available], "armed": False,
-                    "wagon_free": True}
+                    "wagon_free": True, "return_shop": models.HOME_SHOP_KEY}
             if not plan["team"]:
                 break
             raids.run_raid(st, plan, BotConsole(random.Random(seed * 3 + attempt)),
@@ -1172,7 +1172,7 @@ def _heat_exposure_probe(trials: int = 400) -> None:
             # same RouteManifest the game refuses illegal loads with.
             plan = {"district": dk, "driver": driver,
                     "cargo": {"mushrooms": 12, "hot_honey": 12},
-                    "legit": 0, "ride_along": True}
+                    "legit": 0, "ride_along": True, "origin_shop": models.HOME_SHOP_KEY}
             _routes.RouteManifest.of_plan(plan)
             report = _routes.resolve_route(state, plan, _Sell(),
                                            random.Random(seed))
@@ -1255,7 +1255,7 @@ def _pacing_rollout(seed: int, policy) -> tuple:
         if team and rival.alive and policy(night, rival):
             plan = {"rival": "vinnie", "objective": "steal_stock",
                     "team": team, "armed": False,
-                    "wagon_free": True, "table_warned": True}
+                    "wagon_free": True, "table_warned": True, "return_shop": models.HOME_SHOP_KEY}
             person_nights += len(team)
             raids.run_raid(st, plan,
                            BotConsole(_pacing_bot_rng(seed, day)),
@@ -1378,7 +1378,7 @@ def _raid_decline_at_war_cadence(trials: int = 2000) -> None:
                 before = stock_value(st)
                 plan = {"rival": "vinnie", "objective": "steal_stock",
                         "team": [e for e in crew if e.available],
-                        "armed": False, "wagon_free": True}
+                        "armed": False, "wagon_free": True, "return_shop": models.HOME_SHOP_KEY}
                 if not plan["team"]:
                     break
                 raids.run_raid(
