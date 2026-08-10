@@ -165,3 +165,28 @@ donor cells → 2× scaffold (blank any brand bands) → pixflux init@120
 (bodies) or 150–170 (objects wanting donor fidelity) → forced palette
 (chips ∪ donor) → quantize check (expect 0) → deterministic brand
 layer → 50% readability check → family board.
+
+## Engine scorecard (empirical, through Experiment 03 — 49 generations)
+
+What we have actually experienced, recorded before the round-2
+documentation research so the data and the docs stay separable:
+
+| Dimension | pixflux | bitforge | inpaint |
+| --- | --- | --- | --- |
+| Cells won | Canon pizza (12), facade body, all 3 boxes, chair family, oven, counter | pizza 15 (exp01 1st pick), slice (canon-adjacent) | none |
+| Composition at 32px+ | Strong with init anchor | Adequate | — |
+| Canvas limit | 400px/axis (only single-shot facade path) | 200px/axis | 200px/axis |
+| Style transfer | n/a (no style image) | LEAKS CONTENT across objects (box→pizza); only safe same-object | — |
+| Style-size constraint | n/a | style_image must equal output size (undocumented) | — |
+| Unmasked-pixel preservation | n/a | n/a | FAILED twice (re-renders canvas) |
+| Palette discipline (forced) | Perfect (0 off-palette, every asset) | Perfect | untested post-failure |
+| Cost per unit | identical | identical | identical |
+
+Standing policy pending research round 2: **pixflux is the default
+engine at 32×32** (composition + canvas headroom + family cohesion via
+palette/prompt/anchor); bitforge is reserved for same-object style
+variants and canon-adjacent props; REST inpaint is avoided. Open
+questions sent to the documentation researcher: model lineage, the
+MCP-only `create_image_pro` (selective style_copy could fix the
+content-leak problem), style-object registry, newer inpaint variants,
+tileability support, rotation/animation surfaces for later phases.
