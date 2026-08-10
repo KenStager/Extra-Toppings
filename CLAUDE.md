@@ -73,12 +73,17 @@ the reviewer finds the thing you decided was probably fine.
 - Commit messages are long and explanatory — what the defect was,
   what was measured, what the fix contracts. Read `git log` for the
   house style. Merge commits: "Merge PR #N: title".
-- Every commit ends with exactly this footer, and NO model name or
-  model ID ever appears in a commit message, PR title/body, code
-  comment, or any pushed artifact:
+- Every commit ends with exactly this footer. The generic "Claude"
+  attribution below is explicitly allowed and REQUIRED; what must
+  never appear — in a commit message, PR title/body, code comment or
+  any other pushed artifact — is a model VARIANT, VERSION or ID
+  (a family name, a numbered release, a `claude-*` identifier):
 
       Co-Authored-By: Claude <noreply@anthropic.com>
       Claude-Session: <this session's identifier>
+
+  The harness default footer carries a model variant; it is overridden
+  here, so write the footer above by hand rather than accepting it.
 
 - PR bodies carry the completion-evidence table: test counts per
   Python version, ruff/mypy, both gates, battery hashes, golden hash,
