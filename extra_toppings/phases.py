@@ -77,9 +77,18 @@ class WagonNight:
     claims: dict = field(default_factory=dict)   # wagon key -> consumer
 
     def free_at(self, shop_key: str) -> list:
-        """Wagons still at an address, in stable key order."""
+        """Wagons still at an address, in stable key order.
+
+        TWO authorities compose here and neither absorbs the other
+        (P4b.1a): the LIFECYCLE says whether a wagon may be claimed at
+        all — a construction site's wagon is still at the contractor's
+        yard — and this ledger says whether tonight has already spent
+        it. A wagon must pass both to be free, and it is asked of
+        `models.wagon_claim` rather than re-derived here, so planning
+        and execution can never reach different answers."""
         return [w for w in self.state.wagons_at(shop_key)
-                if w.key not in self.claims]
+                if w.key not in self.claims
+                and models.wagon_claim(self.state, w.key).available]
 
     def available_at(self, shop_key: str) -> bool:
         return bool(self.free_at(shop_key))
@@ -93,6 +102,13 @@ class WagonNight:
         for w in self.state.wagons_at(shop_key):
             if w.key in self.claims:
                 return WAGON_NOTES[self.claims[w.key]]
+        # Nothing tonight took it, so the reason is the lifecycle's to
+        # give, in its own words — the refusal the player must be able
+        # to read (§2.4.2: a silent absence would read as a bug).
+        for w in self.state.wagons_at(shop_key):
+            claim = models.wagon_claim(self.state, w.key)
+            if not claim.available:
+                return claim.note
         return "not kept at this address"
 
     def view_at(self, shop_key: str) -> models.WagonAvailability:

@@ -10,7 +10,7 @@ invisible to a one-shop run and to every green gate.
 
 import unittest
 
-from extra_toppings import data, models, save
+from extra_toppings import data, models, phases, save
 from extra_toppings.models import (ADDRESS_CAPABILITIES,
                                    CONSTRUCTION_ALLOWED,
                                    CONSTRUCTION_DAYS, HOME_SHOP_KEY,
@@ -195,6 +195,74 @@ class TestWagonClaim(unittest.TestCase):
         state = new_state()
         with self.assertRaises(KeyError):
             wagon_claim(state, "nowagon")
+
+
+class TestTheNightLedgerObeysTheLifecycle(unittest.TestCase):
+    """The two authorities compose: the lifecycle says whether a
+    wagon may be claimed at all, the night ledger says whether tonight
+    already spent it. Both bind at planning AND at execution, because
+    `claim_at` reads `free_at` — there is no second path."""
+
+    def test_a_construction_wagon_is_not_free_at_its_address(self):
+        state = _with_site(day=6, acceptance=5)
+        night = phases.WagonNight(state)
+        self.assertEqual(night.free_at("shop2"), [])
+        self.assertFalse(night.available_at("shop2"))
+
+    def test_the_note_is_the_lifecycles_own_words(self):
+        state = _with_site(day=6, acceptance=5)
+        night = phases.WagonNight(state)
+        self.assertIn("contractor's yard", night.note_at("shop2"))
+        self.assertIn("University Hill", night.note_at("shop2"))
+
+    def test_claiming_a_construction_wagon_fails_closed(self):
+        # Execution revalidates: a consumer that acted on a stale
+        # planning answer hits a refusal, never a silent grant.
+        state = _with_site(day=6, acceptance=5)
+        night = phases.WagonNight(state)
+        with self.assertRaises(RuntimeError):
+            night.claim_at("shop2", "route")
+
+    def test_the_wagon_frees_the_morning_its_address_opens(self):
+        state = _with_site(day=7, acceptance=5)
+        night = phases.WagonNight(state)
+        self.assertEqual([w.key for w in night.free_at("shop2")],
+                         ["wagon2"])
+        self.assertEqual(night.claim_at("shop2", "route"), "wagon2")
+        self.assertEqual(night.note_at("shop2"),
+                         phases.WAGON_NOTES["route"])
+
+    def test_a_building_site_never_grounds_the_open_address(self):
+        # Availability is per address: the home wagon is not held back
+        # because a site across town is still being built.
+        state = _with_site(day=6, acceptance=5)
+        night = phases.WagonNight(state)
+        self.assertTrue(night.available_at(HOME_SHOP_KEY))
+        self.assertEqual(night.claim_at(HOME_SHOP_KEY, "route"),
+                         models.HOME_WAGON_KEY)
+
+    def test_a_spent_wagon_still_reports_the_job_that_took_it(self):
+        # The lifecycle answer must not displace the night's reason
+        # once a wagon is genuinely out.
+        state = _with_site(day=7, acceptance=5)
+        night = phases.WagonNight(state)
+        night.claim_at("shop2", "salvage")
+        self.assertEqual(night.note_at("shop2"),
+                         phases.WAGON_NOTES["salvage"])
+        self.assertFalse(night.available_at("shop2"))
+
+    def test_one_shop_answers_exactly_as_before(self):
+        # The behaviour-equivalence anchor for this surface: with one
+        # address nothing the lifecycle adds can change an answer.
+        state = new_state()
+        night = phases.WagonNight(state)
+        self.assertTrue(night.available_at(HOME_SHOP_KEY))
+        self.assertEqual(night.note_at(HOME_SHOP_KEY), "")
+        self.assertIs(night.view_at(HOME_SHOP_KEY).available, True)
+        night.claim_at(HOME_SHOP_KEY, "route")
+        self.assertFalse(night.available_at(HOME_SHOP_KEY))
+        self.assertEqual(night.note_at(HOME_SHOP_KEY),
+                         phases.WAGON_NOTES["route"])
 
 
 class TestLifecycleValidation(unittest.TestCase):
