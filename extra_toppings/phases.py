@@ -6,6 +6,7 @@ by anything the player does. Player-facing dice use persistent streams.
 """
 
 import random
+from dataclasses import dataclass
 
 from . import (data, escrow, evidence, market, models, raids, rivals,
                routes, shop, straight, war)
@@ -42,6 +43,63 @@ def wagon_job(plans: dict, but: str | None = None) -> str | None:
         if job != but and plans.get(job):
             return job
     return None
+
+
+# Why the wagon is gone, in the player's words — one home, so the
+# menu, the raid line and the tests all read the same sentence.
+WAGON_NOTES = {
+    "route": "out on tonight's route",
+    "salvage": "out on tonight's pickup",
+    "raid": "out with the night crew",
+    "decoy": "already loaded and gone",
+}
+
+
+@dataclass
+class WagonNight:
+    """THE night's wagon assignment (design rev. 25 item 1): ONE
+    stateful answer, updated by each consumer as it executes.
+
+    A derived boolean cannot do this job. `wagon_used` below reads
+    the morning's plans and the service report, so it is blind to
+    everything that happens later the same night — the outgoing raid
+    that hauls with the wagon, and the decoy that loads it against
+    the first of two arriving rivals. The night therefore carries
+    this object and spends it exactly once; every later consumer
+    asks it rather than re-deriving an answer that has gone stale.
+    """
+
+    claimed_by: str | None = None
+
+    @property
+    def available(self) -> bool:
+        return self.claimed_by is None
+
+    @property
+    def note(self) -> str:
+        """The player-facing reason, empty while the wagon is free."""
+        return WAGON_NOTES.get(self.claimed_by or "", "")
+
+    def view(self) -> models.WagonAvailability:
+        """The immutable answer consumers read. One value, so an
+        availability flag and its reason cannot arrive contradicting
+        each other."""
+        return models.WagonAvailability(self.available, self.note)
+
+    def claim(self, by: str) -> None:
+        """Take the wagon out, exclusively. Fails CLOSED: there is one
+        wagon, so a second claim is not a thing to absorb quietly — it
+        means a consumer asked `available` and acted on a stale answer,
+        which is exactly the class of bug this authority exists to end.
+        Every caller checks availability first, so no legitimate path
+        reaches a second claim."""
+        if by not in WAGON_NOTES:
+            raise ValueError(f"unknown wagon consumer {by!r}")
+        if self.claimed_by is not None:
+            raise RuntimeError(
+                f"the wagon is already {self.note} — {by!r} cannot "
+                f"take it too; there is only one wagon")
+        self.claimed_by = by
 
 
 def wagon_used(plans: dict, service_report: dict) -> bool:
@@ -790,6 +848,14 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
 def night(state: State, plans: dict, service_report: dict, con: Console,
           streams: Streams, config: GameConfig | None = None) -> None:
     con.header(f"DAY {state.day} — AFTER CLOSE")
+    # The night's wagon, opened from what the service phase actually
+    # did (a departed route or pickup holds it; a pickup scrubbed
+    # before departure never took it out) and spent by each later
+    # consumer in turn — design rev. 25 item 1.
+    wagon = WagonNight()
+    service_job = wagon_job(plans)
+    if service_job is not None and wagon_used(plans, service_report):
+        wagon.claim(service_job)
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight
@@ -834,18 +900,33 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # asks what actually happened tonight — a committed route
             # or a pickup that DEPARTED holds the wagon; a pickup
             # scrubbed before departure never took it out.
-            raid_plan["wagon_free"] = not wagon_used(plans, service_report)
+            raid_plan["wagon_free"] = wagon.available
             # §2.1 rev. 4: the day's takings can put payoff in reach
             # after the job was planned — recheck once, before it runs.
             if not raid_plan.get("table_warned") and state.payoff_in_reach():
                 con.say("  With the debt this close to settled, remember: "
                         "whatever tonight leaves behind goes into the file "
                         "tomorrow's table reads.")
+            # Departure spends the wagon, and only a stock theft
+            # loads it (design rev. 26): ledger and sabotage jobs go
+            # on foot. The outcome is irrelevant — a repelled theft
+            # still drove away with it.
+            if (raid_plan["objective"] == "steal_stock"
+                    and raid_plan["wagon_free"]):
+                # Claimed BEFORE the job runs: departure is what
+                # consumes the wagon, not the outcome.
+                wagon.claim("raid")
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():
         if rival.alive and rival.raid_warning == 1:
-            result = raids.incoming_raid(state, key, con, streams.raids)
+            # Both rivals can arrive on one night, and the first
+            # decoy takes the wagon with it — the second gets the
+            # truth, not the morning's answer (design rev. 25).
+            result = raids.incoming_raid(state, key, con, streams.raids,
+                                         wagon=wagon.view())
+            if result.wagon_taken:
+                wagon.claim("decoy")
             # Escrow's truth table is the merged one: any raid that
             # arrives — fought off or not — is an incident.
             if result.outcome != "averted" and state.branch == "quiet_sale" \

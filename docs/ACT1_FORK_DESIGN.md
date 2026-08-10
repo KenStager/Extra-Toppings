@@ -1619,7 +1619,10 @@ Ordered roughly by blast radius, smallest first:
   pinned cases (rev. 25 item 1) — departed route → decoy unavailable;
   departed salvage → unavailable, salvage scrubbed before departure →
   available; an executed outgoing raid that **took** the wagon →
-  unavailable; an outgoing raid scrubbed before departure → available;
+  unavailable — that is a `steal_stock` raid whose crew departed,
+  succeed or fail, while ledger and sabotage jobs go on foot and leave
+  it free (rev. 26); an outgoing raid scrubbed before departure →
+  available;
   the first decoy **reserves** the wagon so a second rival arriving the
   same night cannot reuse it; and fighting or paying tribute to the
   first rival consumes nothing, leaving it available to the second. An
@@ -4130,3 +4133,26 @@ paper only; no implementation begins.
    verdicts stay outside Partner's scope; P3.5 remains the one
    deliberate released-behavior movement in this arc, still gated on
    measuring the golden before touching it.
+
+**Revision 26** records the ruling on revision 25's one open flag,
+taken on the approval of PR #16 (merged at d18f323) and before any
+P3.5 code, per the standing paper-first rule. It amends §7's P3.5
+bullet and nothing else.
+
+1. **Only `steal_stock` consumes the wagon, and departure is what
+   consumes it.** Ledger photography and sabotage stay on-foot,
+   light-team jobs and leave the wagon available — which matches the
+   mechanics as they already stand (`carry_bulk` is computed only
+   inside the `steal_stock` branch, raids.py:220–223) and gives the
+   three objectives a real logistical difference rather than an
+   incidental one: a stock theft costs you the wagon for the night,
+   a sabotage does not, and that is now a reason to pick one. For a
+   stock theft the wagon is consumed **when the crew departs with
+   it, regardless of whether the raid ultimately succeeds** — a
+   repelled or bungled theft still took the wagon out — while a
+   **pre-departure scrub leaves it free**, which is the same
+   execution-truth line the salvage pickup already draws. The
+   night-assignment authority therefore records the wagon as spent at
+   departure, not at payoff, and the P3.5 pin for a failed
+   stock-theft raid asserts the wagon is unavailable exactly as a
+   successful one does.

@@ -64,8 +64,13 @@ python3 -m analysis.experiments fork --seeds 500   # confirmation ensemble
 ```
 
 - **Gate 1 (golden):** 150 seeds × 2 bots replayed flag-off against
-  `analysis/golden_act1.json` (generated from the pre-refactor engine
-  at 3d79d17). Three surfaces nightly: the save-v2 legacy projection,
+  `analysis/golden_act1.json`. Its version, generating commit,
+  predecessor hash, reason and file hash are pinned by
+  `ACTIVE_BASELINE` in `analysis/equivalence.py`, which is the
+  canonical provenance — read it there rather than restating a commit
+  here, because a copy of that census goes stale the first time the
+  baseline is regenerated (it already had). Three surfaces nightly:
+  the save-v2 legacy projection,
   the four shared RNG streams (fork streams provably undrawn), and the
   digest of the complete decision trace — every menu/ask_int/confirm
   PROMPT STRING verbatim. **Never regenerate the goldens for
@@ -82,7 +87,10 @@ python3 -m analysis.experiments fork --seeds 500   # confirmation ensemble
   `analysis/equivalence.py`, never imported from `sitdown.py`).
   Changing any stand-pat scene prompt/option/order/answer is a
   deliberate act that lands with a schema version bump. Current
-  expected count: 82 sit-downs held across the 300 paired runs.
+  expected count: **79** sit-downs held across the 300 paired runs
+  (82 until the P3.5 decoy correction, which changed flag-off
+  timelines and so changed how many runs are owed a table; the gate
+  derives both sides, so it moved together and stayed 300/300).
 - **Scene menus obey progress-last:** deterministic bot handlers pick
   the last option, so every scene menu's last option must progress
   (stand pat / confirm / sign). `ScriptedConsole.scene_menu` fails

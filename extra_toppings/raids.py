@@ -297,11 +297,15 @@ class RaidResult:
       damage_added    — what tonight's raid added
       attacker_damage — strength the defense dealt them (the fifth
                         channel books through the damage authority)
+      wagon_taken     — the decoy loaded the wagon and drove it out,
+                        so no later consumer tonight may have it
+                        (design rev. 25 item 1)
     """
     outcome: str
     damage_before: int
     damage_added: int
     attacker_damage: float
+    wagon_taken: bool = False
 
     @property
     def landed(self) -> bool:
@@ -309,7 +313,9 @@ class RaidResult:
 
 
 def incoming_raid(state: State, rival_key: str, con: Console,
-                  rng: random.Random) -> RaidResult:
+                  rng: random.Random, *,
+                  wagon: models.WagonAvailability | None = None
+                  ) -> RaidResult:
     """A telegraphed rival raid arrives at your shop tonight. Returns
     the typed RaidResult (rev. 14 item 6). Escrow's incident semantics
     are unchanged from the merged behavior: any raid that ARRIVES —
@@ -327,8 +333,16 @@ def incoming_raid(state: State, rival_key: str, con: Console,
     # forever, and money must not reopen it mid-raid. The bystander's
     # raid keeps the option; flag-off nothing changes.
     target_raid = models.vendetta_locked(state, rival_key)
-    options = ["Defend the shop (your crew's nerve)",
-               "Empty the stash into the wagon and let them find crumbs"]
+    # The decoy needs a wagon that is actually here (design rev. 25
+    # item 1). It stays ON the menu when it isn't — marked, with the
+    # reason — because an option that silently vanishes teaches the
+    # player nothing; picking it says why and asks again. Same shape
+    # as the RED-district refusal in routes.plan_route.
+    wagon = wagon if wagon is not None else models.WAGON_FREE
+    decoy = "Empty the stash into the wagon and let them find crumbs"
+    if not wagon.available:
+        decoy += f" — unavailable, the wagon is {wagon.note}"
+    options = ["Defend the shop (your crew's nerve)", decoy]
     if not target_raid:
         options.append(
             f"Pay tribute ({money(rival.tribute_demanded or 1500)} dirty)")
@@ -345,7 +359,19 @@ def incoming_raid(state: State, rival_key: str, con: Console,
                 "lost fight, or the decoy's break-in — there will be "
                 "nothing left to reopen. The war comes home.")
         options[1] += " — the break-in ends the run"
-    choice = con.menu("The unfamiliar cars are circling. Your move:", options)
+    prompt = "The unfamiliar cars are circling. Your move:"
+    choice = con.menu(prompt, options)
+    if choice == 1 and not wagon.available:
+        # Refused, then asked again WITHOUT it — bounded at two menus
+        # on purpose. A re-prompt loop cannot be used here: an
+        # exhausted ScriptedConsole answers with the last option, and
+        # against a declared rival the decoy IS the last option, so a
+        # loop would never terminate.
+        con.say(f"  There is nothing to load — the wagon is {wagon.note}. "
+                f"The stash stays where it is.")
+        second = [o for i, o in enumerate(options) if i != 1]
+        pick = con.menu(prompt, second)
+        choice = 0 if pick == 0 else pick + 1
 
     tribute = rival.tribute_demanded or 1500
     if not target_raid and choice == 2 and state.dirty >= tribute:
@@ -382,7 +408,7 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         rival.raid_warning = 0
         return RaidResult("landed", damage_before,
                           max(0, state.shop.damage_days - damage_before),
-                          0.0)
+                          0.0, wagon_taken=True)
 
     # Fight.
     defenders = state.crew()

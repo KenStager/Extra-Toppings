@@ -2059,6 +2059,125 @@ and 500 seeds byte-identical to their pre-activation outputs (the
 studies pass explicit configs, so the CLI's lift moves no study
 row).
 
+## Round 11 — P3.5: the wagon that could be in two places
+
+A correctness pass against the RELEASED one-shop game, split out of
+P4a on the reviewer's ruling precisely because it moves existing
+behavior and therefore could not ride inside a behavior-neutral
+refactor. Design revisions 25 item 1 and 26 are its paper.
+
+**The defect.** The outgoing raid asked whether the wagon was free;
+the incoming raid's decoy never did. So a shop whose wagon had left
+on the evening route could still "empty the stash into the wagon and
+let them find crumbs" — and, because both rivals can arrive on one
+night (`phases` loops over every rival at `raid_warning == 1`, after
+the outgoing raid has already run), two decoys could load the same
+wagon twice. The root cause is architectural rather than a missing
+condition: `wagon_used(plans, service_report)` is a pure function of
+the morning's plans and the service report, so it is structurally
+blind to anything that happens later the same night.
+
+**Measured before anything moved** (the reviewer's precondition for
+touching the baseline), replaying exactly the 300 flag-off runs the
+golden pins, on the pre-correction engine: **454** incoming raids
+reached the decoy menu; **194** of them sat on a night when the wagon
+was already spent — all 194 from a departed route, none from a raid,
+since a route that departs already denies the raid its wagon — and
+the bot **actually chose the decoy on 75** of those. That is **110 of
+300 runs** changed. The gate then reported **190/300 identical**
+against the old baseline: exactly the 110 the instrument predicted,
+from an independent measurement. The two-rival night is real but
+rare: **1** occurred in the 300-run sweep (its first arrival did not
+take the decoy), which is why that case is pinned by construction
+rather than left to a seed scan.
+
+**The fix.** One stateful night-assignment authority
+(`phases.WagonNight`), opened from what the service phase actually
+did and spent by each consumer as it executes, first claim standing.
+Only a `steal_stock` raid loads the wagon, and departure spends it
+whatever the outcome (rev. 26); ledger and sabotage jobs go on foot.
+When the wagon is gone the decoy stays ON the menu, marked with its
+reason, and choosing it says why and asks again without it — bounded
+at two menus deliberately, because an exhausted `ScriptedConsole`
+answers with the last option and against a declared rival the decoy
+IS the last option, so a re-prompt loop would never terminate.
+
+**Pins:** 15 cases through the real `phases.night` — departed route,
+departed pickup, scrubbed pickup, departed stock theft across 12
+seeds so the outcome cannot matter, ledger job on foot, scrubbed
+raid, and all three two-rival endings (first decoys, first fights,
+first pays). Regression proof: **9 of the 15 fail** on the pre-fix
+engine (5 failures, 4 errors); the 6 that pass are the wagon-is-free
+cases the old code also got right.
+
+**The baseline was regenerated, as the sanctioned act the condition
+earned.** Golden v3, generated at the correction commit itself so the
+tree that produced it is checkoutable and the file reproduces byte
+for byte; `ACTIVE_BASELINE` updated in the same commit with version,
+generating commit, predecessor `13d9eeba`, the measured reason, and
+the new hash `7a62b2af`. The provenance tests still reject a byte
+flip and every field mutation. `analysis.equivalence generate` now
+REQUIRES a reason: the first attempt merely added a `--reason` flag that
+defaulted to None and fell through to the retired rev. 17-18 text,
+which is the very provenance failure it was meant to end. Review
+caught it. The reason is validated before any file is read or
+written (both the API and the CLI refuse, the CLI before
+`generate()` is called), the historical fallback string is
+deleted, and the refusals are pinned on both paths with the
+golden's bytes asserted unchanged. The defect was demonstrated
+live during the pin proof:
+run against the pre-fix code, the CLI cheerfully replaced the
+300-run baseline with a 4-run file stamped with the old
+RouteManifest reason. That also taught a second lesson, now fixed —
+a test that guards an artifact must never be able to destroy it, so
+the suite snapshots the golden's bytes and restores them
+unconditionally.
+
+**The wagon authority fails closed.** The first cut recorded
+ownership without enforcing it: a second `spend()` silently did
+nothing, and a test blessed that as "the first claim stands". An
+exclusivity authority must expose an impossible second consumer, not
+conceal one, so `claim()` now refuses any second claim outright, the
+availability answer travels as one immutable validated value
+(`models.WagonAvailability`, which cannot express "free, and out on
+the route"), and the outgoing stock raid claims the wagon BEFORE it
+departs, since departure is what consumes it. The rejection is
+pinned in place of the no-op test. Behavior did not move: both gates
+still 300/300 and the 150-seed battery byte-identical to the run
+before the change — so the silent no-op had never actually fired,
+and the fix closes a latent hole rather than papering over a live
+one.
+
+**Verification.** 552 tests green on 3.11 and 3.12; ruff and mypy
+clean. Both identity gates **300/300 on 3.11, 3.12 AND 3.13** against
+the new contract-asserted baseline. Paired stand-pat holds 300/300
+with its sit-down count at **79, down from 82**: the correction
+changes flag-off timelines, so fewer runs are owed a table, and
+because the oracle derives expectation from the flag-off timeline
+alone both sides moved together — a changed constant, not a weakened
+gate.
+
+**The batteries moved, and that is the point.** Unlike P4a, this pass
+deliberately changes flag-off behavior, so every branch study now
+enters the fork from a corrected month. **Every §2.7 bar still passes
+at both depths**, reported as measured. At 500 seeds: reachability
+56% (bar ≥ 55%, entries 280 → 278); escrow closed 92% (≥ 70%),
+ablation drop 84 → 85 points (≥ 20), valuation median $2,429 →
+$2,402 (≥ $1,000), tier flips 44% (≥ 40%); the Straight Path's
+natural cohort 43% → 42% earned exits (band 25–70%) with the natural
+paired bar 61% → 62% (≥ 60%); the redemption cohort ΔCase median
+−10.0 (bar ≤ −5) and 99% below fork-day (≥ 60%), its ablation 76
+points; the war branch-good **57% → 60%** (band 25–70%), raid-only
+trailing by 49 points (≥ 15), the empire letter 26 points (≥ 15,
+binding at 500), and the full policy still not trailing cooldown
+(**60% vs 54%**, was 57% vs 53%). Remediation resistance, the
+reconciliation oracle, ledger transparency and ablation entry
+identity are all unchanged and clean. Nothing was tuned; the movement
+is the corrected engine showing through, and the two bars sitting
+closest to their thresholds — reachability at 56% against 55%, and
+the natural paired bar at 62% against 60% — are named here so that a
+later drift is read against a known position rather than discovered.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2086,6 +2205,10 @@ row).
   of the arc is P4 — Carmine's Partner, the last unbuilt chair —
   and the P4 full-battery item (the pairwise eight-component
   vectors, per §7).
+- **P3.5 (the wagon correction) is complete and awaiting review**;
+  the P4 paper (design revisions 21–26) is merged, and P4a — the
+  address-bound foundation — has NOT begun. It waits on P3.5's own
+  review, per the recorded sequencing.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
