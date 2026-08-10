@@ -124,3 +124,44 @@ iteration at 32px; supporting-object test is next (pizza_whole_12/21
 originals already satisfy the branded-prop slot at genuine 32×32).
 Spend to date across both experiments: 32 charged generation units;
 balance has displayed $10.00 throughout (est ≤ $0.30 total).
+
+## Reflect–revise–repeat pass (2026-08-10, same day)
+
+Phase A — the deterministic layer is now pipeline code
+(`pixel_font.py` full A–Z/0–9 5×7 set, `branding.py` sign/emblem/
+awning builders, `palettes.quantize_to_palette`), 29 tests, ruff
+clean. The facade and all future branding run through these functions,
+not scripts.
+
+Phase B — facade body revision with pizza-specific display prompts,
+three seeds at the proven pixflux init@120 cell. Seed 402 selected:
+display windows show pizzas on pans, bottles, and warm wood; seed 403
+REJECTED on palette semantics (it used Critical `#FF2B3C` as shop
+material — the reservation is enforced in review, not just documented).
+Final `facade_v2_final_branded.png` = s402 + deterministic awning +
+sign, quantize changed 0 px.
+
+Phase C — supporting objects via the same recipe (donor crop → 2×
+scaffold → pixflux init sweep → quantize): oven 32×64 (tileB_inside3
+(6,2..3), i170), service counter 128×64 (tileB_inside4 (10..13,8..9),
+i170 — i120's weathering read as noise and was rejected under the
+governing rule), and a chair family 64×64 (tileB_inside2 (0..1,9..10),
+i120 — recorded honestly: the crop was mislabeled "table" but the
+donor cells are chairs; the generated red-checkered upholstery is a
+keeper). Quantize changed 0 px on ALL of them — palette discipline is
+now 4/4 assets at zero cleanup.
+
+Canonical prop: `pizza_whole_12_orig32` and `pizza_whole_21_orig32`
+both PASS full validation at native 32×32 (expected_size 32, bbox ≥18,
+edge run ≤8). Both sit on the family board
+(`review/family_board_v2.png`) beside the facade, oven, counter,
+chairs, and the deterministic emblem; the scene preview
+(`preview/scene_v2_640x360.png`) shows the branded facade in the
+640×360 viewport. User choice between 12 and 21 still open.
+
+Spend: 41 charged generations across all passes; balance has displayed
+$10.00 throughout (est ≤ $0.31). The repeatable recipe, now stable:
+donor cells → 2× scaffold (blank any brand bands) → pixflux init@120
+(bodies) or 150–170 (objects wanting donor fidelity) → forced palette
+(chips ∪ donor) → quantize check (expect 0) → deterministic brand
+layer → 50% readability check → family board.
