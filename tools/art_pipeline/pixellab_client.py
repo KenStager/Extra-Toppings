@@ -1,8 +1,11 @@
-"""Minimal PixelLab REST client (stdlib HTTP; token via environment only).
+"""Minimal PixelLab REST client (stdlib HTTP; token never stored here).
 
-The token is read from PIXELLAB_API_KEY, or from the file named by
-PIXELLAB_API_KEY_FILE. It is held only in memory, sent only as the
-Authorization header, and stripped from any error text.
+The token is resolved in order: the PIXELLAB_API_KEY environment
+variable, the file named by PIXELLAB_API_KEY_FILE, then the macOS
+Keychain item with service name `pixellab-api` (store it with
+`security add-generic-password -a "$USER" -s pixellab-api -w`). It is
+held only in memory, sent only as the Authorization header, and
+stripped from any error text.
 """
 
 from __future__ import annotations
@@ -11,6 +14,8 @@ import base64
 import io
 import json
 import os
+import subprocess
+import sys
 import urllib.error
 import urllib.request
 from typing import Any
@@ -31,9 +36,18 @@ def _token() -> str:
         if key_file and os.path.exists(key_file):
             with open(key_file) as fh:
                 token = fh.read().strip()
+    if not token and sys.platform == "darwin":
+        result = subprocess.run(
+            ["security", "find-generic-password", "-s", "pixellab-api", "-w"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            token = result.stdout.strip()
     if not token:
         raise PixelLabError(
-            "no credential: set PIXELLAB_API_KEY or PIXELLAB_API_KEY_FILE"
+            "no credential: set PIXELLAB_API_KEY, PIXELLAB_API_KEY_FILE, "
+            "or a macOS Keychain item with service name 'pixellab-api'"
         )
     return token
 

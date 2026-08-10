@@ -9,10 +9,13 @@ whole-pizza prop). Pure Python + Pillow; no other dependencies.
   candidates, and contact sheets live under the repo-root `.private_art/`
   tree, which is gitignored. This package holds code, tests, and blank
   specifications only.
-- **No credentials.** The PixelLab token is read from `PIXELLAB_API_KEY`
-  (or a file named by `PIXELLAB_API_KEY_FILE`), held in memory, sent only
-  as the Authorization header, and redacted from error text. Provenance
-  records are scrubbed of any credential-shaped field before writing.
+- **No credentials.** The PixelLab token is resolved from
+  `PIXELLAB_API_KEY`, then a file named by `PIXELLAB_API_KEY_FILE`, then
+  the macOS Keychain item `pixellab-api` (the durable home:
+  `security add-generic-password -a "$USER" -s pixellab-api -w`). It is
+  held in memory, sent only as the Authorization header, and redacted
+  from error text. Provenance records are scrubbed of any
+  credential-shaped field before writing.
 
 ## Modules
 
