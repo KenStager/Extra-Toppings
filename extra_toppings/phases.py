@@ -190,8 +190,8 @@ class WagonNight:
         self.claims[free[0].key] = by
         return free[0].key
 
-    def claim_plan(self, state: "State", plan: dict,
-                   by: str) -> models.ClaimResult:
+    def claim_plan(self, state: "State", plan: dict, by: str,
+                   field: str = "origin_shop") -> models.ClaimResult:
         """THE execution authority for a planned wagon job: one
         atomic check-and-claim.
 
@@ -209,7 +209,7 @@ class WagonNight:
                 "this wagon-assignment authority belongs to a "
                 "different state — a claim recorded there says "
                 "nothing about the world being spent here")
-        return self.claim_key(models.plan_wagon(state, plan), by)
+        return self.claim_key(models.plan_wagon(state, plan, field), by)
 
     def claim_key(self, wagon_key: str, by: str) -> models.ClaimResult:
         """Take THE wagon a plan named, and say whether it was still
@@ -1149,10 +1149,17 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # departure is what consumes the wagon, not the outcome,
             # and a wagon that left on the route since morning simply
             # is not there — which is what the claim reports.
-            planned_key = raid_plan.get("wagon_key")
-            raid_plan["wagon_free"] = bool(
-                planned_key is not None
-                and wagon.claim_key(planned_key, "raid").claimed)
+            # An explicit None is the crew walking (rev. 26): ledger
+            # and sabotage jobs never load. A named wagon goes through
+            # the SAME assignment authority, paired against the
+            # address the haul comes back to — `exactly_one_shop`
+            # hides that pairing today and two addresses expose it.
+            if raid_plan.get("wagon_key") is None:
+                raid_plan["wagon_free"] = False
+            else:
+                raid_plan["wagon_free"] = wagon.claim_plan(
+                    state, raid_plan, "raid",
+                    field="return_shop").claimed
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():

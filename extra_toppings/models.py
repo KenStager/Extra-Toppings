@@ -693,7 +693,8 @@ def claimable_wagons(state: "State", shop_key: str) -> tuple:
                  if wagon_claim(state, w.key).available)
 
 
-def plan_wagon(state: "State", plan: dict) -> str:
+def plan_wagon(state: "State", plan: dict,
+               field: str = "origin_shop") -> str:
     """THE wagon a plan departs in, validated against its own origin.
 
     A key alone is not an assignment: shop 1 can name shop 2's wagon
@@ -701,7 +702,7 @@ def plan_wagon(state: "State", plan: dict) -> str:
     here, so no departure path has to remember to do it — and a job
     that names a vehicle kept somewhere else is refused before it
     touches anything."""
-    origin = plan_origin(state, plan)
+    origin = plan_origin(state, plan, field)
     key = plan.get("wagon_key")
     if type(key) is not str or not key:
         raise ValueError(
@@ -714,7 +715,8 @@ def plan_wagon(state: "State", plan: dict) -> str:
     return key
 
 
-def plan_origin(state: "State", plan: dict) -> str:
+def plan_origin(state: "State", plan: dict,
+                field: str = "origin_shop") -> str:
     """The address a planned wagon job leaves from — validated as a
     key AND resolved to a real address.
 
@@ -728,11 +730,16 @@ def plan_origin(state: "State", plan: dict) -> str:
 
     It lives here rather than in `phases` so the planners that build
     these jobs — `war.plan_salvage` among them — can validate through
-    the same authority without importing the phase machinery back."""
-    origin = plan.get("origin_shop")
+    the same authority without importing the phase machinery back.
+
+    `field` names WHICH address the plan pairs its wagon with: routes
+    and pickups load at an `origin_shop`, an outgoing raid brings its
+    haul back to a `return_shop`. One authority, told where to look —
+    never a second, raid-shaped copy of the same three checks."""
+    origin = plan.get(field)
     if type(origin) is not str or not origin:
         raise ValueError(
-            f"a planned wagon job names no origin address, got "
+            f"a planned wagon job names no address in {field!r}, got "
             f"{origin!r}")
     state.shop_by_key(origin)          # KeyError on a ghost address
     return origin

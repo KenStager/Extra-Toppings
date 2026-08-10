@@ -1037,6 +1037,78 @@ class TestNightRefusesAForeignAuthority(unittest.TestCase):
         self.assertIn("different state", str(caught.exception))
 
 
+class TestARaidPairsItsWagonWithItsReturnAddress(unittest.TestCase):
+    """The last direct `claim_key` caller. A raid's wagon belongs to
+    the address its haul comes back to; `exactly_one_shop` hid that
+    pairing, and two addresses expose it. Same authority, told which
+    field names the address — never a raid-shaped copy of it."""
+
+    def _raid_night(self, state, **over):
+        plan = {"rival": "sal", "objective": "steal_stock",
+                "team": [e for e in state.employees if e.available][:1],
+                "armed": False, "table_warned": True,
+                "return_shop": HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
+        plan.update(over)
+        for e in plan["team"]:
+            e.hired = e.aware = True
+        return plan
+
+    def test_a_wagon_from_another_address_refuses_before_the_raid(self):
+        state = _with_site(day=7, acceptance=5)
+        plan = self._raid_night(state, wagon_key="wagon2")
+        wagons = phases.WagonNight(state)
+        with self.assertRaises(ValueError) as caught:
+            wagons.claim_plan(state, plan, "raid",
+                              field="return_shop")
+        self.assertIn("kept at", str(caught.exception))
+        self.assertEqual(wagons.claims, {})
+
+    def test_an_unknown_return_address_refuses(self):
+        state = _with_site(day=7, acceptance=5)
+        plan = self._raid_night(state, return_shop="ghost")
+        wagons = phases.WagonNight(state)
+        with self.assertRaises(KeyError):
+            wagons.claim_plan(state, plan, "raid",
+                              field="return_shop")
+        self.assertEqual(wagons.claims, {})
+
+    def test_a_second_address_raid_claims_its_own_wagon(self):
+        state = _with_site(day=7, acceptance=5)
+        plan = self._raid_night(state, return_shop="shop2",
+                                wagon_key="wagon2")
+        wagons = phases.WagonNight(state)
+        spent = wagons.claim_plan(state, plan, "raid",
+                                  field="return_shop")
+        self.assertTrue(spent.claimed)
+        self.assertEqual(spent.wagon_key, "wagon2")
+        self.assertEqual(wagons.claims, {"wagon2": "raid"})
+        # The home wagon is untouched — a raid out of shop 2 does not
+        # ground DiNapoli's.
+        self.assertTrue(wagons.available_at(HOME_SHOP_KEY))
+
+    def test_the_haul_comes_back_to_the_named_address(self):
+        state = _with_site(day=7, acceptance=5)
+        site = state.shop_by_key("shop2")
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home_before = dict(home.stash)          # the founding stash
+        kept, _left = models.place_haul(state, {"oregano": 3}, "shop2")
+        self.assertEqual(kept, {"oregano": 3})
+        self.assertEqual(site.stash["oregano"], 3)
+        self.assertEqual(home.stash, home_before,
+                         "the haul must not reach the other address")
+
+    def test_a_walking_raid_claims_nothing_at_all(self):
+        # Ledger and sabotage jobs record None and take no wagon
+        # (rev. 26) — through the real night, not by inspection.
+        state = new_state()
+        for e in state.employees[:2]:
+            e.hired = e.aware = True
+        for objective in ("photograph_ledger", "wreck_ovens"):
+            plan = _raid_plan(state, objective)
+            self.assertIsNone(plan["wagon_key"], objective)
+
+
 class TestLifecycleValidation(unittest.TestCase):
     def _valid(self) -> models.State:
         return _with_site(day=6, acceptance=5)
