@@ -68,3 +68,23 @@ will spend generations; Tier C freezes generation.
 
 Spend: 12 calibration generations + this experiment's 0. Ledger live
 at `.private_art/drift/spend_ledger.jsonl`.
+
+## Resolution (2026-08-10): floor set APPROVED; theme discipline named
+
+User approved the floor package: plank, parquet, checker_cream,
+tile_warm, weave_tan, terracotta, and both hex mosaics — eight
+production floors in `approved/`, total generation cost 3 calls (the
+hex fields; everything else deterministic). The red/white and navy
+parlor checkers are NOT approved: they exceed the Omega-calibrated
+contrast envelope and the user's theme-discipline directive points the
+same way; they remain on file as a possible statement-floor exception
+requiring an explicit future ruling.
+
+THEME GUARD (user directive, standing): staying in line with the
+game's themes — oven warmth vs carbon-paper pressure, worn-in
+neighborhood pizzeria, Omega readability — is CRITICAL to the game's
+feel. Henceforth every generation batch records, alongside the
+question it answers, the THEME ROLE the asset plays (which material
+family, which warmth register, which room). Assets that pass every
+instrument but read off-theme are rejected at the board, and that
+rejection is recorded like any other measurement.
