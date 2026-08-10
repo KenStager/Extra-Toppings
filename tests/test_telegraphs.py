@@ -20,6 +20,13 @@ from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 # Fragments that identify each telegraph line in a transcript.
 REMARK_BIG_EARLY = "worth backing"
 REMARK_BIG_LATE = "Serious money"
@@ -77,7 +84,7 @@ def run_morning(state, script=None, seed=1):
 
 def run_night(state, script, seed=1):
     con = CaptureConsole(script)
-    phases.night(state, {}, {}, con, Streams(seed))
+    phases.night(state, {}, _wag(state), con, Streams(seed))
     return con
 
 
@@ -296,7 +303,7 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         phases.service(state, {"route": plan, "raid": None},
                        service_con, streams)
         night_con = CaptureConsole([1, 1000, 4])
-        phases.night(state, {}, {}, night_con, streams)
+        phases.night(state, {}, _wag(state), night_con, streams)
         return state, plan_con, night_con
 
     def test_the_bust_payoff_night_is_warned_at_plan_time(self):
@@ -393,7 +400,7 @@ class TestRaidPlanWarning(unittest.TestCase):
         plans = phases.morning(state, plan_con, streams)
         state.clean = clean_at_night        # the day's takings
         night_con = CaptureConsole([])      # guards abort, then lock up
-        phases.night(state, plans, {}, night_con, streams)
+        phases.night(state, plans, {"wagons": phases.WagonNight(state)}, night_con, streams)
         return plan_con, night_con
 
     def test_takings_arriving_after_planning_warn_at_execution(self):

@@ -187,9 +187,10 @@ class TestHeatPolicy(unittest.TestCase):
         state.shop_stash["oregano"] = 10
         state.districts["old_harbor"].heat = HEAT_RED
         plan = {"district": "old_harbor", "driver": rosa,
-                "ride_along": False, "cargo": {"oregano": 6}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
+                "ride_along": False, "cargo": {"oregano": 6}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         con = Quiet()
-        self.assertFalse(phases._commit_route(state, plan, con))
+        self.assertFalse(phases._commit_route(state, plan, con, phases.WagonNight(state)))
         self.assertEqual(state.shop_stash["oregano"], 10)
         self.assertTrue(any("scrubbed" in ln for ln in con.lines))
 
@@ -215,7 +216,8 @@ class TestTerritorialRoutes(unittest.TestCase):
         state.shop_stash[dk] = state.shop_stash.get(dk, 0)
         state.shop_stash["oregano"] = units
         plan = {"district": dk, "driver": rosa, "ride_along": False,
-                "cargo": {"oregano": units}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
+                "cargo": {"oregano": units}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         return routes.resolve_route(state, plan, Quiet(),
                                     Streams(seed).routes)
 

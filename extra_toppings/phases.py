@@ -68,6 +68,7 @@ def planned_jobs_at(state: "State", plans: dict, shop_key: str,
 # module back.
 WAGON_NOTES = models.WAGON_NOTES
 plan_origin = models.plan_origin
+plan_wagon = models.plan_wagon
 PlannedWagon = models.PlannedWagon
 
 
@@ -115,13 +116,16 @@ class WagonNight:
     to a fleet in P4a.3): ONE stateful answer per wagon, updated by
     each consumer as it executes.
 
-    A derived boolean cannot do this job. `wagon_used` below reads
-    the morning's plans and the service report, so it is blind to
-    everything that happens later the same night — the outgoing raid
-    that hauls with a wagon, and the decoy that loads one against the
-    first of two arriving rivals. The night therefore carries this
-    object and spends each wagon exactly once; every later consumer
-    asks it rather than re-deriving an answer that has gone stale.
+    A derived boolean cannot do this job. Any answer computed from
+    the morning's plans and the service report is blind to what
+    happens later the same night — the outgoing raid that hauls with
+    a wagon, and the decoy that loads one against the first of two
+    arriving rivals. Opened at SERVICE start (P4b.1a) and threaded
+    through the night, this object is spent by each consumer AT
+    DEPARTURE; every later consumer asks it rather than re-deriving
+    an answer that has gone stale. The inference it replaced
+    (`wagon_used`) existed only because the claim used to happen
+    after the jobs had already run.
 
     Availability is answered PER ADDRESS, not globally: a second shop
     with its own wagon is not grounded because the home wagon left.
@@ -207,20 +211,6 @@ class WagonNight:
             return False
         self.claims[wagon_key] = by
         return True
-
-
-def wagon_used(plans: dict, service_report: dict) -> bool:
-    """Execution truth (rev. 17 item 6): by night the wagon jobs have
-    already run, so the raid's wagon question reads what HAPPENED —
-    not the continued existence of morning intentions. A pickup
-    scrubbed before departure never took the wagon out; absent an
-    execution record the commitment stands (fail toward the wagon
-    being busy, never toward a phantom grant)."""
-    job = wagon_job(plans)
-    if job == "salvage":
-        result = service_report.get("salvage")
-        return result is None or result.wagon_used
-    return job is not None
 
 
 # ══ MORNING ═══════════════════════════════════════════════════════
@@ -905,8 +895,15 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     # a parameter rather than reaching for "the shop".
     shop_at = models.operating_shop(state)
     con.header(f"DAY {state.day} — SERVICE")
+    # THE night's wagon assignments, opened HERE rather than at
+    # nightfall: routes and pickups depart during service, so an
+    # authority created afterwards could only ever be told what had
+    # already happened. It is claimed at departure and threaded
+    # forward — `night` consumes this instance, never a fresh one.
+    wagons = WagonNight(state)
+    report_wagons = wagons
     plan = plans.get("route")
-    if plan and not _commit_route(state, plan, con):
+    if plan and not _commit_route(state, plan, con, wagons):
         plans["route"] = plan = None
     # The cover pizzas were cooked and deducted at the address the
     # plan NAMED; the shift below is this surface's address. They are
@@ -939,14 +936,17 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
         # item 6).
         report["salvage"] = war.run_salvage(
             state, plans["salvage"], con, streams.war,
-            reserved=night_reserved(plans, but="salvage"))
+            reserved=night_reserved(plans, but="salvage"),
+            wagons=wagons)
     if state.branch == "quiet_sale":
         # The buyer's man walks the shop every diligence afternoon.
         escrow.walkthrough(state, con, streams)
+    report["wagons"] = report_wagons
     return report
 
 
-def _commit_route(state: State, plan: dict, con: Console) -> bool:
+def _commit_route(state: State, plan: dict, con: Console,
+                  wagons: "WagonNight") -> bool:
     """Morning plans are intentions; resources commit when service starts.
     Cancelled or replaced plans never touch inventory. Returns False (and
     commits nothing) if the plan can no longer run at all.
@@ -957,11 +957,11 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
     that names no origin, or names one that does not exist, is a bug
     and refuses BEFORE any inventory moves (rev. 27 item 7) — the
     alternative is a wagon loading out of a shop nobody owns."""
-    origin_key = plan.get("origin_shop")
-    if not origin_key:
-        raise KeyError("route plan names no origin address — a wagon "
-                       "cannot load where nobody said it was")
-    origin = state.shop_by_key(origin_key)
+    # Origin AND wagon, checked together through the one authority
+    # (P4b.1a): a plan naming shop 1 as its origin and shop 2's wagon
+    # has two well-formed halves and no coherent assignment.
+    wagon_key = models.plan_wagon(state, plan)
+    origin = state.shop_by_key(plan["origin_shop"])
     driver = plan["driver"]
     if not driver.available:
         con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
@@ -999,6 +999,16 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
                    f"{planned.legit} planned delivery orders — orders, "
                    f"ovens and pantry set the limit.")
     committed.validate()
+    # THE DEPARTURE. Everything above validates; nothing above
+    # mutates. The wagon is claimed HERE, from the shared
+    # assignment authority, before one unit of stock moves — so a
+    # wagon that left on another job scrubs this one with the stash
+    # and pantry untouched, and never substitutes a different
+    # vehicle that happens to sit at the same address.
+    if not wagons.claim_key(wagon_key, "route"):
+        con.bullet(f"Tonight's route is scrubbed — "
+                   f"{wagons.note_at(origin.key) or 'the wagon is gone'}.")
+        return False
     for g, take in committed.cargo.items():
         origin.stash[g] = origin.stash.get(g, 0) - take
     origin.ingredients -= committed.legit
@@ -1036,13 +1046,15 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     # did (a departed route or pickup holds it; a pickup scrubbed
     # before departure never took it out) and spent by each later
     # consumer in turn — design rev. 25 item 1.
-    wagon = WagonNight(state)
-    service_job = wagon_job(plans)
-    if service_job is not None and wagon_used(plans, service_report):
-        # The service job left from the address it was planned at.
-        # THE wagon the plan named, revalidated — not another one
-        # that happens to sit at the same address (P4b.1a).
-        wagon.claim_key(plans[service_job]["wagon_key"], service_job)
+    # THE assignment authority the service phase opened and spent
+    # (P4b.1a): routes and pickups claimed their wagons when they
+    # actually departed, so the night inherits the truth rather than
+    # reconstructing it from intentions and a report.
+    wagon = service_report.get("wagons")
+    if wagon is None:
+        raise ValueError(
+            "night was given no wagon-assignment authority — service "
+            "opens it and every departure spends it")
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight

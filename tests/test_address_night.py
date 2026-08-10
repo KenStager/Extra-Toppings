@@ -234,7 +234,9 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
     def _plan(self, driver, origin, **over):
         plan = {"district": "old_harbor", "driver": driver,
                 "ride_along": False, "cargo": {"mushrooms": 2},
-                "legit": 3, "origin_shop": origin}
+                "legit": 3, "origin_shop": origin,
+                "wagon_key": ("wagon2" if origin == "shop2"
+                              else HOME_WAGON_KEY)}
         plan.update(over)
         return plan
 
@@ -253,7 +255,8 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
     def test_it_loads_out_of_the_address_the_plan_named(self):
         state, home, second, driver = self._world()
         self.assertTrue(phases._commit_route(
-            state, self._plan(driver, "shop2"), ScriptedConsole()))
+            state, self._plan(driver, "shop2"), ScriptedConsole(),
+            phases.WagonNight(state)))
         self.assertEqual(second.stash["mushrooms"], 2)
         self.assertEqual(second.ingredients, 37)
         self.assertEqual(home.stash["mushrooms"], 4)
@@ -263,7 +266,8 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
         state, home, second, driver = self._world()
         with self.assertRaises(KeyError):
             phases._commit_route(state, self._plan(driver, "shop9"),
-                                 ScriptedConsole())
+                                 ScriptedConsole(),
+                                 phases.WagonNight(state))
         for s in (home, second):
             self.assertEqual(s.stash["mushrooms"], 4)
             self.assertEqual(s.ingredients, 40)
@@ -272,8 +276,8 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
         state, home, second, driver = self._world()
         plan = self._plan(driver, "shop2")
         del plan["origin_shop"]
-        with self.assertRaises(KeyError):
-            phases._commit_route(state, plan, ScriptedConsole())
+        with self.assertRaises(ValueError):
+            phases._commit_route(state, plan, ScriptedConsole(), phases.WagonNight(state))
         for s in (home, second):
             self.assertEqual(s.stash["mushrooms"], 4)
             self.assertEqual(s.ingredients, 40)

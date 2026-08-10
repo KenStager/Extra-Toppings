@@ -647,6 +647,27 @@ def claimable_wagons(state: "State", shop_key: str) -> tuple:
                  if wagon_claim(state, w.key).available)
 
 
+def plan_wagon(state: "State", plan: dict) -> str:
+    """THE wagon a plan departs in, validated against its own origin.
+
+    A key alone is not an assignment: shop 1 can name shop 2's wagon
+    and both halves look well-formed. The pair is checked together,
+    here, so no departure path has to remember to do it — and a job
+    that names a vehicle kept somewhere else is refused before it
+    touches anything."""
+    origin = plan_origin(state, plan)
+    key = plan.get("wagon_key")
+    if type(key) is not str or not key:
+        raise ValueError(
+            f"a wagon job names no wagon, got {key!r}")
+    wagon = state.wagon_by_key(key)          # KeyError on a ghost
+    if wagon.shop_key != origin:
+        raise ValueError(
+            f"wagon {key!r} is kept at {wagon.shop_key!r}, not at "
+            f"{origin!r} where this job loads")
+    return key
+
+
 def plan_origin(state: "State", plan: dict) -> str:
     """The address a planned wagon job leaves from — validated as a
     key AND resolved to a real address.

@@ -715,6 +715,106 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
         self.assertEqual(plan["wagon_key"], models.HOME_WAGON_KEY)
 
 
+class TestDepartureIsWhenTheWagonIsClaimed(unittest.TestCase):
+    """The claim happens where the job actually rolls — inside
+    service — not at nightfall after inventory has already moved.
+    Every case drives the REAL commit path."""
+
+    def _world(self):
+        state = new_state()
+        market.roll_prices(state, random.Random(3))
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.stash = {"mushrooms": 4}
+        home.ingredients = 40
+        home.delivery_pool = 10
+        return state, home, driver
+
+    def _plan(self, driver, **over):
+        plan = {"district": "old_harbor", "driver": driver,
+                "ride_along": False, "cargo": {"mushrooms": 2},
+                "legit": 3, "origin_shop": HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
+        plan.update(over)
+        return plan
+
+    def test_an_unknown_wagon_refuses_with_inventory_untouched(self):
+        state, home, driver = self._world()
+        with self.assertRaises(KeyError):
+            phases._commit_route(state, self._plan(driver,
+                                                   wagon_key="ghost"),
+                                 Listening(), phases.WagonNight(state))
+        self.assertEqual(home.stash["mushrooms"], 4)
+        self.assertEqual(home.ingredients, 40)
+
+    def test_a_wagon_housed_elsewhere_refuses_untouched(self):
+        # Shop 1 as origin, shop 2's wagon: two well-formed halves and
+        # no coherent assignment.
+        state = _with_site(day=7, acceptance=5)
+        market.roll_prices(state, random.Random(3))
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.stash, home.ingredients, home.delivery_pool = (
+            {"mushrooms": 4}, 40, 10)
+        with self.assertRaises(ValueError):
+            phases._commit_route(state,
+                                 self._plan(driver, wagon_key="wagon2"),
+                                 Listening(), phases.WagonNight(state))
+        self.assertEqual(home.stash["mushrooms"], 4)
+        self.assertEqual(home.ingredients, 40)
+
+    def test_a_wagon_taken_since_planning_scrubs_untouched(self):
+        state, home, driver = self._world()
+        wagons = phases.WagonNight(state)
+        wagons.claim_key(models.HOME_WAGON_KEY, "raid")   # gone already
+        con = Listening()
+        self.assertFalse(phases._commit_route(state, self._plan(driver),
+                                              con, wagons))
+        self.assertEqual(home.stash["mushrooms"], 4)
+        self.assertEqual(home.ingredients, 40)
+        self.assertTrue(con.said("scrubbed"), con.lines)
+
+    def test_a_departed_route_claims_that_exact_wagon(self):
+        state, home, driver = self._world()
+        wagons = phases.WagonNight(state)
+        self.assertTrue(phases._commit_route(state, self._plan(driver),
+                                             Listening(), wagons))
+        self.assertEqual(wagons.claims,
+                         {models.HOME_WAGON_KEY: "route"})
+        self.assertEqual(home.stash["mushrooms"], 2)      # it loaded
+        self.assertFalse(wagons.available_at(HOME_SHOP_KEY))
+
+    def test_a_scrubbed_route_leaves_the_wagon_for_the_raid(self):
+        # The driver is gone, so the route never rolls — and never
+        # takes the wagon with it.
+        state, home, driver = self._world()
+        driver.hired = False
+        wagons = phases.WagonNight(state)
+        self.assertFalse(phases._commit_route(state, self._plan(driver),
+                                              Listening(), wagons))
+        self.assertEqual(wagons.claims, {})
+        self.assertTrue(wagons.available_at(HOME_SHOP_KEY))
+        self.assertEqual(home.stash["mushrooms"], 4)
+
+    def test_service_hands_the_night_the_authority_it_spent(self):
+        # The seam this closes: the authority used to be created AFTER
+        # the jobs it governs had already run.
+        state, _home, driver = self._world()
+        plans = {"route": self._plan(driver)}
+        report = phases.service(state, plans, Listening([0]),
+                                Streams(3))
+        self.assertIn("wagons", report)
+        self.assertEqual(report["wagons"].claims,
+                         {models.HOME_WAGON_KEY: "route"})
+
+    def test_night_refuses_to_invent_an_authority(self):
+        state, _home, _driver = self._world()
+        with self.assertRaises(ValueError):
+            phases.night(state, {}, {}, Listening(), Streams(3))
+
+
 class TestLifecycleValidation(unittest.TestCase):
     def _valid(self) -> models.State:
         return _with_site(day=6, acceptance=5)

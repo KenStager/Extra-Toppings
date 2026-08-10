@@ -22,6 +22,22 @@ from extra_toppings.rivals import rival_policy
 from extra_toppings.rng import Streams
 from extra_toppings.ui import Console, ScriptedConsole
 
+def _departed(state, *jobs, **report):
+    """The authority as SERVICE would hand it over: each named job
+    already claimed the home wagon when it rolled."""
+    wagons = phases.WagonNight(state)
+    for job in jobs:
+        assert wagons.claim_key(models_mod.HOME_WAGON_KEY, job)
+    return {**report, "wagons": wagons}
+
+
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 
 class Quiet(Console):
     def __init__(self):
@@ -367,7 +383,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
 class TestBurnedOut(unittest.TestCase):
     def _night(self, state, script):
         con = Scripted(script)
-        phases.night(state, {"route": None, "raid": None}, {}, con,
+        phases.night(state, {"route": None, "raid": None}, _wag(state), con,
                      Streams(11))
         return con
 
@@ -445,7 +461,7 @@ class TestTargetOnlyJobs(unittest.TestCase):
         break_target(state)                  # the corners got him first
         alert_before = state.rivals["vinnie"].alertness
         con = Scripted([5])                  # just lock up
-        phases.night(state, {"route": None, "raid": plan}, {}, con,
+        phases.night(state, {"route": None, "raid": plan}, _wag(state), con,
                      Streams(11))
         self.assertIsNotNone(con.find("broke before the crew"))
         self.assertEqual(state.rivals["vinnie"].alertness, alert_before)
@@ -805,7 +821,7 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                              "wagon_key": models_mod.HOME_WAGON_KEY}}
         con = Scripted([6])                   # lock up (war night menu)
-        phases.night(state, plans, {}, con, Streams(11))
+        phases.night(state, plans, {"wagons": phases.WagonNight(state)}, con, Streams(11))
         self.assertIsNotNone(con.find("didn't make it to nightfall")
                              or con.find("scrubbed"))
         self.assertEqual(state.raids_led, 0)
@@ -942,7 +958,8 @@ class TestRevision16Boundaries(unittest.TestCase):
                  "salvage": {"rival": "vinnie", "driver": rosa,
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                              "wagon_key": models_mod.HOME_WAGON_KEY}}
-        phases.night(state, plans, {}, Scripted([6]), Streams(11))
+        phases.night(state, plans, _departed(state, "salvage"),
+                     Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
 
     def test_a_free_night_hands_the_raid_the_wagon(self):
@@ -952,7 +969,7 @@ class TestRevision16Boundaries(unittest.TestCase):
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
-        phases.night(state, plans, {}, Scripted([6]), Streams(11))
+        phases.night(state, plans, {"wagons": phases.WagonNight(state)}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], True)
 
     def test_the_syndicate_epilogue_reads_the_damage_ledger(self):
@@ -1046,7 +1063,7 @@ class TestRevision17Instruments(unittest.TestCase):
                              "wagon_key": models_mod.HOME_WAGON_KEY}}
         report = {"salvage": war.SalvageResult(outcome="scrubbed",
                                                wagon_used=False)}
-        phases.night(state, plans, report, Scripted([6]), Streams(11))
+        phases.night(state, plans, _wag(state, **report), Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], True)
 
     def test_a_departed_pickup_still_holds_the_wagon(self):
@@ -1062,10 +1079,16 @@ class TestRevision17Instruments(unittest.TestCase):
         report = {"salvage": war.SalvageResult(outcome="collected",
                                                wagon_used=True,
                                                collected_units=5)}
-        phases.night(state, plans, report, Scripted([6]), Streams(11))
+        phases.night(state, plans, _departed(state, "salvage", **report),
+                     Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
 
-    def test_no_execution_record_fails_toward_a_busy_wagon(self):
+    def test_a_pickup_that_never_departed_leaves_the_wagon(self):
+        # Rev. 17 item 6's question, answered by DEPARTURE rather than
+        # by inference (P4b.1a): the old code read the plans and a
+        # report and guessed "busy" when it could not tell. There is
+        # nothing to guess now — a pickup that never claimed its wagon
+        # never took it, and the raid finds it standing there.
         state, rosa, marcus = self._two_front_war()
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
@@ -1075,8 +1098,8 @@ class TestRevision17Instruments(unittest.TestCase):
                  "salvage": {"rival": "vinnie", "driver": rosa,
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                              "wagon_key": models_mod.HOME_WAGON_KEY}}
-        phases.night(state, plans, {}, Scripted([6]), Streams(11))
-        self.assertIs(plans["raid"]["wagon_free"], False)
+        phases.night(state, plans, _wag(state), Scripted([6]), Streams(11))
+        self.assertIs(plans["raid"]["wagon_free"], True)
 
     def test_run_salvage_returns_scrubbed_without_departing(self):
         state, rosa, _marcus = self._two_front_war()
@@ -1092,9 +1115,11 @@ class TestRevision17Instruments(unittest.TestCase):
 
     def test_a_collected_pickup_reports_the_departure(self):
         state, rosa, _marcus = self._two_front_war()
-        result = war.run_salvage(state, {"rival": "vinnie",
-                                         "driver": rosa},
-                                 Quiet(), Streams(21).war)
+        result = war.run_salvage(
+            state, {"rival": "vinnie", "driver": rosa,
+                    "origin_shop": models_mod.HOME_SHOP_KEY,
+                    "wagon_key": models_mod.HOME_WAGON_KEY},
+            Quiet(), Streams(21).war)
         self.assertEqual(result.outcome, "collected")
         self.assertIs(result.wagon_used, True)
 
@@ -1134,7 +1159,7 @@ class TestRevision17Instruments(unittest.TestCase):
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
-        phases.night(state, plans, {}, Scripted([6]), Streams(11))
+        phases.night(state, plans, {"wagons": phases.WagonNight(state)}, Scripted([6]), Streams(11))
         scrubs = [e for e in state.raid_log if e.outcome == "scrubbed"]
         self.assertEqual(len(scrubs), 1)
         self.assertEqual(scrubs[0].damage_h, 0)

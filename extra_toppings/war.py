@@ -519,7 +519,8 @@ class SalvageResult:
 
 def run_salvage(state: State, plan: dict, con: Console,
                 rng: random.Random,
-                reserved: list | None = None) -> SalvageResult:
+                reserved: list | None = None,
+                wagons=None) -> SalvageResult:
     """Service: the pickup rolls. Revalidated transactionally against
     the SAME assignment view that planned it (rev. 15 item 2) — the
     driver must still be standing and still unclaimed by any other
@@ -536,6 +537,14 @@ def run_salvage(state: State, plan: dict, con: Console,
     if not driver.available or driver in (reserved or []):
         con.bullet(f"The pickup is scrubbed — {driver.name} isn't "
                    f"free to drive it after all.")
+        return SalvageResult(outcome="scrubbed", wagon_used=False)
+    # Origin and wagon checked together, then THE DEPARTURE: the
+    # wagon is claimed from the shared assignment authority before
+    # the salvage is consumed, so a pickup that cannot roll scrubs
+    # with the campaign's stockroom still waiting (P4b.1a).
+    wagon_key = models.plan_wagon(state, plan)
+    if wagons is not None and not wagons.claim_key(wagon_key, "salvage"):
+        con.bullet("The pickup is scrubbed — the wagon is already out.")
         return SalvageResult(outcome="scrubbed", wagon_used=False)
     rival = state.rivals[camp.rival_key]
     spec = data.RIVALS[camp.rival_key]
@@ -561,7 +570,7 @@ def run_salvage(state: State, plan: dict, con: Console,
     # The pickup unloads at the address its wagon came home to
     # (rev. 22 item 5) — explicit, never a home default.
     kept, storage_left = models.place_haul(
-        state, haul, models.exactly_one_shop(state).key)
+        state, haul, plan["origin_shop"])
     left_behind = wagon_left + storage_left
     state.add_heat(data.RIVALS[camp.rival_key]["home"], SALVAGE_HEAT)
     if kept:

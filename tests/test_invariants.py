@@ -14,6 +14,13 @@ from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import BotConsole, ScriptedConsole
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 
 def fresh(seed=1):
     rng = random.Random(seed)
@@ -37,7 +44,7 @@ class TestDeterminism(unittest.TestCase):
                     break
                 plans = phases.morning(state, con, streams)
                 report = phases.service(state, plans, con, streams)
-                phases.night(state, plans, report, con, streams)
+                phases.night(state, plans, _wag(state, **report), con, streams)
                 if state.debt > 0:
                     state.debt = int(state.debt * (1 + data.DEBT_RATE))
 
@@ -121,7 +128,7 @@ class TestRevision18Inventory(unittest.TestCase):
                 "cargo": {"oregano": 12}, "origin_shop": models.HOME_SHOP_KEY}          # 25 space in 24
         con = ScriptedConsole([])
         with self.assertRaises(ValueError):
-            phases._commit_route(state, plan, con)
+            phases._commit_route(state, plan, con, phases.WagonNight(state))
         self.assertEqual(state.shop_stash, {"oregano": 12})
         self.assertEqual(state.shop.ingredients, 30)
 
@@ -440,7 +447,7 @@ class TestTelegraphedRaids(unittest.TestCase):
         state.rivals["sal"].strength = 0          # keep sal quiet
         plans = {"route": None, "raid": None}
         report = {"revenue": 0}
-        phases.night(state, plans, report, ScriptedConsole(), Streams(6))
+        phases.night(state, plans, _wag(state, **report), ScriptedConsole(), Streams(6))
         self.assertEqual(state.rivals["vinnie"].raid_warning, 2)
         self.assertEqual(state.shop.damage_days, 0)   # no raid yet
 

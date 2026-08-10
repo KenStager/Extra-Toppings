@@ -24,6 +24,13 @@ from extra_toppings.models import (BranchState, Evidence, SitdownSnapshot,
 from extra_toppings.rng import Streams
 from extra_toppings.ui import BotConsole, ScriptedConsole, ScriptExhausted
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 FORK_ON = GameConfig(fork_enabled=True)
 
 
@@ -76,7 +83,7 @@ class AbortingConsole(CaptureConsole):
 
 def run_night(state, script, seed=1, config=None):
     con = CaptureConsole(list(script))
-    phases.night(state, {}, {}, con, Streams(seed), config)
+    phases.night(state, {}, _wag(state), con, Streams(seed), config)
     return con
 
 

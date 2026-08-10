@@ -18,6 +18,13 @@ from extra_toppings.models import BranchState, new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 DECOY_PROMPT = "The unfamiliar cars are circling. Your move:"
 
 
@@ -71,8 +78,16 @@ def arriving(state, *rival_keys):
     return state
 
 
-def run_night(state, plans, con, service_report=None, seed=11):
-    phases.night(state, plans, service_report or {}, con, Streams(seed))
+def run_night(state, plans, con, service_report=None, seed=11,
+              departed=None):
+    """`departed` is what SERVICE already spent (P4b.1a): routes and
+    pickups claim their wagon when they roll, so the night inherits a
+    populated authority instead of re-deriving one from intentions."""
+    wagons = phases.WagonNight(state)
+    for wagon_key, by in (departed or {}).items():
+        assert wagons.claim_key(wagon_key, by)
+    report = {**(service_report or {}), "wagons": wagons}
+    phases.night(state, plans, report, con, Streams(seed))
     return con
 
 
@@ -86,7 +101,8 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
                            "ride_along": False, "cargo": {}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
                            "wagon_key": models.HOME_WAGON_KEY},
                  "raid": None}
-        con = run_night(state, plans, Watching([1, 0]))
+        con = run_night(state, plans, Watching([1, 0]),
+                        departed={models.HOME_WAGON_KEY: "route"})
         offers = con.decoy_offers()
         self.assertTrue(offers, "the decoy must still be shown")
         self.assertIn("unavailable", offers[0])
@@ -112,7 +128,8 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
                  "salvage": {"rival": "sal", "driver": driver,
                              "origin_shop": models.HOME_SHOP_KEY,
                              "wagon_key": models.HOME_WAGON_KEY}}
-        con = run_night(state, plans, Watching([1, 0]))
+        con = run_night(state, plans, Watching([1, 0]),
+                        departed={models.HOME_WAGON_KEY: "salvage"})
         offers = con.decoy_offers()
         self.assertIn("unavailable", offers[0])
         self.assertIn("out on tonight's pickup", offers[0])
@@ -202,7 +219,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
                               "team": [crew], "armed": False,
                               "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
             con = Watching([1, 0])
-            phases.night(state, plans, {}, con, Streams(seed))
+            phases.night(state, plans, {"wagons": phases.WagonNight(state)}, con, Streams(seed))
             offers = con.decoy_offers()
             if offers:
                 seen.add("unavailable" in offers[0])

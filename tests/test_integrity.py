@@ -11,6 +11,13 @@ from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 
 def fresh(seed=1):
     rng = random.Random(seed)
@@ -25,7 +32,7 @@ def run_night(state, seed, script):
     # Keep rivals quiet so the only case movement comes from the register.
     for r in state.rivals.values():
         r.strength = 0
-    phases.night(state, plans, report, ScriptedConsole(script), Streams(seed))
+    phases.night(state, plans, _wag(state, **report), ScriptedConsole(script), Streams(seed))
 
 
 class TestChunkedLaundering(unittest.TestCase):
@@ -59,7 +66,8 @@ class TestCompleteLegitLedger(unittest.TestCase):
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         before = state.legit_revenue_today
         plan = {"district": "university", "driver": rosa, "ride_along": False,
-                "cargo": {}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY}
+                "cargo": {}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertGreater(state.legit_revenue_today, before)
         self.assertGreater(shop.believable_ceiling(state, state.shop, state.legit_revenue_today),
@@ -130,7 +138,7 @@ class TestAssignments(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "vinnie", "objective": "ledger",
                           "team": team, "armed": False, "return_shop": models.HOME_SHOP_KEY}}
-        phases.night(state, plans, {"revenue": 0}, ScriptedConsole([4]),
+        phases.night(state, plans, _wag(state, revenue=0), ScriptedConsole([4]),
                      Streams(15))
         self.assertEqual(state.raids_led, raids_led_before)
         self.assertFalse(state.rivals["vinnie"].ledger_stolen)
@@ -207,8 +215,9 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state.shop.ingredients = 200
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
-        phases._commit_route(state, plan, ScriptedConsole())
+                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
+        phases._commit_route(state, plan, ScriptedConsole(), phases.WagonNight(state))
         state.demand_today = 100
         report = shop.simulate_shift(state, state.shop, plan["legit"], random.Random(1))
         self.assertLessEqual(report["orders"] + plan["legit"],
@@ -220,8 +229,9 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state.shop.ingredients = 3
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
-        phases._commit_route(state, plan, ScriptedConsole())
+                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
+        phases._commit_route(state, plan, ScriptedConsole(), phases.WagonNight(state))
         self.assertEqual(plan["legit"], 3)
 
 
@@ -263,7 +273,7 @@ class TestTransactionalPlanning(unittest.TestCase):
         state, rng = self._fresh_planner()
         plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng,
             wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
-        phases._commit_route(state, plan, ScriptedConsole())
+        phases._commit_route(state, plan, ScriptedConsole(), phases.WagonNight(state))
         self.assertEqual(state.shop_stash["oregano"], 4)
         self.assertEqual(state.shop.ingredients, 36)
 
@@ -334,7 +344,7 @@ class TestDriverRevalidation(unittest.TestCase):
         plan = self._plan(state, rng)
         plan["driver"].hired = False               # fired after planning
         before = (dict(state.shop_stash), state.shop.ingredients)
-        ok = phases._commit_route(state, plan, ScriptedConsole())
+        ok = phases._commit_route(state, plan, ScriptedConsole(), phases.WagonNight(state))
         self.assertFalse(ok)
         self.assertEqual((dict(state.shop_stash), state.shop.ingredients), before)
 
@@ -398,7 +408,7 @@ class TestEffectDurations(unittest.TestCase):
         state.shop.damage_days = 2
         for r in state.rivals.values():
             r.strength = 0
-        phases.night(state, {"route": None, "raid": None}, {"revenue": 0},
+        phases.night(state, {"route": None, "raid": None}, _wag(state, revenue=0),
                      ScriptedConsole([4]), Streams(34))
         self.assertEqual(state.shop.coupon_days, 1)
         self.assertEqual(state.shop.damage_days, 1)
@@ -415,7 +425,7 @@ class TestEffectDurations(unittest.TestCase):
 
         rivals.rival_phase = blitz_tonight
         try:
-            phases.night(state, {"route": None, "raid": None}, {"revenue": 0},
+            phases.night(state, {"route": None, "raid": None}, _wag(state, revenue=0),
                          ScriptedConsole([4]), Streams(34))
         finally:
             rivals.rival_phase = orig
