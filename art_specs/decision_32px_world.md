@@ -421,3 +421,15 @@ selection pools. The brand layer was never contingent on this (P7
 guard rail). This is the drift-harness discipline working as designed:
 one cheap probe, a named question, a byte-level verdict, a closed
 branch.
+
+## Licensing: ruled and closed (2026-08-10, user ruling)
+
+The user has given explicit permission for donor-derived generation:
+uploading Omega Modern crops/scaffolds to PixelLab as init/style input
+and producing derivative assets through it is APPROVED for this
+project's use case — "end of story." The R1 flag is closed by ruling,
+not by silence. Consequences: donor-init generation is unblocked
+(including tileability steps 0–1 on donor floor cells and any Pro
+style_copy test using donor-derived assets); the `donor_derived`
+provenance flag REMAINS REQUIRED — no longer as a risk gate but as the
+permanent inventory index of which assets carry donor ancestry.
