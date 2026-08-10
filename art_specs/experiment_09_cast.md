@@ -148,3 +148,29 @@ Spend: 22 generations, all provenanced. AWAITING the user's board:
 confirm/override the eleven picks, rule on Bee's glasses curation and
 Carmine's black, then approved picks proceed to the E08 v3
 rotation+walk path (5 gens per character).
+
+## Round 2 — breaking the JRPG prior (user board finding, same day)
+
+The board found the round-1 cast reads homogeneously anime/Asian.
+Cause analysis, owned in order of leverage: (1) the round-1 anchors
+blocked BODIES carefully and FACES lazily — near-identical head
+rectangles under a uniform ink-navy hair strip, so at init@120 the
+model's JRPG-convention prior (the dominant pixel-art corpus) filled
+in every face the same way; (2) init@120 is the invention setting —
+wrong side of the authority balance when fighting a prior; (3) the
+prompt "pixel art game character sprite" actively summons that
+corpus, and heritage words the GAME ITSELF wrote (Delgado, Marino,
+Okafor, Kowalski, Nair, Ricci — a port-town roster) were absent.
+
+Round-2 method, recorded before running: anchors take the face back —
+per-character hair SHAPE and COLOR (balding Tony, Sal's receding
+silver + silver mustache, Marcus sandy, Bee's black crop, auburn
+bun for Rosa), facial hair and brow blocks, jaw width, and deliberate
+skin-ramp assignment across all three legal ramps (D4A068 light /
+C68239 olive-mid / B1552E deep, shadows one step down). Init raised
+to 140 (fidelity band — anchor authority over prior). Prompts carry
+the bios' heritage plainly; negatives add "anime, manga, chibi, big
+eyes, glossy hair". One seed per character (11 gens) proves the
+method before any pool deepening. At 32px the honest levers are hair
+shape, facial hair, and skin ramp — eyes are two pixels and carry
+almost nothing.
