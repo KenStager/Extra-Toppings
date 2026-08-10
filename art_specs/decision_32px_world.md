@@ -433,3 +433,30 @@ not by silence. Consequences: donor-init generation is unblocked
 style_copy test using donor-derived assets); the `donor_derived`
 provenance flag REMAINS REQUIRED — no longer as a risk gate but as the
 permanent inventory index of which assets carry donor ancestry.
+
+## Cycle C: Godot import verified byte-exact (2026-08-10)
+
+R6 is closed with the strongest measurement available. Godot 4.7.1
+(installed to ~/Applications via Homebrew cask; /Applications needs
+sudo) runs an isolated preview project at `.private_art/godot_preview/`
+— 640×360 viewport, `rendering/textures/canvas_textures/
+default_texture_filter=0` (nearest), integer sprite positions, no
+stretch. A self-capturing scene composes the approved façade, both
+oven states, counter, pizza family, and two floors, saves the
+1× screenshot plus a 3× NN blowup (1920×1080, iPhone-landscape class).
+
+Verification: rendered regions byte-compared against source PNGs —
+facade 0/23,180 opaque pixels differ; oven 0/3,052; pizza 0/540;
+floor tile 0/1,024. **Zero deviation. No filtering, no resampling.**
+The 50%-readability proxy is retired; the pipeline's output provably
+survives engine import unchanged. Composition note for room design
+(not a defect): terracotta at large uninterrupted spans reads busy —
+mix floor families per room, as the approved set now allows.
+
+Blue checker variants (case_blue 68.5, midnight 37.4, both PASS)
+delivered; muted red checkers approved into the floor set. The soft
+lit-state re-roll failed server-side twice (create_object_state
+flakiness on repeated states — operational finding, recorded); the
+soft-ember look was produced deterministically instead (666 fire
+pixels stepped down one warmth ramp, recorded as manual curation) and
+awaits the user's pick against lit-v1.
