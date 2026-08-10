@@ -2121,10 +2121,11 @@ REQUIRES a reason: the first attempt merely added a `--reason` flag that
 defaulted to None and fell through to the retired rev. 17-18 text,
 which is the very provenance failure it was meant to end. Review
 caught it. The reason is validated before any file is read or
-written (both the API and the CLI refuse, the CLI before argparse
-hands over), the historical fallback string is deleted, and the
-refusals are pinned on both paths with the golden's bytes asserted
-unchanged. The defect was demonstrated live during the pin proof:
+written (both the API and the CLI refuse, the CLI before
+`generate()` is called), the historical fallback string is
+deleted, and the refusals are pinned on both paths with the
+golden's bytes asserted unchanged. The defect was demonstrated
+live during the pin proof:
 run against the pre-fix code, the CLI cheerfully replaced the
 300-run baseline with a 4-run file stamped with the old
 RouteManifest reason. That also taught a second lesson, now fixed —

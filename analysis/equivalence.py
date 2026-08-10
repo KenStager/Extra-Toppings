@@ -38,7 +38,11 @@ projection and shared streams stay exact; the fork streams stay
 undrawn. golden_act1.json is untouched by all of this.
 
 Usage:
-    python3 -m analysis.equivalence generate   # write golden_act1.json
+    # Regeneration is a recorded, sanctioned act and MUST name itself:
+    # --reason is required, and a missing or blank one is refused
+    # before the golden is read or written.
+    python3 -m analysis.equivalence generate --reason "why this act
+        was sanctioned"                        # write golden_act1.json
     python3 -m analysis.equivalence check      # compare a rebuilt engine
     python3 -m analysis.equivalence standpat   # paired flag-on control
 
