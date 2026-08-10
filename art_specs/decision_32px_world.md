@@ -230,3 +230,30 @@ tool catalog: api.pixellab.ai/mcp/docs):
 - **MCP attach:** `claude mcp add pixellab https://api.pixellab.ai/mcp
   -t http -H "Authorization: Bearer <token>"` + session restart; async
   review/select workflows (`select_object_frames`).
+
+## MCP surface: live-tested (2026-08-10)
+
+The pipeline now speaks MCP directly (`tools/art_pipeline/mcp_client.py`
+— JSON-RPC over streamable HTTP, stdlib only, same credential
+resolution as REST, no Claude Code attachment or config-file
+credential needed). Live findings:
+
+- **65 tools** (docs undersold it). Directly relevant to the game's
+  asset roadmap: `create_object_state`/`create_character_state`
+  (variant states — oven glow, sign OPEN/CLOSED),
+  `create_topdown_tileset` + `create_building_kit` (floors/walls),
+  `create_ui_asset` (panels for newspapers/menus/ledgers),
+  `create_portrait_character` (employee sprite ↔ portrait),
+  `create_font`, `edit_image`, `create_image_pro`/`pixen`, object
+  registry with tags, and an `inpaint_image` claiming "keeping
+  everything else pixel-identical" — a stronger contract than REST
+  /inpaint; scheduled for a controlled retest before any policy
+  change.
+- **Billing solved:** the account is a Tier 1 subscription with 2000
+  generation credits/month — 69 used to date (includes the user's own
+  web-creator sessions), cash balance $10.00 untouched. All spend
+  reporting to date stands; the effective cost of our 50 charged
+  calls was subscription credits, not cash.
+- MCP generation tools are async (job id → poll `get_image`/`get_*`);
+  `get_image` takes `job_id`. Smoke test passed end-to-end (32×32
+  pixflux via MCP, seed 701, saved under experiment_03/raw/).
