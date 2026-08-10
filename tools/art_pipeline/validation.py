@@ -61,14 +61,18 @@ def validate_candidate(
     image: Image.Image,
     palette: list[RGBA],
     expected_size: tuple[int, int] = (16, 16),
-    min_bbox: int = 9,
+    min_bbox: int | tuple[int, int] = 9,
     max_edge_run: int = 4,
 ) -> ValidationResult:
     """Validate one final candidate against the experiment contract.
 
     Checks dimensions, transparency support, hard alpha, transparent
     corners, palette adherence, bounding-box compactness, canvas
-    clipping, and disconnected garbage pixels.
+    clipping, and disconnected garbage pixels. `min_bbox` may be a
+    single int (square minimum, props) or a (width, height) pair —
+    the character contract (experiment_08_characters.md) uses (8, 18)
+    because a 32 px person is tall and narrow; those numbers are
+    provisional until checked against the first board-passed sprite.
     """
     result = ValidationResult()
     rgba = image.convert("RGBA")
@@ -124,10 +128,11 @@ def validate_candidate(
         result.record("no_garbage_pixels", False, "no opaque pixels")
         return result
     bbox_w, bbox_h = max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
+    min_w, min_h = (min_bbox, min_bbox) if isinstance(min_bbox, int) else min_bbox
     result.record(
         "bounding_box",
-        bbox_w >= min_bbox and bbox_h >= min_bbox,
-        f"opaque bbox {bbox_w}x{bbox_h} smaller than {min_bbox}px minimum",
+        bbox_w >= min_w and bbox_h >= min_h,
+        f"opaque bbox {bbox_w}x{bbox_h} smaller than {min_w}x{min_h} minimum",
     )
 
     edges = {

@@ -1,7 +1,8 @@
 # Experiment 08 — Characters: Research, Rulings, and the Phased Path (2026-08-10)
 
-Status: **paper only — no generation. Research complete; path proposed;
-AWAITING USER RULING before phase 1.**
+Status: **phases 1–3 EXECUTED (user's proceed); rotations + v3 walk
+cycle AWAITING USER APPROVAL; phase 4 (portrait) awaiting explicit
+call. Results at the end of this document.**
 
 ## Research capsule (documentation researcher, same day; citations in
 ## the session record — api.pixellab.ai/mcp/docs, /v1/openapi.json,
@@ -117,3 +118,47 @@ Character-relevant surface, documented:
 Budget to a walking employee: ~8–9 generations; +20 with the
 portrait. Every phase names its question; unspent allowance remains
 the healthy state.
+
+## Execution results (same day, user's "Proceed!")
+
+**Live-schema corrections to the research capsule** (the MCP schema is
+authoritative over every doc page): reference-image character creation
+requires mode="v3" (NOT standard; always 8 directions; 2–9 gens by
+size — measured 1 gen at 32px); standard/pro cap at 128px, v3 at 256;
+`keep_first_frame` is a v3-only animation feature; ~50 named animation
+templates exist (incl. walking-4-frames); an "oblique" beta view
+exists (standard mode, ≤128px, 4-dir). Output canvas is ~40% larger
+than the sprite (32px content → 56×56 canvas) to leave animation room.
+
+**Phase 1** (3 gens, seeds 8101–8103, anchor + pixflux init@120): all
+three PASS the character contract (bbox 8×18 held with margin — the
+picked sprite's content is 16×27). Provisional pick s8102 (clean
+friendly read); s8101 rejected-provisional (stray oxblood facial
+pixels read as injury); s8103 alt (flour-beard read, asymmetric feet).
+USER PICK STILL OPEN.
+
+**Phase 2** (1 gen, v3 + s8102 reference): contradiction #2 resolved —
+size 32 ACCEPTED via v3. **South rotation preserves the reference
+content EXACTLY: 0 of 432 content pixels differ.** Cardinals carry
+1–2 near-ramp stray colors (quantize 8–13 px); diagonals 7 (quantize
+16 px). All 8 directions read as the same person at the board.
+character_id d9ebf5b6… recorded as derived cache; local PNGs canon.
+
+**Phase 3, template mode** (4 gens): OFF-MODEL, recorded as a
+measured negative — template walk re-renders from the skeleton at
+larger scale/detail (150–306 px quantize churn per frame, stick-leg
+artifacts on north). Lesson: template mode regenerates; it does not
+animate your sprite.
+
+**Phase 3b, v3 mode** (4 gens, action="walking", frame_count=4,
+keep_first_frame): IN-MODEL — frame 0 is the untouched canonical
+pose (0 px diff), animated frames hold scale/identity/palette
+(0–7 stray colors, quantize mostly ≤16 px), strides readable in all
+four directions. Boards: rotations_board, walk_board (template,
+for the record), walkv3_board, walkv3_preview.gif.
+
+Spend: 12 generations (3+1+4+4). AWAITING: sprite pick confirmation,
+rotation+walk approval, phase 4 (portrait, 20 gens) word. Follow-up
+candidates behind named questions: breathing-idle via v3, ink-register
+retry for E06, drift-probe row for create_character v3 per P15 once
+the path is production-blessed.

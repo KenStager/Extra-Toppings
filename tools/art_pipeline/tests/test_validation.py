@@ -80,3 +80,36 @@ class CandidateValidation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RectangularBboxMinimum(unittest.TestCase):
+    """Character contract: min_bbox may be a (width, height) pair."""
+
+    def _figure(self, w: int, h: int) -> Image.Image:
+        im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        for y in range(4, 4 + h):
+            for x in range(12, 12 + w):
+                im.putpixel((x, y), (168, 16, 49, 255))
+        return im
+
+    def test_tall_narrow_figure_passes_pair_but_fails_square(self):
+        from tools.art_pipeline.validation import validate_candidate
+        palette = [(168, 16, 49, 255)]
+        figure = self._figure(10, 24)
+        pair = validate_candidate(
+            figure, palette, expected_size=(32, 32), min_bbox=(8, 18)
+        )
+        self.assertTrue(pair.checks["bounding_box"])
+        square = validate_candidate(
+            figure, palette, expected_size=(32, 32), min_bbox=14
+        )
+        self.assertFalse(square.checks["bounding_box"])
+
+    def test_pair_minimum_still_refuses_a_squat_figure(self):
+        from tools.art_pipeline.validation import validate_candidate
+        palette = [(168, 16, 49, 255)]
+        squat = self._figure(10, 12)
+        result = validate_candidate(
+            squat, palette, expected_size=(32, 32), min_bbox=(8, 18)
+        )
+        self.assertFalse(result.checks["bounding_box"])
