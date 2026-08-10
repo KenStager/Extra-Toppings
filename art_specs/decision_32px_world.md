@@ -190,3 +190,43 @@ questions sent to the documentation researcher: model lineage, the
 MCP-only `create_image_pro` (selective style_copy could fix the
 content-leak problem), style-object registry, newer inpaint variants,
 tileability support, rotation/animation surfaces for later phases.
+
+## Research capsule, round 2 (2026-08-10, documented facts only)
+
+From the documentation researcher (citations in the session record;
+tool catalog: api.pixellab.ai/mcp/docs):
+
+- **Model surface is four, not two.** Beyond REST pixflux/bitforge,
+  two MCP-only generators exist: Pixen (larger canvas) and **Pro**
+  (`create_image_pro`: 512×512 max, returns multiple candidates per
+  call, 20–40 generation-credits each, up to 4 labeled reference
+  images with per-image usage notes, and `style_copy` — selective
+  copying of only color_palette/outline/detail/shading). Whether
+  style_copy avoids bitforge's content leakage is undocumented.
+- **Style-object registry (MCP-only):** a completed 8-direction
+  object (`create_8_direction_object`, 32–168px) becomes reusable via
+  `style_object_id`. Candidate mechanism for canon-anchored family
+  work; untested.
+- **Positioning per PixelLab's own docs:** pixflux is "the most
+  general model… for most things" (min 32², max 400² tier-gated);
+  bitforge is the style-reference tool for small/medium images. They
+  are parallel tools, not a lineage; no quality ranking exists.
+- **Inpaint v3 / pixpatch v2** are named only in the Aseprite plugin
+  nav; REST/MCP expose a single older inpaint. Plausibly explains our
+  two REST inpaint failures; unconfirmed.
+- **No seamless-wrap tile support exists anywhere.** PixelLab's tile
+  tools are Wang/autotile edge-matching sets (`create_topdown_tileset`
+  etc., MCP-only). True self-tiling floors are undocumented territory
+  — our experiment must carry its own wrap-seam validation.
+- **No model versioning, no changelog, no pinning.** Silent weight
+  drift under fixed seed+params is undetectable via PixelLab; a
+  local fixed regression set is the only defense.
+- **Pricing:** pixflux ≈ bitforge ≈ $0.007/gen at 32×32 — cost is not
+  a model differentiator at our scale. Pro is ~20–40× per image but
+  multi-candidate.
+- **Animation (future):** skeleton tools bless only square 16/32/64
+  sizes; 32×64 walk frames are unblessed. Character identity-transfer
+  rotation is documented as less reliable than object rotation.
+- **MCP attach:** `claude mcp add pixellab https://api.pixellab.ai/mcp
+  -t http -H "Authorization: Bearer <token>"` + session restart; async
+  review/select workflows (`select_object_frames`).
