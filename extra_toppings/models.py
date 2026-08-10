@@ -448,6 +448,25 @@ BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
 ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
 
 
+# THE stable identities (design rev. 27 item 1). An address and a
+# wagon are named by a key that never changes and never depends on
+# list position — assignments, route origins, raid targets, storage
+# locations and ownership all reference these. Keys are internal:
+# nothing here ever reaches the player (rev. 27 item 3).
+HOME_SHOP_KEY = "shop1"
+HOME_WAGON_KEY = "wagon1"
+
+
+@dataclass
+class Wagon:
+    """A vehicle, owned by one address. Capacity is NOT a field: it is
+    fixed by the model (`data.VEHICLE_CARGO`), exactly as
+    RouteManifest already states — no payload chooses its own wagon."""
+
+    key: str = HOME_WAGON_KEY
+    shop_key: str = HOME_SHOP_KEY
+
+
 @dataclass(frozen=True)
 class WagonAvailability:
     """Whether tonight's wagon is still here, and why it isn't — ONE
@@ -905,6 +924,53 @@ def remediation_disposition(record, state: "State | None" = None) -> str:
     return "immune"
 
 
+def exactly_one_shop(state: "State") -> "Shop":
+    """THE single-address authority behind every compatibility alias
+    (rev. 27 item 6). Refuses BOTH ends: a state with no address is
+    as malformed as a state with several, and either means a caller
+    is using a one-shop shortcut where it no longer holds.
+
+    This is deliberately a refusal rather than a `shops[0]`: the whole
+    point of P4a is that the day a second address exists, every
+    remaining shortcut fails loudly in a test instead of quietly
+    banking the second shop's takings in the first shop's till."""
+    if not state.shops:
+        raise ValueError("the state has no shop at all")
+    if len(state.shops) != 1:
+        raise ValueError(
+            f"{len(state.shops)} addresses exist — this caller still "
+            f"assumes one; it must name the shop it means")
+    return state.shops[0]
+
+
+def validate_addresses(state: "State") -> None:
+    """Shops and wagons are identified by key, so the keys must BE
+    identities (rev. 27 item 1): present, non-empty, unique within
+    their kind, and — for a wagon — pointing at an address that
+    actually exists. Refused, never repaired."""
+    if not state.shops:
+        raise ValueError("a state must carry at least one shop")
+    seen: set = set()
+    for i, s in enumerate(state.shops):
+        if not isinstance(s.key, str) or not s.key:
+            raise ValueError(f"shops[{i}]: a shop key must be a "
+                             f"non-empty string, got {s.key!r}")
+        if s.key in seen:
+            raise ValueError(f"shops[{i}]: duplicate shop key {s.key!r}")
+        seen.add(s.key)
+    wagon_keys: set = set()
+    for i, w in enumerate(state.wagons):
+        if not isinstance(w.key, str) or not w.key:
+            raise ValueError(f"wagons[{i}]: a wagon key must be a "
+                             f"non-empty string, got {w.key!r}")
+        if w.key in wagon_keys:
+            raise ValueError(f"wagons[{i}]: duplicate wagon key {w.key!r}")
+        wagon_keys.add(w.key)
+        if w.shop_key not in seen:
+            raise ValueError(f"wagons[{i}]: kept at unknown address "
+                             f"{w.shop_key!r}")
+
+
 def validate_cross_state(state: "State") -> None:
     """Rev. 10 item 2, tightened rev. 11: the ledger, the roster, the
     settled list and the branch state must cohere as ONE payload —
@@ -913,6 +979,7 @@ def validate_cross_state(state: "State") -> None:
     naming a nonexistent or never-aware employee, or a settled name
     still on the payroll (the closed rehire lifecycle) are refused,
     not repaired."""
+    validate_addresses(state)
     all_keys = [e.key for e in state.employees]
     keys = set(all_keys)
     if len(keys) != len(all_keys):
@@ -1479,6 +1546,9 @@ def set_relation(state: "State", rival_key: str, value: float) -> None:
 
 @dataclass
 class Shop:
+    # THE address's stable identity (rev. 27 item 1) — never its index
+    # in state.shops, which changes the moment a second address opens.
+    key: str = HOME_SHOP_KEY
     quality: str = "standard"        # purchasing policy: cheap / standard / gourmet
     price: str = "standard"          # cheap / standard / gourmet  (menu pricing)
     ingredients: int = 40            # one unit = one order
@@ -1516,7 +1586,8 @@ class State:
     clean: int = data.START_CLEAN
     dirty: int = data.START_DIRTY
     debt: int = data.START_DEBT
-    shops: list = field(default_factory=lambda: [Shop()])  # [0] is DiNapoli's
+    shops: list = field(default_factory=lambda: [Shop()])  # keyed, not indexed
+    wagons: list = field(default_factory=lambda: [Wagon()])
     warehouse: dict | None = None                        # good -> units, None = not rented
     warehouse_cash: int = 0                              # dirty cash stashed off-site
     employees: list = field(default_factory=list)
@@ -1544,42 +1615,74 @@ class State:
     raid_log: list = field(default_factory=list)
     route_log: list = field(default_factory=list)
 
+    # ── addressing ───────────────────────────────────────────────
+    def shop_by_key(self, key: str) -> Shop:
+        """THE address lookup (rev. 27 item 1). Fails closed: an
+        unknown key is a bug, never a reason to hand back the home
+        shop (rev. 27 item 7 — a silent home default is how stolen
+        goods used to land at DiNapoli's whatever address the crew
+        drove back to)."""
+        for s in self.shops:
+            if s.key == key:
+                return s
+        raise KeyError(f"no shop with key {key!r}")
+
+    def wagon_by_key(self, key: str) -> Wagon:
+        """THE wagon lookup. Fails closed, for the same reason."""
+        for w in self.wagons:
+            if w.key == key:
+                return w
+        raise KeyError(f"no wagon with key {key!r}")
+
+    def wagons_at(self, shop_key: str) -> list:
+        """Every wagon kept at an address, in stable key order. The
+        address must exist — an unknown key is refused, not empty."""
+        self.shop_by_key(shop_key)
+        return [w for w in self.wagons if w.shop_key == shop_key]
+
     # ── the shop, addressed as one while there is one ────────────
+    # Every alias below routes through the ONE exactly_one_shop
+    # authority (rev. 27 item 6), which refuses zero addresses as
+    # firmly as it refuses several: a state with no shop is as
+    # malformed as a state with two the caller never expected. These
+    # exist only until their consumers name an address; by the end of
+    # P4a.3 the legacy-equivalence projection is the only place a
+    # bare "the shop" is still the correct idea.
     @property
     def shop(self) -> Shop:
-        return self.shops[0]
+        return exactly_one_shop(self)
 
     @property
     def shop_stash(self) -> dict:
-        return self.shops[0].stash
+        return exactly_one_shop(self).stash
 
     @shop_stash.setter
     def shop_stash(self, value: dict) -> None:
-        self.shops[0].stash = value
+        exactly_one_shop(self).stash = value
 
     @property
     def demand_today(self) -> int:
-        return self.shops[0].demand_today
+        return exactly_one_shop(self).demand_today
 
     @demand_today.setter
     def demand_today(self, value: int) -> None:
-        self.shops[0].demand_today = value
+        exactly_one_shop(self).demand_today = value
 
     @property
     def delivery_pool(self) -> int:
-        return self.shops[0].delivery_pool
+        return exactly_one_shop(self).delivery_pool
 
     @delivery_pool.setter
     def delivery_pool(self, value: int) -> None:
-        self.shops[0].delivery_pool = value
+        exactly_one_shop(self).delivery_pool = value
 
     @property
     def legit_revenue_today(self) -> int:
-        return self.shops[0].legit_revenue_today
+        return exactly_one_shop(self).legit_revenue_today
 
     @legit_revenue_today.setter
     def legit_revenue_today(self, value: int) -> None:
-        self.shops[0].legit_revenue_today = value
+        exactly_one_shop(self).legit_revenue_today = value
 
     # ── the Case, derived from its records ───────────────────────
     def dormant_sources(self) -> frozenset:
