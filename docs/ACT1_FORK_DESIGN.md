@@ -520,9 +520,12 @@ Because `working` can be reached from either side, its text has two
 arms — the money without the room, and the room without the money —
 since those are different stories and the epilogue should say which.
 Placeholder thresholds (§6.3, movable only by recorded ruling):
-**combined net ≥ $8,000**, which is not a new number but the game's
-existing one-shop "the operation holds" bar promoted from its literal
-to a named home, value unchanged; and **shop 2 reputation ≥ 35**,
+**combined net strictly greater than $8,000** — not a new number but
+the game's existing one-shop "the operation holds" bar promoted from
+its literal to a named home, **comparison and value both unchanged**
+(rev. 25 item 2: an earlier draft wrote "≥ $8,000" while calling it
+unchanged, and at exactly $8,000 that flips the outcome — the
+existing contract is `>` and stays `>`); and **shop 2 reputation ≥ 35**,
 which sits above the ~20 it opens at (so it must be earned, never
 merely inherited) and below the 50 the home shop starts from (so it
 is reachable inside the month). P4b's first study reports both
@@ -1510,6 +1513,15 @@ Ordered roughly by blast radius, smallest first:
    on a route. Planning, commitment, execution and save-load all
    validate the same assignments, so a payload cannot describe a night
    the engine could not have run.
+   **The authority is STATEFUL, not another derivation** (rev. 25
+   item 1). Today `wagon_used(plans, service_report)` is a pure
+   function of the morning's plans and the service report, so it
+   cannot know about anything that happened later the same night —
+   not the outgoing raid that just hauled with the wagon, and not a
+   decoy that just used it. A night-assignment authority therefore
+   holds state that **each executed consumer updates as it runs**, so
+   the answer reflects every earlier event of the night rather than
+   the morning's intentions.
    **This lands in two acts, because it cannot land in one** (rev. 24
    item 2). The single-wagon decoy correction changes what a released
    one-shop build offers on a menu, so it cannot sit inside a
@@ -1600,11 +1612,19 @@ Ordered roughly by blast radius, smallest first:
   small prerequisite correctness PR against the released one-shop
   game, landing BEFORE P4a because it deliberately moves existing
   behavior and therefore cannot ride inside a behavior-neutral
-  refactor. Scope: the incoming-raid decoy consults the same wagon
-  answer the outgoing raid already consults. *Gate:* pins for a
-  departed wagon job (decoy disabled, with its reason visible on the
-  menu), a salvage scrubbed before departure (decoy available), and
-  no wagon job planned (available); all three merged batteries rerun
+  refactor. Scope: one **stateful night-assignment authority**, updated
+  by each executed consumer, that the incoming-raid decoy consults —
+  the morning-derived boolean cannot answer it, because the decoy runs
+  after the outgoing raid and once per arriving rival. *Gate:* six
+  pinned cases (rev. 25 item 1) — departed route → decoy unavailable;
+  departed salvage → unavailable, salvage scrubbed before departure →
+  available; an executed outgoing raid that **took** the wagon →
+  unavailable; an outgoing raid scrubbed before departure → available;
+  the first decoy **reserves** the wagon so a second rival arriving the
+  same night cannot reuse it; and fighting or paying tribute to the
+  first rival consumes nothing, leaving it available to the second. An
+  unavailable decoy is disabled **with its reason visible on the
+  menu**, never silently absent. Plus: all three merged batteries rerun
   at both depths; and the flag-off golden **measured before it is
   touched** — the corrected path is either reached by the 300 golden
   runs or it is not, that count is reported, and regeneration happens
@@ -4053,3 +4073,60 @@ preserved unedited; this revision amends §2.4.2, §2.5, §2.7, §5 and
    P3.5 is the one deliberate exception to "no released-behavior
    movement" in this arc, it is scoped to a single menu question, and
    it is gated on measurement rather than on assumption.
+
+**Revision 25** responds to the re-review of revision 24, which
+cleared the tier system, the sequencing and the PR record, and
+returned two exact seams. Narrow by disposition: it amends only the
+threshold boundary and P3.5's execution cases (§2.4.2, §5 item 9,
+§7's P3.5 bullet). Revisions 21–24 are preserved unedited. Still
+paper only; no implementation begins.
+
+1. **P3.5's wagon question is stateful, and its case list is
+   complete.** Reproduced: the player's outgoing raid runs BEFORE the
+   incoming ones (`raids.run_raid`, phases.py:844), and the arrivals
+   are a **loop over every rival** with `raid_warning == 1`
+   (phases.py:846–848), each calling `incoming_raid` independently —
+   so both rivals can arrive on one night. Because
+   `wagon_used(plans, service_report)` is a pure function of the
+   morning's plans and the service report, it cannot see either
+   event: not the raid that just hauled with the wagon, nor a decoy
+   that just used it. Revision 24's three cases were therefore
+   necessary but not sufficient. The correction is architectural
+   rather than another case bolted on: **one night-assignment
+   authority holding state that each executed consumer updates as it
+   runs**, so the answer reflects everything that has already
+   happened tonight instead of what was intended this morning. Six
+   pinned cases: departed route → unavailable; departed salvage →
+   unavailable, salvage scrubbed before departure → available; an
+   executed outgoing raid that **took** the wagon → unavailable; an
+   outgoing raid scrubbed before departure → available (that state
+   already exists and is already recorded — the `scrubbed`
+   `RaidAttemptRecord` written at phases.py:825–828 when the crew
+   does not survive to nightfall); the first decoy **reserves** the
+   wagon against a second arrival; and fighting or paying tribute
+   consumes nothing, so the wagon survives the first raid for the
+   second. **One flag, because it decides the third pin:** under
+   today's mechanics only a `steal_stock` raid loads the wagon —
+   `carry_bulk` is computed inside `if objective == "steal_stock"`
+   (raids.py:220–223), while the `ledger` and sabotage objectives
+   never touch it. Read as strict execution truth, a sabotage raid
+   therefore leaves the wagon free, and that is how the pin is
+   written. If the intent is that any executed raid consumes the
+   wagon — the crew drove *something* — one clause moves, and the
+   ruling is the reviewer's.
+2. **The $8,000 comparison stays strictly greater.** Revision 24
+   wrote "combined net ≥ $8,000" while calling the value unchanged.
+   Both cannot be true: the existing one-shop grade is `net > 8000`
+   (the `survived` arm in game.py), so at exactly $8,000 the
+   inclusive form flips the outcome — a silent contract change
+   dressed as a promotion to a named home. §2.4.2 now reads
+   **strictly greater than $8,000**, comparison and value both
+   preserved. The alternative — adopting the inclusive boundary as a
+   deliberate change with its own pin — is declined: there is no
+   design reason to move it, and an unremarked boundary shift is
+   exactly the kind of drift this project pins against.
+3. **Held scope, unchanged.** Nothing else in revisions 21–24 moves.
+   Heat weighting (§6.3) and the Quiet Sale and war human-play
+   verdicts stay outside Partner's scope; P3.5 remains the one
+   deliberate released-behavior movement in this arc, still gated on
+   measuring the golden before touching it.
