@@ -193,3 +193,62 @@ experiment, not a mid-experiment edit; (3) PixelLab bills in
 generation units whose USD value is below balance-display granularity,
 so per-call cost is bounded (≤$0.00 visible delta) but not exactly
 measurable from the API.
+
+## Batch 2 + recon sweep results (2026-08-10, limits lifted by user)
+
+The user lifted the 16-call/$2 caps for recon. Validator v2 (adds
+`single_silhouette`: any disconnected component fails) applied from
+batch 2 onward; batch-1 numbers stand as measured under v1 (under v2,
+04 correctly fails on its pan-shard satellite — 23px, mostly
+pan_steel, the forensic tell that "pizza resting on a round metal pan"
+reads as TWO objects to the model).
+
+Research (documented facts): bitforge pricing $0.0071–$0.00734 at
+32×32; seeds give "very similar", NOT identical, results per
+PixelLab's own docs; init_image_strength 1–999 default 300, "higher =
+preserve more"; coverage_percentage documented only as "percentage of
+canvas to cover"; the style_image-must-equal-output-size constraint is
+confirmed absent from all official docs; MCP exposes purpose-built
+object tools (create_1_direction_object, selective style_copy) as a
+future option.
+
+Batch 2 (4 arms, fused single-object prompt + anti-fragment negative):
+09 bf@16+coverage85 FAIL (satellite); 10 bf@16+init150 FAIL
+(satellite + corner); 11 bf@32→NN16 PASS; 12 px@32→NN16 PASS (best
+pan). Sweep (10 calls at 32px): bf replicates 13 PASS / 14 FAIL
+(bbox 8×8) / 15 PASS (pan retained); 16 style-65 PASS; 17 no-init
+FAIL (satellite — the ablation that proves the init anchor suppresses
+satellites); 18 init-300 FAIL (5px left clip inherited from the
+anchor's own zero-margin ellipse — anchor fix recorded below); pixflux
+19 FAIL (clip) / 20 PASS / 21 PASS / 22 init FAIL (clip).
+
+### Recon conclusions (the durable process for future assets)
+
+1. NEVER generate final-size 16×16 directly: 0/10 clean two-object
+   compositions across both batches. Generate 32×32, reduce by
+   deterministic nearest-neighbor, preserve originals.
+2. Always anchor composition with a hand-blocked init silhouette at
+   strength ~150; leave ≥1px transparent margin in the anchor (the
+   init-300 clip came from the anchor touching edges — fix the anchor,
+   then strength 200–300 becomes viable for pan retention).
+3. bitforge (style path) preserves Omega texture language; pixflux
+   composes containers (pan) better without a style image. Both hold
+   the forced palette perfectly: 22/22 charged generations had zero
+   off-palette colors.
+4. Style strength 50–65 at 32px is safe; 80 collapses (batch 1).
+5. Seeds are variance, not determinism — plan selection pools, not
+   single shots.
+
+### Final ranking (16×16 finals, validator v2)
+
+1st `pizza_whole_15` (bitforge@32, seed 207) — pizza with steel pan
+rim, pepperoni, single silhouette, full pass; the Omega-style path
+delivering the complete brief. 2nd `pizza_whole_12` (pixflux@32, seed
+204) — strongest pan composition. 3rd `pizza_whole_21` (pixflux@32,
+seed 213). Polish path: `pizza_whole_18`'s pan rendering is the best
+of all 22 but fails a 5px edge clip — regenerating with the
+margin-fixed anchor is the designated cleanup if the user wants it.
+
+Cost: 22 charged generation units total (batches 1+2+sweep); balance
+displayed $10.00 throughout; estimated ≤$0.17 by published rates.
+Awaiting user selection.

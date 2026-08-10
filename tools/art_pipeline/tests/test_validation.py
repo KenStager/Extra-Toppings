@@ -50,6 +50,21 @@ class CandidateValidation(unittest.TestCase):
         result = validate_candidate(im, PALETTE)
         self.assertFalse(result.checks["no_garbage_pixels"])
         self.assertFalse(result.checks["transparent_corners"])
+        self.assertFalse(result.checks["single_silhouette"])
+
+    def test_large_satellite_fails_single_silhouette(self) -> None:
+        im = good_candidate()
+        # 3x1 blob on row 0: row 1 stays clear, so it is NOT 8-connected to
+        # the main block starting at (2,2); area 3 passes the speck check.
+        for x in range(3):
+            im.putpixel((x, 0), PALETTE[1])
+        result = validate_candidate(im, PALETTE)
+        self.assertTrue(result.checks["no_garbage_pixels"])
+        self.assertFalse(result.checks["single_silhouette"])
+
+    def test_connected_prop_passes_single_silhouette(self) -> None:
+        result = validate_candidate(good_candidate(), PALETTE)
+        self.assertTrue(result.checks["single_silhouette"])
 
     def test_edge_clipping_fails(self) -> None:
         im = good_candidate()

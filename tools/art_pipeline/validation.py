@@ -150,4 +150,12 @@ def validate_candidate(
         not garbage,
         f"{len(garbage)} disconnected specks (areas {garbage[:8]})",
     )
+    # Validator v2 (post-batch-1 ruling): a prop is ONE silhouette. Batch 1
+    # was measured before this check existed; its published numbers stand.
+    result.record(
+        "single_silhouette",
+        len(areas) == 1,
+        f"{len(areas)} disconnected components (areas {areas[:8]}); "
+        "a prop must be one connected silhouette",
+    )
     return result
