@@ -47,3 +47,21 @@ On approval, the four curated assets move to
 `.private_art/experiment_03/approved/` and the family becomes the
 reference exemplar for prop-family workflows (grease overlays, oven
 states, signage variants are the recorded next candidates).
+
+## Selection rationale (P3 ruling: record WHY, not just which)
+
+- `pizza_whole_12` (canon): user preference; among validators-clean
+  candidates it had the strongest pan-plus-pizza stacking and the most
+  even pepperoni distribution at native 32.
+- `pizza_slice` bitforge arm: matched canon's pepperoni density and
+  warm cheese values; the pixflux wedge was cleaner but read as plain
+  cheese — family cohesion beat cleanliness.
+- `box_closed`/`box_open`/`box_stack` pixflux arms: correct object
+  identity and kraft geometry; the bitforge arms were disqualified by
+  content leakage (box rendered as pizza; pepperoni contamination),
+  not by quality.
+- Facade `s402`: only candidate whose window displays read
+  unambiguously as pizzeria goods; `s403` was disqualified on the
+  Critical-red reservation, not aesthetics.
+- Oven/counter i170 over i120: donor fidelity and less texture noise
+  ("twice the resolution, not twice the visual noise").

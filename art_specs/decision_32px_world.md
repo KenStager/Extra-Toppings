@@ -257,3 +257,36 @@ credential needed). Live findings:
 - MCP generation tools are async (job id → poll `get_image`/`get_*`);
   `get_image` takes `job_id`. Smoke test passed end-to-end (32×32
   pixflux via MCP, seed 701, saved under experiment_03/raw/).
+
+## Adopt-now rulings from the synthesis pass (2026-08-10)
+
+The sequential-thinking synthesis audited the tree and found three
+single-authority defects, now fixed: (1) pixflux — the 10-of-12-cell
+winner — had no codified call path; `generate_pixflux()` now exists
+beside `generate_bitforge()`, each carrying its policy role in its
+docstring; (2) the pipeline README named bitforge as "the selected
+operation" — corrected to point at this document's scorecard as the
+single authority; (3) provenance schema v2 is defined in
+`provenance.py` (`V2_REQUIRED`, `missing_v2_fields`, `attach_hashes`):
+replayable params, output/input artifact sha256s, engine id,
+validator_version, and a `donor_derived` flag that doubles as the
+ship-time IP audit index. The REST client now retries transient
+failures (never 4xx) and appends every charged call to a local spend
+ledger (`PIXELLAB_SPEND_LEDGER`) so our record cannot silently diverge
+from the vendor's.
+
+Future MCP attachment ruling (P6): if the MCP is ever attached to a
+Claude session, the bearer goes in via env expansion
+(`Authorization: Bearer ${PIXELLAB_API_KEY}`, user scope, launched
+with the var sourced from the Keychain) — never a literal token in
+config, and any `.mcp.json` goes into `.git/info/exclude`. For
+pipeline work, `mcp_client.py` already reaches the MCP surface with
+no attachment at all, which remains the preferred path.
+
+FLAGGED FOR USER (P5, licensing): generation inputs derived from Omega
+donors (crops, scaffolds) make the outputs derivative works of a paid
+asset pack whose included README carries no license text, and PixelLab's
+ToS treatment of uploaded reference material has not been read. Before
+the asset base grows large, the Omega purchase license and PixelLab ToS
+should be read and the ruling recorded here. `donor_derived` in
+provenance v2 indexes exactly which shipped assets would be affected.
