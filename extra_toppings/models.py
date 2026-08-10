@@ -924,6 +924,23 @@ def remediation_disposition(record, state: "State | None" = None) -> str:
     return "immune"
 
 
+def _only_with_key(items: list, key: str, kind: str):
+    """THE keyed lookup behind every by-key accessor. Refuses BOTH
+    failure modes: nothing with that key, and — the subtle one — more
+    than one. Returning the first of several duplicates would quietly
+    reinstate list position as the identity, which is the exact thing
+    stable keys exist to abolish; validation refuses duplicates, so a
+    lookup that meets them is reading a state that should never have
+    been built."""
+    found = [it for it in items if it.key == key]
+    if not found:
+        raise KeyError(f"no {kind} with key {key!r}")
+    if len(found) > 1:
+        raise KeyError(f"{len(found)} {kind}s share the key {key!r} — "
+                       f"an ambiguous identity is not a lookup result")
+    return found[0]
+
+
 def exactly_one_shop(state: "State") -> "Shop":
     """THE single-address authority behind every compatibility alias
     (rev. 27 item 6). Refuses BOTH ends: a state with no address is
@@ -959,6 +976,7 @@ def validate_addresses(state: "State") -> None:
             raise ValueError(f"shops[{i}]: duplicate shop key {s.key!r}")
         seen.add(s.key)
     wagon_keys: set = set()
+    housed: set = set()
     for i, w in enumerate(state.wagons):
         if not isinstance(w.key, str) or not w.key:
             raise ValueError(f"wagons[{i}]: a wagon key must be a "
@@ -969,6 +987,17 @@ def validate_addresses(state: "State") -> None:
         if w.shop_key not in seen:
             raise ValueError(f"wagons[{i}]: kept at unknown address "
                              f"{w.shop_key!r}")
+        housed.add(w.shop_key)
+    # Canon creates an address and its wagon in one transaction — the
+    # $13,000 buys the build-out, the permits AND the used second
+    # wagon together (§2.4.2), and the founding shop opened with one.
+    # So an address with no wagon is not a lean game state, it is a
+    # payload that lost something; a wagonless address would need its
+    # own design ruling before it could load.
+    for s in state.shops:
+        if s.key not in housed:
+            raise ValueError(f"shop {s.key!r} keeps no wagon — an "
+                             f"address and its wagon arrive together")
 
 
 def validate_cross_state(state: "State") -> None:
@@ -1617,28 +1646,23 @@ class State:
 
     # ── addressing ───────────────────────────────────────────────
     def shop_by_key(self, key: str) -> Shop:
-        """THE address lookup (rev. 27 item 1). Fails closed: an
-        unknown key is a bug, never a reason to hand back the home
-        shop (rev. 27 item 7 — a silent home default is how stolen
-        goods used to land at DiNapoli's whatever address the crew
-        drove back to)."""
-        for s in self.shops:
-            if s.key == key:
-                return s
-        raise KeyError(f"no shop with key {key!r}")
+        """THE address lookup (rev. 27 item 1), through the shared
+        unique-key authority: an unknown key is a bug, never a reason
+        to hand back the home shop (rev. 27 item 7)."""
+        return _only_with_key(self.shops, key, "shop")
 
     def wagon_by_key(self, key: str) -> Wagon:
-        """THE wagon lookup. Fails closed, for the same reason."""
-        for w in self.wagons:
-            if w.key == key:
-                return w
-        raise KeyError(f"no wagon with key {key!r}")
+        """THE wagon lookup. Same authority, same refusals."""
+        return _only_with_key(self.wagons, key, "wagon")
 
     def wagons_at(self, shop_key: str) -> list:
-        """Every wagon kept at an address, in stable key order. The
-        address must exist — an unknown key is refused, not empty."""
+        """Every wagon kept at an address, in stable KEY order — not
+        storage order, which would make the answer depend on the list
+        position identity exists to escape. The address must exist:
+        an unknown key is refused, never answered with an empty list."""
         self.shop_by_key(shop_key)
-        return [w for w in self.wagons if w.shop_key == shop_key]
+        return sorted((w for w in self.wagons if w.shop_key == shop_key),
+                      key=lambda w: w.key)
 
     # ── the shop, addressed as one while there is one ────────────
     # Every alias below routes through the ONE exactly_one_shop

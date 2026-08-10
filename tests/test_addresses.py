@@ -39,6 +39,33 @@ class TestStableIdentities(unittest.TestCase):
         with self.assertRaises(KeyError):
             state.wagons_at("nowhere")
 
+    def test_an_ambiguous_key_is_refused_not_resolved_by_position(self):
+        # Returning the first of several duplicates would quietly
+        # reinstate list position as the identity — the exact thing
+        # stable keys abolish.
+        state = new_state()
+        state.shops.append(Shop(key=HOME_SHOP_KEY))
+        with self.assertRaises(KeyError) as caught:
+            state.shop_by_key(HOME_SHOP_KEY)
+        self.assertIn("ambiguous", str(caught.exception))
+        state2 = new_state()
+        state2.wagons.append(Wagon(key=HOME_WAGON_KEY))
+        with self.assertRaises(KeyError) as caught:
+            state2.wagon_by_key(HOME_WAGON_KEY)
+        self.assertIn("ambiguous", str(caught.exception))
+
+    def test_wagons_at_is_ordered_by_key_not_by_storage(self):
+        state = new_state()
+        state.shops.append(Shop(key="shop2"))
+        state.wagons.append(Wagon(key="wagon3", shop_key="shop2"))
+        state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
+        expected = ["wagon2", "wagon3"]
+        self.assertEqual([w.key for w in state.wagons_at("shop2")],
+                         expected)
+        state.wagons.reverse()
+        self.assertEqual([w.key for w in state.wagons_at("shop2")],
+                         expected, "storage order must not leak out")
+
     def test_wagons_at_lists_only_that_address(self):
         state = new_state()
         state.shops.append(Shop(key="shop2"))
@@ -132,6 +159,21 @@ class TestAddressValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_addresses(state)
 
+    def test_an_address_keeping_no_wagon_is_refused(self):
+        # Canon buys the address and its wagon in one transaction.
+        state = self._valid()
+        state.shops.append(Shop(key="shop2"))
+        with self.assertRaises(ValueError) as caught:
+            validate_addresses(state)
+        self.assertIn("keeps no wagon", str(caught.exception))
+
+    def test_an_empty_wagon_list_is_refused(self):
+        state = self._valid()
+        state.wagons = []
+        with self.assertRaises(ValueError) as caught:
+            validate_addresses(state)
+        self.assertIn("keeps no wagon", str(caught.exception))
+
     def test_a_state_with_no_shop_is_refused(self):
         state = self._valid()
         state.shops = []
@@ -176,6 +218,24 @@ class TestPersistence(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(doctored)
         self.assertIn("unknown address", str(caught.exception))
+
+    def test_a_wagonless_address_is_refused_at_load(self):
+        state = new_state()
+        save.state_from_dict(save.state_to_dict(state))   # baseline
+        doctored = save.state_to_dict(state)
+        doctored["wagons"] = []
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(doctored)
+        self.assertIn("keeps no wagon", str(caught.exception))
+
+    def test_an_ambiguous_wagon_identity_is_refused_at_load(self):
+        state = new_state()
+        save.state_from_dict(save.state_to_dict(state))   # baseline
+        doctored = save.state_to_dict(state)
+        doctored["wagons"].append(dict(doctored["wagons"][0]))
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(doctored)
+        self.assertIn("duplicate wagon key", str(caught.exception))
 
     def test_duplicate_keys_are_refused_at_load(self):
         state = new_state()
