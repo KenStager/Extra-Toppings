@@ -1,7 +1,8 @@
 # Experiment 06 — Wear Decals and the Sparse-Canvas Question (2026-08-10)
 
-Status: **COMPLETE — deterministic candidates AWAITING USER APPROVAL;
-generation declined on measured quality (see Results).**
+Status: **RULING REVERSED AT THE BOARD (see the correction below the
+Results) — generation branch REOPENED; step 2 (window-cut fields)
+proposed, awaiting the user's word.**
 
 ## Question and theme role
 
@@ -83,3 +84,39 @@ prompts at 32×32, which may matter someday for a different asset
 class; edge discipline is what it cannot promise. Spend: 3
 generations, ledgered, provenance v2 with measured coverage in each
 record.
+
+## CORRECTION — ruling reversed at the board (same day, user's eye)
+
+The user reviewed the boards and overruled the paragraph above: some
+of the FAILED probes look better than the PASSES. Re-examination at
+6× in context confirms it, and the record must own three errors:
+
+1. **The probes' organic irregularity is the quality.** s3102/s3103
+   (~38 opaque px of clustered ink/slate) drift and clump the way
+   tracked-in grime actually does. The deterministic grease blob
+   (134 px, saturated 2-tone) reads as a PROP — a cartoon puddle that
+   shouts on a layer that should murmur; the scuff strokes read as
+   procedural glyphs. The session's own builders were judged by a
+   contract written to match what those builders produce — the
+   instrument judging its maker.
+2. **min_coverage = 0.02 was an invented threshold** — precisely the
+   a-priori-threshold error Experiment 04's calibration lesson exists
+   to prevent, and it refused s3101 (1.2%) which still reads in
+   context. The floor is hereby DROPPED from the contract pending a
+   calibrated replacement; visibility is a board judgment.
+3. **The session's board verdict ("cold static") was hasty** — made
+   against the dark sheet background with the validator's FAIL in
+   mind, not against the in-context panels. The metric-relabeling
+   ruling (R3) warned about exactly this substitution.
+
+What SURVIVES the reversal: the edge/corner discipline (a composited
+decal must not clip; but the fix is construction, not vendor
+obedience) and the flour-dust deterministic family (it read fine).
+
+STEP 2 (proposed, awaiting the user's word, ~3–4 generations):
+generate sparse wear FIELDS at 96×96 (one ink-scuff register, one
+warm-grease register via a warm strip), then window-cut multiple
+clean 32×32 interiors per field — the tileability-step-1 trick;
+window-cutting is an unconditional construction step, so edge
+discipline holds by construction while the vendor's organic texture
+is kept. Candidates judged at the board like everything else.

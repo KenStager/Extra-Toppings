@@ -172,7 +172,7 @@ def validate_decal(
     image: Image.Image,
     palette: list[RGBA],
     expected_size: tuple[int, int] = (32, 32),
-    min_coverage: float = 0.02,
+    min_coverage: float = 0.0,
     max_coverage: float = 0.50,
     max_edge_run: int = 4,
 ) -> ValidationResult:
@@ -182,8 +182,12 @@ def validate_decal(
     lone specks are the medium, so single_silhouette, garbage-pixel,
     and min-bbox checks deliberately do not apply. What must hold:
     size, hard alpha, palette, transparent corners, interior placement
-    (no long edge runs), and coverage inside [min, max] — beyond max
-    it is a tile variant, under min it is invisible at device scale.
+    (no long edge runs), and coverage at or below max — beyond that it
+    is a tile variant, not an overlay. There is deliberately no
+    default coverage FLOOR: the first one (2%) was invented rather
+    than calibrated and refused a probe the board later preferred
+    (see the experiment's correction record) — visibility at device
+    scale is a board judgment.
     """
     result = ValidationResult()
     rgba = image.convert("RGBA")
