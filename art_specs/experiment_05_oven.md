@@ -50,3 +50,18 @@ metric.
 Spend: ~3 pixflux + ~20 (registry pack) + state + 20 (Pro) ≈ 45–50
 credits this cycle, all ledgered; every batch carries its question and
 theme role in provenance.
+
+## Resolution (2026-08-10): oven APPROVED — cold + lit (flames)
+
+User approved the oven pair: `oven_deck_64_cold` and `oven_deck_64_lit`
+(the original create_object_state flames) into approved/. The
+deterministic "warm glow" midpoint was REJECTED with a recorded
+lesson: it mapped every flame-core pixel to one orange, collapsing the
+fire's internal ramp — flat and lifeless. Deterministic tone edits
+must SHIFT colors along a ramp (each tier one step down), never
+collapse tiers to a single value. The ember variant (which kept
+ramp structure) remains on file unapproved. Vendor state re-rolls
+remain flaky on repeated states; the approved lit came from the first,
+successful call. Floors: sky/cream checker approved
+(`floor_checker_sky_cream_32`, contrast 92.8 — the boldest blue inside
+the envelope).
