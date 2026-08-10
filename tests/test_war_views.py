@@ -189,7 +189,7 @@ class TestHeatPolicy(unittest.TestCase):
         plan = {"district": "old_harbor", "driver": rosa,
                 "ride_along": False, "cargo": {"oregano": 6}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
         con = Quiet()
-        self.assertFalse(phases._commit_route(state, plan, con))
+        self.assertFalse(phases._commit_route(state, state.shop, plan, con))
         self.assertEqual(state.shop_stash["oregano"], 10)
         self.assertTrue(any("scrubbed" in ln for ln in con.lines))
 

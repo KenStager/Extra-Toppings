@@ -88,10 +88,17 @@ class TestTheTargetAuthority(unittest.TestCase):
         self.assertEqual(models.raid_target(state, "vinnie"),
                          HOME_SHOP_KEY)
 
-    def test_it_always_names_a_real_address(self):
+    def test_several_addresses_are_refused_not_picked_by_position(self):
+        # P4b owns the "softer shop" policy (rev. 27 item 4). Choosing
+        # one here would be choosing by LIST POSITION — reversing
+        # state.shops would move the raid — so P4a fails closed.
         state, _home, _second = two_addresses()
-        self.assertIn(models.raid_target(state, "vinnie"),
-                      [s.key for s in state.shops])
+        with self.assertRaises(ValueError) as caught:
+            models.raid_target(state, "vinnie")
+        self.assertIn("no targeting policy", str(caught.exception))
+        state.shops.reverse()
+        with self.assertRaises(ValueError):
+            models.raid_target(state, "vinnie")
 
     def test_no_address_is_refused_not_defaulted(self):
         state = new_state()
@@ -152,6 +159,25 @@ class TestRouteOrigin(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             models.validate_execution_history(state)
         self.assertIn("one job a night", str(caught.exception))
+
+    def test_an_origin_naming_no_address_is_refused_at_validation(self):
+        state, _home, _second = two_addresses()
+        state.day = 5
+        state.route_log = [self._rec(2, HOME_SHOP_KEY)]
+        models.validate_execution_history(state)          # baseline
+        state.route_log = [self._rec(2, "ghost")]
+        with self.assertRaises(ValueError) as caught:
+            models.validate_execution_history(state)
+        self.assertIn("not an address", str(caught.exception))
+
+    def test_a_ghost_origin_is_refused_at_load(self):
+        state, _home, _second = two_addresses()
+        state.day = 5
+        state.route_log = [self._rec(2, HOME_SHOP_KEY)]
+        save.state_from_dict(save.state_to_dict(state))    # baseline
+        state.route_log = [self._rec(2, "ghost")]
+        with self.assertRaises(ValueError):
+            save.state_from_dict(save.state_to_dict(state))
 
     def test_a_record_written_before_origins_reads_as_the_founding_one(self):
         rec = RouteExecutionRecord(
@@ -224,3 +250,65 @@ class TestTheWagonFleet(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheBoundaryIsClosed(unittest.TestCase):
+    """rev. 27 item 6: by the end of P4a.3 no production module reads
+    the one-shop aliases, and no identity-based answer depends on the
+    order shops or wagons happen to sit in a list."""
+
+    ALIASES = ("state.shop_stash", "state.demand_today",
+               "state.delivery_pool", "state.legit_revenue_today")
+
+    def test_no_production_module_consumes_an_alias(self):
+        import pathlib
+        import re
+        root = pathlib.Path(models.__file__).parent
+        offenders = []
+        for path in sorted(root.glob("*.py")):
+            text = path.read_text()
+            for alias in self.ALIASES:
+                if alias in text:
+                    offenders.append(f"{path.name}: {alias}")
+            # `state.shop` but not `state.shop_stash` / `state.shops`
+            for m in re.finditer(r"state\.shop\b(?!_|s)", text):
+                line = text[:m.start()].count("\n") + 1
+                offenders.append(f"{path.name}:{line}: state.shop")
+        self.assertEqual(offenders, [],
+                         "P4a.3 leaves no production alias reads")
+
+    def test_reordering_shops_changes_no_identity_answer(self):
+        state, _home, _second = two_addresses()
+        state.shops[0].stash = {"mushrooms": 2}
+        state.shops[1].stash = {"oregano": 3}
+        before = (state.net_worth(), state.total_stock_units(),
+                  models.storage_locations(state),
+                  [w.key for w in state.wagons_at(HOME_SHOP_KEY)],
+                  models.space_cap(state, "shop2"))
+        state.shops.reverse()
+        state.wagons.reverse()
+        after = (state.net_worth(), state.total_stock_units(),
+                 tuple(sorted(models.storage_locations(state))),
+                 [w.key for w in state.wagons_at(HOME_SHOP_KEY)],
+                 models.space_cap(state, "shop2"))
+        self.assertEqual(before[0], after[0])
+        self.assertEqual(before[1], after[1])
+        self.assertEqual(tuple(sorted(before[2])), after[2])
+        self.assertEqual(before[3], after[3])
+        self.assertEqual(before[4], after[4])
+
+    def test_an_old_one_address_save_still_loads(self):
+        # The one place inference is allowed: the save boundary.
+        state = new_state()
+        payload = save.state_to_dict(state)
+        del payload["wagons"]
+        del payload["shops"][0]["key"]
+        for r in payload["rivals"].values():
+            r.pop("warning", None)
+        for e in payload["employees"]:
+            e.pop("shop_key", None)
+        back = save.state_from_dict(payload)
+        self.assertEqual(back.shops[0].key, HOME_SHOP_KEY)
+        self.assertEqual([w.key for w in back.wagons], [HOME_WAGON_KEY])
+        self.assertTrue(all(e.shop_key == HOME_SHOP_KEY
+                            for e in back.employees))

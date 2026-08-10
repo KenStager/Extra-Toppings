@@ -121,7 +121,7 @@ class TestRevision18Inventory(unittest.TestCase):
                 "cargo": {"oregano": 12}, "origin_shop": models.HOME_SHOP_KEY}          # 25 space in 24
         con = ScriptedConsole([])
         with self.assertRaises(ValueError):
-            phases._commit_route(state, plan, con)
+            phases._commit_route(state, state.shop, plan, con)
         self.assertEqual(state.shop_stash, {"oregano": 12})
         self.assertEqual(state.shop.ingredients, 30)
 

@@ -154,6 +154,9 @@ def plan_route(state: State, con: Console, rng: random.Random,
     `reserved` employees (tonight's raid crew) can't also drive the route —
     one person, one job per night."""
     reserved = reserved or []
+    # The address this route leaves from, resolved ONCE here and
+    # threaded through planning; P4b lets the player pick which.
+    origin = models.operating_shop(state)
     drivers = [e for e in state.hired()
                if e.available and e.driving >= 4 and e not in reserved]
     if not drivers:
@@ -207,7 +210,7 @@ def plan_route(state: State, con: Console, rng: random.Random,
             + ". Pizzas and coded goods share the same space.")
     while True:
         for g, spec in data.GOODS.items():
-            have = state.shop_stash.get(g, 0)
+            have = origin.stash.get(g, 0)
             loaded = manifest.cargo.get(g, 0)
             unit = spec["bulk"]
             price = state.prices[dk][g] \
@@ -241,15 +244,15 @@ def plan_route(state: State, con: Console, rng: random.Random,
         # delivery — and every box takes a slot, all the way to a
         # 24-order pizza wagon (the unexplained 12 cap is gone,
         # rev. 17 item 1).
-        pool = state.delivery_pool
+        pool = origin.delivery_pool
         row = (f"Pizzas for cover — loaded {manifest.legit}, 1 space "
                f"each ({pool} orders on the board)")
-        legit_top = min(state.shop.ingredients, pool,
+        legit_top = min(origin.ingredients, pool,
                         manifest.legit + manifest.free)
         if pool <= 0:
             con.say(f"  {row} [no delivery orders — a busier, better-liked "
                     f"shop would give you cover]")
-        elif state.shop.ingredients <= 0:
+        elif origin.ingredients <= 0:
             con.say(f"  {row} [the pantry is empty]")
         elif legit_top <= 0 and manifest.legit == 0:
             con.say(f"  {row} [no room — 0 of {manifest.capacity} "
@@ -283,7 +286,7 @@ def plan_route(state: State, con: Console, rng: random.Random,
     # sit-down reads tomorrow. What it books depends on the night, so
     # the warning is unconditional in that window — a printed line only;
     # the plan can still be replanned or cancelled from the morning menu.
-    if manifest.cargo and _payoff_reachable_tonight(state, dk,
+    if manifest.cargo and _payoff_reachable_tonight(state, origin, dk,
                                                    manifest.cargo):
         con.say("  With the debt this close to settled, remember: a bad stop "
                 "tonight goes into the file tomorrow's table reads.")
@@ -291,10 +294,11 @@ def plan_route(state: State, con: Console, rng: random.Random,
                      manifest=manifest,
                      # Which address the wagon leaves from. With one
                      # address that is it; P4b lets the player choose.
-                     origin_shop=models.exactly_one_shop(state).key)
+                     origin_shop=origin.key)
 
 
-def _payoff_reachable_tonight(state: State, dk: str, cargo: dict) -> bool:
+def _payoff_reachable_tonight(state: State, shop, dk: str,
+                              cargo: dict) -> bool:
     """The route warning's window (§2.1 rev. 4): the route that earns the
     final payoff money is the natural 'one last run,' so 'near payoff'
     counts what tonight could plausibly bring in, each term a supremum
@@ -306,7 +310,7 @@ def _payoff_reachable_tonight(state: State, dk: str, cargo: dict) -> bool:
     if state.debt <= 0:
         return False
     proceeds = sum(u * state.prices[dk][g] * 1.5 for g, u in cargo.items())
-    shop_take = 2 * state.demand_today * data.TICKET_PRICE["gourmet"]
+    shop_take = 2 * shop.demand_today * data.TICKET_PRICE["gourmet"]
     return state.clean + state.dirty + shop_take + proceeds >= state.debt
 
 
@@ -354,6 +358,8 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     # The address this wagon rolled out of (design rev. 22 item 1) —
     # the record carries it, and chronology is keyed on it.
     origin = plan["origin_shop"]
+    origin_shop = state.shop_by_key(origin)
+    home_shop = origin_shop            # unsold product rides back home
     driver: Employee = plan["driver"]
     # Resolution-side refusal (rev. 17 item 1): the night runs no
     # manifest the wagon could not carry, whoever built the dict.
@@ -364,12 +370,12 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
 
     # Legit stops: cover, clean revenue, and food-quality exposure.
     if plan["legit"]:
-        ticket = data.TICKET_PRICE[state.shop.price]
+        ticket = data.TICKET_PRICE[origin_shop.price]
         late = sum(cargo.values()) > 0 and plan["legit"] < sum(cargo.values())
         state.clean += plan["legit"] * ticket
-        state.legit_revenue_today += plan["legit"] * ticket
+        origin_shop.legit_revenue_today += plan["legit"] * ticket
         if late:
-            state.shop.reputation = max(0.0, state.shop.reputation - 3)
+            origin_shop.reputation = max(0.0, origin_shop.reputation - 3)
             report["lines"].append("Pizzas ran late around the extra stops. Two refunds, one review.")
 
     # THE route-market view (rev. 15 item 5): every territorial factor
@@ -389,10 +395,11 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     drops = rm.drops(len(cargo))
 
     if plan["ride_along"]:
-        _interactive_drops(state, plan, drops, con, rng, report)
+        _interactive_drops(state, home_shop, plan, drops, con, rng,
+                           report)
         state.districts[dk].known_price_age = 0
     else:
-        _auto_drops(state, plan, drops, con, rng, report)
+        _auto_drops(state, home_shop, plan, drops, con, rng, report)
 
     # Rival turf: they notice volume moving through their neighborhood.
     owner = dspec["rival"]
@@ -435,7 +442,8 @@ def _sell(state: State, dk: str, good: str, units: int, price_mult: float,
     market.record_sales(state, dk, good, units)
 
 
-def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
+def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
+                 con: Console,
                        rng: random.Random, report: dict) -> None:
     dk = plan["district"]
     cargo = plan["cargo"]
@@ -483,7 +491,7 @@ def _interactive_drops(state: State, plan: dict, drops: int, con: Console,
     # Unsold product rides home.
     for g, u in cargo.items():
         if u > 0:
-            state.shop_stash[g] = state.shop_stash.get(g, 0) + u
+            home_shop.stash[g] = home_shop.stash.get(g, 0) + u
 
 
 def _handle_police_stop(state: State, plan: dict, con: Console,
@@ -548,7 +556,8 @@ def _bust(state: State, plan: dict, con: Console, rng: random.Random,
     return False
 
 
-def _auto_drops(state: State, plan: dict, drops: int, con: Console,
+def _auto_drops(state: State, home_shop, plan: dict, drops: int,
+                 con: Console,
                 rng: random.Random, report: dict) -> None:
     """Driver runs the route alone. One risk roll decides the night."""
     dk = plan["district"]
@@ -589,7 +598,7 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
             driver.morale -= 2
         for g, u in cargo.items():
             if u > 0:
-                state.shop_stash[g] = state.shop_stash.get(g, 0) + u
+                home_shop.stash[g] = home_shop.stash.get(g, 0) + u
         return
 
     sell_frac = min(1.0, (0.40 + driver.driving * 0.045 + driver.nerve * 0.03
@@ -605,7 +614,7 @@ def _auto_drops(state: State, plan: dict, drops: int, con: Console,
             _sell(state, dk, g, units, mult, report)
     for g, u in cargo.items():
         if u > 0:
-            state.shop_stash[g] = state.shop_stash.get(g, 0) + u
+            home_shop.stash[g] = home_shop.stash.get(g, 0) + u
     report["lines"].append(_route_voice(plan)["home"].format(
         driver=driver.name, cash=money(report["cash"]),
         district=data.DISTRICTS[dk]["label"]))

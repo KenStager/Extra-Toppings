@@ -1002,6 +1002,25 @@ def exactly_one_shop(state: "State") -> "Shop":
     return state.shops[0]
 
 
+def operating_shop(state: "State") -> "Shop":
+    """THE address a single-address surface is talking about (design
+    rev. 27 item 6).
+
+    Act I, the Straight Path and the Quiet Sale all concern ONE
+    established shop — that is their story, not an accident of the
+    schema — so they resolve it here, ONCE, at their boundary and
+    thread the result through instead of each call site reaching for
+    "the shop". It is deliberately the same refusal as
+    `exactly_one_shop`: the day a surface that assumed one address
+    meets two, it fails in a test rather than silently operating on
+    whichever happens to sit first in the list.
+
+    This is not a compatibility alias by another spelling. An alias
+    is read wherever a shop is wanted; this is called at a boundary,
+    and everything downstream takes a Shop parameter."""
+    return exactly_one_shop(state)
+
+
 def raid_target(state: "State", rival_key: str) -> str:
     """THE address-target authority (design rev. 22 item 5): which of
     the player's addresses a rival moves against. P4a supplies the
@@ -1013,11 +1032,15 @@ def raid_target(state: "State", rival_key: str) -> str:
     that is a refusal rather than a home default."""
     if not state.shops:
         raise ValueError("no address exists for a raid to target")
-    if len(state.shops) == 1:
-        return state.shops[0].key
-    # P4b replaces this with the softness policy; until then the
-    # founding address stands so the mechanism is exercised without
-    # inventing a rule nobody has ruled on.
+    if len(state.shops) != 1:
+        # P4b owns the "softer of your two shops" policy (rev. 27
+        # item 4). Until it exists, picking one would be picking by
+        # LIST POSITION — reversing state.shops would move the raid to
+        # a different address, which is the whole defect stable keys
+        # exist to abolish. So this refuses rather than guessing.
+        raise ValueError(
+            f"{len(state.shops)} addresses exist and no targeting "
+            f"policy has been ruled on — P4b owns that choice")
     return state.shops[0].key
 
 
@@ -1165,6 +1188,13 @@ def validate_execution_history(state: "State") -> None:
                              f"one from that address")
         seen_routes.add((rec.day, rec.origin_shop))
         prev = rec.day
+        # A booked route left a REAL address (rev. 27 item 7): an
+        # origin naming nowhere could never have happened, so the
+        # payload is refused rather than loaded and puzzled over.
+        if rec.origin_shop not in {sh.key for sh in state.shops}:
+            raise ValueError(f"route_log[{i}]: origin "
+                             f"{rec.origin_shop!r} is not an address "
+                             f"this state has")
 
     camps = (state.branch_state.campaigns
              if state.branch == "war" and state.branch_state is not None
@@ -1832,13 +1862,18 @@ class State:
                       key=lambda w: w.key)
 
     # ── the shop, addressed as one while there is one ────────────
-    # Every alias below routes through the ONE exactly_one_shop
-    # authority (rev. 27 item 6), which refuses zero addresses as
-    # firmly as it refuses several: a state with no shop is as
-    # malformed as a state with two the caller never expected. These
-    # exist only until their consumers name an address; by the end of
-    # P4a.3 the legacy-equivalence projection is the only place a
-    # bare "the shop" is still the correct idea.
+    # NO production module reads these any more (rev. 27 item 6,
+    # completed in P4a.3): every engine surface names the address it
+    # means, and a surface that is deliberately about one address
+    # resolves it through `operating_shop` at its own boundary. What
+    # remains is the legacy-equivalence projection — which renders a
+    # save-v2 world where "the shop" genuinely WAS the whole story —
+    # and tests that deliberately exercise one-address worlds.
+    #
+    # They still route through the ONE exactly_one_shop authority,
+    # which refuses zero addresses as firmly as several, so a
+    # consumer creeping back in fails in a test the moment a second
+    # address exists rather than quietly picking the first.
     @property
     def shop(self) -> Shop:
         return exactly_one_shop(self)

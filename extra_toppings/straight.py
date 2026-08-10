@@ -114,6 +114,10 @@ def failed_terms(state: State, as_of: int | None = None) -> list[str]:
     language — the epilogue prints these verbatim (invariant 8). The
     Case term is graded separately: it decides earned versus Almost
     Out, not Half Measures."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     failed = []
     units = state.total_stock_units()
     if units > 0:
@@ -122,8 +126,8 @@ def failed_terms(state: State, as_of: int | None = None) -> list[str]:
     if held > GOAL_DIRTY:
         failed.append(f"unlaundered cash at {money(held)} against the "
                       f"{money(GOAL_DIRTY)} line")
-    if state.shop.reputation < GOAL_REP:
-        failed.append(f"reputation {state.shop.reputation:.0f} against "
+    if shop_at.reputation < GOAL_REP:
+        failed.append(f"reputation {shop_at.reputation:.0f} against "
                       f"the {GOAL_REP:.0f} a real restaurant needs")
     hostile = hostile_witnesses(state)
     if hostile:
@@ -191,7 +195,11 @@ def morning_lines(state: State, con: Console) -> None:
 def temptation_offer(state: State, rng: random.Random) -> dict | None:
     """The morning's temptation, drawn from the per-day world channel:
     someone still wants what you're leaving behind."""
-    held = sorted(g for g, u in state.shop_stash.items() if u > 0)
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
+    held = sorted(g for g, u in shop_at.stash.items() if u > 0)
     if not held or rng.random() >= TEMPTATION_CHANCE:
         return None
     good = rng.choice(held)
@@ -214,8 +222,12 @@ def take_temptation(state: State, offer: dict, con: Console,
                     streams: Streams) -> bool:
     """Answer the back door. Returns True when the offer is consumed
     (sold or finally declined)."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     good = offer["good"]
-    have = state.shop_stash.get(good, 0)
+    have = shop_at.stash.get(good, 0)
     if have <= 0:
         con.say("  Nothing left to sell them. The contact shrugs and goes.")
         return True
@@ -226,7 +238,7 @@ def take_temptation(state: State, offer: dict, con: Console,
     if n <= 0:
         con.say("  You send them away. The clock keeps its count.")
         return True
-    state.shop_stash[good] = have - n
+    shop_at.stash[good] = have - n
     take = offer["price"] * n
     state.dirty += take
     crime_committed(state)
@@ -245,6 +257,10 @@ def fire_sale(state: State, con: Console, streams: Streams) -> bool:
     """One meeting a day with Sal's people: bulk, 40% of book, his
     truck at your door — shop and warehouse stock alike (§3.1 D14).
     Returns True when a meeting actually happened (units moved)."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     sal = state.rivals.get("sal")
     if sal is None or not sal.alive:
         con.say("  Sal's people aren't answering anyone's calls anymore.")
@@ -255,7 +271,7 @@ def fire_sale(state: State, con: Console, streams: Streams) -> bool:
         return False
     sold_units = 0
     take = 0
-    for stash_name, stash in (("shop", state.shop_stash),
+    for stash_name, stash in (("shop", shop_at.stash),
                               ("warehouse", state.warehouse or {})):
         for good in sorted(stash):
             have = stash.get(good, 0)
@@ -330,16 +346,20 @@ def ad_label(state: State) -> str:
 
 
 def advertise(state: State, con: Console) -> None:
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     from . import shop
     if state.clean < AD_COST:
         con.say("  Not with today's clean cash.")
         return
     state.clean -= AD_COST
     live(state).ad_days_left += AD_DAYS
-    shop.recompute_demand(state, state.shop)
+    shop.recompute_demand(state, shop_at)
     con.say(f"  {money(AD_COST)} buys four days of flyers, a radio spot "
             f"and the good half-page in the neighborhood weekly. Order "
-            f"book now: ~{state.demand_today} customers.")
+            f"book now: ~{shop_at.demand_today} customers.")
 
 
 # ── nights ────────────────────────────────────────────────────────
@@ -349,16 +369,20 @@ def night_tick(state: State, con: Console, payroll_short: bool) -> None:
     """After the settle-accounts loop: counsel's nightly work, the
     advertising campaign, the dormancy reconciliation, and the
     clean-insolvency counter (rev. 9 item 11)."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     if state.game_over:
         return
     bs = live(state)
     evidence.counsel_nightly(state, con)
     if bs.ad_days_left > 0:
         bs.ad_days_left -= 1
-        state.shop.reputation = min(100.0,
-                                    state.shop.reputation + AD_REP_PER_NIGHT)
+        shop_at.reputation = min(100.0,
+                                    shop_at.reputation + AD_REP_PER_NIGHT)
         con.say(f"  The advertising works its shift: reputation "
-                f"{state.shop.reputation:.0f}.")
+                f"{shop_at.reputation:.0f}.")
     outcome = models.insolvency_tick(state, payroll_short)
     if outcome == "broke":
         con.say("  Two nights running: no payroll, no stock, no "
@@ -385,6 +409,10 @@ def search_spook(state: State, con: Console) -> None:
 
 def exit_readout(state: State, con: Console) -> None:
     """§3.1 D18's night line: the whole exit, one row, every term."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     if state.game_over:
         return
     hostile = hostile_witnesses(state)
@@ -396,5 +424,5 @@ def exit_readout(state: State, con: Console) -> None:
                                       for k in feuds))
     con.say(f"  Exit readout: stock {state.total_stock_units()} · dirty "
             f"{money(state.unlaundered_total())} · Case {state.case:.0f} "
-            f"· rep {state.shop.reputation:.0f} · {witnesses} · {feud} · "
+            f"· rep {shop_at.reputation:.0f} · {witnesses} · {feud} · "
             f"clean days {clean_days(state)} of {CLEAN_DAYS_REQUIRED}.")

@@ -192,7 +192,7 @@ class TestDisposalRuns(unittest.TestCase):
         state = in_branch(stash={"mushrooms": 6})
         con = CaptureConsole([])
         plan = self._plan(state, {"mushrooms": 6})
-        self.assertTrue(phases._commit_route(state, plan, con))
+        self.assertTrue(phases._commit_route(state, state.shop, plan, con))
         self.assertEqual(state.branch_state.disposal_runs_left, 2)
         self.assertEqual(state.branch_state.last_crime_day, state.day)
         self.assertIsNotNone(con.find("disposal run"))
@@ -201,7 +201,7 @@ class TestDisposalRuns(unittest.TestCase):
         state = in_branch(stash={"mushrooms": 6})
         plan = self._plan(state, {"mushrooms": 6})
         plan["driver"].injured_days = 2
-        self.assertFalse(phases._commit_route(state, plan,
+        self.assertFalse(phases._commit_route(state, state.shop, plan,
                                               CaptureConsole([])))
         self.assertEqual(state.branch_state.disposal_runs_left, 3)
         self.assertIsNone(state.branch_state.last_crime_day)
@@ -212,7 +212,7 @@ class TestDisposalRuns(unittest.TestCase):
         state.shop.ingredients = 40
         plan = self._plan(state, {})
         plan["legit"] = 4
-        self.assertTrue(phases._commit_route(state, plan,
+        self.assertTrue(phases._commit_route(state, state.shop, plan,
                                              CaptureConsole([])))
         self.assertEqual(state.branch_state.disposal_runs_left, 3)
         self.assertIsNone(state.branch_state.last_crime_day)
@@ -225,7 +225,7 @@ class TestDisposalRuns(unittest.TestCase):
         streams = Streams(5)
         con = CaptureConsole([])
         plan = self._plan(state, {"mushrooms": 8})
-        phases._commit_route(state, plan, con)
+        phases._commit_route(state, state.shop, plan, con)
         board = state.prices["university"]["mushrooms"]
         report = None
         for _ in range(20):                      # find a selling night
