@@ -560,12 +560,43 @@ consecutive or not — forecloses. Day-30 grading reads **arrears**: zero
 is The Operation, nonzero (necessarily carrying the one strike) is On
 the Hook.
 
+**Both books are DERIVED from one append-only ledger** (rev. 29 item
+1). The canonical state is a typed `PointsCycleRecord` history — one
+record per cycle, appended once, frozen thereafter — and a
+`PartnerLedgerView` derives current arrears, lifetime strikes,
+cumulative points paid, the current bill and its vig, and the next due
+day. Independently mutable arrears, strike and paid-total fields
+sitting *beside* that history are exactly the defect the typed
+evidence ledger (§2.3) and the war's campaign records (rev. 14) each
+had to remove: two writable sources for one fact, free to disagree
+after any partial update. `points_due_day` may remain stored as the
+scheduler's cursor, and **any cached summary must reconcile exactly
+against the ledger at every transition and at load** — the war's
+reconciliation oracle is the precedent. **There is no partial
+payment**: the complete bill clears the cycle or the cycle records a
+miss, because a half-paid bill is a third state the grade has no arm
+for. Partner has never been released, so this is a schema correction
+and not a migration.
+
 **Site selection** (the branch's first screen): any district but Old
 Harbor. University Hill — volume, students, no owner; Little Sicily —
 reputation country, Sal's turf; The Meadows — the best covert demand in the
 city, Vinnie's floor. Opening on a rival's turf is a commercial declaration
 (steep relation hit, their counterplay intensifies there); the safe pick is
 a real choice, not the only one.
+
+**The territorial response, executable** (rev. 29): Little Sicily
+answers to **Sal**, The Meadows to **Vinnie**, and University Hill has
+no owner — **Sal notices, and there is no turf penalty**, which is
+what makes the unowned site a genuinely safe pick rather than a
+flavour difference. Opening on an owned district applies a **−25
+relation delta through the existing `adjust_relation` authority** —
+not a new number reached a new way — and their counterplay intensifies
+in that district thereafter. **A dead owner produces no retaliatory
+response**: a rival at strength 0 cannot be provoked, and a branch
+that pretended otherwise would resurrect a defeated enemy to punish
+expansion. The site cards therefore carry consequences the engine can
+actually deliver, and expansion never becomes an undeclared vendetta.
 
 **Pressure replacing the debt:** the points clock (miss one: a warning,
 the amount stays owed, and $500 vig rides the next bill; miss two —
@@ -607,7 +638,36 @@ named** so a save cannot retarget it mid-warning, and every
 consequence lands on the named shop — coupons, guards, damage days,
 stash seizure, reputation loss, the heat it raises, and the law's
 searches alike. Staff assigned to an address are that address's defense
-allocation. *Inventory is local and never teleports* (rev. 22 item 9):
+allocation.
+
+**"Softer" is one `ShopDefenseView`, consumed by targeting AND by the
+raid that arrives** (rev. 29 item 2). A headcount rule was rejected:
+it would disagree with the mechanic the game already resolves raids
+with — `max(nerve) + guard bonus` — and it would let a roomful of
+low-nerve honest employees make an address *look* defended by people
+who take no part in defending it. So one view answers both questions.
+*Defenders* at an address are the employees who are hired, aware,
+available **and assigned there** — the same crew test the incoming
+raid already applies, now made address-local. *Strength* is the
+existing calculation **preserved exactly, not paraphrased** (rev. 30
+precision): `max(nerve of defenders, default 3) + (4 if the guard
+upgrade is at that address)` — the **empty-defender baseline of 3**
+and the **guard bonus of 4** are part of the formula, not incidental
+constants, and the guard is read from the target address's own
+upgrades, which it already is. A view that carried "max nerve plus a
+guard bonus" without those two numbers would be a second formula
+wearing the first one's name, and an undefended address would score
+0 where the engine scores 3. *Softest* is the lowest
+strength, tie-broken by fewer defenders, then lower reputation, then
+stable key, so the answer is total and never positional. The
+persisted warning **freezes the address it chose**, and **live
+staffing still decides the fight when the crew arrives** — moving
+people after a telegraph changes whether you hold, not where they
+come. One definition of "defended", read by the rival choosing and by
+the night resolving, is what turns staff allocation into the lever
+§2.4.2 promises rather than a screen that displays one.
+
+*Inventory is local and never teleports* (rev. 22 item 9):
 every purchase, improvement, storage move and route names an address;
 pantry, stash and upgrades belong to their shop; warehouse transfers
 name a source and a destination; there is no free shop-to-shop
@@ -637,6 +697,42 @@ of which end the run. "Both shops open" is therefore not a day-30
 condition to check but an invariant to test; the day-30 matrix reduces
 to the points ledger alone.
 
+**Both dates are persisted on the address, and one lifecycle view
+decides what an address can do** (rev. 29 items 3–4 and the capability
+ruling). *The dates:* **opening day = acceptance day + 2**, where
+acceptance day is **the sit-down scene's current calendar day** — not
+the debt-payoff day, which can fall many days earlier and would
+silently open the shop before the deal was struck. The address stores
+**both** its acceptance and its opening date, validation binds their
+relationship, and the opening day is **not duplicated in
+`BranchState`** — two homes for one date is two dates. The shop opens
+**at the start of that morning**. Existing one-address saves carry
+neither field and migrate under P4a's absence-only discipline: absent
+migrates, present-but-malformed refuses.
+
+*The capabilities*, decided centrally, because today's engine would
+roll demand for a building site and charge it rent the moment the
+record exists. **Under construction — ALLOWED:** staffing, and pantry
+supply for opening preparation. **DISALLOWED:** demand and the order
+book, service, routes, cover, the laundering ceiling, rent, rival and
+law targeting, contraband storage, and any use of its wagon.
+**Initial state:** reputation 20, pantry quality standard, **zero
+ingredients unless purchased**, empty stash, no upgrades, no order
+book. Opening enables the complete address in one transition: there is
+no third, partially-capable phase, and no consumer decides for itself
+what a building site may do.
+
+*The wagon follows the same authority* (rev. 29 item 3). The used
+second wagon is inside the $13,000 and therefore exists from
+acceptance — P4a refuses an address that keeps no wagon — but it is
+**unclaimable until its address opens**, enforced in ONE lifecycle
+authority consulted by routes, outgoing raids, salvage and the decoy
+alike, at planning AND at execution. The refusal is **visible, in the
+player's words**: *the University wagon is still at the contractor's
+yard*. A silent absence would read as a bug; the whole point of the
+construction window is that the player can see what they are waiting
+for.
+
 **The manager, and the vacancy that is gameplay** (rev. 22 item 6).
 Shop 2 runs under a named manager — an aware employee, their loyalty
 load-bearing. But a manager can be arrested, poached, fired, or can
@@ -650,6 +746,44 @@ at its full weight; appointing one clears it. A validator that demanded
 a living, hired, aware manager at all times would refuse saves the
 player reached by playing the game correctly — the precise failure this
 design forbids.
+
+**The window is an OPPORTUNITY, not a clock** (rev. 29 item 5): after
+an arrest, a poach, a resignation, a firing or a reassignment, the
+player gets **one management menu** before the full penalty binds.
+Vague 24-hour arithmetic would make the window depend on when in the
+day the post emptied; an opportunity is something the player is
+actually offered and can actually take.
+
+**And it is a persisted state machine, not an optional screen**
+(rev. 30 item 2). "The next available menu" must never mean a menu
+the player can decline to open forever, which would turn the penalty
+into something avoidable by not looking at it. Exactly: (a) manager
+loss **creates a persisted pending opportunity**, recorded with the
+day the post emptied; (b) the appointment screen is **surfaced
+automatically before that address's next service** — the player does
+not go looking for it; (c) **appointing clears the vacancy**, while
+**declining it, or exhausting it, activates the full penalty**;
+(d) **save and load preserve the opportunity state**, which is never
+reconstructed from the calendar — a reload must not hand back a
+window the player already spent, nor consume one they still hold.
+*Initial vacancy, ruled:* **construction provides its one appointment
+opportunity**, so a player who takes the chair with no eligible
+manager is offered the post while the site is being built; **if the
+shop opens without a manager, Carmine's nephew runs it at the full
+penalty from its first service.** Entering the branch is never
+refused for want of a manager — the penalty is the consequence, not
+the chair being withheld.
+
+Initial placeholders, §6.3-class and
+movable only by the recorded falsification workflow: **one management
+opportunity**, **kitchen capacity × 0.50**, **believable ceiling ×
+0.50**. *One manager-transition authority* updates the manager's
+identity, the vacancy day and the remaining opportunity together — a
+post that empties by four different routes must not update its record
+four different ways. And **entering the branch with no eligible
+manager is legitimate**: the address opens under Carmine's nephew as
+an **initial vacancy**, which is a valid state carrying the same
+penalty, never a refusal to enter a chair the sit-down offered.
 
 **Failure states / endings** — three explicit terminal ids, none of them
 riding a generic fallthrough (rev. 22 item 3, on rev. 15's precedent):
@@ -1659,12 +1793,68 @@ Ordered roughly by blast radius, smallest first:
   **3.11, 3.12 AND 3.13**, and all three merged batteries
   byte-identical **at both depths (150 and 500)**. A moved transcript,
   RNG state, ending or study digit is a refactor defect, and **no
-  golden regeneration is permitted anywhere in P4a**. *P4b* — the
-  branch itself: site
-  selection, the atomic capital, the construction window, the points
-  ledger, the manager and its vacancy, the address-level threat model,
-  endings, bots, study. *Gate: full §2.7 battery + human play on seeds
-  24/39/8, written up honestly in FINDINGS.*
+  golden regeneration is permitted anywhere in P4a**.
+
+  **P4b — the branch itself, SIX sequential PRs (rev. 28, split by
+  rev. 29 item 6), on the same never-stacked rule.**
+  - *P4b.1a — address lifecycle and operational surfaces.* The
+    lifecycle view, open-address filtering, the construction
+    capability restrictions, and address selection through morning,
+    service and night — the conversion of every `operating_shop`
+    surface into an address-choosing one, proved on synthetic
+    two-address states before any branch can create one.
+  - *P4b.1b — site and deal.* The site scene, the atomic capital
+    transaction, shop and wagon creation together, the opening
+    transition, and a scripted D14–D17 walkthrough.
+  - *P4b.2 — the points ledger.* The append-only cycle records and
+    their derived view, the vig, the early-payoff deferral, and the
+    second-strike `foreclosure` that ends the run that night. Also
+    (rev. 29 item 7): Partner joins `REMEDIATION_BRANCHES` and the
+    shared clean-insolvency accounting, and the dirty-first payment
+    authority is hoisted out of `war.night_obligation` into one home
+    both consumers use.
+  - *P4b.3 — the manager, the vacancy and the two-front pressure.*
+    Appointment through one transition authority, the vacancy as a
+    valid state and its penalties, the `ShopDefenseView` that answers
+    both targeting and the arriving raid, the neighbour's response to
+    expansion, and typed address-bearing tribute. Also (rev. 29
+    items 7–8): Partner adopts the existing heat teeth at unchanged
+    constants, defenders become target-local, and the three named
+    residues are cleared — the informant tip's `HOME_DISTRICT` heat,
+    the incoming raid's global `state.crew()`, and scalar tribute.
+  - *P4b.4 — the grade and the endings.* The one Partner grading
+    view, the tiers, the card that shows its work, `operation` and
+    `on_the_hook` with their texts, and the §2.5 matrix rows.
+  - *P4b.5 — bots, battery and study.* The Partner bot, both
+    ablations, the §2.7 letters measured, FINDINGS, and human play.
+
+  Both identity gates and all three merged batteries stay binding at
+  every P4b boundary, and **the golden is not regenerated in P4b
+  either** — but what they PROVE differs by PR (rev. 30 item 1).
+  **At P4b.1a they are behaviour-equivalence proof, exactly as in
+  P4a**: that PR converts the shared morning, service and night
+  surfaces that flag-off and every released branch already run
+  through, so a moved transcript, RNG state, ending or study digit
+  there is a refactor defect. **From P4b.1b onward they are
+  containment checks** — those PRs add branch-local behaviour behind
+  an unreleased chair, touching no flag-off and no stand-pat surface
+  — and a green containment gate proves the branch stayed inside its
+  branch, never that it works. So **each PR carries its own local
+  proof** (rev. 29 item 10, completed by rev. 30 item 3): the
+  lifecycle/capability matrix and save-load transitions; atomic
+  rollback, the D14–D17 walkthrough and two real routes only after
+  opening; an exhaustive points-state transition table with ledger
+  reconciliation; **for P4b.3, TWO matrices — the complete
+  address-pressure matrix AND an exhaustive manager-transition
+  matrix** (the PR carries two root authorities, one owning address
+  targeting and its consequences and one owning the manager
+  lifecycle, and a proof naming only one of them leaves the other
+  unproved); exhaustive terminal and threshold edges; then the
+  battery.
+  *Gate: full §2.7 battery + human play on seeds 24/39/8, written up
+  honestly in FINDINGS.* **Activation — adding `partner` to
+  `RELEASED_BRANCHES` — is a separate SEVENTH act on the reviewer's
+  explicit word**, never a side effect of P4b.5.
 
 Each phase ends with the standing workflow: tests + ruff + mypy, the
 relevant studies rerun, FINDINGS updated (including retractions if the
@@ -4249,3 +4439,379 @@ It amends §7's P4 bullet; everything else here is new contract.
    points ledger, site selection, the second shop itself, the
    targeting policy and the Partner story are all P4b, and none of
    them appears in P4a in any form.
+
+**Revision 28** records the P4b scope: the subdivision into sequential
+PRs, the work list assembled from the canon already ruled (§2.4.2,
+§2.5, §2.7, §3.2, §5 item 8, §6), and the judgment calls that need
+rulings before mechanics harden. Paper only; no P4b implementation
+accompanies it. It amends §7's P4b clause and nothing else — every
+other paragraph below is a proposal awaiting a ruling, not adopted
+contract.
+
+1. **P4b is five sequential PRs, never stacked**, on P4a's precedent
+   (rev. 27 item 1): each based on the previously MERGED one and
+   verified before the next begins, so a failure stays attributable
+   to one boundary. *P4b.1 — the deal and the address:* site
+   selection, the atomic capital transaction, the second address and
+   its wagon created together, the three declared phases and the
+   recorded opening day. *P4b.2 — the points ledger:* two books,
+   the cycle and its vig, the early-payoff deferral, and the
+   second-strike foreclosure that ends the run that night.
+   *P4b.3 — the manager, the vacancy and the two-front pressure:*
+   appointment, the vacancy as a valid state and its penalties, the
+   address-targeting POLICY that P4a left unruled, the neighbour's
+   response to expansion, and tribute naming an address. *P4b.4 —
+   the grade and the endings:* the one Partner grading view, the
+   tiers, the status card that shows its work, the two remaining
+   terminal ids and their texts, and the §2.5 matrix rows.
+   *P4b.5 — bots, battery and study:* the Partner bot, both
+   ablations, the §2.7 letters measured, FINDINGS, and human play on
+   seeds 24/39/8. **Activation — adding `partner` to
+   `RELEASED_BRANCHES` — is a SIXTH act, separate and explicit**, on
+   the Harbor War's precedent: it is the only change that moves what
+   a player can take, and it happens on the reviewer's word alone,
+   never as a side effect of the last implementation PR.
+
+2. **The gate P4b inherits, and the one it does not.** P4a's gate was
+   identity, because it touched the flag-off path. P4b touches no
+   flag-off and no stand-pat surface, so **both identity gates stay
+   binding at every PR boundary — 300/300 on 3.11, 3.12 AND 3.13,
+   stand-pat holding its 79 sit-downs** — but they are now a
+   *containment* check rather than the phase's proof: they say P4b
+   stayed inside its branch, and they say nothing whatever about
+   whether the branch works. The three merged batteries must also
+   stay byte-identical at both depths for the same reason. What
+   proves P4b is the §2.7 Partner battery, and it does not exist
+   until P4b.5. **The golden is not regenerated in P4b either**; a
+   moved digit is a containment failure, not a result.
+   *(SUPERSEDED IN PART by rev. 30 item 1: the premise "P4b touches
+   no flag-off surface" is false at **P4b.1a**, which converts the
+   shared morning, service and night surfaces. There the gates are
+   behaviour-equivalence proof, exactly as in P4a; only P4b.1b–P4b.5
+   are containment. The rest of this item stands.)*
+
+3. **The chair is visible and untakeable throughout.** `sitdown.py`
+   already prints an unreleased chair with a development-build
+   marker and refuses to seat it (§2.1's rule that an implementation
+   limitation must never become a permanent player decision), so
+   every P4b PR before activation leaves the sit-down transcript and
+   its 79-count exactly where they are. This is asserted, not
+   assumed: the stand-pat gate is the assertion.
+
+4. **JUDGMENT CALL — the points schema cannot carry two books
+   today.** §2.4.2 (rev. 22 item 7) requires *arrears* (dollars owed
+   right now) and a *strike* (a miss that happened and never
+   unhappens) as separate facts, and day-30 grading reads arrears
+   while foreclosure counts strikes. The live `BranchState` carries
+   `points_missed` and `vig_owed`, and `points_missed` is exactly the
+   one counter the ruling says cannot carry both. *Proposal:*
+   `points_arrears` (dollars currently owed) and `points_strikes`
+   (misses ever), with `vig_owed` retired into arrears — the next
+   bill is prior arrears + $2,500 + $500 vig, so the vig is a term of
+   the bill, not a second balance to reconcile against. No released
+   save can carry a partner `BranchState`, so this is a schema
+   correction rather than a migration; `_BRANCH_FIELDS["partner"]`
+   moves with it. **Needs a ruling before P4b.2.**
+
+5. **JUDGMENT CALL — "the softer of your two shops" needs an
+   executable definition.** §2.4.2 promises rivals may target it and
+   rev. 27 item 4 deliberately left the POLICY to P4b, with
+   `raid_target` failing closed on two addresses in the meantime. The
+   definition must be deterministic and must not reduce to list
+   position, which is the defect stable keys exist to abolish.
+   *Candidates:* lower reputation (the address the neighbourhood
+   would miss least); fewer staff assigned (the thinnest defence
+   allocation, which is what §2.4.2 calls the decision); lower
+   district heat (the easiest approach); or a stated composite.
+   *Proposal:* fewest assigned available staff, because §2.4.2 names
+   defence allocation as the player's lever and a policy that ignores
+   the lever makes the lever decorative — ties broken by lower
+   reputation, then by stable key so the answer is total. **Needs a
+   ruling before P4b.3.**
+
+6. **JUDGMENT CALL — the wagon exists before the shop opens.** The
+   $2,500 used wagon is inside the $13,000 committed atomically at
+   acceptance, and P4a's `validate_addresses` refuses an address that
+   keeps no wagon — so the second wagon must exist from acceptance,
+   during construction, at an address that serves nothing. *Proposal:*
+   it exists and is idle: a wagon kept at an unopened address is
+   visible in the fleet and may not be claimed for any job, because
+   the address it belongs to is not operating. The alternative —
+   letting it run routes out of a building site — would make the
+   construction window free capacity and contradict §3.2's D16, where
+   the second route becomes possible only once the shop opens.
+   **Needs a ruling before P4b.1.**
+
+7. **JUDGMENT CALL — the opening day.** §2.4.2 requires a recorded
+   opening day fixed deterministically by Carmine's contractor, with
+   nothing the player does able to move it. §3.2 walks D14 accept →
+   D16 open. *Proposal:* opening day = acceptance day + 2, stored on
+   the address rather than derived, so a save cannot recompute a
+   different one; a §6.3-class placeholder that the P4b.5 study may
+   move. **Needs a ruling before P4b.1.**
+
+8. **JUDGMENT CALL — the vacancy penalties are unnumbered.** §2.4.2
+   (rev. 22 item 6) fixes the SHAPE — vacancy is a valid state,
+   recorded with the day it emptied; the address stays open under
+   Carmine's nephew at reduced kitchen capacity and a reduced
+   believable ceiling; a stated window before the penalty bites at
+   full weight; appointing clears it — and fixes no magnitudes.
+   *Proposal:* adopt as §6.3-class placeholders, stated in one
+   authority and moved only by the recorded falsification workflow,
+   with P4b.5's first study reporting the distributions. The window
+   length, the capacity reduction and the ceiling reduction are three
+   separate numbers and should be named as three, not one. **Needs a
+   ruling before P4b.3.**
+
+9. **The surfaces that fail closed the moment shop 2 exists — and
+   why that is the design working.** P4a routed every single-address
+   surface through `operating_shop`, which refuses when there are
+   two. The morning, service and night blocks, the Straight Path and
+   the Quiet Sale therefore stop resolving an address the instant
+   the Partner branch creates one, BY CONSTRUCTION. P4b.1 must
+   convert those surfaces to address-choosing ones in the same PR
+   that makes a second address possible — that is the whole point of
+   having built the refusal — and the Straight Path, the Quiet Sale
+   and the Harbor War must continue to resolve their single address
+   through the same boundary, unchanged, because none of them can
+   ever have two. This is the largest single piece of P4b.1 and is
+   named here so it is scoped rather than discovered.
+
+10. **Held open, and NOT tuned inside P4b.** The §6.3 heat-weight
+    question and the human-play findings carried since round 10 stay
+    open and untouched; rev. 27's rule that P4a neither answers nor
+    tunes them extends to P4b's implementation PRs. P4b.5's study
+    may REPORT distributions that bear on them — the two grading
+    thresholds (combined net strictly greater than $8,000, shop 2
+    reputation ≥ 35) explicitly must — but a constant moves only
+    through the recorded falsification workflow, never because a
+    battery looked better afterwards. §6.4's ruling stands: war
+    capture does not reuse the multi-shop machinery in v1.
+
+**Revision 29** records the rulings on revision 28, the scope
+corrections that came with them, and the canon revision 28 omitted.
+Paper only; no P4b implementation accompanies it. Revision 28's
+subdivision, gate and open flags are preserved as the record of what
+was proposed — this revision supersedes them where they differ, and
+amends §2.4.2 and §7 rather than living only in §8.
+
+1. **Points: the ledger is the authority, the books are derived.**
+   `points_missed` and `vig_owed` are retired, and revision 28's
+   proposal of independently mutable arrears and strike fields is
+   REJECTED in favour of a typed append-only `PointsCycleRecord`
+   history with a derived `PartnerLedgerView` (arrears, lifetime
+   strikes, cumulative paid, current bill and vig, next due day).
+   Two writable sources for one fact are free to disagree after any
+   partial update; the typed evidence ledger and the war's campaign
+   records each had to remove exactly that. `points_due_day` remains
+   stored as the scheduler's cursor. Cached summaries reconcile
+   exactly against the ledger at every transition and at load. **No
+   partial payment**: the bill clears or the cycle records a miss.
+   No migration — Partner has never been released. §2.4.2 amended.
+
+2. **"Softer": headcount-only is rejected; one `ShopDefenseView`
+   serves both consumers.** A headcount rule would disagree with the
+   mechanic raids already resolve on — `max(nerve) + guard bonus`,
+   `raids.py` — and would let low-nerve honest employees make an
+   address look defended without defending it. The view defines
+   defenders (hired, aware, available, assigned there), strength (the
+   existing calculation, unchanged), and softest (lowest strength,
+   then fewer defenders, then lower reputation, then stable key). The
+   persisted warning freezes the chosen address; live staffing still
+   decides the fight on the night. §2.4.2 amended.
+
+3. **Construction wagon: approved, with a visible refusal.** It
+   exists from acceptance and is unclaimable until its address opens,
+   enforced in ONE lifecycle authority consulted by routes, outgoing
+   raids, salvage and the decoy, at planning AND execution, and
+   refusing in the player's words ("still at the contractor's yard")
+   rather than by silent absence. §2.4.2 amended.
+
+4. **Opening day: approved, with the acceptance day pinned.** Opening
+   = acceptance + 2, where acceptance is **the sit-down scene's
+   current calendar day**, NOT the debt-payoff day — those differ
+   whenever the debt cleared early, and the payoff reading would open
+   the shop before the deal was struck. Both dates persist on the
+   address with their relationship validated; the opening day is not
+   duplicated in `BranchState`; the shop opens at the start of that
+   morning; one-address saves migrate under P4a's absence-only
+   discipline. §2.4.2 amended.
+
+5. **Vacancy: approved with placeholders, and the window is an
+   opportunity.** One management opportunity before the full penalty;
+   kitchen capacity × 0.50; believable ceiling × 0.50. The window is
+   the next available management menu after an arrest, poach,
+   resignation, firing or reassignment — not 24-hour arithmetic,
+   which would make it depend on when in the day the post emptied.
+   One manager-transition authority updates identity, vacancy day and
+   remaining opportunity together. Entering the branch with no
+   eligible manager is a valid **initial vacancy** under Carmine's
+   nephew, never a refusal to seat a chair the sit-down offered.
+   §2.4.2 amended.
+
+6. **P4b.1 is split; six implementation PRs, then activation.**
+   Revision 28's P4b.1 put the largest shared-surface conversion and
+   the branch-creating transaction in one PR, which is precisely the
+   attribution problem the never-stacked rule exists to prevent.
+   *P4b.1a — address lifecycle and operational surfaces:* the
+   lifecycle view, open-address filtering, the construction
+   restrictions, address selection through morning, service and
+   night, proved on synthetic two-address states. *P4b.1b — site and
+   deal:* the site scene, the atomic transaction, shop and wagon
+   creation, the opening transition, and a scripted D14–D17
+   walkthrough. P4b.2–P4b.5 stand as revision 28 recorded them,
+   with the additions in item 7 below. Activation is unchanged in
+   kind and renumbered by the split: revision 28 called it the
+   sixth act because there were five implementation PRs, and it is
+   now the **seventh**, still separate, still on the reviewer's
+   explicit word, still never a side effect of P4b.5. §7 amended.
+
+7. **Omitted canon, assigned.** Revision 28 listed no home for these
+   and they are not optional: **Partner joins `REMEDIATION_BRANCHES`**
+   (today `{"straight", "war"}`) — P4b.2, with the shared capability
+   policy unchanged. **Partner adopts the existing heat teeth at
+   unchanged constants** — `district_heat_policy` currently returns
+   cool-and-plannable for every branch but the war — P4b.3.
+   **Partner adopts the shared clean-insolvency accounting** —
+   `insolvency_tick` and `insolvent_days`, which `_BRANCH_FIELDS`
+   grants the other three branches and not Partner — P4b.2.
+   **P4b.2 introduces the shared dirty-first payment authority**,
+   hoisted from `war.night_obligation` where it lives inline today,
+   so points and war pay draw money the same way rather than twice.
+   **P4b.3 makes tribute demands typed and address-bearing**
+   (`Rival.tribute_demanded` is a bare scalar today). **P4b.3 makes
+   defenders target-local**, through item 2's view.
+
+8. **Named address residue, harmless at one address and not at two.**
+   `rivals.py`'s informant tip adds its heat to `data.HOME_DISTRICT`
+   unconditionally; the incoming raid's defenders come from the
+   global `state.crew()` rather than the targeted address; tribute is
+   a scalar with no address. All three are invisible while one shop
+   exists — which is exactly why they are named here rather than
+   discovered when two do. **P4b.3 owns all three.**
+
+9. **The territorial response is executable.** Little Sicily → Sal;
+   The Meadows → Vinnie; University Hill → Sal notices, no turf
+   penalty. Opening on an owned district applies **−25 relation**
+   through the existing `adjust_relation` authority. **A dead owner
+   produces no retaliatory response.** §2.4.2 amended.
+
+10. **Local proof at every boundary** (corrected by rev. 30 item 1 —
+    the gate's *character* is not uniform across P4b). **At P4b.1a
+    the identity gates are behaviour-equivalence PROOF, exactly as in
+    P4a**, because P4b.1a converts the shared morning, service and
+    night surfaces that flag-off and every released branch already
+    run through; a moved transcript there is a refactor defect, not a
+    containment failure. **Only P4b.1b–P4b.5 may call them
+    containment checks**, since only those add branch-local behaviour
+    behind an unreleased chair. Rev. 28 item 2's blanket
+    "containment" reading was wrong for the first PR and is
+    superseded. Each PR still carries its own local proof:
+    *P4b.1a* — the lifecycle/capability matrix and save-load
+    transitions, ON TOP OF the identity gates as proof; *P4b.1b* —
+    atomic rollback, the D14–D17 walkthrough, and two real routes
+    only after opening; *P4b.2* — an exhaustive points-state
+    transition table plus ledger reconciliation; *P4b.3* — the
+    complete address-pressure matrix AND the exhaustive
+    manager-transition matrix, both of them (rev. 30 item 3);
+    *P4b.4* — exhaustive
+    terminal and threshold edges; *P4b.5* — the full empirical
+    battery and human play. From P4b.1b onward, a green containment
+    gate proves the branch was contained, never that it works.
+
+**Revision 30** is a narrow correction to revision 29: the gate's
+character at P4b.1a, the manager opportunity as a persisted state
+machine, and the two matrices P4b.3 owes. Paper only; no P4b
+implementation accompanies it. It amends §2.4.2, §7 and revision 29
+item 10 in place — revision 29 has not been merged, so the correction
+belongs in the text under review rather than layered on top of it.
+**Item 3 below is the single canonical statement of P4b.3's proof**;
+§7 and rev. 29 item 10 mirror it and must not be read as
+alternatives to it.
+
+1. **P4b.1a's gate is behaviour-equivalence PROOF, not containment.**
+   Revision 28 item 2 called the identity gates containment checks
+   across all of P4b, and revision 29 item 10 repeated it. That is
+   wrong for the first PR: **P4b.1a converts the shared morning,
+   service and night surfaces that flag-off and every released
+   branch already run through**, which is the same class of change
+   P4a made and the same reason P4a's gate was identity. A moved
+   transcript, RNG state, ending or study digit at P4b.1a is a
+   refactor defect to be fixed, never a result to be recorded. Only
+   **P4b.1b–P4b.5** may describe the gates as containment checks,
+   because only those add branch-local behaviour behind an unreleased
+   chair. The distinction matters precisely because it is the PR
+   where a mistake would reach a released game: calling its gate
+   "containment" would have licensed reading a moved digit as
+   someone else's problem. §7 and rev. 29 item 10 amended.
+
+2. **The manager opportunity is a persisted state machine.** "The
+   next available management menu" was ambiguous and, read
+   literally, avoidable — a player who never opens an optional menu
+   would never spend the window and never take the penalty, which
+   inverts the design. Exactly: manager loss **creates a persisted
+   pending opportunity** recorded with the day the post emptied; the
+   appointment screen is **surfaced automatically before that
+   address's next service**; **appointing clears the vacancy**, and
+   **declining or exhausting the opportunity activates the full
+   penalty**; **save and load preserve the opportunity state**, never
+   reconstructing it from the calendar — a reload may neither restore
+   a spent window nor consume a held one. *Initial vacancy is ruled,
+   not left open:* **construction provides its one appointment
+   opportunity**, and **a shop that opens with no manager runs under
+   Carmine's nephew at the full penalty from its first service**.
+   Entering the branch is never refused for want of a manager.
+   §2.4.2 amended.
+
+3. **P4b.3 owes TWO matrices, and this is the canonical statement of
+   its proof.** Revision 29 item 10 originally asked for two spot
+   assertions — staffing swaps move the target, and every
+   manager-loss path reaches one authority — which was narrower than
+   the PR's scope. The first draft of this item then replaced them
+   with the address-pressure matrix alone, which dropped the manager
+   half; §7 meanwhile still carried the old pair. Each location
+   therefore stated half the requirement. **The complete
+   requirement, stated once here and mirrored in §7 and rev. 29 item
+   10: P4b.3's proof is the complete address-pressure matrix PLUS an
+   exhaustive manager-transition matrix.** The split is not
+   bookkeeping — P4b.3 carries **two root authorities**, one owning
+   address targeting and its consequences and one owning the manager
+   lifecycle, and a proof naming only one of them leaves the other
+   authority unproved.
+
+   *The address-pressure matrix.* The root invariant is: **a target
+   is selected ONCE by identity, persisted wherever the consequence
+   is delayed, and every consequence resolves against THAT
+   identity.** Rows: staffing-driven selection; list-order
+   independence (reversing `state.shops` or `state.wagons` changes no
+   answer); warning and tribute surviving save and load without
+   retargeting; the informant tip's heat landing on the addressed
+   district rather than `HOME_DISTRICT`; every raid consequence —
+   coupons, guards, damage days, stash seizure, reputation, heat, law
+   searches — landing on the named shop; **construction sites
+   excluded from targeting entirely**; and **a dead owner producing
+   no retaliatory response**.
+
+   *The manager-transition matrix.* The root invariant is: **every
+   route into and out of the post goes through the one transition
+   authority, and the opportunity is state rather than timing.**
+   Rows: **initial vacancy** (the chair taken with no eligible
+   manager); **arrest**; **poach**; **firing**; **resignation**;
+   **reassignment**; the **automatic opportunity** surfacing before
+   that address's next service; **appoint**, **decline** and
+   **exhaust** as three distinct outcomes with three distinct
+   successor states; and **save/load continuity** — a reload
+   restores neither a spent opportunity nor consumes a held one.
+
+   P4a's lesson applies to both matrices directly: every row in
+   either one is invisible at a single address or a single manager,
+   so none of them is proved by any gate.
+
+4. **One precision on `ShopDefenseView`** (rev. 29 item 2). The view
+   must preserve the existing formula EXACTLY, including the
+   **empty-defender baseline of 3** and the **guard bonus of 4** —
+   `max(nerve, default 3) + (4 if the guard upgrade is at that
+   address)`. "Max nerve plus a guard bonus" is a paraphrase, and a
+   paraphrase here would score an undefended address 0 where the
+   engine scores 3, which changes both which shop is softest and
+   whether the raid is repelled. §2.4.2 amended.
