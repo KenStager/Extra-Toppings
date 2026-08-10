@@ -159,6 +159,13 @@ class TestAddressValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_addresses(state)
 
+    def test_an_address_in_no_real_district_is_refused(self):
+        state = self._valid()
+        state.shops[0].district = "atlantis"
+        with self.assertRaises(ValueError) as caught:
+            validate_addresses(state)
+        self.assertIn("unknown district", str(caught.exception))
+
     def test_an_address_keeping_no_wagon_is_refused(self):
         # Canon buys the address and its wagon in one transaction.
         state = self._valid()

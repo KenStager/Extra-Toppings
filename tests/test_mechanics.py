@@ -100,11 +100,11 @@ class TestRoutes(unittest.TestCase):
 class TestEconomy(unittest.TestCase):
     def test_laundering_ceiling_tracks_sales(self):
         state, _ = prepped_state()
-        low = shop.believable_ceiling(state, 400)
-        high = shop.believable_ceiling(state, 2000)
+        low = shop.believable_ceiling(state, state.shop, 400)
+        high = shop.believable_ceiling(state, state.shop, 2000)
         self.assertGreater(high, low)
         state.shop.upgrades.add("books")
-        self.assertGreater(shop.believable_ceiling(state, 400), low)
+        self.assertGreater(shop.believable_ceiling(state, state.shop, 400), low)
 
     def test_oversell_depresses_next_day_price(self):
         heavy, light = [], []

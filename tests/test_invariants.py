@@ -363,9 +363,9 @@ class TestSharedCapacity(unittest.TestCase):
 class TestLaundering(unittest.TestCase):
     def test_ceiling_derives_from_actual_sales(self):
         state, _ = fresh()
-        self.assertEqual(shop.believable_ceiling(state, 0), 0)
-        self.assertGreater(shop.believable_ceiling(state, 1000),
-                           shop.believable_ceiling(state, 100))
+        self.assertEqual(shop.believable_ceiling(state, state.shop, 0), 0)
+        self.assertGreater(shop.believable_ceiling(state, state.shop, 1000),
+                           shop.believable_ceiling(state, state.shop, 100))
 
     def test_over_ceiling_laundering_creates_evidence(self):
         state, _ = fresh()
@@ -403,7 +403,7 @@ class TestMoneySeparation(unittest.TestCase):
         state.shop.ingredients = 100
         shop.roll_demand(state, rng)
         dirty_before = state.dirty
-        shop.simulate_shift(state, 0, rng)
+        shop.simulate_shift(state, state.shop, 0, rng)
         self.assertEqual(state.dirty, dirty_before)
 
     def test_street_sales_are_dirty_only(self):

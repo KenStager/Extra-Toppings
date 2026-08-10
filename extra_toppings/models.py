@@ -5,6 +5,15 @@ from dataclasses import dataclass, field, fields
 from . import data
 
 
+# THE stable identities (design rev. 27 item 1). An address and a
+# wagon are named by a key that never changes and never depends on
+# list position — assignments, route origins, raid targets, storage
+# locations and ownership all reference these. Keys are internal:
+# nothing here ever reaches the player (rev. 27 item 3).
+HOME_SHOP_KEY = "shop1"
+HOME_WAGON_KEY = "wagon1"
+
+
 @dataclass
 class Employee:
     key: str
@@ -25,6 +34,12 @@ class Employee:
     routes_survived: int = 0
     familiarity: dict = field(default_factory=dict)   # district -> routes driven there
     resignation_pending: bool = False    # confronted you; one chance to fix it
+    # WHERE they work (design rev. 27 item 1). One person, one job,
+    # one address: staffing two shops off one roster is the Partner
+    # branch's binding constraint, so the assignment is persisted
+    # rather than re-derived. Defaults to the founding address, which
+    # is the only one any existing payload could mean.
+    shop_key: str = HOME_SHOP_KEY
 
     @property
     def available(self) -> bool:
@@ -446,15 +461,6 @@ class BranchState:
 # this one definition — nothing else may spell a branch id.
 BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
 ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
-
-
-# THE stable identities (design rev. 27 item 1). An address and a
-# wagon are named by a key that never changes and never depends on
-# list position — assignments, route origins, raid targets, storage
-# locations and ownership all reference these. Keys are internal:
-# nothing here ever reaches the player (rev. 27 item 3).
-HOME_SHOP_KEY = "shop1"
-HOME_WAGON_KEY = "wagon1"
 
 
 @dataclass
@@ -975,6 +981,12 @@ def validate_addresses(state: "State") -> None:
         if s.key in seen:
             raise ValueError(f"shops[{i}]: duplicate shop key {s.key!r}")
         seen.add(s.key)
+        # An address stands somewhere real: its district drives demand,
+        # heat and the route board, so an unknown one is refused here
+        # rather than raising a KeyError deep in the morning.
+        if s.district not in data.DISTRICTS:
+            raise ValueError(f"shops[{i}]: unknown district "
+                             f"{s.district!r}")
     wagon_keys: set = set()
     housed: set = set()
     for i, w in enumerate(state.wagons):
@@ -998,6 +1010,15 @@ def validate_addresses(state: "State") -> None:
         if s.key not in housed:
             raise ValueError(f"shop {s.key!r} keeps no wagon — an "
                              f"address and its wagon arrive together")
+    # Everyone works somewhere real — hired or not. An assignment to a
+    # shop that does not exist loads without complaint and then simply
+    # never matches, so both kitchens quietly run at the no-cook floor:
+    # a silent capability loss, which is precisely what validation
+    # exists to turn into a refusal.
+    for i, e in enumerate(state.employees):
+        if e.shop_key not in seen:
+            raise ValueError(f"employees[{i}] ({e.key}): assigned to "
+                             f"unknown address {e.shop_key!r}")
 
 
 def validate_cross_state(state: "State") -> None:
@@ -1018,14 +1039,18 @@ def validate_cross_state(state: "State") -> None:
     # via the shared validator, rev. 19 item 1): a stash of unknown
     # goods, inexact or negative counts, or over its space cap is
     # refused — never repaired.
-    for where, stash in (("shop", state.shop_stash),
-                         ("warehouse", state.warehouse)):
+    # Every address's room, plus the warehouse — each named, none
+    # assumed (rev. 27 item 7).
+    for where in storage_locations(state):
+        stash = _stash_at(state, where) if (
+            where != WAREHOUSE or state.warehouse is not None) else None
         if stash is None:
             continue
-        validate_inventory_map(stash, f"{where} stash")
+        label = location_label(state, where)
+        validate_inventory_map(stash, f"{label} stash")
         if space_used(stash) > space_cap(state, where):
             raise ValueError(
-                f"{where} stash: {space_used(stash)} space used over "
+                f"{label} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
     validate_execution_history(state)
     _validate_witnesses_and_campaigns(state)
@@ -1337,7 +1362,29 @@ class RouteExecutionRecord:
 # and everything passes through ONE inventory-map validator first:
 # exact integers, known goods, no negatives, explicit locations.
 
-STORAGE_LOCATIONS = ("shop", "warehouse")
+# A storage location is either THE warehouse or an address, named by
+# its stable shop key (design rev. 27 item 1). There is no bare "shop"
+# token any more: once addresses have identities, a location that does
+# not say WHICH address is exactly the implicit home default rev. 27
+# item 7 forbids.
+WAREHOUSE = "warehouse"
+
+
+def storage_locations(state: "State") -> tuple:
+    """Every valid storage token for this state, addresses first."""
+    return tuple(s.key for s in state.shops) + (WAREHOUSE,)
+
+
+def location_label(state: "State", where: str) -> str:
+    """The human name for a location. Keys are internal (rev. 27
+    item 3), so prose and refusals name the warehouse, or the shop —
+    by district once more than one address exists, never by key."""
+    if where == WAREHOUSE:
+        return WAREHOUSE
+    shop = state.shop_by_key(where)
+    if len(state.shops) == 1:
+        return "shop"
+    return f"{data.DISTRICTS[shop.district]['label']} shop"
 
 
 def validate_inventory_map(stash: dict, where: str = "inventory") -> None:
@@ -1367,23 +1414,26 @@ def space_used(stash: dict | None) -> int:
 
 def space_cap(state: "State", where: str) -> int:
     """A destination's capacity in space units."""
-    if where == "shop":
-        return state.shop.stash_cap
-    if where == "warehouse":
+    if where == WAREHOUSE:
         return data.WAREHOUSE_CAP
-    raise ValueError(f"unknown storage location {where!r}")
+    try:
+        return state.shop_by_key(where).stash_cap
+    except KeyError as exc:
+        raise ValueError(f"unknown storage location {where!r}") from exc
 
 
 def _stash_at(state: "State", where: str) -> dict:
     """Explicit locations only (rev. 19 item 1: an unknown name must
-    never alias a real stash)."""
-    if where == "shop":
-        return state.shop_stash
-    if where == "warehouse":
+    never alias a real stash — and rev. 27 item 7: nor may it quietly
+    resolve to the home address)."""
+    if where == WAREHOUSE:
         if state.warehouse is None:
             raise ValueError("no warehouse is rented")
         return state.warehouse
-    raise ValueError(f"unknown storage location {where!r}")
+    try:
+        return state.shop_by_key(where).stash
+    except KeyError as exc:
+        raise ValueError(f"unknown storage location {where!r}") from exc
 
 
 def units_that_fit(state: "State", where: str, good: str) -> int:
@@ -1401,9 +1451,10 @@ def storage_preflight(state: "State", where: str) -> dict:
     would touch it refuses before mutating anything. Returns the
     stash for the caller."""
     stash = _stash_at(state, where)
-    validate_inventory_map(stash, where)
+    label = location_label(state, where)
+    validate_inventory_map(stash, label)
     if space_used(stash) > space_cap(state, where):
-        raise ValueError(f"{where}: {space_used(stash)} space used "
+        raise ValueError(f"{label}: {space_used(stash)} space used "
                          f"over the {space_cap(state, where)}-space cap")
     return stash
 
@@ -1422,14 +1473,31 @@ def move_goods(state: "State", src: str, dst: str, good: str,
         raise ValueError(f"unknown good {good!r}")
     if units < 0:
         raise ValueError(f"cannot move {units} units")
+    # BOTH endpoints are preflighted before anything else is decided,
+    # so an endpoint that is not a location at all fails as an unknown
+    # location rather than being misread as a prohibited transfer —
+    # and so the labels below exist to name what went wrong. Keys are
+    # internal (rev. 27 item 3): every refusal below speaks in labels.
     a = storage_preflight(state, src)
     b = storage_preflight(state, dst)
+    src_label = location_label(state, src)
+    dst_label = location_label(state, dst)
+    # No free address-to-address transfer (design rev. 22 item 9):
+    # goods move between shops by wagon or they do not move. The
+    # storage authority shuttles stock between an address and the
+    # warehouse, and refuses to teleport it across the city.
+    if src != WAREHOUSE and dst != WAREHOUSE:
+        raise ValueError(
+            f"no direct transfer between addresses ({src_label} → "
+            f"{dst_label}) — goods travel by wagon or not at all")
     if units == 0:
         return
     if a.get(good, 0) < units:
-        raise ValueError(f"only {a.get(good, 0)}x {good} at {src}")
+        raise ValueError(f"only {a.get(good, 0)}x {good} at the "
+                         f"{src_label}")
     if units > units_that_fit(state, dst, good):
-        raise ValueError(f"{units}x {good} does not fit at {dst}")
+        raise ValueError(f"{units}x {good} does not fit at the "
+                         f"{dst_label}")
     a[good] -= units
     b[good] = b.get(good, 0) + units
 
@@ -1447,11 +1515,15 @@ def place_haul(state: "State", haul: dict) -> tuple:
     mutate — a refusal leaves every stash byte-identical, never a
     half-placed haul."""
     validate_inventory_map(haul, "haul")
-    storage_preflight(state, "shop")
+    # P4a.2 names the address explicitly instead of indexing it; the
+    # crew's actual RETURN address becomes a parameter in P4a.3, which
+    # is where haul placement stops assuming there is only one.
+    home = exactly_one_shop(state).key
+    storage_preflight(state, home)
     if state.warehouse is not None:
-        storage_preflight(state, "warehouse")
-    shop_room = space_cap(state, "shop") - space_used(state.shop_stash)
-    wh_room = (space_cap(state, "warehouse")
+        storage_preflight(state, WAREHOUSE)
+    shop_room = space_cap(state, home) - space_used(state.shop_stash)
+    wh_room = (space_cap(state, WAREHOUSE)
                - space_used(state.warehouse)
                if state.warehouse is not None else 0)
     to_shop_all: dict = {}
@@ -1775,10 +1847,12 @@ class State:
             self.game_over = "arrested"
 
     def total_stock_units(self) -> int:
-        """Contraband anywhere — shop stash plus warehouse. The Straight
-        Path's stock-zero goal term, the rivals' smell-of-retreat test
-        and the insolvency definition all read this one sum."""
-        units = sum(u for u in self.shop_stash.values() if u > 0)
+        """Contraband anywhere — EVERY address's stash plus the
+        warehouse, each counted exactly once (design rev. 27 item 2).
+        The Straight Path's stock-zero goal term, the rivals'
+        smell-of-retreat test and the insolvency definition all read
+        this one sum, so it must see every room the player owns."""
+        units = sum(u for s in self.shops for u in s.stash.values() if u > 0)
         if self.warehouse:
             units += sum(u for u in self.warehouse.values() if u > 0)
         return units
@@ -1788,7 +1862,14 @@ class State:
         return self.dirty + self.warehouse_cash
 
     def net_worth(self) -> int:
-        stock = sum(u * data.GOODS[g]["base"] for g, u in self.shop_stash.items())
+        """THE address-agnostic asset authority (rev. 27 item 2):
+        every address's stash plus the warehouse stock, counted
+        exactly once, on top of cash less debt. Deliberately NOT
+        branch-aware, and its inventory arithmetic lives nowhere else —
+        the Partner grading view subtracts arrears from this rather
+        than re-deriving what money means."""
+        stock = sum(u * data.GOODS[g]["base"]
+                    for s in self.shops for g, u in s.stash.items())
         if self.warehouse:
             stock += sum(u * data.GOODS[g]["base"] for g, u in self.warehouse.items())
         return self.clean + self.dirty + self.warehouse_cash + stock - self.debt

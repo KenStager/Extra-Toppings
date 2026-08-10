@@ -339,7 +339,7 @@ class TestAdvertising(unittest.TestCase):
         state = in_branch()
         state.clean = 2000
         con = CaptureConsole([])
-        phases.shop.recompute_demand(state)
+        phases.shop.recompute_demand(state, state.shop)
         before = state.demand_today
         straight.advertise(state, con)
         self.assertEqual(state.clean, 2000 - straight.AD_COST)
