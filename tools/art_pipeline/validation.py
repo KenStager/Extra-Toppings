@@ -159,3 +159,95 @@ def validate_candidate(
         "a prop must be one connected silhouette",
     )
     return result
+
+
+def coverage_fraction(image: Image.Image) -> float:
+    """Fraction of canvas positions that are fully opaque."""
+    rgba = image.convert("RGBA")
+    mask = _opaque_mask(rgba)
+    return sum(sum(row) for row in mask) / (rgba.width * rgba.height)
+
+
+def validate_decal(
+    image: Image.Image,
+    palette: list[RGBA],
+    expected_size: tuple[int, int] = (32, 32),
+    min_coverage: float = 0.02,
+    max_coverage: float = 0.50,
+    max_edge_run: int = 4,
+) -> ValidationResult:
+    """Validate a wear/overlay decal (experiment_06_decals.md contract).
+
+    A decal is a different kind of asset from a prop: multi-blob and
+    lone specks are the medium, so single_silhouette, garbage-pixel,
+    and min-bbox checks deliberately do not apply. What must hold:
+    size, hard alpha, palette, transparent corners, interior placement
+    (no long edge runs), and coverage inside [min, max] — beyond max
+    it is a tile variant, under min it is invisible at device scale.
+    """
+    result = ValidationResult()
+    rgba = image.convert("RGBA")
+
+    result.record(
+        "dimensions",
+        (rgba.width, rgba.height) == expected_size,
+        f"got {rgba.width}x{rgba.height}, expected {expected_size[0]}x{expected_size[1]}",
+    )
+    result.record(
+        "transparency_support",
+        image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info,
+        f"mode {image.mode} has no alpha",
+    )
+
+    colors = rgba.getcolors(maxcolors=rgba.width * rgba.height)
+    assert colors is not None
+    alpha_values = {c[1][3] for c in colors}
+    result.record(
+        "hard_alpha",
+        alpha_values <= {0, 255},
+        f"soft alpha values present: {sorted(alpha_values - {0, 255})[:8]}",
+    )
+
+    corners = [
+        rgba.getpixel((x, y))
+        for x in (0, rgba.width - 1)
+        for y in (0, rgba.height - 1)
+    ]
+    result.record(
+        "transparent_corners",
+        all(isinstance(c, tuple) and c[3] == 0 for c in corners),
+        "one or more canvas corners are opaque",
+    )
+
+    allowed = {c[:3] for c in palette}
+    off_palette = sorted(
+        {c[1][:3] for c in colors if c[1][3] == 255 and c[1][:3] not in allowed}
+    )
+    result.record(
+        "palette_adherence",
+        not off_palette,
+        f"{len(off_palette)} off-palette colors: "
+        + ", ".join(to_hex((r, g, b, 255)) for r, g, b in off_palette[:8]),
+    )
+
+    mask = _opaque_mask(rgba)
+    coverage = sum(sum(row) for row in mask) / (rgba.width * rgba.height)
+    result.record(
+        "coverage_band",
+        min_coverage <= coverage <= max_coverage,
+        f"coverage {coverage:.3f} outside [{min_coverage}, {max_coverage}]",
+    )
+
+    edges = {
+        "top": sum(mask[0]),
+        "bottom": sum(mask[-1]),
+        "left": sum(row[0] for row in mask),
+        "right": sum(row[-1] for row in mask),
+    }
+    runs = {k: v for k, v in edges.items() if v > max_edge_run}
+    result.record(
+        "no_clipping",
+        not runs,
+        f"long opaque runs on canvas edge: {runs}",
+    )
+    return result
