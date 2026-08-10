@@ -83,7 +83,7 @@ class AbortingConsole(CaptureConsole):
 
 def run_night(state, script, seed=1, config=None):
     con = CaptureConsole(list(script))
-    phases.night(state, {}, _wag(state), con, Streams(seed), config)
+    phases.night(state, {"routes": {}}, _wag(state), con, Streams(seed), config)
     return con
 
 

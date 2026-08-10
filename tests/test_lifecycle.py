@@ -43,11 +43,25 @@ class Listening(ScriptedConsole):
         return any(fragment in line for line in self.lines)
 
 
+def _route(state, shop_key, wagon_key, driver=None, **over):
+    """A COMPLETE route plan. Every canonical field is named,
+    including a real driver, because the schedule refuses a plan
+    missing one — a gap accepted for test convenience is how a
+    canonical field stops being canonical."""
+    if driver is None:
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+    plan = {"district": "old_harbor", "driver": driver,
+            "ride_along": False, "cargo": {}, "legit": 0,
+            "origin_shop": shop_key, "wagon_key": wagon_key}
+    plan.update(over)
+    return plan
+
+
 def _raid_plan(state, objective):
     """A raid planned through the REAL planner: pick the rival, the
     objective, the crew, unarmed."""
-    script = [0, ("steal_stock", "photograph_ledger",
-                  "wreck_ovens").index(objective), 0, False, False]
+    script = [0, ("steal_stock", "ledger", "sabotage").index(objective), 0, False, False]
     return raids.plan_raid(
         state, Listening(script), random.Random(3), reserved=[],
         wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
@@ -310,14 +324,14 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
 
     def test_a_construction_wagon_cannot_be_planned_out(self):
         state = _with_site(day=6, acceptance=5)
-        view = phases.planned_wagon(state, {}, "shop2")
+        view = phases.planned_wagon(state, {"routes": {}}, "shop2")
         self.assertFalse(view.available)
         self.assertEqual(view.blocked_by, "lifecycle")
         self.assertIn("contractor's yard", view.note)
 
     def test_the_open_address_plans_freely_alongside_it(self):
         state = _with_site(day=6, acceptance=5)
-        view = phases.planned_wagon(state, {}, HOME_SHOP_KEY)
+        view = phases.planned_wagon(state, {"routes": {}}, HOME_SHOP_KEY)
         self.assertTrue(view.available)
         self.assertEqual((view.note, view.blocked_by), ("", ""))
 
@@ -326,7 +340,8 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # is never described as sitting at the contractor's yard.
         state = _with_site(day=7, acceptance=5)
         view = phases.planned_wagon(
-            state, {"salvage": {"rival": "vinnie",
+            state, {"routes": {},
+                    "salvage": {"rival": "vinnie",
                                 "origin_shop": "shop2"}}, "shop2")
         self.assertFalse(view.available)
         self.assertEqual(view.blocked_by, "salvage")
@@ -340,8 +355,8 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # removed. Invisible to every gate — no released branch can
         # build two addresses — so it is pinned directly.
         state = _with_site(day=7, acceptance=5)          # shop2 OPEN
-        plans = {"routes": {HOME_SHOP_KEY: {"origin_shop": HOME_SHOP_KEY,
-                           "driver": None}}}
+        plans = {"routes": {HOME_SHOP_KEY: _route(
+            state, HOME_SHOP_KEY, models.HOME_WAGON_KEY)}}
         home = phases.planned_wagon(state, plans, HOME_SHOP_KEY)
         self.assertFalse(home.available)
         self.assertEqual(home.blocked_by, "route")
@@ -354,10 +369,10 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # representable, and a consumer must know WHICH one it takes.
         state = _with_site(day=7, acceptance=5)
         state.wagons.append(Wagon(key="wagon3", shop_key="shop2"))
-        view = phases.planned_wagon(state, {}, "shop2")
+        view = phases.planned_wagon(state, {"routes": {}}, "shop2")
         self.assertEqual(view.free, ("wagon2", "wagon3"))
         self.assertEqual(view.first, "wagon2")
-        plans = {"routes": {"shop2": {"origin_shop": "shop2"}}}
+        plans = {"routes": {"shop2": _route(state, "shop2", "wagon2")}}
         one_left = phases.planned_wagon(state, plans, "shop2")
         self.assertTrue(one_left.available)
         self.assertEqual(one_left.free, ("wagon3",))
@@ -382,7 +397,8 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         state = _with_site(day=7, acceptance=5)
         with self.assertRaises(KeyError):
             phases.plan_origin(state, {"origin_shop": "ghost"})
-        plans = {"routes": {HOME_SHOP_KEY: {"origin_shop": "ghost", "driver": None}}}
+        plans = {"routes": {HOME_SHOP_KEY: _route(
+            state, "ghost", models.HOME_WAGON_KEY)}}
         with self.assertRaises(KeyError):
             phases.planned_jobs_at(state, plans, HOME_SHOP_KEY)
         with self.assertRaises(KeyError):
@@ -403,7 +419,7 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
 
     def test_a_free_view_refuses_to_name_a_wagon_it_has_not_got(self):
         blocked = phases.planned_wagon(
-            _with_site(day=6, acceptance=5), {}, "shop2")
+            _with_site(day=6, acceptance=5), {"routes": {}}, "shop2")
         with self.assertRaises(RuntimeError):
             blocked.first
 
@@ -413,16 +429,16 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # would then refuse.
         for day in (5, 6, 7, 8):
             state = _with_site(day=day, acceptance=5)
-            planned = phases.planned_wagon(state, {}, "shop2")
+            planned = phases.planned_wagon(state, {"routes": {}}, "shop2")
             executed = phases.WagonNight(state).view_at("shop2")
             self.assertEqual(planned.available, executed.available, day)
             self.assertEqual(planned.note, executed.note, day)
 
     def test_the_opening_morning_flips_both_halves_together(self):
         state = _with_site(day=6, acceptance=5)
-        self.assertFalse(phases.planned_wagon(state, {}, "shop2").available)
+        self.assertFalse(phases.planned_wagon(state, {"routes": {}}, "shop2").available)
         state.day = 7                       # the recorded opening day
-        view = phases.planned_wagon(state, {}, "shop2")
+        view = phases.planned_wagon(state, {"routes": {}}, "shop2")
         self.assertTrue(view.available)
         self.assertTrue(phases.WagonNight(state).available_at("shop2"))
 
@@ -479,7 +495,7 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
 
     def _yard_view(self):
         state = _with_site(day=6, acceptance=5)
-        return phases.planned_wagon(state, {}, "shop2")
+        return phases.planned_wagon(state, {"routes": {}}, "shop2")
 
     def test_a_raid_says_the_wagon_is_at_the_yard(self):
         state = new_state()
@@ -561,7 +577,7 @@ class TestTheAbsenceSentenceNamesTheRightJob(unittest.TestCase):
 
     def test_the_lifecycle_names_the_address(self):
         view = phases.planned_wagon(
-            _with_site(day=6, acceptance=5), {}, "shop2")
+            _with_site(day=6, acceptance=5), {"routes": {}}, "shop2")
         self.assertEqual(
             models.wagon_gone_line(view),
             "The University Hill wagon is still at the contractor's yard")
@@ -617,11 +633,11 @@ class TestTheOneShopPlanningPathIsUnchanged(unittest.TestCase):
         state = new_state()
         validate_addresses(state)
         self.assertTrue(
-            phases.planned_wagon(state, {}, HOME_SHOP_KEY).available)
+            phases.planned_wagon(state, {"routes": {}}, HOME_SHOP_KEY).available)
         for day in (1, 15, 30):
             state.day = day
             self.assertTrue(
-                phases.planned_wagon(state, {}, HOME_SHOP_KEY).available)
+                phases.planned_wagon(state, {"routes": {}}, HOME_SHOP_KEY).available)
 
 
 class TestPlansCarryTheirWagon(unittest.TestCase):
@@ -638,7 +654,7 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
         market.roll_prices(state, random.Random(3))     # a real board
         for e in state.employees[:2]:
             e.hired = e.aware = True
-        view = phases.planned_wagon(state, {}, HOME_SHOP_KEY)
+        view = phases.planned_wagon(state, {"routes": {}}, HOME_SHOP_KEY)
         plan = routes.plan_route(state, Listening([0, 0, False, 0, 0]),
                                  random.Random(3), reserved=[],
                                  wagon=view)
@@ -663,8 +679,8 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
             e.hired = e.aware = True
         for objective, expected in (("steal_stock",
                                      models.HOME_WAGON_KEY),
-                                    ("photograph_ledger", None),
-                                    ("wreck_ovens", None)):
+                                    ("ledger", None),
+                                    ("sabotage", None)):
             plan = _raid_plan(state, objective)
             self.assertEqual(plan["wagon_key"], expected, objective)
 
@@ -726,8 +742,8 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
         state = new_state()
         for e in state.employees[:2]:
             e.hired = e.aware = True
-        plans = {"routes": {HOME_SHOP_KEY: {"origin_shop": HOME_SHOP_KEY,
-                           "wagon_key": models.HOME_WAGON_KEY}}}
+        plans = {"routes": {HOME_SHOP_KEY: _route(
+            state, HOME_SHOP_KEY, models.HOME_WAGON_KEY)}}
         self.assertFalse(
             phases.planned_wagon(state, plans, HOME_SHOP_KEY).available)
         plan = _raid_plan(state, "steal_stock")
@@ -831,7 +847,7 @@ class TestDepartureIsWhenTheWagonIsClaimed(unittest.TestCase):
     def test_night_refuses_to_invent_an_authority(self):
         state, _home, _driver = self._world()
         with self.assertRaises(ValueError):
-            phases.night(state, {}, {}, Listening(), Streams(3))
+            phases.night(state, {"routes": {}}, {}, Listening(), Streams(3))
 
 
 class TestTheClaimCarriesItsOwnReason(unittest.TestCase):
@@ -1024,7 +1040,7 @@ class TestNightRefusesAForeignAuthority(unittest.TestCase):
         state = new_state()
         for bogus in ({}, "wagons", 3, object()):
             with self.assertRaises(ValueError, msg=repr(bogus)):
-                phases.night(state, {}, {"wagons": bogus}, Listening(),
+                phases.night(state, {"routes": {}}, {"wagons": bogus}, Listening(),
                              Streams(3))
 
     def test_an_authority_from_another_world_is_refused(self):
@@ -1032,7 +1048,7 @@ class TestNightRefusesAForeignAuthority(unittest.TestCase):
         # and every question answered about the wrong world.
         state, other = new_state(), new_state()
         with self.assertRaises(ValueError) as caught:
-            phases.night(state, {}, {"wagons": phases.WagonNight(other)},
+            phases.night(state, {"routes": {}}, {"wagons": phases.WagonNight(other)},
                          Listening(), Streams(3))
         self.assertIn("different state", str(caught.exception))
 
@@ -1104,7 +1120,7 @@ class TestARaidPairsItsWagonWithItsReturnAddress(unittest.TestCase):
         state = new_state()
         for e in state.employees[:2]:
             e.hired = e.aware = True
-        for objective in ("photograph_ledger", "wreck_ovens"):
+        for objective in ("ledger", "sabotage"):
             plan = _raid_plan(state, objective)
             self.assertIsNone(plan["wagon_key"], objective)
 
@@ -1179,6 +1195,145 @@ class TestTwoRoutesCanRunTheSameNight(unittest.TestCase):
             HOME_SHOP_KEY: plans["routes"][HOME_SHOP_KEY]}}
         self.assertEqual(list(phases.routes_planned(state, rebuilt)),
                          [HOME_SHOP_KEY, "shop2"])
+
+
+class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
+    """The schedule is validated AS A SET before the first crate
+    moves. Committing routes one at a time validates each in
+    isolation, and isolation is where shared resources hide."""
+
+    def _two(self):
+        state = _with_site(day=7, acceptance=5)
+        drivers = [e for e in state.employees if e.driving >= 4][:2]
+        for e in drivers:
+            e.hired = e.aware = True
+        return state, drivers
+
+    def test_a_malformed_schedule_is_never_an_empty_one(self):
+        state = new_state()
+        for bogus in ({}, {"routes": None}, {"routes": False},
+                      {"routes": ""}, {"routes": []},
+                      {"routes": 3}):
+            with self.assertRaises(ValueError, msg=repr(bogus)):
+                phases.routes_planned(state, bogus)
+
+    def test_a_hole_in_the_schedule_is_refused_not_skipped(self):
+        state = new_state()
+        for hole in (None, {}, False, "route"):
+            with self.assertRaises(ValueError, msg=repr(hole)):
+                phases.routes_planned(
+                    state, {"routes": {HOME_SHOP_KEY: hole}})
+
+    def test_a_plan_missing_a_canonical_field_is_refused(self):
+        state, drivers = self._two()
+        for field in ("district", "driver", "cargo", "legit",
+                      "origin_shop", "wagon_key"):
+            plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+                          driver=drivers[0])
+            del plan[field]
+            with self.assertRaises(ValueError, msg=field):
+                phases.routes_planned(
+                    state, {"routes": {HOME_SHOP_KEY: plan}})
+
+    def test_a_route_filed_under_a_ghost_address_is_refused(self):
+        state, drivers = self._two()
+        plan = _route(state, "ghost", models.HOME_WAGON_KEY,
+                      driver=drivers[0])
+        with self.assertRaises(KeyError):
+            phases.routes_planned(state, {"routes": {"ghost": plan}})
+
+    def test_one_driver_cannot_drive_two_routes(self):
+        state, drivers = self._two()
+        plans = {"routes": {
+            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+                                  models.HOME_WAGON_KEY,
+                                  driver=drivers[0]),
+            "shop2": _route(state, "shop2", "wagon2",
+                            driver=drivers[0])}}
+        with self.assertRaises(ValueError) as caught:
+            phases.route_schedule(state, plans)
+        self.assertIn("one person, one job", str(caught.exception))
+
+    def test_the_owner_cannot_ride_two_wagons(self):
+        state, drivers = self._two()
+        plans = {"routes": {
+            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+                                  models.HOME_WAGON_KEY,
+                                  driver=drivers[0], ride_along=True),
+            "shop2": _route(state, "shop2", "wagon2",
+                            driver=drivers[1], ride_along=True)}}
+        with self.assertRaises(ValueError) as caught:
+            phases.route_schedule(state, plans)
+        self.assertIn("at once", str(caught.exception))
+
+    def test_a_legal_pair_passes_the_preflight(self):
+        state, drivers = self._two()
+        plans = {"routes": {
+            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+                                  models.HOME_WAGON_KEY,
+                                  driver=drivers[0], ride_along=True),
+            "shop2": _route(state, "shop2", "wagon2",
+                            driver=drivers[1])}}
+        self.assertEqual([k for k, _p in phases.route_schedule(state, plans)],
+                         [HOME_SHOP_KEY, "shop2"])
+
+    def test_the_first_route_spends_nothing_when_the_second_is_bad(self):
+        # THE reason the preflight exists: committing in order would
+        # let route one load its stock before route two raised.
+        state, drivers = self._two()
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.stash = {"mushrooms": 4}
+        home.ingredients, home.delivery_pool = 40, 10
+        site = state.shop_by_key("shop2")
+        site.stash, site.ingredients, site.delivery_pool = (
+            {"mushrooms": 4}, 40, 10)
+        plans = {"routes": {
+            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+                                  models.HOME_WAGON_KEY,
+                                  driver=drivers[0],
+                                  cargo={"mushrooms": 2}, legit=3),
+            # shop 2's route names shop 1's wagon: malformed.
+            "shop2": _route(state, "shop2", models.HOME_WAGON_KEY,
+                            driver=drivers[1])}}
+        with self.assertRaises(ValueError):
+            phases.route_schedule(state, plans)
+        self.assertEqual(home.stash["mushrooms"], 4)
+        self.assertEqual(home.ingredients, 40)
+
+
+class TestAWalkingRaidClaimsNothingAtNight(unittest.TestCase):
+    """Driven through the real night, not by inspecting the plan:
+    ledger and sabotage jobs must leave the shared authority empty."""
+
+    def _night(self, objective):
+        state = new_state()
+        crew = [e for e in state.employees if e.available][:1]
+        for e in crew:
+            e.hired = e.aware = True
+        plans = {"routes": {},
+                 "raid": {"rival": "sal", "objective": objective,
+                          "team": crew, "armed": False,
+                          "table_warned": True,
+                          "wagon_key": None,
+                          "return_shop": HOME_SHOP_KEY}}
+        wagons = phases.WagonNight(state)
+        phases.night(state, plans, {"wagons": wagons}, Listening([0]),
+                     Streams(11))
+        return plans, wagons
+
+    def test_a_ledger_job_records_no_claim(self):
+        plans, wagons = self._night("ledger")
+        self.assertEqual(wagons.claims, {})
+        self.assertIs(plans["raid"]["wagon_free"], False)
+
+    def test_a_sabotage_job_records_no_claim(self):
+        plans, wagons = self._night("sabotage")
+        self.assertEqual(wagons.claims, {})
+        self.assertIs(plans["raid"]["wagon_free"], False)
+
+    def test_the_wagon_is_still_there_afterwards(self):
+        _plans, wagons = self._night("sabotage")
+        self.assertTrue(wagons.available_at(HOME_SHOP_KEY))
 
 
 class TestLifecycleValidation(unittest.TestCase):

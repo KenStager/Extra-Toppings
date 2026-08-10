@@ -797,7 +797,7 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         state, rosa = self._crewed_war()
         break_target(state)
         war.declare(state, "sal", Quiet())    # a live front to raid
-        plans = { "raid": None,
+        plans = {"routes": {}, "raid": None,
                  "salvage": {"rival": "vinnie", "driver": rosa,
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                            "wagon_key": models_mod.HOME_WAGON_KEY}}
@@ -815,7 +815,8 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         state, rosa = self._crewed_war()
         camp = live_campaign(state, "vinnie")
         del camp
-        plans = {                 "raid": {"rival": "vinnie", "objective": "steal_stock",
+        plans = {"routes": {},
+                 "raid": {"rival": "vinnie", "objective": "steal_stock",
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [rosa], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
@@ -861,7 +862,7 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
     def test_the_pickup_can_be_recalled_and_the_wagon_replanned(self):
         state, rosa = self._crewed_war()
         break_target(state)
-        plans = { "raid": None,
+        plans = {"routes": {}, "raid": None,
                  "salvage": {"rival": "vinnie", "driver": rosa,
                              "origin_shop": models_mod.HOME_SHOP_KEY,
                            "wagon_key": models_mod.HOME_WAGON_KEY}}
@@ -959,7 +960,8 @@ class TestRevision16Boundaries(unittest.TestCase):
         # old expression read only the route and handed the raid a
         # wagon that was out on the pickup all night.
         state, rosa, marcus = self._two_front_war()
-        plans = {                 "raid": {"rival": "sal", "objective": "steal_stock",
+        plans = {"routes": {},
+                 "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
@@ -972,7 +974,7 @@ class TestRevision16Boundaries(unittest.TestCase):
 
     def test_a_free_night_hands_the_raid_the_wagon(self):
         state, _rosa, marcus = self._two_front_war()
-        plans = { "salvage": None,
+        plans = {"routes": {}, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
@@ -1061,7 +1063,8 @@ class TestRevision17Instruments(unittest.TestCase):
         # departure never took the wagon out — the untouched PLAN must
         # not reserve it against the raid.
         state, rosa, marcus = self._two_front_war()
-        plans = {                 "raid": {"rival": "sal", "objective": "steal_stock",
+        plans = {"routes": {},
+                 "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
@@ -1075,7 +1078,8 @@ class TestRevision17Instruments(unittest.TestCase):
 
     def test_a_departed_pickup_still_holds_the_wagon(self):
         state, rosa, marcus = self._two_front_war()
-        plans = {                 "raid": {"rival": "sal", "objective": "steal_stock",
+        plans = {"routes": {},
+                 "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
@@ -1096,7 +1100,8 @@ class TestRevision17Instruments(unittest.TestCase):
         # nothing to guess now — a pickup that never claimed its wagon
         # never took it, and the raid finds it standing there.
         state, rosa, marcus = self._two_front_war()
-        plans = {                 "raid": {"rival": "sal", "objective": "steal_stock",
+        plans = {"routes": {},
+                 "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
@@ -1168,7 +1173,7 @@ class TestRevision17Instruments(unittest.TestCase):
     def test_a_dead_target_scrub_is_booked(self):
         state, rosa, marcus = self._two_front_war()
         break_target(state, "sal")
-        plans = { "salvage": None,
+        plans = {"routes": {}, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,

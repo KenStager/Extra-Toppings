@@ -135,7 +135,8 @@ class TestAssignments(unittest.TestCase):
         for e in team:
             e.arrested = True                      # the day went very badly
         raids_led_before = state.raids_led
-        plans = {                 "raid": {"rival": "vinnie", "objective": "ledger",
+        plans = {"routes": {},
+                 "raid": {"rival": "vinnie", "objective": "ledger",
                           "team": team, "armed": False, "return_shop": models.HOME_SHOP_KEY}}
         phases.night(state, plans, _wag(state, revenue=0), ScriptedConsole([4]),
                      Streams(15))

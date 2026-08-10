@@ -124,7 +124,7 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         state = self._war_state()
         arriving(state, "vinnie")
         driver = hire(state, "Rosa")
-        plans = { "raid": None,
+        plans = {"routes": {}, "raid": None,
                  "salvage": {"rival": "sal", "driver": driver,
                              "origin_shop": models.HOME_SHOP_KEY,
                              "wagon_key": models.HOME_WAGON_KEY}}
@@ -139,7 +139,7 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         state = self._war_state()
         arriving(state, "vinnie")
         driver = hire(state, "Rosa")
-        plans = { "raid": None,
+        plans = {"routes": {}, "raid": None,
                  "salvage": {"rival": "sal", "driver": driver,
                              "origin_shop": models.HOME_SHOP_KEY,
                              "wagon_key": models.HOME_WAGON_KEY}}
@@ -168,7 +168,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
     def _raid_night(self, objective, script):
         state = arriving(shop_with_stash(), "vinnie")
         crew = hire(state, "Angelo")
-        plans = { "salvage": None,
+        plans = {"routes": {}, "salvage": None,
                  # Only a stock theft loads a wagon (rev. 26); every
                  # other objective records going on foot EXPLICITLY.
                  "raid": {"rival": "sal", "objective": objective,
@@ -196,7 +196,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         state = arriving(shop_with_stash(), "vinnie")
         crew = hire(state, "Angelo")
         crew.injured_days = 2                      # off the job tonight
-        plans = { "salvage": None,
+        plans = {"routes": {}, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models.HOME_WAGON_KEY,
                           "team": [crew], "armed": False,
@@ -213,7 +213,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         for seed in range(12):
             state = arriving(shop_with_stash(), "vinnie")
             crew = hire(state, "Angelo")
-            plans = { "salvage": None,
+            plans = {"routes": {}, "salvage": None,
                      "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models.HOME_WAGON_KEY,
                               "team": [crew], "armed": False,

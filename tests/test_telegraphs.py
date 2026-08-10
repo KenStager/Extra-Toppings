@@ -84,7 +84,7 @@ def run_morning(state, script=None, seed=1):
 
 def run_night(state, script, seed=1):
     con = CaptureConsole(script)
-    phases.night(state, {}, _wag(state), con, Streams(seed))
+    phases.night(state, {"routes": {}}, _wag(state), con, Streams(seed))
     return con
 
 
@@ -303,7 +303,7 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         phases.service(state, {"routes": {models.HOME_SHOP_KEY: plan}, "raid": None},
                        service_con, streams)
         night_con = CaptureConsole([1, 1000, 4])
-        phases.night(state, {}, _wag(state), night_con, streams)
+        phases.night(state, {"routes": {}}, _wag(state), night_con, streams)
         return state, plan_con, night_con
 
     def test_the_bust_payoff_night_is_warned_at_plan_time(self):

@@ -20,6 +20,13 @@ QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
 
 # ── THE night-assignment authority (rev. 15 item 2) ───────────────
 
+# Every field a route plan must name. A plan missing one is
+# malformed, not lean — and accepting the gap "for test convenience"
+# is how a canonical field stops being canonical.
+ROUTE_FIELDS = ("district", "driver", "ride_along", "cargo", "legit",
+                "origin_shop", "wagon_key")
+
+
 def routes_planned(state: "State", plans: dict) -> dict:
     """Tonight's routes, keyed BY THE ADDRESS THEY LEAVE FROM, in
     stable key order (P4b.1a).
@@ -34,12 +41,33 @@ def routes_planned(state: "State", plans: dict) -> dict:
     filing key and the plan's own `origin_shop` — so THIS is where
     that is refused. A route filed under shop 1 while naming shop 2
     would load one address's stock and reserve the other's wagon."""
-    planned = plans.get("routes") or {}
+    if "routes" not in plans:
+        raise ValueError(
+            "this plan set carries no route schedule — a night with "
+            "no routes says so with {'routes': {}}")
+    planned = plans["routes"]
+    if type(planned) is not dict:
+        raise ValueError(
+            f"the route schedule is a mapping of address -> plan, "
+            f"got {planned!r}")
     out = {}
     for key in sorted(planned):
         plan = planned[key]
-        if not plan:
-            continue
+        # PRESENCE, never truthiness — the save layer's own rule.
+        # None, {} and False here used to read as "no route", which
+        # turns a malformed schedule into an empty one and loses a
+        # night's work without a word.
+        if not isinstance(plan, (dict, routes.RoutePlan)):
+            raise ValueError(
+                f"the route filed under {key!r} is not a plan, got "
+                f"{plan!r}")
+        for name in ROUTE_FIELDS:
+            if plan.get(name) is None and name != "ride_along":
+                raise ValueError(
+                    f"the route filed under {key!r} names no "
+                    f"{name!r} — a plan missing a canonical field is "
+                    f"malformed, not lean")
+        state.shop_by_key(key)          # KeyError on a ghost address
         origin = plan_origin(state, plan)
         if origin != key:
             raise ValueError(
@@ -47,6 +75,45 @@ def routes_planned(state: "State", plans: dict) -> dict:
                 f"{origin!r} — one address, or neither")
         out[key] = plan
     return out
+
+
+def route_schedule(state: "State", plans: dict) -> list:
+    """THE night's routes, validated AS A SET before any of them
+    moves a crate (P4b.1a review).
+
+    Committing routes one at a time validates each in isolation, and
+    isolation is exactly where shared resources hide: two routes can
+    each name a legal driver and name the SAME one, or each ride
+    along and put the owner in two wagons at once. Worse, route one
+    would already have spent its stock before route two raised. So
+    the whole schedule is preflighted here — every pairing, manifest
+    and district, and every resource shared between them — and only
+    then does anything commit."""
+    scheduled = routes_planned(state, plans)
+    drivers: dict = {}
+    riding: list = []
+    for shop_key, plan in scheduled.items():
+        models.plan_wagon(state, plan)         # origin/wagon pairing
+        if plan["district"] not in data.DISTRICTS:
+            raise ValueError(
+                f"the route out of {shop_key!r} names no real "
+                f"district: {plan['district']!r}")
+        routes.RouteManifest.of_plan(plan).validate()
+        driver = plan["driver"]
+        seen = drivers.get(driver.key if hasattr(driver, "key") else id(driver))
+        if seen is not None:
+            raise ValueError(
+                f"{driver.name} is driving the route out of {seen!r} "
+                f"and the one out of {shop_key!r} — one person, one "
+                f"job a night")
+        drivers[driver.key if hasattr(driver, "key") else id(driver)] = shop_key
+        if plan["ride_along"]:
+            riding.append(shop_key)
+    if len(riding) > 1:
+        raise ValueError(
+            f"you cannot ride along on {len(riding)} routes at once: "
+            f"{riding}")
+    return list(scheduled.items())
 
 
 def night_reserved(state: "State", plans: dict,
@@ -970,7 +1037,8 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     # forward — `night` consumes this instance, never a fresh one.
     wagons = WagonNight(state)
     report_wagons = wagons
-    for shop_key, planned in routes_planned(state, plans).items():
+    # The WHOLE schedule is validated before the first crate moves.
+    for shop_key, planned in route_schedule(state, plans):
         if not _commit_route(state, planned, con, wagons):
             plans["routes"].pop(shop_key, None)
     plan = routes_planned(state, plans).get(shop_at.key)

@@ -693,8 +693,7 @@ def claimable_wagons(state: "State", shop_key: str) -> tuple:
                  if wagon_claim(state, w.key).available)
 
 
-def plan_wagon(state: "State", plan: dict,
-               field: str = "origin_shop") -> str:
+def plan_wagon(state: "State", plan, field: str = "origin_shop") -> str:
     """THE wagon a plan departs in, validated against its own origin.
 
     A key alone is not an assignment: shop 1 can name shop 2's wagon
@@ -715,8 +714,7 @@ def plan_wagon(state: "State", plan: dict,
     return key
 
 
-def plan_origin(state: "State", plan: dict,
-                field: str = "origin_shop") -> str:
+def plan_origin(state: "State", plan, field: str = "origin_shop") -> str:
     """The address a planned wagon job leaves from — validated as a
     key AND resolved to a real address.
 
