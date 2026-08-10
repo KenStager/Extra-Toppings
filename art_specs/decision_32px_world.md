@@ -364,3 +364,40 @@ canvas BEFORE generating any character. R6 — no asset has yet been
 imported into Godot on a real device (filtering off, integer scale,
 3× retina); the 50% check is a proxy. An isolated Godot import test
 belongs early in the next phase, not late.
+
+## Rev. 2 amendments (synthesis final, 2026-08-10)
+
+The synthesis revised itself against the live MCP findings; deltas to
+the rulings above, superseding where stated:
+
+- **Two-channel policy SUPERSEDED.** With `mcp_client.py` in the
+  pipeline, MCP is not a second channel but another endpoint family
+  behind the same client, the same `validate_candidate` gate, and the
+  same provenance v2 writer. One key, one gate; the invariant stands:
+  nothing enters approved/ by any transport without validation + v2
+  provenance.
+- **P7 guard rail (recorded verbatim in spirit):** a working
+  `inpaint_image` does NOT reopen the brand-layer policy. Deterministic
+  lettering is justified on its own merits — exactly reproducible,
+  editable without regeneration, drift-immune, free, legible by
+  construction at 32px. The inpaint failures were the occasion for the
+  policy, not its justification. Inpaint, if verified, is confined to
+  non-brand variant work.
+- **Pro ceiling arithmetic:** 2000 credits/month ÷ 20–40 = 50–100 Pro
+  images/month; a 200-asset game at 3 candidates each ≈ 6–12 months of
+  allowance via Pro vs under a third of one month via pixflux. The
+  subscription quantitatively forbids Pro-as-default while making it
+  free to evaluate as a specialist.
+- **Promoted to experiment-now (free under allowance):** (1) Pro
+  `style_copy` leak test on a semantically DISTANT pair — with the
+  licensing constraint that inputs must be hand-blocked/clean until the
+  Omega EULA ruling lands; (2) `inpaint_image` byte-equality probe,
+  then head-to-head vs `create_object_state` for variant states.
+- **New risk R3 — the allowance erodes discipline.** Use-it-or-lose-it
+  credits supply a dishonest reason to generate. Standing rule: EVERY
+  generation batch names the question it answers, recorded in
+  provenance. Unspent allowance is the normal, healthy state.
+- **Tool discipline (P15):** of 65 MCP tools, bless few; every blessed
+  tool is a permanent drift-harness row. Portraits/UI, when they
+  arrive, get their own validator contract — 32×32 prop rules do not
+  transfer.
