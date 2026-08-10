@@ -290,3 +290,77 @@ ToS treatment of uploaded reference material has not been read. Before
 the asset base grows large, the Omega purchase license and PixelLab ToS
 should be read and the ruling recorded here. `donor_derived` in
 provenance v2 indexes exactly which shipped assets would be affected.
+
+## Final engine policy and process rulings (synthesis part 2, 2026-08-10)
+
+**Engine matrix (adopted):** pixflux (REST) is the default for every
+32×32-class prop/object/body — init anchor ≥2px margin, strength 120
+(bodies) / 150–170 (donor-faithful), forced palette, 2–3 seed pool.
+bitforge (REST) is narrow: same-object style variants only, style
+image exactly output-sized. Cross-object family cohesion NEVER uses a
+bitforge style image (proven leak). Brand geometry: code, frozen.
+Masked edits: none (REST inpaint frozen out; MCP inpaint_image awaits
+the P10 byte-exactness test). Pixen: deferred, trigger = first real
+>400px single-shot need. Pro + style_copy: experiment-first, trigger =
+first incoherent MIXED-family board (Exp-03's 8/8 was a semantically
+close family and does not retire this trigger).
+
+**Style-object registry: rejected for now.** A whole pizza has no
+meaningful eight directions; a remote registered object would be a
+second, unversioned, undiffable copy of canon on a vendor with no
+changelog; and the registry rides the same style machinery that
+leaked. Local PNG stays canon. Revisit only for genuinely
+multi-directional subjects (employee, vehicle), after a leak test, and
+then only as a derived cache.
+
+**MCP: two-channel policy.** REST = production channel; MCP =
+exploration + tileset channel (create_topdown_tileset /
+create_path_tiles / create_building_kit have no REST equivalent and
+map natively onto Godot 4 TileSet terrains). The invariant preventing
+two authorities: nothing enters approved/ by ANY channel without
+passing validate_candidate and writing a provenance v2 record — the
+gate is the validator, not the transport.
+
+**Tileability experiment (staged, kill criterion fixed in advance):**
+Step 0 (0 gens): build the seam scorer and CALIBRATE IT on Omega donor
+floor cells known to tile — instruments are proven before they judge.
+Step 0.5 (0 gens): if the donor floor tiles, recolour it
+deterministically to the chips — floors may need no generation at all.
+Step 1 (~6 gens): pixflux 96×96 field, cut the best-scoring 32×32
+window (interior continuity is plausible; self-wrap is not).
+Step 2 (0 gens): mirror-fold fallback — self-tiling by construction.
+Step 3 (MCP): Wang tileset, the structural answer to periodicity
+salience anyway. Hard cap 12 generations / one session, then Wang.
+Metric: palette-aware seam-vs-interior-column comparison (roll by
+16,16), plus an eventlessness score; thresholds set by donor
+calibration, never invented. **Conditional seam-fix post-passes are
+REFUSED** (validation refuses, never repairs); unconditional
+construction steps (quantize, NN reduce, brand layer, mirror-fold)
+remain legal.
+
+**Drift harness (blocked on provenance v2 backfill for old records;
+new records already v2):** 4 probes — canon pizza seed 204, box_open
+seed 602 (init path), one bitforge same-object variant, one
+forced-palette conformance canary — run as the FIRST act of any
+session that will spend generations (event-triggered, not calendar).
+Three-tier verdict: A sha-equal = pinned; B within variance band =
+note; C validator flip / off-palette / beyond band = FREEZE and
+investigate. Tier-B thresholds must be calibrated by three same-day
+repeats before any number is written here. Approved PNGs are ours
+forever — drift threatens future consistency only; canon is NEVER
+regenerated to "refresh" it.
+
+**Metric relabeling (R3):** palette_adherence and quantize-zero are
+hereby a VENDOR-CONFORMANCE CANARY, not evidence of art quality or
+cohesion — color_image forces the palette server-side, so these checks
+verify the vendor honoured a hard constraint. The decisive properties
+(silhouette at device scale, value separation, cross-family cohesion)
+remain human judgments at the review board. Family-cohesion scoring,
+if ever built, is diagnostic-only — never a gate, never a target.
+
+**Named risks (beyond R1 licensing, flagged above):** R5 — animation
+tools bless only square 16/32/64 canvases; choose the employee sprite
+canvas BEFORE generating any character. R6 — no asset has yet been
+imported into Godot on a real device (filtering off, integer scale,
+3× retina); the 50% check is a proxy. An isolated Godot import test
+belongs early in the next phase, not late.
