@@ -1,11 +1,13 @@
 # Working agreements and verification runbook
 
-Everything in this file has, until now, lived in session handoff
-prompts. It is the process half of the project's memory; the design
-half is `docs/ACT1_FORK_DESIGN.md` (with its §8 revision record) and
-the measurement half is `docs/FINDINGS.md`. When this file and a
-session prompt disagree, the newer instruction wins — then update this
-file.
+This file is the engineering-contract half of the project's process
+memory: the standing workflow, what the identity gates prove, and the
+engine invariants. The session protocol — the review relay, the
+GitHub rules and the runbook commands — lives in `CLAUDE.md`; the
+design half is `docs/ACT1_FORK_DESIGN.md` (with its §8 revision
+record) and the measurement half is `docs/FINDINGS.md`. When these
+files and a newer instruction disagree, the newer instruction wins —
+then update the file.
 
 ## The standing workflow
 
@@ -38,30 +40,13 @@ PR when ready for review → **merge only on explicit approval**.
 
 ## The review protocol
 
-The user relays messages verbatim between the implementing session and
-an external reviewer (ChatGPT). The reviewer independently reproduces
-everything — exact arithmetic, per-seed determinism, cross-version
-behavior, doctored save payloads — and returns findings; expect one or
-more correction passes per PR. Write replies to the reviewer with
-enough specificity that they can re-derive every claim (exact numbers,
-file/function names, what was pinned and where). Flag judgment calls
-proactively; the reviewer rules on them. History says the reviewer
-finds the thing you decided was probably fine.
+Moved to `CLAUDE.md` (single home). Everything below is written to
+survive that reviewer.
 
 ## Verification runbook
 
-Python 3.11, 3.12 and 3.13 are all installed; the gates must pass on
-**3.11 AND 3.12** (3.13 is run as a bonus and has always agreed).
-
-```
-python3 -m unittest discover -s tests          # full suite
-ruff check extra_toppings tests analysis       # ruff is PINNED 0.15.x
-mypy extra_toppings analysis --ignore-missing-imports
-python3 -m analysis.equivalence check          # gate 1: flag-off golden
-python3 -m analysis.equivalence standpat       # gate 2: paired stand-pat
-python3 -m analysis.experiments fork           # §2.7 branch battery (150)
-python3 -m analysis.experiments fork --seeds 500   # confirmation ensemble
-```
+The commands and the Python-version rule moved to `CLAUDE.md`'s
+runbook (single home). What the gates prove:
 
 - **Gate 1 (golden):** 150 seeds × 2 bots replayed flag-off against
   `analysis/golden_act1.json`. Its version, generating commit,
@@ -136,14 +121,6 @@ python3 -m analysis.experiments fork --seeds 500   # confirmation ensemble
 
 ## Git
 
-- Develop on the session's designated branch, recreated from
-  `origin/main` after each merge (`git checkout -B <branch>
-  origin/main`; force-with-lease push is fine when it held only merged
-  history; rebase forward any unmerged commits — precedent: the
-  ruff-pin commit 283f06d, and this file's own commit).
-- Merge commits follow "Merge pull request #N: title". PRs restate the
-  full verification evidence; merge only on explicit approval relayed
-  by the user.
-- The dev-tooling pin (`pip install -e ".[dev]"`, ruff 0.15.x) is
-  deliberate; bumping it is its own commit with whatever fixes the new
-  version demands.
+Moved to `CLAUDE.md`'s GitHub protocol (single home), including the
+dev-tooling pin. Precedent for the branch-recreation rule: the
+ruff-pin commit 283f06d.
