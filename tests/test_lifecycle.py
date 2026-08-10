@@ -340,8 +340,8 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # removed. Invisible to every gate — no released branch can
         # build two addresses — so it is pinned directly.
         state = _with_site(day=7, acceptance=5)          # shop2 OPEN
-        plans = {"route": {"origin_shop": HOME_SHOP_KEY,
-                           "driver": None}}
+        plans = {"routes": {HOME_SHOP_KEY: {"origin_shop": HOME_SHOP_KEY,
+                           "driver": None}}}
         home = phases.planned_wagon(state, plans, HOME_SHOP_KEY)
         self.assertFalse(home.available)
         self.assertEqual(home.blocked_by, "route")
@@ -357,7 +357,7 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         view = phases.planned_wagon(state, {}, "shop2")
         self.assertEqual(view.free, ("wagon2", "wagon3"))
         self.assertEqual(view.first, "wagon2")
-        plans = {"route": {"origin_shop": "shop2"}}
+        plans = {"routes": {"shop2": {"origin_shop": "shop2"}}}
         one_left = phases.planned_wagon(state, plans, "shop2")
         self.assertTrue(one_left.available)
         self.assertEqual(one_left.free, ("wagon3",))
@@ -382,7 +382,7 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         state = _with_site(day=7, acceptance=5)
         with self.assertRaises(KeyError):
             phases.plan_origin(state, {"origin_shop": "ghost"})
-        plans = {"route": {"origin_shop": "ghost", "driver": None}}
+        plans = {"routes": {HOME_SHOP_KEY: {"origin_shop": "ghost", "driver": None}}}
         with self.assertRaises(KeyError):
             phases.planned_jobs_at(state, plans, HOME_SHOP_KEY)
         with self.assertRaises(KeyError):
@@ -726,8 +726,8 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
         state = new_state()
         for e in state.employees[:2]:
             e.hired = e.aware = True
-        plans = {"route": {"origin_shop": HOME_SHOP_KEY,
-                           "wagon_key": models.HOME_WAGON_KEY}}
+        plans = {"routes": {HOME_SHOP_KEY: {"origin_shop": HOME_SHOP_KEY,
+                           "wagon_key": models.HOME_WAGON_KEY}}}
         self.assertFalse(
             phases.planned_wagon(state, plans, HOME_SHOP_KEY).available)
         plan = _raid_plan(state, "steal_stock")
@@ -821,7 +821,7 @@ class TestDepartureIsWhenTheWagonIsClaimed(unittest.TestCase):
         # The seam this closes: the authority used to be created AFTER
         # the jobs it governs had already run.
         state, _home, driver = self._world()
-        plans = {"route": self._plan(driver)}
+        plans = {"routes": {HOME_SHOP_KEY: self._plan(driver)}}
         report = phases.service(state, plans, Listening([0]),
                                 Streams(3))
         self.assertIn("wagons", report)
@@ -1107,6 +1107,78 @@ class TestARaidPairsItsWagonWithItsReturnAddress(unittest.TestCase):
         for objective in ("photograph_ledger", "wreck_ovens"):
             plan = _raid_plan(state, objective)
             self.assertIsNone(plan["wagon_key"], objective)
+
+
+class TestTwoRoutesCanRunTheSameNight(unittest.TestCase):
+    """Condition 1: the schema REPRESENTS two simultaneous addressed
+    routes. Canon has both wagons running real routes, one per
+    address per night (rev. 22 items 1 and 4) — a single
+    `plans["route"]` slot could not express it, and the earlier test
+    that claimed to cover this was vacuous."""
+
+    def _plan(self, driver, shop_key, wagon_key):
+        return {"district": "old_harbor", "driver": driver,
+                "ride_along": False, "cargo": {}, "legit": 0,
+                "origin_shop": shop_key, "wagon_key": wagon_key}
+
+    def _two(self):
+        state = _with_site(day=7, acceptance=5)
+        drivers = [e for e in state.employees if e.driving >= 4][:2]
+        for e in drivers:
+            e.hired = e.aware = True
+        plans = {"routes": {
+            HOME_SHOP_KEY: self._plan(drivers[0], HOME_SHOP_KEY,
+                                      models.HOME_WAGON_KEY),
+            "shop2": self._plan(drivers[1], "shop2", "wagon2")}}
+        return state, plans, drivers
+
+    def test_both_addresses_hold_a_route_at_once(self):
+        state, plans, _drivers = self._two()
+        self.assertEqual(list(phases.routes_planned(state, plans)),
+                         [HOME_SHOP_KEY, "shop2"])
+
+    def test_each_route_reserves_only_its_own_wagon(self):
+        state, plans, _drivers = self._two()
+        for shop_key in (HOME_SHOP_KEY, "shop2"):
+            view = phases.planned_wagon(state, plans, shop_key)
+            self.assertFalse(view.available, shop_key)
+            self.assertEqual(view.blocked_by, "route")
+
+    def test_replanning_one_address_frees_only_its_driver(self):
+        state, plans, drivers = self._two()
+        reserved = phases.night_reserved(state, plans, but="route",
+                                         but_shop=HOME_SHOP_KEY)
+        self.assertNotIn(drivers[0], reserved)   # replanning this one
+        self.assertIn(drivers[1], reserved)      # shop 2 still holds
+
+    def test_both_routes_depart_and_spend_their_own_wagon(self):
+        state, plans, _drivers = self._two()
+        wagons = phases.WagonNight(state)
+        for shop_key, plan in phases.routes_planned(state, plans).items():
+            self.assertTrue(
+                wagons.claim_plan(state, plan, "route").claimed, shop_key)
+        self.assertEqual(wagons.claims,
+                         {models.HOME_WAGON_KEY: "route",
+                          "wagon2": "route"})
+
+    def test_the_filing_key_and_the_plan_must_agree(self):
+        # The one new way a mapping can disagree with itself: a route
+        # filed under shop 1 that says it leaves shop 2 would load one
+        # address's stock and reserve the other's wagon.
+        state, plans, drivers = self._two()
+        plans["routes"][HOME_SHOP_KEY] = self._plan(
+            drivers[0], "shop2", "wagon2")
+        with self.assertRaises(ValueError) as caught:
+            phases.routes_planned(state, plans)
+        self.assertIn("one address, or neither", str(caught.exception))
+
+    def test_the_order_is_by_key_never_by_insertion(self):
+        state, plans, drivers = self._two()
+        rebuilt = {"routes": {
+            "shop2": plans["routes"]["shop2"],
+            HOME_SHOP_KEY: plans["routes"][HOME_SHOP_KEY]}}
+        self.assertEqual(list(phases.routes_planned(state, rebuilt)),
+                         [HOME_SHOP_KEY, "shop2"])
 
 
 class TestLifecycleValidation(unittest.TestCase):

@@ -97,9 +97,9 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
     def test_a_departed_route_denies_the_decoy(self):
         state = arriving(shop_with_stash(), "vinnie")
         driver = hire(state, "Rosa")
-        plans = {"route": {"district": "old_harbor", "driver": driver,
+        plans = {"routes": {models.HOME_SHOP_KEY: {"district": "old_harbor", "driver": driver,
                            "ride_along": False, "cargo": {}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
-                           "wagon_key": models.HOME_WAGON_KEY},
+                           "wagon_key": models.HOME_WAGON_KEY}},
                  "raid": None}
         con = run_night(state, plans, Watching([1, 0]),
                         departed={models.HOME_WAGON_KEY: "route"})
@@ -111,7 +111,7 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
 
     def test_no_wagon_job_leaves_the_decoy_available(self):
         state = arriving(shop_with_stash(), "vinnie")
-        con = run_night(state, {"route": None, "raid": None},
+        con = run_night(state, {"routes": {}, "raid": None},
                         Watching([1]))
         offers = con.decoy_offers()
         self.assertTrue(offers)
@@ -124,7 +124,7 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         state = self._war_state()
         arriving(state, "vinnie")
         driver = hire(state, "Rosa")
-        plans = {"route": None, "raid": None,
+        plans = { "raid": None,
                  "salvage": {"rival": "sal", "driver": driver,
                              "origin_shop": models.HOME_SHOP_KEY,
                              "wagon_key": models.HOME_WAGON_KEY}}
@@ -139,7 +139,7 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         state = self._war_state()
         arriving(state, "vinnie")
         driver = hire(state, "Rosa")
-        plans = {"route": None, "raid": None,
+        plans = { "raid": None,
                  "salvage": {"rival": "sal", "driver": driver,
                              "origin_shop": models.HOME_SHOP_KEY,
                              "wagon_key": models.HOME_WAGON_KEY}}
@@ -168,7 +168,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
     def _raid_night(self, objective, script):
         state = arriving(shop_with_stash(), "vinnie")
         crew = hire(state, "Angelo")
-        plans = {"route": None, "salvage": None,
+        plans = { "salvage": None,
                  # Only a stock theft loads a wagon (rev. 26); every
                  # other objective records going on foot EXPLICITLY.
                  "raid": {"rival": "sal", "objective": objective,
@@ -196,7 +196,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         state = arriving(shop_with_stash(), "vinnie")
         crew = hire(state, "Angelo")
         crew.injured_days = 2                      # off the job tonight
-        plans = {"route": None, "salvage": None,
+        plans = { "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models.HOME_WAGON_KEY,
                           "team": [crew], "armed": False,
@@ -213,7 +213,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         for seed in range(12):
             state = arriving(shop_with_stash(), "vinnie")
             crew = hire(state, "Angelo")
-            plans = {"route": None, "salvage": None,
+            plans = { "salvage": None,
                      "raid": {"rival": "sal", "objective": "steal_stock",
                           "wagon_key": models.HOME_WAGON_KEY,
                               "team": [crew], "armed": False,
@@ -234,7 +234,7 @@ class TestTwoRivalsInOneNight(unittest.TestCase):
     def test_a_decoy_reserves_the_wagon_against_the_second_raid(self):
         state = arriving(shop_with_stash(), "sal", "vinnie")
         # first raid: take the decoy; second: it must be gone.
-        con = run_night(state, {"route": None, "raid": None},
+        con = run_night(state, {"routes": {}, "raid": None},
                         Watching([1, 1, 0]))
         offers = con.decoy_offers()
         self.assertEqual(len(offers), 2, "both rivals must arrive")
@@ -244,7 +244,7 @@ class TestTwoRivalsInOneNight(unittest.TestCase):
 
     def test_fighting_the_first_leaves_the_wagon_for_the_second(self):
         state = arriving(shop_with_stash(), "sal", "vinnie")
-        con = run_night(state, {"route": None, "raid": None},
+        con = run_night(state, {"routes": {}, "raid": None},
                         Watching([0, 1]))
         offers = con.decoy_offers()
         self.assertEqual(len(offers), 2)
@@ -256,7 +256,7 @@ class TestTwoRivalsInOneNight(unittest.TestCase):
         state.dirty = 6000
         for key in ("sal", "vinnie"):
             state.rivals[key].tribute_demanded = 1500
-        con = run_night(state, {"route": None, "raid": None},
+        con = run_night(state, {"routes": {}, "raid": None},
                         Watching([2, 1]))
         offers = con.decoy_offers()
         self.assertEqual(len(offers), 2)

@@ -20,13 +20,52 @@ QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
 
 # ── THE night-assignment authority (rev. 15 item 2) ───────────────
 
-def night_reserved(plans: dict, but: str | None = None) -> list:
+def routes_planned(state: "State", plans: dict) -> dict:
+    """Tonight's routes, keyed BY THE ADDRESS THEY LEAVE FROM, in
+    stable key order (P4b.1a).
+
+    The schema is a mapping rather than a single slot because canon
+    has both wagons running real routes, simultaneously, one per
+    address per night (rev. 22 items 1 and 4). A lone `plans["route"]`
+    cannot represent that, and a list would put the answer back on
+    list position.
+
+    A mapping introduces one new way to disagree with yourself — the
+    filing key and the plan's own `origin_shop` — so THIS is where
+    that is refused. A route filed under shop 1 while naming shop 2
+    would load one address's stock and reserve the other's wagon."""
+    planned = plans.get("routes") or {}
+    out = {}
+    for key in sorted(planned):
+        plan = planned[key]
+        if not plan:
+            continue
+        origin = plan_origin(state, plan)
+        if origin != key:
+            raise ValueError(
+                f"a route filed under {key!r} says it leaves from "
+                f"{origin!r} — one address, or neither")
+        out[key] = plan
+    return out
+
+
+def night_reserved(state: "State", plans: dict,
+                   but: str | None = None,
+                   but_shop: str | None = None) -> list:
     """Who is spoken for tonight by every job EXCEPT `but`. Routes and
     the salvage pickup reserve their driver; the raid reserves its
     team. Planning menus and the night's execution both consult this
-    one derivation — never another ad-hoc reserved= list."""
+    one derivation — never another ad-hoc reserved= list.
+
+    `but_shop` narrows the route exemption to ONE address: replanning
+    the route out of shop 1 frees that driver, and leaves the driver
+    already committed to shop 2's route exactly where he was."""
     out: list = []
-    for job in ("route", "salvage", "raid"):
+    for shop_key, plan in routes_planned(state, plans).items():
+        if but == "route" and (but_shop is None or but_shop == shop_key):
+            continue
+        out.append(plan["driver"])
+    for job in ("salvage", "raid"):
         plan = plans.get(job)
         if not plan or job == but:
             continue
@@ -37,28 +76,19 @@ def night_reserved(plans: dict, but: str | None = None) -> list:
     return out
 
 
-def wagon_job(plans: dict, but: str | None = None) -> str | None:
-    """The wagon does one job a night: the route or the pickup.
-
-    GLOBAL, and deliberately kept so: `night()` still uses it to ask
-    what the service phase did. Anything answering PER ADDRESS must
-    use `planned_jobs_at` instead — a route out of one shop does not
-    ground another shop's wagon (rev. 22 items 1 and 4)."""
-    for job in ("route", "salvage"):
-        if job != but and plans.get(job):
-            return job
-    return None
-
-
 def planned_jobs_at(state: "State", plans: dict, shop_key: str,
                     but: str | None = None) -> list:
     """Tonight's planned wagon jobs leaving ONE address, in a stable
     order. This is the per-address replacement for `wagon_job` in
     every availability question: with a fleet, a pickup planned at
     the home shop reserves the home wagon and nothing else."""
-    return [job for job in ("route", "salvage")
-            if job != but and plans.get(job)
-            and plan_origin(state, plans[job]) == shop_key]
+    jobs = []
+    if but != "route" and shop_key in routes_planned(state, plans):
+        jobs.append("route")
+    if but != "salvage" and plans.get("salvage") and (
+            plan_origin(state, plans["salvage"]) == shop_key):
+        jobs.append("salvage")
+    return jobs
 
 
 # The wagon vocabulary and both typed views live in `models` (P4b.1a
@@ -300,7 +330,7 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
                    "The account, of course, is the debt.")
 
-    plans: dict = {"route": None, "raid": None}
+    plans: dict = {"routes": {}, "raid": None}
     if state.branch == "straight":
         # The supplier's van is gone (rev. 9 item 9); the back door gets
         # visitors of its own instead.
@@ -358,18 +388,23 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
                 con.say(f"  No route leaves here tonight — "
                         f"{wagon_now.note}.")
                 continue
-            plans["route"] = routes.plan_route(
+            planned = routes.plan_route(
                 state, con, streams.routes,
-                reserved=night_reserved(plans, but="route"),
+                reserved=night_reserved(state, plans, but="route",
+                                        but_shop=shop_at.key),
                 wagon=wagon_now)
+            if planned is not None:
+                plans["routes"][shop_at.key] = planned
+            else:
+                plans["routes"].pop(shop_at.key, None)
         elif c == 7:
-            route = plans.get("route")
+            route = routes_planned(state, plans).get(shop_at.key)
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
             plans["raid"] = raids.plan_raid(
                 state, con, streams.raids,
-                reserved=night_reserved(plans, but="raid"),
+                reserved=night_reserved(state, plans, but="raid"),
                 wagon=planned_wagon(state, plans, shop_at.key))
         elif c == 8:
             break
@@ -492,18 +527,23 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
                 con.say(f"  No route leaves here tonight — "
                         f"{wagon_now.note}.")
                 continue
-            plans["route"] = routes.plan_route(
+            planned = routes.plan_route(
                 state, con, streams.routes,
-                reserved=night_reserved(plans, but="route"),
+                reserved=night_reserved(state, plans, but="route",
+                                        but_shop=shop_at.key),
                 wagon=wagon_now)
+            if planned is not None:
+                plans["routes"][shop_at.key] = planned
+            else:
+                plans["routes"].pop(shop_at.key, None)
         elif key == "raid":
-            route = plans.get("route")
+            route = routes_planned(state, plans).get(shop_at.key)
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
             plans["raid"] = raids.plan_raid(
                 state, con, streams.raids,
-                reserved=night_reserved(plans, but="raid"),
+                reserved=night_reserved(state, plans, but="raid"),
                 wagon=planned_wagon(state, plans, shop_at.key))
         elif key == "board":
             war.board(state, con)
@@ -520,7 +560,7 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
         elif key == "salvage":
             plans["salvage"] = war.plan_salvage(
                 state, con,
-                reserved=night_reserved(plans, but="salvage"),
+                reserved=night_reserved(state, plans, but="salvage"),
                 wagon=planned_wagon(state, plans, shop_at.key,
                                     but="salvage"),
                 origin_shop=shop_at.key)
@@ -568,7 +608,7 @@ def _disposal_menu(state: State, con: Console, streams: Streams,
         if bs.disposal_runs_left <= 0:
             con.say("  The three runs are spent. What's left goes to "
                     "Sal's people, or into the oven.")
-        elif plans.get("route"):
+        elif shop_at.key in routes_planned(state, plans):
             con.say("  Tonight's wagon is already spoken for.")
         else:
             disposal_wagon = planned_wagon(state, plans, shop_at.key,
@@ -588,7 +628,7 @@ def _disposal_menu(state: State, con: Console, streams: Streams,
                 else:
                     con.say("  Pizzas only: an honest drive spends no "
                             "run and commits no crime.")
-                plans["route"] = plan
+                plans["routes"][shop_at.key] = plan
     elif c == 2:
         straight.burn_stock(state, con)
     return fire_sale_done
@@ -680,7 +720,7 @@ def _kitchen_policy(state: State, shop_at: Shop, con: Console,
     shop.recompute_demand(state, shop_at)
     con.say(f"  Order book now: ~{shop_at.demand_today} customers, "
             f"{shop_at.delivery_pool} delivery orders.")
-    route = (plans or {}).get("route")
+    route = routes_planned(state, plans or {}).get(shop_at.key)
     if route and route["legit"] > shop_at.delivery_pool:
         con.say("  Tonight's route was planned against the old order book — "
                 "the kitchen will fill what it can.")
@@ -930,9 +970,10 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     # forward — `night` consumes this instance, never a fresh one.
     wagons = WagonNight(state)
     report_wagons = wagons
-    plan = plans.get("route")
-    if plan and not _commit_route(state, plan, con, wagons):
-        plans["route"] = plan = None
+    for shop_key, planned in routes_planned(state, plans).items():
+        if not _commit_route(state, planned, con, wagons):
+            plans["routes"].pop(shop_key, None)
+    plan = routes_planned(state, plans).get(shop_at.key)
     # The cover pizzas were cooked and deducted at the address the
     # plan NAMED; the shift below is this surface's address. They are
     # the same shop while one exists, and `operating_shop` refuses the
@@ -949,8 +990,8 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     if shop_at.ingredients < 10:
         con.bullet(f"Pantry low: {shop_at.ingredients} orders of stock left.")
 
-    if plans.get("route"):
-        r = routes.resolve_route(state, plans["route"], con, streams.routes)
+    for planned in routes_planned(state, plans).values():
+        r = routes.resolve_route(state, planned, con, streams.routes)
         for line in r["lines"]:
             con.bullet(line)
         if r["cash"]:
@@ -964,7 +1005,7 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
         # item 6).
         report["salvage"] = war.run_salvage(
             state, plans["salvage"], con, streams.war,
-            reserved=night_reserved(plans, but="salvage"),
+            reserved=night_reserved(state, plans, but="salvage"),
             wagons=wagons)
     if state.branch == "quiet_sale":
         # The buyer's man walks the shop every diligence afternoon.
@@ -1116,7 +1157,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         # injured or gone since morning is off the job — and anyone
         # the assignment view says another job owns tonight (rev. 15
         # item 2: execution revalidates the same view planning used).
-        taken = night_reserved(plans, but="raid")
+        taken = night_reserved(state, plans, but="raid")
         team = [e for e in raid_plan["team"]
                 if e.available and e not in taken]
         if not team:

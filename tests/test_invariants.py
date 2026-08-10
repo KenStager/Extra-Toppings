@@ -445,7 +445,7 @@ class TestTelegraphedRaids(unittest.TestCase):
         state, _ = fresh(6)
         state.rivals["vinnie"].warning = models.RaidWarning(3, models.HOME_SHOP_KEY)
         state.rivals["sal"].strength = 0          # keep sal quiet
-        plans = {"route": None, "raid": None}
+        plans = {"routes": {}, "raid": None}
         report = {"revenue": 0}
         phases.night(state, plans, _wag(state, **report), ScriptedConsole(), Streams(6))
         self.assertEqual(state.rivals["vinnie"].raid_warning, 2)

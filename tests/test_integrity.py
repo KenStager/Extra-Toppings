@@ -27,7 +27,7 @@ def fresh(seed=1):
 
 
 def run_night(state, seed, script):
-    plans = {"route": None, "raid": None}
+    plans = {"routes": {}, "raid": None}
     report = {"revenue": 0}
     # Keep rivals quiet so the only case movement comes from the register.
     for r in state.rivals.values():
@@ -135,8 +135,7 @@ class TestAssignments(unittest.TestCase):
         for e in team:
             e.arrested = True                      # the day went very badly
         raids_led_before = state.raids_led
-        plans = {"route": None,
-                 "raid": {"rival": "vinnie", "objective": "ledger",
+        plans = {                 "raid": {"rival": "vinnie", "objective": "ledger",
                           "team": team, "armed": False, "return_shop": models.HOME_SHOP_KEY}}
         phases.night(state, plans, _wag(state, revenue=0), ScriptedConsole([4]),
                      Streams(15))
@@ -355,7 +354,7 @@ class TestDriverRevalidation(unittest.TestCase):
         driver.hired = False
         survived_before = driver.routes_survived
         shop.roll_demand(state, random.Random(1))
-        phases.service(state, {"route": plan, "raid": None},
+        phases.service(state, {"routes": {models.HOME_SHOP_KEY: plan}, "raid": None},
                        ScriptedConsole(), Streams(32))
         self.assertEqual(driver.routes_survived, survived_before)
         self.assertEqual(state.shop_stash.get("oregano"), 8)   # cargo never left
@@ -408,7 +407,7 @@ class TestEffectDurations(unittest.TestCase):
         state.shop.damage_days = 2
         for r in state.rivals.values():
             r.strength = 0
-        phases.night(state, {"route": None, "raid": None}, _wag(state, revenue=0),
+        phases.night(state, {"routes": {}, "raid": None}, _wag(state, revenue=0),
                      ScriptedConsole([4]), Streams(34))
         self.assertEqual(state.shop.coupon_days, 1)
         self.assertEqual(state.shop.damage_days, 1)
@@ -425,7 +424,7 @@ class TestEffectDurations(unittest.TestCase):
 
         rivals.rival_phase = blitz_tonight
         try:
-            phases.night(state, {"route": None, "raid": None}, _wag(state, revenue=0),
+            phases.night(state, {"routes": {}, "raid": None}, _wag(state, revenue=0),
                          ScriptedConsole([4]), Streams(34))
         finally:
             rivals.rival_phase = orig

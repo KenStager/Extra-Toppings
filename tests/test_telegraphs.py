@@ -300,7 +300,7 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         # Service with "Sell" at every stop and "Play it cool" at every
         # blue light — the reviewer's path to a search.
         service_con = CaptureConsole([0] * 40)
-        phases.service(state, {"route": plan, "raid": None},
+        phases.service(state, {"routes": {models.HOME_SHOP_KEY: plan}, "raid": None},
                        service_con, streams)
         night_con = CaptureConsole([1, 1000, 4])
         phases.night(state, {}, _wag(state), night_con, streams)

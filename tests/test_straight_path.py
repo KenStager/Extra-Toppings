@@ -375,7 +375,7 @@ class TestBranchNight(unittest.TestCase):
     def test_settle_menu_replaces_carmine(self):
         state = in_branch()
         con = CaptureConsole([4])            # lock up immediately
-        phases.night(state, {"route": None, "raid": None}, _wag(state), con,
+        phases.night(state, {"routes": {}, "raid": None}, _wag(state), con,
                      Streams(3), STRAIGHT_ON)
         self.assertIsNotNone(con.find("Settle with a witness"))
         self.assertIsNone(con.find("Pay Carmine"))
