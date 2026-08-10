@@ -1840,13 +1840,17 @@ Ordered roughly by blast radius, smallest first:
   an unreleased chair, touching no flag-off and no stand-pat surface
   — and a green containment gate proves the branch stayed inside its
   branch, never that it works. So **each PR carries its own local
-  proof** (rev. 29 item 10): the
+  proof** (rev. 29 item 10, completed by rev. 30 item 3): the
   lifecycle/capability matrix and save-load transitions; atomic
   rollback, the D14–D17 walkthrough and two real routes only after
   opening; an exhaustive points-state transition table with ledger
-  reconciliation; deterministic target changes under staffing swaps
-  and every manager-loss path reaching one vacancy authority;
-  exhaustive terminal and threshold edges; then the battery.
+  reconciliation; **for P4b.3, TWO matrices — the complete
+  address-pressure matrix AND an exhaustive manager-transition
+  matrix** (the PR carries two root authorities, one owning address
+  targeting and its consequences and one owning the manager
+  lifecycle, and a proof naming only one of them leaves the other
+  unproved); exhaustive terminal and threshold edges; then the
+  battery.
   *Gate: full §2.7 battery + human play on seeds 24/39/8, written up
   honestly in FINDINGS.* **Activation — adding `partner` to
   `RELEASED_BRANCHES` — is a separate SEVENTH act on the reviewer's
@@ -4708,18 +4712,22 @@ amends §2.4.2 and §7 rather than living only in §8.
     atomic rollback, the D14–D17 walkthrough, and two real routes
     only after opening; *P4b.2* — an exhaustive points-state
     transition table plus ledger reconciliation; *P4b.3* — the
-    address-pressure matrix (rev. 30 item 3); *P4b.4* — exhaustive
+    complete address-pressure matrix AND the exhaustive
+    manager-transition matrix, both of them (rev. 30 item 3);
+    *P4b.4* — exhaustive
     terminal and threshold edges; *P4b.5* — the full empirical
     battery and human play. From P4b.1b onward, a green containment
     gate proves the branch was contained, never that it works.
 
 **Revision 30** is a narrow correction to revision 29: the gate's
 character at P4b.1a, the manager opportunity as a persisted state
-machine, and the address-pressure matrix P4b.3 owes. Paper only; no
-P4b implementation accompanies it. It amends §2.4.2, §7 and revision
-29 item 10 in place — revision 29 has not been merged, so the
-correction belongs in the text under review rather than layered on
-top of it.
+machine, and the two matrices P4b.3 owes. Paper only; no P4b
+implementation accompanies it. It amends §2.4.2, §7 and revision 29
+item 10 in place — revision 29 has not been merged, so the correction
+belongs in the text under review rather than layered on top of it.
+**Item 3 below is the single canonical statement of P4b.3's proof**;
+§7 and rev. 29 item 10 mirror it and must not be read as
+alternatives to it.
 
 1. **P4b.1a's gate is behaviour-equivalence PROOF, not containment.**
    Revision 28 item 2 called the identity gates containment checks
@@ -4755,23 +4763,49 @@ top of it.
    Entering the branch is never refused for want of a manager.
    §2.4.2 amended.
 
-3. **P4b.3 owes one address-pressure matrix, not a pair of spot
-   pins.** Revision 29 item 10 asked P4b.3 for two assertions —
-   staffing swaps move the target, and every manager-loss path
-   reaches one authority — which is narrower than the PR's scope.
-   The root invariant P4b.3 must prove is: **a target is selected
-   ONCE by identity, persisted wherever the consequence is delayed,
-   and every consequence resolves against THAT identity.** One matrix
-   covers it: staffing-driven selection; list-order independence
-   (reversing `state.shops` or `state.wagons` changes no answer);
-   warning and tribute surviving save and load without retargeting;
-   the informant tip's heat landing on the addressed district rather
-   than `HOME_DISTRICT`; every raid consequence — coupons, guards,
-   damage days, stash seizure, reputation, heat, law searches —
-   landing on the named shop; **construction sites excluded from
-   targeting entirely**; and **a dead owner producing no retaliatory
-   response**. P4a's lesson applies directly: each of these is
-   invisible at one address, so none of them is proved by any gate.
+3. **P4b.3 owes TWO matrices, and this is the canonical statement of
+   its proof.** Revision 29 item 10 originally asked for two spot
+   assertions — staffing swaps move the target, and every
+   manager-loss path reaches one authority — which was narrower than
+   the PR's scope. The first draft of this item then replaced them
+   with the address-pressure matrix alone, which dropped the manager
+   half; §7 meanwhile still carried the old pair. Each location
+   therefore stated half the requirement. **The complete
+   requirement, stated once here and mirrored in §7 and rev. 29 item
+   10: P4b.3's proof is the complete address-pressure matrix PLUS an
+   exhaustive manager-transition matrix.** The split is not
+   bookkeeping — P4b.3 carries **two root authorities**, one owning
+   address targeting and its consequences and one owning the manager
+   lifecycle, and a proof naming only one of them leaves the other
+   authority unproved.
+
+   *The address-pressure matrix.* The root invariant is: **a target
+   is selected ONCE by identity, persisted wherever the consequence
+   is delayed, and every consequence resolves against THAT
+   identity.** Rows: staffing-driven selection; list-order
+   independence (reversing `state.shops` or `state.wagons` changes no
+   answer); warning and tribute surviving save and load without
+   retargeting; the informant tip's heat landing on the addressed
+   district rather than `HOME_DISTRICT`; every raid consequence —
+   coupons, guards, damage days, stash seizure, reputation, heat, law
+   searches — landing on the named shop; **construction sites
+   excluded from targeting entirely**; and **a dead owner producing
+   no retaliatory response**.
+
+   *The manager-transition matrix.* The root invariant is: **every
+   route into and out of the post goes through the one transition
+   authority, and the opportunity is state rather than timing.**
+   Rows: **initial vacancy** (the chair taken with no eligible
+   manager); **arrest**; **poach**; **firing**; **resignation**;
+   **reassignment**; the **automatic opportunity** surfacing before
+   that address's next service; **appoint**, **decline** and
+   **exhaust** as three distinct outcomes with three distinct
+   successor states; and **save/load continuity** — a reload
+   restores neither a spent opportunity nor consumes a held one.
+
+   P4a's lesson applies to both matrices directly: every row in
+   either one is invisible at a single address or a single manager,
+   so none of them is proved by any gate.
 
 4. **One precision on `ShopDefenseView`** (rev. 29 item 2). The view
    must preserve the existing formula EXACTLY, including the
