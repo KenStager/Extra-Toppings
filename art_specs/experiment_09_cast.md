@@ -174,3 +174,31 @@ eyes, glossy hair". One seed per character (11 gens) proves the
 method before any pool deepening. At 32px the honest levers are hair
 shape, facial hair, and skin ramp — eyes are two pixels and carry
 almost nothing.
+
+## Round 2 results (13 generations: 11 + 2 targeted re-rolls)
+
+The prior broke. The v1-vs-v2 board shows it side by side: Tony is
+now a balding, mustached Italian-American cook with his hands on his
+hips; Sal has the receding silver hair and silver mustache of a
+padrone; Angelo is an olive-skinned buzzcut bruiser; Bee reads as a
+Nigerian woman, Priya as an Indian chef, Rosa as a Latina driver
+with an auburn bun. Carmine's coat came back carbon-ink rather than
+pure black — resolving the round-1 palette-semantics question in
+favor of ink without a ruling needed. 13/13 PASS the character
+contract.
+
+Honest misses, corrected in-round: the first v2 seeds aged Sammy
+into a gray beard and left Marcus's face murky (facial-hair drift is
+the residual failure mode once the anime prior is suppressed). Two
+targeted re-rolls with explicit clean-shaven/age words and
+beard-negatives landed both (s9532, s9552). Residual: Sammy carries
+a small stray oxblood patch at the ear — 2 px curation candidate;
+Bee's glasses read as a lighter eye-band rather than crisp wire
+rounds — curation candidate as before.
+
+METHOD RULING CANDIDATE (for the board): face-bearing anchors +
+init@140 + written-heritage prompts + anime-register negatives is
+the CHARACTER RECIPE, superseding the round-1 body-only anchors at
+init@120. v2 provisional picks in candidates/*_provisional_v2.png:
+rosa 9501, tony 9511, bee 9521, marcus 9532, lena 9541, sammy 9552,
+angelo 9561, priya 9571, sal 9581, vinnie 9591, carmine 9601.
