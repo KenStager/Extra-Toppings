@@ -291,7 +291,9 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
     def _plan(self, driver, origin):
         plan = {"district": "old_harbor", "driver": driver,
                 "ride_along": False, "cargo": {}, "legit": 2,
-                "origin_shop": origin}
+                "origin_shop": origin,
+                "wagon_key": ("wagon2" if origin == "shop2"
+                              else HOME_WAGON_KEY)}
         if origin is None:
             del plan["origin_shop"]
         return plan
@@ -318,7 +320,9 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
     def test_an_unnamed_origin_refuses_at_resolution(self):
         from extra_toppings import routes
         state, home, second, driver = self._world()
-        with self.assertRaises(KeyError):
+        # The canonical contract speaks first now: a missing field is
+        # a malformed plan (ValueError), not a lookup miss.
+        with self.assertRaises(ValueError):
             routes.resolve_route(state, self._plan(driver, None),
                                  ScriptedConsole(), random.Random(3))
         for s in (home, second):

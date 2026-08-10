@@ -1435,6 +1435,70 @@ class TestEveryDoorConsumesTheOneContract(unittest.TestCase):
         self.assertEqual((home.stash, home.ingredients), before)
 
 
+class TestExecutionIsNotADoorOfItsOwn(unittest.TestCase):
+    """`routes_planned` is the only door OUT of storage — but it was
+    not the only door INTO execution. A plan handed straight to
+    commit or resolution was taken on trust, and a wagonless route
+    could become real history."""
+
+    def _world(self):
+        state = new_state()
+        market.roll_prices(state, random.Random(3))
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.stash, home.ingredients, home.delivery_pool = (
+            {"mushrooms": 4}, 40, 10)
+        return state, home, driver
+
+    def _plan(self, state, driver, **over):
+        plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+                      driver=driver, cargo={"mushrooms": 2}, legit=3)
+        for field in over.pop("drop", ()):
+            del plan[field]
+        plan.update(over)
+        return plan
+
+    def test_commit_refuses_a_plan_missing_ride_along(self):
+        # Reproduced before the fix: it committed, claimed the wagon
+        # and took two mushrooms out of the stash.
+        state, home, driver = self._world()
+        plan = self._plan(state, driver, drop=("ride_along",))
+        wagons = phases.WagonNight(state)
+        with self.assertRaises(ValueError):
+            phases._commit_route(state, plan, Listening(), wagons)
+        self.assertEqual(home.stash, {"mushrooms": 4})
+        self.assertEqual(home.ingredients, 40)
+        self.assertEqual(wagons.claims, {})
+        self.assertTrue(wagons.available_at(HOME_SHOP_KEY))
+
+    def test_resolution_refuses_a_plan_missing_its_wagon(self):
+        # Reproduced before the fix: the route completed and appended
+        # a RouteExecutionRecord — a wagonless ghost route becoming
+        # real history.
+        state, _home, driver = self._world()
+        plan = self._plan(state, driver, drop=("wagon_key",))
+        with self.assertRaises(ValueError):
+            routes.resolve_route(state, plan, Listening(),
+                                 random.Random(3))
+        self.assertEqual(state.route_log, [])
+        self.assertEqual(driver.familiarity, {})
+
+    def test_a_valid_plan_still_runs_through_both(self):
+        # The contract refuses malformed plans, not ordinary ones.
+        state, home, driver = self._world()
+        plan = self._plan(state, driver)
+        wagons = phases.WagonNight(state)
+        self.assertTrue(
+            phases._commit_route(state, plan, Listening(), wagons))
+        self.assertEqual(wagons.claims,
+                         {models.HOME_WAGON_KEY: "route"})
+        self.assertEqual(home.stash["mushrooms"], 2)
+        routes.resolve_route(state, plan, Listening(),
+                             random.Random(3))
+        self.assertEqual(len(state.route_log), 1)
+
+
 class TestTheManifestReaderIsStrict(unittest.TestCase):
     def test_absence_is_not_the_legal_zero(self):
         for missing in ({}, {"cargo": {}}, {"legit": 0}):

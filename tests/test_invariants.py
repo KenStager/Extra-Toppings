@@ -359,7 +359,9 @@ class TestSharedCapacity(unittest.TestCase):
         rosa.aware = True
         plan = {"district": "university", "driver": rosa,
                 "ride_along": False, "legit": 10,
-                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}, "origin_shop": models.HOME_SHOP_KEY}
+                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8},
+                "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         with self.assertRaises(ValueError):
             routes.resolve_route(state, plan, ScriptedConsole([]), rng)
 
@@ -424,7 +426,9 @@ class TestMoneySeparation(unittest.TestCase):
         driver = next(e for e in state.employees if e.hired and e.driving >= 4)
         driver.aware = True
         plan = {"district": "university", "driver": driver, "ride_along": False,
-                "cargo": {"mushrooms": 8}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
+                "cargo": {"mushrooms": 8}, "legit": 0,
+                "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertEqual(state.clean, clean_before)
 

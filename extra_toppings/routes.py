@@ -453,6 +453,11 @@ def _stop_risk(state: State, plan: dict) -> float:
 
 
 def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
+    # THE canonical contract, FIRST — before revenue, familiarity or
+    # the execution ledger. Without it a route missing its wagon
+    # completed and appended a RouteExecutionRecord: a wagonless
+    # ghost route becoming real history.
+    validate_route_plan(state, plan)
     dk = plan["district"]
     # The address this wagon rolled out of (design rev. 22 item 1) —
     # the record carries it, and chronology is keyed on it.

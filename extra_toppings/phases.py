@@ -1088,6 +1088,13 @@ def _commit_route(state: State, plan: dict, con: Console,
     that names no origin, or names one that does not exist, is a bug
     and refuses BEFORE any inventory moves (rev. 27 item 7) — the
     alternative is a wagon loading out of a shop nobody owns."""
+    # THE canonical contract, FIRST — before the address lookup, the
+    # wagon claim, or one crate of inventory. `routes_planned` is the
+    # only door OUT of storage, but it was not the only door INTO
+    # execution: a plan handed straight to this function was taken on
+    # trust, and a malformed one claimed a wagon and spent stock
+    # before anything noticed.
+    routes.validate_route_plan(state, plan)
     origin = state.shop_by_key(models.plan_origin(state, plan))
     driver = plan["driver"]
     if not driver.available:
