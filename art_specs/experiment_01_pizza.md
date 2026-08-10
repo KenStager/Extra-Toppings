@@ -1,13 +1,13 @@
 # Experiment 01 — Whole-Pizza Prop (PixelLab vs. Omega Modern)
 
-Status: **tooling complete; PAUSED before generation** (2026-08-10).
-The visual identity landed as `art_specs/color_language.md` (v0.1,
-verified: 77.9% coverage measurement and spot-checked contrast ratios
-reproduce exactly); the working palette below is reconciled to it as
-v0.2. Generation awaits the user's explicit go. No PixelLab calls have
-been made and the full attempt/cost allowance is unspent. This file is
-the single non-secret authority for the experiment; all licensed pixels
-live under gitignored `.private_art/` and are never committed.
+Status: **batch 1 generated and reviewed; AWAITING USER SELECTION**
+(2026-08-10). The visual identity landed as `art_specs/color_language.md`
+(v0.1, verified: 77.9% coverage measurement and spot-checked contrast
+ratios reproduce exactly); the working palette below is reconciled to it
+as v0.2. This file is the single non-secret authority for the
+experiment; all licensed pixels live under gitignored `.private_art/`
+and are never committed. Batch-1 results are recorded at the end of
+this file.
 
 ## Objective
 
@@ -135,3 +135,61 @@ and plausibility beside the burger/fries/drink props. Top three
 recommended; nothing auto-approved. Approval of one candidate is required
 before any further asset (slice, boxes, grime, oven, signage, employee,
 portrait) is attempted.
+
+## Batch 1 results (2026-08-10)
+
+Executed exactly per the matrix above: 8 bitforge calls, all at direct
+16×16 (no reduction path used). One additional call failed server-side
+before generating (HTTP 500, uncharged): bitforge REQUIRES the style
+image to match the output size, so the 80×48 collage was replaced by
+the single 16×16 burger tile, sheet cell (12,5) — recorded here because
+the public docs do not state this constraint. Usage: 8 generation
+units; account balance read $10.00 both before and after the batch
+(billing granularity is below the API's balance display). Elapsed
+14–50s per call.
+
+Automated validation: 01, 03, 04 PASS all checks; 02, 05, 06, 07, 08
+FAIL exactly one check each — `no_clipping` (opaque edge runs of 6–8px;
+threshold 4). Every candidate passed dimensions, hard alpha,
+transparent corners, palette adherence (zero off-palette colors in all
+eight — the forced palette worked perfectly), bbox, and the speck
+check. Failures are preserved unrepaired in
+`.private_art/experiment_01/candidates/`; provenance in
+`.private_art/experiment_01/provenance/` (credential-free).
+
+Visual scoring (boards:
+`.private_art/experiment_01/review/review_board_batch1{,_ranked}.png`):
+
+| Candidate | Verdict |
+| --- | --- |
+| 01 (s30) | PASS; clean disc, but reads pot-pie: no pepperoni, no pan — **3rd choice** |
+| 02 (s50) | FAIL; gray hook artifact, clipped right |
+| 03 (s50) | PASS; disconnected satellite blob, no pan or pepperoni |
+| 04 (s65) | PASS; best overall — crusted disc, in-palette mottling, minor corner crumb — **1st choice** |
+| 05 (s65) | FAIL; navy dome over dish, reads covered tray, clipped top |
+| 06 (s80) | FAIL; coherence collapse into fragments at max style strength |
+| 07 (s50 tg11) | FAIL; real pepperoni dots (best topping readability) but clipped + satellite disc |
+| 08 (s65 tg11) | FAIL; best "pizza ON PAN" composition of the batch, but pan is navy not steel and it clips bottom/right |
+
+Shared failure diagnosis: at 16×16 the model's weakness is
+COMPOSITION, not style — palette, alpha, and outline behavior were
+perfect across all eight, while centering/completeness failed in five.
+Style strength 80 destroys coherence; 50–65 is the working band;
+tg 11 improved topping semantics (07, 08) at the cost of framing.
+
+Recommendation: 1st `pizza_whole_04`, 2nd `pizza_whole_08`, 3rd
+`pizza_whole_01`. None auto-approved. If no candidate is accepted, the
+diagnosis licenses the one refinement batch (≤4 calls, within budget):
+generate at 32×32 with `coverage_percentage` ~75 and the plate tile
+(3,1) as style reference, then explicit nearest-neighbor reduction to
+16×16 with originals preserved — attacking composition while keeping
+the proven palette discipline.
+
+Pipeline limitations discovered: (1) bitforge style_image must equal
+output size (undocumented); (2) the speck check only flags components
+under 3px, so 03's larger satellite blob passed automated validation —
+tightening this is a recorded candidate change for after the
+experiment, not a mid-experiment edit; (3) PixelLab bills in
+generation units whose USD value is below balance-display granularity,
+so per-call cost is bounded (≤$0.00 visible delta) but not exactly
+measurable from the API.
