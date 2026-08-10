@@ -135,7 +135,7 @@ def state_from_dict(d: dict) -> State:
         employees=[Employee(**{"shop_key": models.HOME_SHOP_KEY, **e})
                    for e in d["employees"]],
         districts={k: District(**v) for k, v in d["districts"].items()},
-        rivals={k: Rival(**v) for k, v in d["rivals"].items()},
+        rivals={k: _rival_from(v) for k, v in d["rivals"].items()},
         prices={k: dict(v) for k, v in d["prices"].items()},
         events=[ActiveEvent(spec=_EVENTS_BY_ID[e["id"]], days_left=e["days_left"])
                 for e in d["events"]],
@@ -167,6 +167,22 @@ def state_from_dict(d: dict) -> State:
     validate_evidence(state.evidence)
     validate_cross_state(state)
     return state
+
+
+def _rival_from(payload: dict) -> Rival:
+    """A telegraphed raid is a typed value carrying its target address
+    (design rev. 23 item 2). A payload written before warnings named
+    an address carries the bare countdown, and there was only one
+    address it could ever have meant."""
+    v = dict(payload)
+    warning = v.pop("warning", None)
+    nights = v.pop("raid_warning", None)          # pre-typed payloads
+    if warning is not None:
+        v["warning"] = models.RaidWarning(**warning)
+    elif nights:
+        v["warning"] = models.RaidWarning(int(nights),
+                                          models.HOME_SHOP_KEY)
+    return Rival(**v)
 
 
 def _branch_state_from(payload: dict | None) -> BranchState | None:

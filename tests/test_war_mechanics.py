@@ -283,7 +283,7 @@ class TestTheLedgerSpends(unittest.TestCase):
 
 class TestDefenseTaxonomy(unittest.TestCase):
     def _incoming(self, state, script, seed=7):
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         return raids.incoming_raid(state, "vinnie", Scripted(script),
                                    Streams(seed).raids)
 
@@ -292,7 +292,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
         # the raid menu must not reopen it — two options, no envelope.
         state = war_state()
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = Scripted([2])          # the old tribute index, clamped
         r = raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         _prompt, options = con.menus[-1]
@@ -315,7 +315,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
     def test_flag_off_tribute_is_untouched(self):
         state = new_state()
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = Scripted([2])
         r = raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         _prompt, options = con.menus[-1]
@@ -348,7 +348,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
         state.shop.damage_days = 2
         con = Scripted([2])
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         self.assertIsNotNone(con.find("nothing left to reopen"))
         _prompt, options = con.menus[-1]
@@ -358,7 +358,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
         state = new_state()
         state.shop.damage_days = 2
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = Scripted([2])
         raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         self.assertIsNone(con.find("nothing left to reopen"))
@@ -375,7 +375,7 @@ class TestBurnedOut(unittest.TestCase):
         state = war_state()
         state.clean = 5000
         state.shop.damage_days = 2
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = self._night(state, [1, 5])     # decoy; lock up
         self.assertEqual(state.game_over, "burned_out")
         self.assertIsNotNone(con.find("The war came home"))
@@ -383,7 +383,7 @@ class TestBurnedOut(unittest.TestCase):
     def test_the_first_raid_never_burns_out(self):
         state = war_state()
         state.clean = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         self._night(state, [1, 5])
         self.assertIsNone(state.game_over)
         self.assertEqual(state.shop.damage_days, 2)
@@ -397,7 +397,7 @@ class TestBurnedOut(unittest.TestCase):
         state.clean = 5000
         state.dirty = 5000
         state.shop.damage_days = 2
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         self._night(state, [2, 5])
         self.assertIsNone(state.game_over)
 
@@ -405,7 +405,7 @@ class TestBurnedOut(unittest.TestCase):
         state = new_state()
         state.clean = 5000
         state.shop.damage_days = 2
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         self._night(state, [1, 0, 4])   # decoy; then default menu path
         self.assertIsNone(state.game_over)
 
@@ -688,7 +688,7 @@ class TestRevision15Boundaries(unittest.TestCase):
     def test_paying_insurance_cancels_the_telegraphed_raid(self):
         state = war_state(target="vinnie")
         state.dirty = 1000
-        state.rivals["sal"].raid_warning = 2
+        state.rivals["sal"].warning = models_mod.RaidWarning(2, models_mod.HOME_SHOP_KEY)
         war.insurance_card(state, Scripted([0]))
         self.assertEqual(state.rivals["sal"].raid_warning, 0)
 
@@ -745,7 +745,7 @@ class TestRevision15Boundaries(unittest.TestCase):
         set_relation(state, "sal",
                      min(state.rivals["sal"].relation, VENDETTA_RELATION))
         state.shop.damage_days = 1
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         r = raids.incoming_raid(state, "vinnie", Scripted([1]),
                                 Streams(7).raids)
         self.assertEqual(r.damage_before, 1)

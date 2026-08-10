@@ -3,7 +3,7 @@
 import random
 import unittest
 
-from extra_toppings import data, market, raids, routes, shop
+from extra_toppings import models, data, market, raids, routes, shop
 from extra_toppings.models import new_state
 from extra_toppings.ui import BotConsole
 
@@ -61,7 +61,7 @@ class TestRaids(unittest.TestCase):
     def test_incoming_raid_resolves(self):
         for seed in range(8):
             state, rng = prepped_state(seed)
-            state.rivals["vinnie"].raid_warning = 1
+            state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
             state.dirty = 3000
             raids.incoming_raid(state, "vinnie", BotConsole(random.Random(seed)), rng)
             self.assertEqual(state.rivals["vinnie"].raid_warning, 0)

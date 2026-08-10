@@ -452,7 +452,7 @@ def _exit_ready(state):
     state.warehouse_cash = 0
     state.shop.reputation = 60.0
     for r in state.rivals.values():
-        r.raid_warning = 0
+        r.warning = None
         r.relation = -10.0
 
 

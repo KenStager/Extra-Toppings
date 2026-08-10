@@ -5,7 +5,7 @@ decoy protects one wagonload, and ledger leverage is single-use."""
 import random
 import unittest
 
-from extra_toppings import data, market, raids, rivals
+from extra_toppings import models, data, market, raids, rivals
 from extra_toppings.models import new_state
 from extra_toppings.ui import BotConsole, ScriptedConsole
 
@@ -138,14 +138,14 @@ class TestDecoyCap(unittest.TestCase):
     def test_decoy_protects_exactly_one_wagonload(self):
         state, rng = fresh(44)
         state.shop_stash = {"mushrooms": 40}       # bulk 40 > wagon 24
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
         raids.incoming_raid(state, "vinnie", ScriptedConsole([1]), rng)
         self.assertEqual(state.stash_bulk(state.shop_stash), data.VEHICLE_CARGO)
 
     def test_decoy_still_saves_a_small_stash_whole(self):
         state, rng = fresh(44)
         state.shop_stash = {"mushrooms": 10}       # bulk 10 <= wagon 24
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
         raids.incoming_raid(state, "vinnie", ScriptedConsole([1]), rng)
         self.assertEqual(state.shop_stash["mushrooms"], 10)
 

@@ -346,7 +346,7 @@ class TestSitdownScene(unittest.TestCase):
 
     def test_rivals_at_war_do_not_delay_the_table(self):
         state = scene_state()
-        state.rivals["vinnie"].raid_warning = 2
+        state.rivals["vinnie"].warning = models.RaidWarning(2, models.HOME_SHOP_KEY)
         con = CaptureConsole([4, 1])
         sitdown.run_scene(state, con, FORK_ON)
         self.assertIsNotNone(con.find("idle across the street"))

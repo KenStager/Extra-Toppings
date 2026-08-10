@@ -123,11 +123,12 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
         models.alertness_decay_tick(rival, state.day)
 
         # A telegraphed raid counts down; landing is handled by the night phase.
-        if rival.raid_warning > 1:
-            rival.raid_warning -= 1
+        if rival.warning is not None and rival.warning.nights > 1:
+            # The countdown moves; the address it named does not.
+            rival.warning = rival.warning.counted_down()
             con.bullet(f"{spec['short']}'s cars rolled past the shop again. Twice.")
             continue
-        if rival.raid_warning == 1:
+        if rival.warning is not None:
             continue   # tonight — night phase resolves it
 
         pol = rival_policy(state, key)
@@ -146,7 +147,10 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
         elif roll < pol.extort_t:
             _extort(state, rival, spec, con, rng)
         elif roll < pol.raid_t:
-            rival.raid_warning = rng.randint(2, 3)
+            # The warning names its address the moment it is raised
+            # (rev. 23 item 2), through the one target authority.
+            rival.warning = models.RaidWarning(
+                rng.randint(2, 3), models.raid_target(state, key))
             con.bullet(f"Unfamiliar cars idle across from the shop. {spec['short']}'s "
                        f"plates. Something is coming.")
         else:

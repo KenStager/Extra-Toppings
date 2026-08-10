@@ -412,7 +412,7 @@ def insurance_card(state: State, con: Console) -> None:
             # Rev. 15 item 6: "seven quiet nights" must cancel a raid
             # already telegraphed — coverage that lets the cars keep
             # circling is not coverage.
-            sal.raid_warning = 0
+            sal.warning = None
             con.say("  Across the street, the unfamiliar cars start "
                     "their engines and leave. A merchant honors his "
                     "coverage.")

@@ -64,13 +64,42 @@ class District:
     sold_yesterday: dict = field(default_factory=dict)   # good -> units (price depression)
 
 
+@dataclass(frozen=True)
+class RaidWarning:
+    """A telegraphed raid: how many nights out, and WHICH address it
+    named (design rev. 23 item 2). One value, validated at
+    construction, because a countdown and a target held as two loose
+    fields can disagree — and a warning already on the board must not
+    be able to change its mind about where it is going when a save is
+    reloaded."""
+
+    nights: int
+    shop_key: str
+
+    def __post_init__(self) -> None:
+        if type(self.nights) is not int or self.nights < 1:
+            raise ValueError(f"a warning counts down from at least one "
+                             f"night, got {self.nights!r}")
+        if not isinstance(self.shop_key, str) or not self.shop_key:
+            raise ValueError(f"a warning must name an address, got "
+                             f"{self.shop_key!r}")
+
+    def counted_down(self):
+        """One night closer. None once it arrives."""
+        if self.nights > 1:
+            return RaidWarning(self.nights - 1, self.shop_key)
+        return None
+
+
 @dataclass
 class Rival:
     key: str
     strength: float
     relation: float = -10.0       # -100 vendetta … +100 partner
     tribute_demanded: int = 0
-    raid_warning: int = 0         # days until their telegraphed raid (0 = none)
+    # THE telegraphed raid, typed: the countdown and the address it
+    # named are one value or they are nothing (rev. 23 item 2).
+    warning: "RaidWarning | None" = None
     ledger_stolen: bool = False
     ovens_wrecked_days: int = 0
     alertness: float = 0.0        # 0-10: how hard their security has learned
@@ -79,6 +108,13 @@ class Rival:
     @property
     def alive(self) -> bool:
         return self.strength > 0
+
+    @property
+    def raid_warning(self) -> int:
+        """Nights until their raid, 0 when none is on the board. A
+        DERIVED read: the warning itself is the typed value, so there
+        is no second field to fall out of step with it."""
+        return self.warning.nights if self.warning is not None else 0
 
 
 @dataclass
@@ -966,6 +1002,25 @@ def exactly_one_shop(state: "State") -> "Shop":
     return state.shops[0]
 
 
+def raid_target(state: "State", rival_key: str) -> str:
+    """THE address-target authority (design rev. 22 item 5): which of
+    the player's addresses a rival moves against. P4a supplies the
+    mechanism and P4b the policy (rev. 27 item 4) — while one address
+    exists the answer is that address, and "the softer of your two
+    shops" becomes a real decision only once there are two.
+
+    It never guesses: with no address there is nothing to raid, and
+    that is a refusal rather than a home default."""
+    if not state.shops:
+        raise ValueError("no address exists for a raid to target")
+    if len(state.shops) == 1:
+        return state.shops[0].key
+    # P4b replaces this with the softness policy; until then the
+    # founding address stands so the mechanism is exercised without
+    # inventing a rule nobody has ruled on.
+    return state.shops[0].key
+
+
 def validate_addresses(state: "State") -> None:
     """Shops and wagons are identified by key, so the keys must BE
     identities (rev. 27 item 1): present, non-empty, unique within
@@ -1019,6 +1074,13 @@ def validate_addresses(state: "State") -> None:
         if e.shop_key not in seen:
             raise ValueError(f"employees[{i}] ({e.key}): assigned to "
                              f"unknown address {e.shop_key!r}")
+    # A telegraphed raid names an address that exists — a warning
+    # pointing nowhere could never be resolved, and reloading must not
+    # be able to retarget one already on the board (rev. 23 item 2).
+    for key, rv in state.rivals.items():
+        if rv.warning is not None and rv.warning.shop_key not in seen:
+            raise ValueError(f"rival {key!r}: warning names unknown "
+                             f"address {rv.warning.shop_key!r}")
 
 
 def validate_cross_state(state: "State") -> None:

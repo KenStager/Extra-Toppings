@@ -67,7 +67,7 @@ def hire(state, first_name):
 
 def arriving(state, *rival_keys):
     for key in rival_keys:
-        state.rivals[key].raid_warning = 1
+        state.rivals[key].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
     return state
 
 

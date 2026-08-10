@@ -7,7 +7,7 @@ import random
 import tempfile
 import unittest
 
-from extra_toppings import data, market, phases, raids, rivals, routes, save, shop
+from extra_toppings import models, data, market, phases, raids, rivals, routes, save, shop
 from extra_toppings.bot import GreedyBot
 from extra_toppings.game import run
 from extra_toppings.models import new_state
@@ -424,14 +424,14 @@ class TestTelegraphedRaids(unittest.TestCase):
             state, rng = fresh(seed)
             vinnie = state.rivals["vinnie"]
             vinnie.relation = -90     # maximum grudge, maximum aggression
-            vinnie.raid_warning = 0
+            vinnie.warning = None
             rivals.rival_phase(state, ScriptedConsole(), rng)
             self.assertNotEqual(vinnie.raid_warning, 1,
                                 "raid must never arrive the night it is decided")
 
     def test_warning_countdown_passes_through_a_visible_day(self):
         state, _ = fresh(6)
-        state.rivals["vinnie"].raid_warning = 3
+        state.rivals["vinnie"].warning = models.RaidWarning(3, models.HOME_SHOP_KEY)
         state.rivals["sal"].strength = 0          # keep sal quiet
         plans = {"route": None, "raid": None}
         report = {"revenue": 0}
@@ -448,7 +448,7 @@ class TestRecoverableFailure(unittest.TestCase):
             state.shop_stash = {"mushrooms": 10}
             state.dirty = 2000
             state.rivals["vinnie"].strength = 95
-            state.rivals["vinnie"].raid_warning = 1
+            state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
             raids.incoming_raid(state, "vinnie",
                                 ScriptedConsole([0]), rng)   # always fight
             if state.shop.damage_days > 0:
