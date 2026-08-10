@@ -1,11 +1,13 @@
 # Experiment 01 — Whole-Pizza Prop (PixelLab vs. Omega Modern)
 
 Status: **tooling complete; PAUSED before generation** (2026-08-10).
-Visual identity is being established in a separate session; no PixelLab
-generation calls have been made and the full attempt/cost allowance is
-unspent. This file is the single non-secret authority for the experiment;
-all licensed pixels live under gitignored `.private_art/` and are never
-committed.
+The visual identity landed as `art_specs/color_language.md` (v0.1,
+verified: 77.9% coverage measurement and spot-checked contrast ratios
+reproduce exactly); the working palette below is reconciled to it as
+v0.2. Generation awaits the user's explicit go. No PixelLab calls have
+been made and the full attempt/cost allowance is unspent. This file is
+the single non-secret authority for the experiment; all licensed pixels
+live under gitignored `.private_art/` and are never committed.
 
 ## Objective
 
@@ -39,23 +41,37 @@ upper-left; outlines are dark burgundy `#680828` (food) and navy
 
 Reference palette: 20 colors (union of all five crops), stored privately
 as `reference_palette.{png,json}`. Working palette for pizza + pan —
-13 colors, every value verified present in the reference crops:
+v0.2, 12 colors, reconciled to `color_language.md` and every value
+verified present in the reference crops:
 
-| Role | Hex |
-| --- | --- |
-| outline_burgundy | `#680828` |
-| outline_navy | `#303b5a` |
-| highlight_cream | `#fbfbe8` |
-| cheese_pale | `#f8d088` |
-| cheese_gold | `#dfbb02` |
-| tomato_red | `#ff2b3c` |
-| pepperoni_deep | `#a81031` |
-| crust_light | `#c68239` |
-| crust_dark | `#b1552e` |
-| dough_tan | `#d4a068` |
-| pan_steel | `#9d9c9c` |
-| pan_shadow | `#4e6472` |
-| pan_silver | `#cbd7cc` |
+| Role | Hex | Color-language token |
+| --- | --- | --- |
+| outline_burgundy | `#680828` | Oxblood (DiNapoli's shadow) |
+| outline_navy | `#303b5a` | Carbon Ink |
+| highlight_cream | `#fbfbe8` | Flour |
+| cheese_pale | `#f8d088` | Oven Paper |
+| cheese_gold | `#dfbb02` | Cheese ramp base |
+| sauce_pepperoni | `#a81031` | DiNapoli's main sauce red |
+| crust_light | `#c68239` | Crust / Rust |
+| crust_dark | `#b1552e` | Harbor Brick |
+| dough_tan | `#d4a068` | Kraft |
+| pan_steel | `#9d9c9c` | Concrete |
+| pan_shadow | `#4e6472` | Dock Steel |
+| pan_silver | `#cbd7cc` | Tile Fog |
+
+v0.1→v0.2 change, flagged for review: **`#ff2b3c` (tomato_red) was
+removed.** The color language reserves `#FF2B3C` as Critical-danger
+signal red and assigns DiNapoli's identity the deeper `#A81031` sauce
+red — the shop's own product should read in the shop's sauce red, not
+the crisis color. Known trade-off: Omega's neighboring burger/fries
+props use the bright red, so candidates may read slightly darker than
+shelf-mates; if the batch reads dull, the flagged alternative is
+readmitting `#ff2b3c` as a small material accent (it remains
+Omega-native and present in the reference crops), which would be a
+recorded ruling, not a silent change. `#FFE976` (cheese peak) was
+considered and deferred: it does not appear in the five reference crops
+and the crops-only verification rule holds until a candidate proves the
+cheese needs the brighter step.
 
 ## PixelLab operation (selected and why)
 
