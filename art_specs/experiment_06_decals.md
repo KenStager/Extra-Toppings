@@ -120,3 +120,28 @@ clean 32×32 interiors per field — the tileability-step-1 trick;
 window-cutting is an unconditional construction step, so edge
 discipline holds by construction while the vendor's organic texture
 is kept. Candidates judged at the board like everything else.
+
+## Step 2 results (2026-08-10, 4 generations)
+
+User said proceed. Two registers × two seeds at 96×96:
+
+- **Ink register (seeds 3201/3202): both fields came back COMPLETELY
+  EMPTY** — 0.000 coverage, the model left the whole canvas
+  transparent. New capability datum: the sparse prompt can collapse
+  to nothing at field scale; sparseness is uncontrolled in BOTH
+  directions. Recorded, 2 generations spent on the measurement.
+- **Warm register (seeds 3301/3302): both usable** (1.0%/2.2% field
+  coverage). Window-cutting (stride 4, decal contract + ≥2
+  components, top 3 non-overlapping per field) yielded SIX
+  contract-clean candidates. The s3302 cuts are the standouts —
+  clustered dark-warm stains with satellite specks (13/8/6
+  components), asymmetric, story-bearing; exactly the organic
+  quality the board preferred over the deterministic blobs. All six
+  pass validate_decal as cut, zero pixel edits (`post_processing:
+  unconditional window crop` in each provenance record).
+
+Candidates `decal_cut_warm_*` and board `review/decal_board_step2.png`
+await the user's picks alongside the deterministic flour family. The
+ink register's grime niche (thresholds, entryways) remains open — a
+re-prompt with less aggressive emptiness language is the obvious next
+probe if the board wants cold-register dirt.
