@@ -237,24 +237,50 @@ class TestTwoRivalsInOneNight(unittest.TestCase):
 class TestTheAuthorityItself(unittest.TestCase):
     """The ledger's own contract, independent of any night."""
 
-    def test_it_starts_free_and_spends_once(self):
+    def test_it_starts_free_and_is_claimed_once(self):
         wagon = phases.WagonNight()
         self.assertTrue(wagon.available)
         self.assertEqual(wagon.note, "")
-        wagon.spend("route")
+        wagon.claim("route")
         self.assertFalse(wagon.available)
         self.assertEqual(wagon.note, "out on tonight's route")
 
-    def test_the_first_claim_stands(self):
-        # What actually drove away is what the night remembers.
+    def test_a_second_claim_is_refused_not_absorbed(self):
+        # There is one wagon. A second claim means a consumer acted on
+        # a stale `available`, which is the bug class this authority
+        # exists to end — so it must surface, not be swallowed.
         wagon = phases.WagonNight()
-        wagon.spend("route")
-        wagon.spend("decoy")
+        wagon.claim("route")
+        with self.assertRaises(RuntimeError) as caught:
+            wagon.claim("decoy")
+        self.assertIn("already", str(caught.exception))
         self.assertEqual(wagon.note, "out on tonight's route")
+
+    def test_even_the_same_consumer_cannot_claim_twice(self):
+        wagon = phases.WagonNight()
+        wagon.claim("raid")
+        with self.assertRaises(RuntimeError):
+            wagon.claim("raid")
 
     def test_an_unknown_consumer_is_refused(self):
         with self.assertRaises(ValueError):
-            phases.WagonNight().spend("helicopter")
+            phases.WagonNight().claim("helicopter")
+
+    def test_the_view_is_one_consistent_value(self):
+        wagon = phases.WagonNight()
+        self.assertEqual(wagon.view(), models.WagonAvailability(True, ""))
+        wagon.claim("route")
+        view = wagon.view()
+        self.assertFalse(view.available)
+        self.assertEqual(view.note, "out on tonight's route")
+
+    def test_a_contradictory_availability_is_refused(self):
+        # The pair travels as one value precisely so "free, and out on
+        # the route" cannot be expressed.
+        with self.assertRaises(ValueError):
+            models.WagonAvailability(True, "out on tonight's route")
+        with self.assertRaises(ValueError):
+            models.WagonAvailability(False, "")
 
 
 class TestTheDecoyMenuTerminates(unittest.TestCase):
@@ -272,9 +298,9 @@ class TestTheDecoyMenuTerminates(unittest.TestCase):
         models.set_relation(state, "vinnie", models.VENDETTA_RELATION)
         arriving(state, "vinnie")
         con = Watching()                     # empty script: always last
-        result = raids.incoming_raid(state, "vinnie", con,
-                                     random.Random(3), wagon_free=False,
-                                     wagon_note="out on tonight's route")
+        result = raids.incoming_raid(
+            state, "vinnie", con, random.Random(3),
+            wagon=models.WagonAvailability(False, "out on tonight's route"))
         self.assertIn(result.outcome, ("landed", "repelled"))
         self.assertFalse(result.wagon_taken)
         self.assertTrue(con.said("There is nothing to load"))

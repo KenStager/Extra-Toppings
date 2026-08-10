@@ -313,8 +313,9 @@ class RaidResult:
 
 
 def incoming_raid(state: State, rival_key: str, con: Console,
-                  rng: random.Random, *, wagon_free: bool = True,
-                  wagon_note: str = "") -> RaidResult:
+                  rng: random.Random, *,
+                  wagon: models.WagonAvailability | None = None
+                  ) -> RaidResult:
     """A telegraphed rival raid arrives at your shop tonight. Returns
     the typed RaidResult (rev. 14 item 6). Escrow's incident semantics
     are unchanged from the merged behavior: any raid that ARRIVES —
@@ -337,9 +338,10 @@ def incoming_raid(state: State, rival_key: str, con: Console,
     # reason — because an option that silently vanishes teaches the
     # player nothing; picking it says why and asks again. Same shape
     # as the RED-district refusal in routes.plan_route.
+    wagon = wagon if wagon is not None else models.WAGON_FREE
     decoy = "Empty the stash into the wagon and let them find crumbs"
-    if not wagon_free:
-        decoy += f" — unavailable, the wagon is {wagon_note}"
+    if not wagon.available:
+        decoy += f" — unavailable, the wagon is {wagon.note}"
     options = ["Defend the shop (your crew's nerve)", decoy]
     if not target_raid:
         options.append(
@@ -359,13 +361,13 @@ def incoming_raid(state: State, rival_key: str, con: Console,
         options[1] += " — the break-in ends the run"
     prompt = "The unfamiliar cars are circling. Your move:"
     choice = con.menu(prompt, options)
-    if choice == 1 and not wagon_free:
+    if choice == 1 and not wagon.available:
         # Refused, then asked again WITHOUT it — bounded at two menus
         # on purpose. A re-prompt loop cannot be used here: an
         # exhausted ScriptedConsole answers with the last option, and
         # against a declared rival the decoy IS the last option, so a
         # loop would never terminate.
-        con.say(f"  There is nothing to load — the wagon is {wagon_note}. "
+        con.say(f"  There is nothing to load — the wagon is {wagon.note}. "
                 f"The stash stays where it is.")
         second = [o for i, o in enumerate(options) if i != 1]
         pick = con.menu(prompt, second)

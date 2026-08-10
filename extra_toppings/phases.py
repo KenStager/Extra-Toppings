@@ -69,25 +69,37 @@ class WagonNight:
     asks it rather than re-deriving an answer that has gone stale.
     """
 
-    spent_by: str | None = None
+    claimed_by: str | None = None
 
     @property
     def available(self) -> bool:
-        return self.spent_by is None
+        return self.claimed_by is None
 
     @property
     def note(self) -> str:
         """The player-facing reason, empty while the wagon is free."""
-        return WAGON_NOTES.get(self.spent_by or "", "")
+        return WAGON_NOTES.get(self.claimed_by or "", "")
 
-    def spend(self, by: str) -> None:
-        """Record that a consumer took the wagon out. The FIRST claim
-        stands: what actually drove away is what the night remembers,
-        and a second consumer cannot quietly overwrite the reason."""
+    def view(self) -> models.WagonAvailability:
+        """The immutable answer consumers read. One value, so an
+        availability flag and its reason cannot arrive contradicting
+        each other."""
+        return models.WagonAvailability(self.available, self.note)
+
+    def claim(self, by: str) -> None:
+        """Take the wagon out, exclusively. Fails CLOSED: there is one
+        wagon, so a second claim is not a thing to absorb quietly — it
+        means a consumer asked `available` and acted on a stale answer,
+        which is exactly the class of bug this authority exists to end.
+        Every caller checks availability first, so no legitimate path
+        reaches a second claim."""
         if by not in WAGON_NOTES:
             raise ValueError(f"unknown wagon consumer {by!r}")
-        if self.spent_by is None:
-            self.spent_by = by
+        if self.claimed_by is not None:
+            raise RuntimeError(
+                f"the wagon is already {self.note} — {by!r} cannot "
+                f"take it too; there is only one wagon")
+        self.claimed_by = by
 
 
 def wagon_used(plans: dict, service_report: dict) -> bool:
@@ -841,8 +853,9 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     # before departure never took it out) and spent by each later
     # consumer in turn — design rev. 25 item 1.
     wagon = WagonNight()
-    if wagon_used(plans, service_report):
-        wagon.spend(wagon_job(plans) or "route")
+    service_job = wagon_job(plans)
+    if service_job is not None and wagon_used(plans, service_report):
+        wagon.claim(service_job)
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight
@@ -898,11 +911,12 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # loads it (design rev. 26): ledger and sabotage jobs go
             # on foot. The outcome is irrelevant — a repelled theft
             # still drove away with it.
-            took_wagon = (raid_plan["objective"] == "steal_stock"
-                          and raid_plan["wagon_free"])
+            if (raid_plan["objective"] == "steal_stock"
+                    and raid_plan["wagon_free"]):
+                # Claimed BEFORE the job runs: departure is what
+                # consumes the wagon, not the outcome.
+                wagon.claim("raid")
             raids.run_raid(state, raid_plan, con, streams.raids)
-            if took_wagon:
-                wagon.spend("raid")
 
     for key, rival in state.rivals.items():
         if rival.alive and rival.raid_warning == 1:
@@ -910,10 +924,9 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # decoy takes the wagon with it — the second gets the
             # truth, not the morning's answer (design rev. 25).
             result = raids.incoming_raid(state, key, con, streams.raids,
-                                         wagon_free=wagon.available,
-                                         wagon_note=wagon.note)
+                                         wagon=wagon.view())
             if result.wagon_taken:
-                wagon.spend("decoy")
+                wagon.claim("decoy")
             # Escrow's truth table is the merged one: any raid that
             # arrives — fought off or not — is an incident.
             if result.outcome != "averted" and state.branch == "quiet_sale" \

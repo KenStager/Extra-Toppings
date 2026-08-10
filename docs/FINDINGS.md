@@ -2116,12 +2116,38 @@ tree that produced it is checkoutable and the file reproduces byte
 for byte; `ACTIVE_BASELINE` updated in the same commit with version,
 generating commit, predecessor `13d9eeba`, the measured reason, and
 the new hash `7a62b2af`. The provenance tests still reject a byte
-flip and every field mutation. `analysis.equivalence generate` grew
-`--reason`, because a regeneration that cannot state its own reason
-silently inherits the previous act's — which is how a baseline ends
-up lying about its provenance.
+flip and every field mutation. `analysis.equivalence generate` now
+REQUIRES a reason: the first attempt merely added a `--reason` flag that
+defaulted to None and fell through to the retired rev. 17-18 text,
+which is the very provenance failure it was meant to end. Review
+caught it. The reason is validated before any file is read or
+written (both the API and the CLI refuse, the CLI before argparse
+hands over), the historical fallback string is deleted, and the
+refusals are pinned on both paths with the golden's bytes asserted
+unchanged. The defect was demonstrated live during the pin proof:
+run against the pre-fix code, the CLI cheerfully replaced the
+300-run baseline with a 4-run file stamped with the old
+RouteManifest reason. That also taught a second lesson, now fixed —
+a test that guards an artifact must never be able to destroy it, so
+the suite snapshots the golden's bytes and restores them
+unconditionally.
 
-**Verification.** 545 tests green on 3.11 and 3.12; ruff and mypy
+**The wagon authority fails closed.** The first cut recorded
+ownership without enforcing it: a second `spend()` silently did
+nothing, and a test blessed that as "the first claim stands". An
+exclusivity authority must expose an impossible second consumer, not
+conceal one, so `claim()` now refuses any second claim outright, the
+availability answer travels as one immutable validated value
+(`models.WagonAvailability`, which cannot express "free, and out on
+the route"), and the outgoing stock raid claims the wagon BEFORE it
+departs, since departure is what consumes it. The rejection is
+pinned in place of the no-op test. Behavior did not move: both gates
+still 300/300 and the 150-seed battery byte-identical to the run
+before the change — so the silent no-op had never actually fired,
+and the fix closes a latent hole rather than papering over a live
+one.
+
+**Verification.** 552 tests green on 3.11 and 3.12; ruff and mypy
 clean. Both identity gates **300/300 on 3.11, 3.12 AND 3.13** against
 the new contract-asserted baseline. Paired stand-pat holds 300/300
 with its sit-down count at **79, down from 82**: the correction

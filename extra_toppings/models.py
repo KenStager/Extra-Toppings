@@ -446,6 +446,30 @@ class BranchState:
 # this one definition — nothing else may spell a branch id.
 BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
 ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
+
+
+@dataclass(frozen=True)
+class WagonAvailability:
+    """Whether tonight's wagon is still here, and why it isn't — ONE
+    immutable value (design rev. 25 item 1). Two loose arguments could
+    arrive contradicting each other ("free, and out on the route"), so
+    the pair is validated at construction and travels together."""
+
+    available: bool
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        if type(self.available) is not bool:
+            raise ValueError("wagon availability is a bool, got "
+                             f"{type(self.available).__name__}")
+        if self.available and self.note:
+            raise ValueError(f"a free wagon has no reason, got "
+                             f"{self.note!r}")
+        if not self.available and not self.note:
+            raise ValueError("a wagon that is gone must say where")
+
+
+WAGON_FREE = WagonAvailability(True)
 # THE released set (§7): the Straight Path and the Quiet Sale lifted
 # together on the P2 merge approval; the Harbor War joined on the P3
 # merge disposition ("keep activation as a separate, minimal

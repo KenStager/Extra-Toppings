@@ -267,12 +267,24 @@ def _head_commit() -> str:
         return "unknown"
 
 
-def generate(seeds: int, reason: str | None = None) -> None:
+def generate(seeds: int, reason: str) -> None:
     """Write a NEW versioned baseline. Regeneration is a recorded,
     sanctioned act (rev. 18 item 5): the artifact carries its
     version, the commit it was generated at, the sha256 of the
     baseline it retires, and the reason — and `check` asserts all of
-    it. Do not run this without a recorded ruling."""
+    it. Do not run this without a recorded ruling.
+
+    The reason is REQUIRED and is validated before anything is read
+    or written, so a refused regeneration leaves the golden file
+    byte-identical. There is deliberately no default: an inherited
+    reason is how a baseline ends up lying about its own provenance,
+    and the historical fallback that used to sit here would have
+    stamped the rev. 17-18 RouteManifest text onto any later act
+    that forgot to name itself."""
+    if reason is None or not reason.strip():
+        raise ValueError(
+            "regeneration requires an explicit reason — a sanctioned "
+            "act names itself, and the golden is left untouched")
     predecessor, prior_version = "none", 0
     if os.path.exists(GOLDEN_PATH):
         with open(GOLDEN_PATH, "rb") as fb:
@@ -300,11 +312,7 @@ def generate(seeds: int, reason: str | None = None) -> None:
                       "explicit v2 field list in legacy_projection)",
             "generated_at_commit": _head_commit(),
             "predecessor_sha256": predecessor,
-            "reason": reason or
-            "design rev. 17-18 sanctioned regeneration: the "
-            "RouteManifest inventory contract replaced the 12-pizza "
-            "planner defect the prior trace pinned; final baseline "
-            "established after the contract completed",
+            "reason": reason,
             "seeds": seeds, "bots": sorted(BOTS)},
         "runs": runs,
     }
@@ -490,6 +498,11 @@ def main() -> None:
                          "(recorded in the artifact's metadata)")
     args = ap.parse_args()
     if args.mode == "generate":
+        # Fail here, before the golden is even opened: argparse exits
+        # non-zero and nothing on disk moves.
+        if args.reason is None or not args.reason.strip():
+            ap.error("generate requires --reason: a sanctioned "
+                     "regeneration names itself (see ACTIVE_BASELINE)")
         generate(args.seeds, reason=args.reason)
     elif args.mode == "standpat":
         raise SystemExit(check_standpat(args.seeds))
