@@ -542,7 +542,10 @@ def run_salvage(state: State, plan: dict, con: Console,
             space -= take * bulk
         wagon_left += max(0, share - take)
         want -= share
-    kept, storage_left = models.place_haul(state, haul)
+    # The pickup unloads at the address its wagon came home to
+    # (rev. 22 item 5) — explicit, never a home default.
+    kept, storage_left = models.place_haul(
+        state, haul, models.exactly_one_shop(state).key)
     left_behind = wagon_left + storage_left
     state.add_heat(data.RIVALS[camp.rival_key]["home"], SALVAGE_HEAT)
     if kept:

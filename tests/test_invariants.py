@@ -196,11 +196,11 @@ class TestRevision19Storage(unittest.TestCase):
         with self.assertRaises(ValueError):
             models.move_goods(state, "shop", "bogus", "oregano", 1)
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"oregano": True})
+            models.place_haul(state, {"oregano": True}, state.shop.key)
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"oregano": 1.5})
+            models.place_haul(state, {"oregano": 1.5}, state.shop.key)
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"oregano": -2})
+            models.place_haul(state, {"oregano": -2}, state.shop.key)
         with self.assertRaises(ValueError):
             models.space_used({"oregano": -2})
         self.assertEqual(state.shop_stash, {"oregano": 3})
@@ -283,7 +283,7 @@ class TestRevision20Storage(unittest.TestCase):
         state.shop_stash = {}
         state.warehouse = {"oregano": 1.5}          # invalid
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"mushrooms": 60})
+            models.place_haul(state, {"mushrooms": 60}, state.shop.key)
         self.assertEqual(state.shop_stash, {})
         self.assertEqual(state.warehouse, {"oregano": 1.5})
 
@@ -293,7 +293,7 @@ class TestRevision20Storage(unittest.TestCase):
         state.shop_stash = {}
         state.warehouse = {"mushrooms": 250}        # already over cap
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"mushrooms": 5})
+            models.place_haul(state, {"mushrooms": 5}, state.shop.key)
         self.assertEqual(state.shop_stash, {})
         self.assertEqual(state.warehouse, {"mushrooms": 250})
 
@@ -468,7 +468,7 @@ class TestRecoverableFailure(unittest.TestCase):
                 e.hired = e.aware = True
             case_before = state.case
             plan = {"rival": "vinnie", "objective": "ledger",
-                    "team": list(crew), "armed": False}
+                    "team": list(crew), "armed": False, "return_shop": models.HOME_SHOP_KEY}
             # Always pick "Abort the job" whenever a guard forces a choice.
             raids.run_raid(state, plan, ScriptedConsole([3] * 10), rng)
             if not state.rivals["vinnie"].ledger_stolen:

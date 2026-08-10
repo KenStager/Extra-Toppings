@@ -149,7 +149,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": objective,
                           "team": [crew], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
         return state, run_night(state, plans, Watching(script))
 
     def test_a_departed_stock_theft_denies_the_decoy(self):
@@ -172,7 +172,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [crew], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
         con = run_night(state, plans, Watching([1]))
         self.assertTrue(con.said("The night job is scrubbed"))
         offers = con.decoy_offers()
@@ -188,7 +188,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
             plans = {"route": None, "salvage": None,
                      "raid": {"rival": "sal", "objective": "steal_stock",
                               "team": [crew], "armed": False,
-                              "table_warned": True}}
+                              "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
             con = Watching([1, 0])
             phases.night(state, plans, {}, con, Streams(seed))
             offers = con.decoy_offers()

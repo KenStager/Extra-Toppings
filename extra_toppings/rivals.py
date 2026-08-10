@@ -89,7 +89,7 @@ def rival_policy(state: State, key: str) -> RivalPolicy:
                 notes.append("uninsured — the man who never throws a "
                              "punch keeps the precinct's number handy")
         elif rival.raid_warning == 0 and (
-                state.shop.damage_days > 0
+                any(sh.damage_days > 0 for sh in state.shops)
                 or any(e.injured_days for e in state.hired())):
             act_chance *= war.OPPORTUNIST_MULT
             raid_t = min(0.68 + violent * war.OPPORTUNIST_MULT * 0.25,
@@ -161,7 +161,10 @@ def _price_war(state: State, key: str, spec: dict, con: Console) -> None:
     # Coupons steal customers for a while; they don't make your pizza worse.
     con.bullet(f"{spec['short']} papers the neighborhood with two-for-one coupons. "
                f"Expect thin order books for a few days.")
-    state.shop.coupon_days = max(state.shop.coupon_days, 3)
+    # The blitz papers ONE neighbourhood: the address the rival moved
+    # against, through the same target authority the raid uses.
+    hit = state.shop_by_key(models.raid_target(state, key))
+    hit.coupon_days = max(hit.coupon_days, 3)
 
 
 def _poach(state: State, rival, spec: dict, con: Console, rng: random.Random) -> None:

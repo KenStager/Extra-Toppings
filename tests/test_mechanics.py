@@ -33,7 +33,7 @@ class TestRaids(unittest.TestCase):
                 con = BotConsole(random.Random(seed))
                 team = self._crew(state)
                 plan = {"rival": "vinnie", "objective": objective,
-                        "team": list(team), "armed": seed % 2 == 0}
+                        "team": list(team), "armed": seed % 2 == 0, "return_shop": models.HOME_SHOP_KEY}
                 before = state.rivals["vinnie"].strength
                 raids.run_raid(state, plan, con, rng)
                 # A raid always leaves a mark on someone: rival weakened,
@@ -52,7 +52,7 @@ class TestRaids(unittest.TestCase):
             state, rng = prepped_state(seed)
             team = self._crew(state)
             plan = {"rival": "vinnie", "objective": "steal_stock",
-                    "team": team, "armed": False}
+                    "team": team, "armed": False, "return_shop": models.HOME_SHOP_KEY}
             raids.run_raid(state, plan, con, rng)
             if sum(state.shop_stash.values()) > sum(data.START_STASH.values()):
                 return   # at least one clean haul across seeds

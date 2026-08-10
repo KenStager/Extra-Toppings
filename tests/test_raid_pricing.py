@@ -27,7 +27,7 @@ def crew_for(state, n=3):
 def steal_plan(state, wagon_free=True):
     return {"rival": "vinnie", "objective": "steal_stock",
             "team": [e for e in crew_for(state) if e.available],
-            "armed": False, "wagon_free": wagon_free}
+            "armed": False, "wagon_free": wagon_free, "return_shop": models.HOME_SHOP_KEY}
 
 
 class TestTargetHardening(unittest.TestCase):
@@ -189,7 +189,7 @@ class TestExpectedValueDeclines(unittest.TestCase):
                 before = value(state)
                 plan = {"rival": "vinnie", "objective": "steal_stock",
                         "team": [e for e in crew if e.available],
-                        "armed": False, "wagon_free": True}
+                        "armed": False, "wagon_free": True, "return_shop": models.HOME_SHOP_KEY}
                 if not plan["team"]:
                     break
                 raids.run_raid(state, plan,
@@ -212,7 +212,7 @@ class TestSurvivorCarry(unittest.TestCase):
         crew = crew_for(state)
         survivors = crew[:2]                     # one didn't make it upright
         plan = {"rival": "vinnie", "objective": "steal_stock",
-                "team": list(crew), "armed": False, "wagon_free": True}
+                "team": list(crew), "armed": False, "wagon_free": True, "return_shop": models.HOME_SHOP_KEY}
         rspec = data.RIVALS["vinnie"]
         raids._payoff(state, plan, state.rivals["vinnie"], rspec,
                       ScriptedConsole(), rng, True, survivors)

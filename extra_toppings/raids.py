@@ -89,7 +89,11 @@ def plan_raid(state: State, con: Console, rng: random.Random,
                 "tonight leaves behind goes into the file tomorrow's table "
                 "reads.")
     return {"rival": rival_key, "objective": objective, "team": team,
-            "armed": armed, "table_warned": warned}
+            "armed": armed, "table_warned": warned,
+            # Where the crew comes back to. Named at planning so the
+            # haul cannot be unloaded somewhere nobody drove (design
+            # rev. 22 item 5); with one address it is that address.
+            "return_shop": models.exactly_one_shop(state).key}
 
 
 # The security word moved to models.security_word so the war board can
@@ -238,7 +242,8 @@ def _payoff(state: State, plan: dict, rival, rspec, con: Console,
         # warehouse if rented — anything past that stays in their alley.
         # (THE placement authority, rev. 15 item 2 — the loop moved to
         # models.place_haul verbatim; salvage consumes the same one.)
-        kept, left_behind = models.place_haul(state, haul)
+        kept, left_behind = models.place_haul(
+            state, haul, plan["return_shop"])
         models.apply_rival_damage(
             state, rival.key, "jobs",
             war.job_damage(state, rival.key, models.RAID_STOCK_STRENGTH))

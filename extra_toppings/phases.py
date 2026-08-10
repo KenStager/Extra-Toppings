@@ -860,10 +860,13 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight
     # keeps its full stated duration of service days.
-    if state.shop.damage_days:
-        state.shop.damage_days -= 1
-    if state.shop.coupon_days:
-        state.shop.coupon_days -= 1
+    # Every address heals and every coupon blitz expires on its own
+    # clock — the counters belong to the shop that carries them.
+    for a_shop in state.shops:
+        if a_shop.damage_days:
+            a_shop.damage_days -= 1
+        if a_shop.coupon_days:
+            a_shop.coupon_days -= 1
 
     raid_plan = plans.get("raid")
     if raid_plan and not state.rivals[raid_plan["rival"]].alive:
@@ -1236,20 +1239,26 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
 
 def _law_phase(state: State, con: Console, rng: random.Random) -> None:
     """Heat is local weather. The Case is climate."""
-    home_heat = state.heat(data.HOME_DISTRICT)
-    if home_heat > 70 and rng.random() < 0.35:
+    # The law watches every address the player keeps, each against its
+    # OWN district's weather — a second shop in a quiet district is not
+    # sheltered by the home district's heat, nor punished by it. Shops
+    # are walked in stable key order so the sweep never depends on list
+    # position.
+    for a_shop in sorted(state.shops, key=lambda sh: sh.key):
+        if state.heat(a_shop.district) <= 70 or rng.random() >= 0.35:
+            continue
         con.bullet("A squad car parks across the street for an hour. Just parks.")
         if state.branch == "straight":
             # §2.4.1: with nothing to find, searches attack the exit
             # through people — no RNG, first watcher on the roster.
             straight.search_spook(state, con)
-        if rng.random() < 0.4 and state.stash_bulk(state.shop_stash) > 0:
+        if rng.random() < 0.4 and state.stash_bulk(a_shop.stash) > 0:
             con.bullet("Then two officers 'stop in for a slice' and look at everything.")
             if rng.random() < 0.5:
                 seized = 0
-                for g in list(state.shop_stash):
-                    seized += state.shop_stash[g]
-                    state.shop_stash[g] = 0
+                for g in list(a_shop.stash):
+                    seized += a_shop.stash[g]
+                    a_shop.stash[g] = 0
                 state.add_case(12 + seized * 0.2, "a walk-through found the shop stash")
                 con.bullet(f"They leave with {seized} units in evidence bags. "
                            f"Nobody's under arrest. Yet.")

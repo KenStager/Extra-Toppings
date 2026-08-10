@@ -439,7 +439,7 @@ class TestTargetOnlyJobs(unittest.TestCase):
         rosa.hired = True
         rosa.aware = True
         plan = {"rival": "vinnie", "objective": "steal_stock",
-                "team": [rosa], "armed": False, "table_warned": True}
+                "team": [rosa], "armed": False, "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}
         break_target(state)                  # the corners got him first
         alert_before = state.rivals["vinnie"].alertness
         con = Scripted([5])                  # just lock up
@@ -783,7 +783,7 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "vinnie", "objective": "steal_stock",
                           "team": [rosa], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         con = Scripted([6])                   # lock up (war night menu)
         phases.night(state, plans, {}, con, Streams(11))
@@ -912,7 +912,7 @@ class TestRevision16Boundaries(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
@@ -922,7 +922,7 @@ class TestRevision16Boundaries(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], True)
 
@@ -1010,7 +1010,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         report = {"salvage": war.SalvageResult(outcome="scrubbed",
                                                wagon_used=False)}
@@ -1022,7 +1022,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         report = {"salvage": war.SalvageResult(outcome="collected",
                                                wagon_used=True,
@@ -1035,7 +1035,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
@@ -1068,7 +1068,7 @@ class TestRevision17Instruments(unittest.TestCase):
         before = round(state.rivals["sal"].strength * 100)
         plan = {"rival": "sal", "objective": "steal_stock",
                 "team": [rosa, marcus], "armed": False,
-                "table_warned": True, "wagon_free": True}
+                "table_warned": True, "wagon_free": True, "return_shop": models_mod.HOME_SHOP_KEY}
         # Guard prompts answered by script; an exhausted script
         # aborts the job — either way the attempt is booked.
         base = len(state.raid_log)      # break_target booked its jobs
@@ -1094,7 +1094,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         scrubs = [e for e in state.raid_log if e.outcome == "scrubbed"]
         self.assertEqual(len(scrubs), 1)

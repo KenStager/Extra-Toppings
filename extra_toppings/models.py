@@ -1564,7 +1564,7 @@ def move_goods(state: "State", src: str, dst: str, good: str,
     b[good] = b.get(good, 0) + units
 
 
-def place_haul(state: "State", haul: dict) -> tuple:
+def place_haul(state: "State", haul: dict, destination: str) -> tuple:
     """THE haul-placement authority (rev. 15 item 2): stolen or
     salvaged goods fill the shop stash first, then the warehouse if
     rented, and anything past that stays where it was found. Returns
@@ -1577,14 +1577,16 @@ def place_haul(state: "State", haul: dict) -> tuple:
     mutate — a refusal leaves every stash byte-identical, never a
     half-placed haul."""
     validate_inventory_map(haul, "haul")
-    # P4a.2 names the address explicitly instead of indexing it; the
-    # crew's actual RETURN address becomes a parameter in P4a.3, which
-    # is where haul placement stops assuming there is only one.
-    home = exactly_one_shop(state).key
-    storage_preflight(state, home)
+    # The crew unloads where they actually came back to (design
+    # rev. 22 item 5). An unknown destination is refused, never
+    # resolved to the founding address — a silent home default is
+    # exactly how every stolen crate used to land at DiNapoli's
+    # whichever address the wagon drove home.
+    shop = state.shop_by_key(destination)
+    storage_preflight(state, destination)
     if state.warehouse is not None:
         storage_preflight(state, WAREHOUSE)
-    shop_room = space_cap(state, home) - space_used(state.shop_stash)
+    shop_room = space_cap(state, destination) - space_used(shop.stash)
     wh_room = (space_cap(state, WAREHOUSE)
                - space_used(state.warehouse)
                if state.warehouse is not None else 0)
@@ -1610,7 +1612,7 @@ def place_haul(state: "State", haul: dict) -> tuple:
         if u - rest:
             kept[g] = u - rest
     for g, u in to_shop_all.items():             # the ONE commit
-        state.shop_stash[g] = state.shop_stash.get(g, 0) + u
+        shop.stash[g] = shop.stash.get(g, 0) + u
     if to_wh_all:
         wh = state.warehouse
         assert wh is not None                    # allocation implies rented

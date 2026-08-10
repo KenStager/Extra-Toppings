@@ -5,7 +5,8 @@ double-booking, and permanent coupon damage."""
 import random
 import unittest
 
-from extra_toppings import market, phases, raids, rivals, routes, shop
+from extra_toppings import (market, models, phases, raids, rivals,
+                            routes, shop)
 from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
@@ -123,7 +124,7 @@ class TestAssignments(unittest.TestCase):
         raids_led_before = state.raids_led
         plans = {"route": None,
                  "raid": {"rival": "vinnie", "objective": "ledger",
-                          "team": team, "armed": False}}
+                          "team": team, "armed": False, "return_shop": models.HOME_SHOP_KEY}}
         phases.night(state, plans, {"revenue": 0}, ScriptedConsole([4]),
                      Streams(15))
         self.assertEqual(state.raids_led, raids_led_before)
