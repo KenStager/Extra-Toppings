@@ -319,6 +319,69 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
         self.assertEqual(home.legit_revenue_today, 0)
 
 
+class TestTheMigrationReadsPresenceNotTruthiness(unittest.TestCase):
+    """The migration's licence is "this field did not exist yet", not
+    "this field is falsy". Saves written before addresses had
+    identities OMITTED these fields; none of them carried an empty
+    one. So an ABSENT reference migrates and a PRESENT-but-unusable
+    one is a malformed save — it must reach canonical validation and
+    be refused, never be quietly repaired into a plausible payload.
+
+    Each row doctors ONE field of a one-address save and proves the
+    pristine payload round-trips first, so the refusal is attributable
+    to the doctoring and not to the fixture."""
+
+    def _payload(self):
+        state = new_state()
+        state.day = 5
+        state.route_log = [RouteExecutionRecord(
+            day=2, district="university", heat_band="cool",
+            capacity_mult=1.0, units_sold=0, corner_damage_h=0,
+            contested=False, origin_shop=HOME_SHOP_KEY)]
+        payload = save.state_to_dict(state)
+        save.state_from_dict(payload)                      # baseline
+        return payload
+
+    # (what, where the reference lives, the field's name)
+    ROWS = (("a shop", lambda p: p["shops"][0], "key"),
+            ("an employee", lambda p: p["employees"][0], "shop_key"),
+            ("a wagon", lambda p: p["wagons"][0], "shop_key"),
+            ("a route record", lambda p: p["route_log"][0],
+             "origin_shop"))
+
+    def test_an_absent_reference_migrates_to_the_one_address(self):
+        for what, where, field in self.ROWS:
+            with self.subTest(what):
+                payload = self._payload()
+                del where(payload)[field]
+                back = save.state_from_dict(payload)
+                self.assertEqual(back.shops[0].key, HOME_SHOP_KEY)
+                self.assertEqual(back.employees[0].shop_key,
+                                 HOME_SHOP_KEY)
+                self.assertEqual(back.wagons[0].shop_key, HOME_SHOP_KEY)
+                self.assertEqual(back.route_log[0].origin_shop,
+                                 HOME_SHOP_KEY)
+
+    def test_a_present_but_unusable_reference_is_refused(self):
+        for what, where, field in self.ROWS:
+            for bad in ("", None, False):
+                with self.subTest(f"{what}.{field}={bad!r}"):
+                    payload = self._payload()
+                    where(payload)[field] = bad
+                    with self.assertRaises(ValueError):
+                        save.state_from_dict(payload)
+
+    def test_the_refusal_names_the_reference_not_the_migration(self):
+        # The message must read as "this save is broken", not as
+        # "this save is old" — they call for different responses.
+        payload = self._payload()
+        payload["employees"][0]["shop_key"] = ""
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("unknown address", str(caught.exception))
+        self.assertNotIn("cannot be inferred", str(caught.exception))
+
+
 class TestNothingOutsideTheSaveInfersAnAddress(unittest.TestCase):
     """rev. 27 item 7, enforced at the type: the founding address is
     named where the world is built and inferred where a one-address

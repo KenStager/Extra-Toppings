@@ -110,11 +110,20 @@ def state_from_dict(d: dict) -> State:
     # precisely one address it could have meant. Nothing outside this
     # boundary infers: the canonical models require every identity,
     # and a multi-address payload missing one is refused, not guessed.
+    #
+    # The test is PRESENCE, never truthiness. Payloads written before
+    # addresses had identities OMITTED these fields; none of them ever
+    # carried an empty one. So an absent field is history to migrate,
+    # while a present `""`, None or False is a malformed reference —
+    # and migrating that would repair a broken save into a plausible
+    # one, which is the opposite of what this boundary is for. Present
+    # values, whatever they are, flow into canonical validation and
+    # are refused there.
     one_address = len(d["shops"]) == 1
 
     def _addressed(payload: dict, field: str, what: str) -> dict:
         v = dict(payload)
-        if v.get(field):
+        if field in v:
             return v
         if not one_address:
             raise ValueError(
@@ -130,8 +139,9 @@ def state_from_dict(d: dict) -> State:
         sd["upgrades"] = set(sd["upgrades"])
         # A v3 payload written before addresses had keys carries
         # exactly one shop, and the founding key is the only identity
-        # it could ever have had.
-        if not sd.get("key"):
+        # it could ever have had. A payload that HAS a key keeps it,
+        # even an unusable one — that is validation's refusal to make.
+        if "key" not in sd:
             if not one_address:
                 raise ValueError(
                     f"{len(d['shops'])} addresses and one carries no "
