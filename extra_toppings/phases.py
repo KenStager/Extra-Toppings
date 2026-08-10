@@ -50,19 +50,7 @@ def wagon_job(plans: dict, but: str | None = None) -> str | None:
     return None
 
 
-def plan_origin(plan: dict) -> str:
-    """The address a planned wagon job leaves from. Every wagon job
-    names its origin at planning time; an unnamed one is refused
-    rather than resolved to the home shop (rev. 27 item 7)."""
-    origin = plan.get("origin_shop")
-    if type(origin) is not str or not origin:
-        raise ValueError(
-            f"a planned wagon job names no origin address, got "
-            f"{origin!r}")
-    return origin
-
-
-def planned_jobs_at(plans: dict, shop_key: str,
+def planned_jobs_at(state: "State", plans: dict, shop_key: str,
                     but: str | None = None) -> list:
     """Tonight's planned wagon jobs leaving ONE address, in a stable
     order. This is the per-address replacement for `wagon_job` in
@@ -70,7 +58,7 @@ def planned_jobs_at(plans: dict, shop_key: str,
     the home shop reserves the home wagon and nothing else."""
     return [job for job in ("route", "salvage")
             if job != but and plans.get(job)
-            and plan_origin(plans[job]) == shop_key]
+            and plan_origin(state, plans[job]) == shop_key]
 
 
 # The wagon vocabulary and both typed views live in `models` (P4b.1a
@@ -79,6 +67,7 @@ def planned_jobs_at(plans: dict, shop_key: str,
 # `raids` and `war` can take the view intact without importing this
 # module back.
 WAGON_NOTES = models.WAGON_NOTES
+plan_origin = models.plan_origin
 PlannedWagon = models.PlannedWagon
 
 
@@ -103,7 +92,7 @@ def planned_wagon(state: "State", plans: dict, shop_key: str,
     kept = state.wagons_at(shop_key)
     unclaimed = [w for w in kept
                  if models.wagon_claim(state, w.key).available]
-    taken = planned_jobs_at(plans, shop_key, but=but)
+    taken = planned_jobs_at(state, plans, shop_key, but=but)
     # Each planned job at this address spends one of its free wagons,
     # in the same key order `claim_at` would spend them.
     free = tuple(w.key for w in unclaimed[len(taken):])

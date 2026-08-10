@@ -633,6 +633,30 @@ class PlannedWagon:
         return self.free[0]
 
 
+def plan_origin(state: "State", plan: dict) -> str:
+    """The address a planned wagon job leaves from — validated as a
+    key AND resolved to a real address.
+
+    Shape alone is not identity. A job naming "ghost" has the right
+    type and belongs to no address, so every real address reports its
+    wagons free while a job that reserves nothing sits in the plans:
+    a wagonless job, which is worse than a refused one. The key
+    therefore resolves through `state.shop_by_key`, which fails closed
+    on an unknown address exactly as every other lookup does
+    (rev. 27 items 1 and 7).
+
+    It lives here rather than in `phases` so the planners that build
+    these jobs — `war.plan_salvage` among them — can validate through
+    the same authority without importing the phase machinery back."""
+    origin = plan.get("origin_shop")
+    if type(origin) is not str or not origin:
+        raise ValueError(
+            f"a planned wagon job names no origin address, got "
+            f"{origin!r}")
+    state.shop_by_key(origin)          # KeyError on a ghost address
+    return origin
+
+
 def wagon_gone_line(wagon: PlannedWagon) -> str:
     """THE sentence-initial rendering of a missing wagon.
 

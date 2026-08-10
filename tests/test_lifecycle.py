@@ -355,12 +355,40 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # Not merely truthy: a non-string origin is a malformed plan,
         # and inferring the home shop from it is the implicit default
         # rev. 27 item 7 forbids.
+        state = _with_site(day=7, acceptance=5)
         for bogus in ({}, {"origin_shop": ""}, {"origin_shop": None},
                       {"origin_shop": 1}, {"origin_shop": True}):
             with self.assertRaises(ValueError, msg=repr(bogus)):
-                phases.plan_origin(bogus)
+                phases.plan_origin(state, bogus)
         self.assertEqual(
-            phases.plan_origin({"origin_shop": "shop2"}), "shop2")
+            phases.plan_origin(state, {"origin_shop": "shop2"}), "shop2")
+
+    def test_an_origin_naming_no_address_is_refused(self):
+        # Shape is not identity. A "ghost" origin has the right type
+        # and belongs to no address, so it reserved nothing and every
+        # real wagon reported itself free — a wagonless job sitting in
+        # the plans, which is worse than a refused one.
+        state = _with_site(day=7, acceptance=5)
+        with self.assertRaises(KeyError):
+            phases.plan_origin(state, {"origin_shop": "ghost"})
+        plans = {"route": {"origin_shop": "ghost", "driver": None}}
+        with self.assertRaises(KeyError):
+            phases.planned_jobs_at(state, plans, HOME_SHOP_KEY)
+        with self.assertRaises(KeyError):
+            phases.planned_wagon(state, plans, HOME_SHOP_KEY)
+        with self.assertRaises(KeyError):
+            phases.planned_wagon(state, plans, "shop2")
+
+    def test_a_pickup_naming_no_address_is_refused_before_it_exists(self):
+        # The planner validates its own origin, so a ghost address
+        # never becomes a returned job no wagon can serve.
+        state, _rosa = war_mechanics.TestSalvage._captured(
+            war_mechanics.TestSalvage())
+        with self.assertRaises(KeyError):
+            war.plan_salvage(
+                state, Listening([0]), reserved=[],
+                wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+                origin_shop="ghost")
 
     def test_a_free_view_refuses_to_name_a_wagon_it_has_not_got(self):
         blocked = phases.planned_wagon(

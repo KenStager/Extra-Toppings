@@ -497,8 +497,13 @@ def plan_salvage(state: State, con: Console, reserved: list,
     # caller must say which — a wagon job with no origin cannot be
     # answered per address, and inferring the home shop here is the
     # implicit default rev. 27 item 7 forbids.
-    return {"rival": camp.rival_key, "driver": drivers[pick],
+    # The origin is validated HERE, before the plan exists: a pickup
+    # that names an address the world does not have is refused rather
+    # than returned as a job no wagon can serve.
+    plan = {"rival": camp.rival_key, "driver": drivers[pick],
             "origin_shop": origin_shop}
+    models.plan_origin(state, plan)
+    return plan
 
 
 @dataclass(frozen=True)
