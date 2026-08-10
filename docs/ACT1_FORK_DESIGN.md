@@ -498,8 +498,40 @@ combined net and shop 2's reputation, and one canonical **Partner
 grading view** owns that arithmetic and every consumer of it — the
 status card, the ending text, the epilogue, the bot studies and the
 human-play report all read the same view, so a tier can never mean one
-thing on screen and another in FINDINGS. Tier thresholds are §6.3
-placeholders; the terms, the tiers and the view are not.
+thing on screen and another in FINDINGS.
+
+**The two terms, exactly** (rev. 24 item 1). *Combined net* extends the
+existing `State.net_worth` authority to the shops collection rather
+than inventing a second definition of money: clean + dirty +
+warehouse cash + every open shop's stash at book value + warehouse
+stock − debt, **minus current arrears**. Three exclusions are
+deliberate and stated so nobody has to guess: **Carmine's capital is
+equity, not a liability** — no principal is ever repayable, so it is
+never subtracted; **upgrades, build-out and the wagons are not
+assets** — `net_worth` counts no fixed capital today and this changes
+nothing; and inventories count at book, exactly as they already do.
+*Shop 2's reputation* is that address's own meter, read directly.
+
+**The tiers, ordered `hollow` < `working` < `healthy`, as an AND-gate.**
+`healthy` requires **both** terms independently — money must never
+compensate for a dead restaurant, which is the whole point of the
+branch; `working` is exactly one term met; `hollow` is neither.
+Because `working` can be reached from either side, its text has two
+arms — the money without the room, and the room without the money —
+since those are different stories and the epilogue should say which.
+Placeholder thresholds (§6.3, movable only by recorded ruling):
+**combined net ≥ $8,000**, which is not a new number but the game's
+existing one-shop "the operation holds" bar promoted from its literal
+to a named home, value unchanged; and **shop 2 reputation ≥ 35**,
+which sits above the ~20 it opens at (so it must be earned, never
+merely inherited) and below the 50 the home shop starts from (so it
+is reachable inside the month). P4b's first study reports both
+distributions so the bars move on measurement rather than taste.
+
+**The card shows its work**: each term's current value, the
+requirement it is measured against, and the resulting tier — the
+player can always see which half of the hybrid is failing, which is
+what makes the grade steerable rather than a verdict at the end.
 
 **The deal:** Carmine fronts $20,000 (breakdown: build-out $9k, permits
 $1.5k — clean, permits are paperwork — used second wagon $2.5k, opening
@@ -619,8 +651,17 @@ design forbids.
 **Failure states / endings** — three explicit terminal ids, none of them
 riding a generic fallthrough (rev. 22 item 3, on rev. 15's precedent):
 *"The Operation (two ovens)"* (`operation`, **new id**, not an upgraded
-`survived` text) — day 30, arrears zero; the operation-holds text with
-an explicit Act III hook. *"On the Hook"* (`on_the_hook`, new) — day 30
+`survived` text) — day 30, arrears zero; **graded into three texts by
+the tier** (rev. 24 item 1): *healthy* is the operation-holds text with
+an explicit Act III hook — two ovens, both of them real, and a partner
+who will want more; *working* has two arms — money without a room (the
+books are fat, the dining rooms are empty, and what you own is a
+laundry with a pizza sign) and a room without money (both rooms are
+loved, the tills are thin, and Carmine's schedule is the only thing
+keeping you honest); *hollow* is the one that should sting — Carmine
+is paid on time, and you own two addresses that are ash inside. All
+three are `operation`; only the first is branch-good.
+*"On the Hook"* (`on_the_hook`, new) — day 30
 with arrears outstanding: both ovens burn, but the vig is compounding
 and Carmine owns your schedule now; a survival ending graded below Two
 Ovens, whose Act III hook reads very differently. *"Foreclosure"*
@@ -845,7 +886,7 @@ regression. The morning header notes what you turned down, once.
 | Straight | all goal terms met | The Legitimate Exit (earned) |
 | Straight | all met except Case 46–99 | Almost Out |
 | Straight | any other term failed | Half Measures (names the failed term) |
-| Partner | arrears zero | The Operation (two ovens) — an explicit `operation` terminal (rev. 22 item 3), **graded into operational tiers** by combined net and shop 2's reputation through the one Partner grading view (rev. 23 item 1) |
+| Partner | arrears zero | The Operation (two ovens) — an explicit `operation` terminal (rev. 22 item 3), graded `hollow` / `working` / `healthy` by an AND-gate over combined net and shop 2's reputation through the one Partner grading view (rev. 23 item 1, specified rev. 24 item 1); only `healthy` is branch-good |
 | Partner | arrears outstanding (necessarily one strike) | On the Hook |
 | War | no rival broken | A Long War |
 | War | one rival broken | The Harbor Is Yours (text variant when a second vendetta is open — rev. 14: a second war never erases the first victory) |
@@ -1060,8 +1101,11 @@ seeds 24/39/8 remains the test of fun.
    item 10, replacing "pays points from pizza margins only") proves the
    criminal half is load-bearing, and a matched **restaurant-neglect**
    bot — no cover spend, no pantry care, at either address — must
-   materially reduce **healthy-`operation`** outcomes, **binding at 500
-   seeds** with a recommended bar of **≥ 15 points**, proving the tycoon
+   reduce **healthy-`operation`** outcomes by **≥ 15 points, binding at
+   500 seeds** (rev. 24 item 1 makes the bar binding rather than
+   recommended: P4b needs an executable contract, and the constant
+   still moves only through the recorded falsification workflow like
+   every other), proving the tycoon
    half is load-bearing too. Neither substitutes for the other: without
    the neglect row a player could pay Carmine out of two hollow fronts
    and the branch would still pass its battery, which is precisely the
@@ -1466,6 +1510,15 @@ Ordered roughly by blast radius, smallest first:
    on a route. Planning, commitment, execution and save-load all
    validate the same assignments, so a payload cannot describe a night
    the engine could not have run.
+   **This lands in two acts, because it cannot land in one** (rev. 24
+   item 2). The single-wagon decoy correction changes what a released
+   one-shop build offers on a menu, so it cannot sit inside a
+   behavior-neutral P4a; it ships FIRST, as its own small correctness
+   PR against the released game. Only then does P4a generalize the
+   already-correct authority to multiple stable wagons with zero
+   further behavior movement — and the typed atomic raid warning,
+   addressed haul placement and the multi-wagon generalization all
+   stay in P4a, since none of them moves single-shop behavior.
 10. **`bot.py` / `bench.py` / `analysis/experiments.py`** — four branch
    policies, the `fork` study (divergence, ablations, control), per-branch
    FINDINGS tables.
@@ -1543,6 +1596,20 @@ Ordered roughly by blast radius, smallest first:
 - **P3** — the Harbor War (war posture, war board, capture-lite).
   *Gate: war rows of 4–5; raid-pricing decline curve re-verified at war
   cadence.*
+- **P3.5 — the single-wagon decoy correction** (rev. 24 item 2), a
+  small prerequisite correctness PR against the released one-shop
+  game, landing BEFORE P4a because it deliberately moves existing
+  behavior and therefore cannot ride inside a behavior-neutral
+  refactor. Scope: the incoming-raid decoy consults the same wagon
+  answer the outgoing raid already consults. *Gate:* pins for a
+  departed wagon job (decoy disabled, with its reason visible on the
+  menu), a salvage scrubbed before departure (decoy available), and
+  no wagon job planned (available); all three merged batteries rerun
+  at both depths; and the flag-off golden **measured before it is
+  touched** — the corrected path is either reached by the 300 golden
+  runs or it is not, that count is reported, and regeneration happens
+  only if it is reached, as its own recorded ruling with
+  `ACTIVE_BASELINE` updated in the same act (revs. 17–18 precedent).
 - **P4** — Carmine's Partner (multi-shop refactor last, alone in its
   phase). **Split into two reviewable PRs (rev. 22 item 2):** *P4a* —
   the address-bound foundation of §5 item 8: stable shop and wagon
@@ -3904,3 +3971,85 @@ promise a wagon already out on a route.
    3.12 and 3.13 plus all three merged batteries at both depths —
    and item 2's authority is squarely inside it, since the vehicle
    boundary must be addressed before a second address exists.
+
+**Revision 24** responds to the re-review of revision 23, which
+accepted the R9 canonical-reference fix and returned two contracts
+that were not yet executable as written. Revisions 21–23 are
+preserved unedited; this revision amends §2.4.2, §2.5, §2.7, §5 and
+§7. Still paper only, and no P4 implementation begins.
+
+1. **The Partner tiers, made executable.** Revision 23 named a
+   "healthy" tier and specified none of what a builder would need, so
+   it is specified here in full. *Vocabulary and ordering:* `hollow`
+   < `working` < `healthy`. *The net term:* combined net **extends the
+   existing `State.net_worth` authority** to the shops collection —
+   clean + dirty + warehouse cash + every open shop's stash at book +
+   warehouse stock − debt — **minus current arrears**, with three
+   exclusions stated rather than left to inference: Carmine's capital
+   is **equity and never subtracted** (no principal is repayable),
+   upgrades, build-out and wagons are **not assets** (net_worth counts
+   no fixed capital today and this changes nothing), and inventories
+   count at book exactly as they already do. Note that `net_worth`
+   reads `state.shop_stash` — the home shop alone — so it is itself
+   one of P4a's address-bound call sites. *The restaurant term:* shop
+   2's own reputation meter. *The gate:* **AND**, not a trade —
+   `healthy` requires both terms independently, `working` is exactly
+   one, `hollow` is neither. Money must not compensate for a dead
+   restaurant, which is the branch's entire thesis. *Thresholds
+   (§6.3 placeholders):* combined net **≥ $8,000**, which invents no
+   number — it is the game's existing one-shop "the operation holds"
+   bar (a literal in the `survived` grade today) promoted to a named
+   home at unchanged value; and shop 2 reputation **≥ 35**, above the
+   ~20 it opens at so it must be earned rather than inherited, and
+   below the 50 the home shop starts from so it is reachable inside
+   the month. P4b's first study reports both distributions so the
+   bars move on measurement. *Texts:* three, and `working` carries
+   two arms (money without a room; a room without money) because it
+   is reachable from either side and the two are different stories —
+   the Sold tiers and the Won-the-War arrest arm are the precedent
+   for graded text inside one id. *The card shows its work:* each
+   term's value, its requirement, and the resulting tier, so the
+   player can see which half of the hybrid is failing while there is
+   still time to steer. **§2.7's neglect bar becomes binding** at
+   ≥ 15 points at 500 seeds rather than recommended — P4b needs an
+   executable contract, and the constant still moves only through the
+   recorded falsification workflow.
+2. **P4a cannot both fix the decoy and be behavior-identical — the
+   contradiction is conceded and sequenced away.** Revision 23
+   asserted in one breath that P4a corrects the decoy's wagon
+   question and that P4a moves no existing-branch surface. Those
+   cannot both hold: the correction changes what a released one-shop
+   build offers on a menu. The reproduction stands — `wagon_used`
+   (phases.py:47–58) is consulted by the outgoing raid
+   (phases.py:837) and ignored by `incoming_raid`, whose decoy option
+   is built unconditionally (raids.py:332) by a function that
+   receives no wagon information at all — and it is an
+   assignment-integrity bug in **released** code, not a
+   multi-shop problem. So it lands first, on its own: **P3.5, a small
+   prerequisite correctness PR**, with three pinned cases — a
+   departed wagon job disables the decoy **and says why on the menu**
+   (never silently absent), a salvage scrubbed before departure
+   leaves it available, and no wagon job planned leaves it available.
+   One precision on the ruling's shorthand, since it decides a pin:
+   **"scrubbed" is a salvage-only state** — `wagon_used` returns the
+   salvage record's own answer, while a planned route always reads
+   busy (phases.py:57), so there is no such thing as a scrubbed
+   route to pin. *Golden policy:* all three merged batteries rerun at
+   both depths, and the flag-off golden is **measured before it is
+   touched** — how many of the 300 runs reach an incoming raid on a
+   wagon-busy night is a number to report, not to assume — with
+   regeneration happening only if the corrected path is genuinely
+   reached, and then only as its own recorded ruling with
+   `ACTIVE_BASELINE` updated in the same act (revs. 17–18 precedent).
+   P4a then generalizes the already-correct authority to multiple
+   stable wagons with zero further behavior movement, and keeps the
+   typed atomic raid warning, the addressed haul placement and the
+   multi-wagon generalization, none of which moves single-shop
+   behavior.
+3. **Held scope, unchanged.** Heat weighting (§6.3) and the Quiet
+   Sale and war human-play verdicts stay outside Partner's scope. No
+   calendar extension (§6.1); no second shop from war capture (§6.4);
+   no war from stand-pat (§6.7); no Straight/Sale/War constant moves.
+   P3.5 is the one deliberate exception to "no released-behavior
+   movement" in this arc, it is scoped to a single menu question, and
+   it is gated on measurement rather than on assumption.
