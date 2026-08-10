@@ -14,7 +14,7 @@ forward on load (`_migrate_v2`); newer-than-known versions are refused.
 import json
 from dataclasses import asdict
 
-from . import data
+from . import data, models
 from .models import (RaidAttemptRecord, RouteExecutionRecord,
                      ActiveEvent, BranchState, DamageRecord, District,
                      Employee, Evidence, Rival, Shop, SitdownSnapshot, State,
@@ -36,6 +36,7 @@ def state_to_dict(state: State) -> dict:
         "debt": state.debt,
         "shops": [{**asdict(s), "upgrades": sorted(s.upgrades)}
                   for s in state.shops],
+        "wagons": [asdict(w) for w in state.wagons],
         "warehouse": dict(state.warehouse) if state.warehouse is not None else None,
         "warehouse_cash": state.warehouse_cash,
         "employees": [asdict(e) for e in state.employees],
@@ -106,10 +107,29 @@ def state_from_dict(d: dict) -> State:
     for s in d["shops"]:
         sd = dict(s)
         sd["upgrades"] = set(sd["upgrades"])
+        # Additive with a default (design rev. 27 item 1): a v3 payload
+        # written before addresses had keys carries exactly one shop,
+        # so the home key is the only identity it could have had.
+        sd.setdefault("key", models.HOME_SHOP_KEY)
         shops.append(Shop(**sd))
+    # Same migration for the wagon: a payload written before wagons
+    # had identities carries exactly one address and one wagon kept
+    # there. More than one address with no wagon list is not a payload
+    # this migration can honestly interpret, so it is refused rather
+    # than guessed (rev. 27 item 7).
+    if "wagons" in d:
+        wagons = [models.Wagon(**w) for w in d["wagons"]]
+    elif len(shops) == 1:
+        wagons = [models.Wagon(key=models.HOME_WAGON_KEY,
+                               shop_key=shops[0].key)]
+    else:
+        raise ValueError(
+            f"{len(shops)} addresses but no wagon list — cannot infer "
+            f"which address kept the wagon")
     state = State(
         day=d["day"], clean=d["clean"], dirty=d["dirty"], debt=d["debt"],
         shops=shops,
+        wagons=wagons,
         warehouse=dict(d["warehouse"]) if d["warehouse"] is not None else None,
         warehouse_cash=d["warehouse_cash"],
         employees=[Employee(**e) for e in d["employees"]],

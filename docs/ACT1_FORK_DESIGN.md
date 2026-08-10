@@ -1634,17 +1634,33 @@ Ordered roughly by blast radius, smallest first:
   only if it is reached, as its own recorded ruling with
   `ACTIVE_BASELINE` updated in the same act (revs. 17–18 precedent).
 - **P4** — Carmine's Partner (multi-shop refactor last, alone in its
-  phase). **Split into two reviewable PRs (rev. 22 item 2):** *P4a* —
-  the address-bound foundation of §5 item 8: stable shop and wagon
-  identity keys, then every address-bound system parameterized by them
-  (shop.py, inventory/storage, routes, service, upgrades, staff, rent,
-  rival actions, incoming raids, law searches), **behavior-neutral
-  while one shop exists**. Because this is the first phase whose
-  refactor touches the FLAG-OFF path, its gate is identity rather than
-  a regression pin — there is no bug to fail on: both identity gates
-  300/300 on **3.11, 3.12 AND 3.13**, plus all three merged branch
-  batteries byte-identical **at both depths (150 and 500)**. One moved
-  digit means rework, not a note. *P4b* — the branch itself: site
+  phase). **P4a is three sequential PRs, each based on the previously
+  merged one (rev. 27); P4b follows.** Stacked implementation PRs are
+  forbidden — each merges and verifies before the next begins, so a
+  failure is attributable to one boundary.
+  - *P4a.1 — identity.* Stable `Shop`/wagon keys, the lookup
+    authorities, save migration, uniqueness and reference validation,
+    and the five one-shop aliases guarded through one
+    `exactly_one_shop()` authority.
+  - *P4a.2 — the address-local restaurant economy.*
+    Inventory/storage, `shop.py`, upgrades, staff assignment,
+    per-shop cook skill, rent, laundering ceilings, `net_worth` and
+    `total_stock_units`.
+  - *P4a.3 — the address-local night.* Routes and service,
+    route-origin history, multi-wagon assignment, addressed haul
+    placement, typed raid warnings, rival actions, incoming raids,
+    coupons, damage, heat and law searches.
+
+  All three are **behavior-neutral while one shop exists**. Because
+  this is the first phase whose refactor touches the FLAG-OFF path,
+  the gate is identity rather than a regression pin — there is no bug
+  to fail on — and it binds at **every PR boundary**, not merely at
+  the end: full tests, ruff and mypy, both identity gates 300/300 on
+  **3.11, 3.12 AND 3.13**, and all three merged batteries
+  byte-identical **at both depths (150 and 500)**. A moved transcript,
+  RNG state, ending or study digit is a refactor defect, and **no
+  golden regeneration is permitted anywhere in P4a**. *P4b* — the
+  branch itself: site
   selection, the atomic capital, the construction window, the points
   ledger, the manager and its vacancy, the address-level threat model,
   endings, bots, study. *Gate: full §2.7 battery + human play on seeds
@@ -4156,3 +4172,80 @@ bullet and nothing else.
    departure, not at payoff, and the P3.5 pin for a failed
    stock-theft raid asserts the wagon is unavailable exactly as a
    successful one does.
+
+**Revision 27** records the P4a authorization: the subdivision into
+three sequential PRs, the `net_worth` ruling, and the boundaries the
+refactor must not cross. Paper only, and the first commit of P4a.1.
+It amends §7's P4 bullet; everything else here is new contract.
+
+1. **Three sequential PRs, never stacked.** P4a.1 is identity —
+   stable `Shop` and wagon keys, the lookup authorities, save
+   migration, uniqueness and reference validation, and the five
+   one-shop aliases guarded through one `exactly_one_shop()`
+   authority. P4a.2 is the address-local restaurant economy —
+   inventory and storage, `shop.py`, upgrades, staff assignment,
+   per-shop cook skill, rent, laundering ceilings, `net_worth` and
+   `total_stock_units`. P4a.3 is the address-local night — routes and
+   service, route-origin history, multi-wagon assignment, addressed
+   haul placement, typed raid warnings, rival actions, incoming
+   raids, coupons, damage, heat and law searches. Each is based on
+   the previously MERGED one and is verified before the next begins:
+   failures stay attributable to a boundary, and reviews stay
+   tractable.
+2. **`net_worth` becomes the address-agnostic asset authority, and
+   stays generic.** It sums every shop's stash plus the warehouse
+   stock **exactly once** — the double-count is the thing to watch —
+   with cash, warehouse cash, debt and the fixed-asset exclusions
+   unchanged. It is NOT made branch-aware, and its inventory
+   arithmetic is not duplicated anywhere: P4b's Partner grading view
+   computes `combined_net = state.net_worth() - current_arrears` and
+   owns nothing else about money. `total_stock_units()` carries the
+   identical home-shop blind spot today and migrates in the same
+   pass, so the two cannot drift apart.
+3. **P4a is narratively invisible.** No new prompts, no new labels,
+   no raw identity key ever reaching the player, and no branch
+   behavior. The identity gates enforce this mechanically for
+   flag-off and stand-pat; the rule extends to every branch surface
+   as well, because a player-visible change smuggled into a refactor
+   is a change nobody reviewed as a design decision.
+4. **Targeting: P4a supplies the mechanism, P4b the policy.** The
+   "softer of your two shops" rule (§2.4.2) is P4b's. P4a builds only
+   the explicit targeting, its validation and its persistence, and
+   with one shop the resolver returns that sole address — which is
+   precisely why it can be behavior-neutral now and load-bearing
+   later.
+5. **The home shop keeps the legacy world channel.** Derived daily
+   rolls for the home address stay on exactly the channel they use
+   today; changing that channel would move the world and break
+   identity by construction. Additional addresses may draw from
+   channels derived from their stable key (rev. 22 item 6's rule that
+   no roll depends on list order) — but those channels do not exist
+   until a second address does.
+6. **The compatibility aliases fail closed at BOTH ends.** The five
+   `shops[0]` accessors must refuse zero shops as well as more than
+   one — a state with no address is as malformed as a state with two
+   the caller did not expect — and both refusals route through one
+   `exactly_one_shop()` authority rather than five spellings. By the
+   end of P4a.3 no production module consumes them; they are retained
+   only where the legacy-equivalence projection genuinely requires
+   them, which is the one place a "the shop" concept is still
+   correct.
+7. **No implicit home defaults in addressed operations.** Once an
+   operation names an address, wagon, origin, destination or warning
+   reference, an unknown or missing reference **fails closed** rather
+   than falling back to the home shop. A silent default is how the
+   pre-P3.5 haul placement put every stolen crate in DiNapoli's
+   regardless of where the crew drove.
+8. **The gate binds at every PR boundary.** Full tests, ruff and
+   mypy, both identity gates 300/300 on 3.11, 3.12 AND 3.13, and all
+   three merged batteries byte-identical at 150 AND 500 seeds — at
+   each of the three merges, not once at the end. A moved
+   transcript, RNG state, ending or study digit is a refactor defect
+   to be fixed, never a result to be recorded. **No golden
+   regeneration is permitted anywhere in P4a**: the baseline is the
+   instrument here, and an instrument that moves with the thing it
+   measures has stopped measuring.
+9. **Held for P4b.** Manager vacancy, the construction window, the
+   points ledger, site selection, the second shop itself, the
+   targeting policy and the Partner story are all P4b, and none of
+   them appears in P4a in any form.
