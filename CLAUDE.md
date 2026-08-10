@@ -48,9 +48,14 @@ the reviewer finds the thing you decided was probably fine.
 - Write replies with enough specificity that the reviewer can
   re-derive every claim: exact numbers, file/function names, what was
   pinned and where.
-- End every work package with a relay-ready summary: what was ruled,
-  what was built, exact numbers, what's flagged, what awaits their
-  word.
+- ALWAYS end with a relay-ready statement addressed to the reviewer:
+  what was ruled, what was built, exact numbers, what's flagged, what
+  awaits their word. Every reply that touches the work carries one —
+  not only finished packages. A turn that is blocked, paused,
+  partial, or ends in a question to the user still carries one, and
+  says so; "I stopped to ask something" is itself a thing the
+  reviewer needs relayed. The user pastes these verbatim, so a reply
+  without one costs a round trip.
 - When wrong, correct plainly and move on. Several of the strongest
   commits in this repo are records of errors.
 
