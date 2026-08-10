@@ -10,7 +10,7 @@ invisible to a one-shop run and to every green gate.
 
 import unittest
 
-from extra_toppings import models, save
+from extra_toppings import data, models, save
 from extra_toppings.models import (ADDRESS_CAPABILITIES,
                                    CONSTRUCTION_ALLOWED,
                                    CONSTRUCTION_DAYS, HOME_SHOP_KEY,
@@ -86,6 +86,29 @@ class TestCapabilityMatrix(unittest.TestCase):
         self.assertEqual(CONSTRUCTION_ALLOWED,
                          frozenset({"staffing", "pantry_supply"}))
 
+    def test_improvements_are_disallowed_during_construction(self):
+        # `phases._improvements` is address-bound: without a name in
+        # the vocabulary the "only staffing and pantry supply" ruling
+        # would hold in prose while a building site bought an oven.
+        self.assertIn("improvements", ADDRESS_CAPABILITIES)
+        state = _with_site(day=6, acceptance=5)
+        self.assertFalse(address_allows(state.shop_by_key("shop2"),
+                                        state.day, "improvements"))
+        state.day = 7
+        self.assertTrue(address_allows(state.shop_by_key("shop2"),
+                                       state.day, "improvements"))
+
+    def test_every_address_bound_surface_has_a_capability_name(self):
+        # The vocabulary is the enforcement surface: a surface with no
+        # name cannot be gated, and the gap is invisible until a
+        # building site exercises it.
+        for name in ("demand", "service", "routes", "cover",
+                     "laundering", "rent", "rival_targeting",
+                     "law_targeting", "contraband_storage",
+                     "wagon_use", "staffing", "pantry_supply",
+                     "improvements"):
+            self.assertIn(name, ADDRESS_CAPABILITIES)
+
     def test_opening_enables_the_complete_address_in_one_transition(self):
         state = _with_site(day=7, acceptance=5)
         site = state.shop_by_key("shop2")
@@ -116,6 +139,23 @@ class TestOpenShopsFiltering(unittest.TestCase):
         self.assertEqual([s.key for s in open_shops(state)],
                          [HOME_SHOP_KEY, "shop2"])
 
+    def test_the_order_is_by_key_and_survives_reversal(self):
+        # Menus will iterate this: storage order would let a save's
+        # list position decide prompt order and therefore bot
+        # decisions. Pinned BEFORE consumers spread — a key sorting
+        # after the founding key proves it is not merely storage
+        # order wearing a sort.
+        state = _with_site(day=7, acceptance=5)
+        state.shops.append(Shop(
+            key="aaa_shop", district="meadows",
+            acceptance_day=5, opening_day=5 + CONSTRUCTION_DAYS))
+        state.wagons.append(Wagon(key="wagon3", shop_key="aaa_shop"))
+        expected = ["aaa_shop", HOME_SHOP_KEY, "shop2"]
+        self.assertEqual([s.key for s in open_shops(state)], expected)
+        state.shops.reverse()
+        self.assertEqual([s.key for s in open_shops(state)], expected)
+        validate_addresses(state)
+
 
 class TestWagonClaim(unittest.TestCase):
     def test_a_construction_wagon_refuses_with_visible_words(self):
@@ -123,6 +163,24 @@ class TestWagonClaim(unittest.TestCase):
         claim = wagon_claim(state, "wagon2")
         self.assertFalse(claim.available)
         self.assertIn("contractor's yard", claim.note)
+
+    def test_the_refusal_speaks_the_district_label_never_its_key(self):
+        # An internal identity in player prose ("the little_sicily
+        # wagon") is the leak this pins shut. Every district with a
+        # multi-word or underscored key is checked, because the two
+        # spellings only diverge there.
+        for district in data.DISTRICTS:
+            state = new_state()
+            state.day = 6
+            state.shops.append(Shop(
+                key="shop2", district=district,
+                acceptance_day=5, opening_day=5 + CONSTRUCTION_DAYS))
+            state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
+            note = wagon_claim(state, "wagon2").note
+            self.assertIn(data.DISTRICTS[district]["label"], note)
+            self.assertNotIn("_", note)
+            self.assertNotIn(district, note.replace(
+                data.DISTRICTS[district]["label"], ""))
 
     def test_the_refusal_lifts_the_morning_the_address_opens(self):
         state = _with_site(day=7, acceptance=5)
@@ -175,6 +233,24 @@ class TestLifecycleValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_addresses(state)
 
+    def test_an_acceptance_in_the_future_is_refused(self):
+        # The deal is struck at a sit-down that already happened, so
+        # an acceptance the run has not reached describes a
+        # transaction nobody made. Refused, never clamped forward.
+        state = self._valid()
+        site = state.shop_by_key("shop2")
+        site.acceptance_day = state.day + 1
+        site.opening_day = site.acceptance_day + CONSTRUCTION_DAYS
+        with self.assertRaises(ValueError) as caught:
+            validate_addresses(state)
+        self.assertIn("future", str(caught.exception))
+
+    def test_an_acceptance_on_today_is_allowed(self):
+        # The boundary the rule turns on: accepted TONIGHT is the
+        # normal case P4b.1b creates, and must not be refused.
+        state = _with_site(day=5, acceptance=5)
+        validate_addresses(state)
+
     def test_the_construction_span_is_recorded_not_chosen(self):
         state = self._valid()
         site = state.shop_by_key("shop2")
@@ -182,14 +258,46 @@ class TestLifecycleValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_addresses(state)
 
-    def test_a_world_of_building_sites_is_refused(self):
-        # Morning, service and night need a subject: the founding
-        # shop is open by construction, and no path un-opens an
-        # address, so every-shop-under-construction is malformed.
+    def test_only_the_founding_address_may_be_undated(self):
+        # An undated second address silently claims to have been open
+        # since the world began — a founding-open shop nobody founded.
         state = new_state()
+        state.day = 6
+        state.shops.append(Shop(key="shop2", district="university"))
+        state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
+        with self.assertRaises(ValueError) as caught:
+            validate_addresses(state)
+        self.assertIn("undated", str(caught.exception))
+
+    def test_a_dated_founding_address_leaves_none_undated(self):
+        # The rule binds at BOTH ends: zero undated addresses is as
+        # malformed as two, because every world has exactly one shop
+        # that was there before any deal.
+        state = self._valid()
         home = state.shop_by_key(HOME_SHOP_KEY)
-        home.acceptance_day = state.day
-        home.opening_day = state.day + CONSTRUCTION_DAYS
+        home.acceptance_day = 1
+        home.opening_day = 1 + CONSTRUCTION_DAYS
+        with self.assertRaises(ValueError) as caught:
+            validate_addresses(state)
+        self.assertIn("undated", str(caught.exception))
+
+    def test_the_sole_address_of_a_one_shop_world_stays_undated(self):
+        # The absence migration is untouched: the released game's
+        # every save carries exactly one undated address.
+        validate_addresses(new_state())
+
+    def test_no_open_address_is_refused_as_a_derived_invariant(self):
+        # Ruled licensed in review as a DERIVED invariant, not a new
+        # mechanic. With the undated rule in force it is now
+        # defense-in-depth — an all-sites world is refused by the
+        # undated rule first — so this asserts the invariant directly
+        # rather than through a payload that can no longer reach it.
+        state = _with_site(day=6, acceptance=5)
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.acceptance_day = 5
+        home.opening_day = 5 + CONSTRUCTION_DAYS
+        self.assertFalse(any(shop_is_open(s, state.day)
+                             for s in state.shops))
         with self.assertRaises(ValueError):
             validate_addresses(state)
 

@@ -17,8 +17,18 @@ from extra_toppings.ui import ScriptedConsole
 
 
 def two_addresses():
+    # The second address carries its lifecycle dates (P4b.1a): only
+    # the founding shop may be undated, and the calendar sits after
+    # the opening day so this is the OPEN, operating second address
+    # every test below is about.
+    # The dates sit as early as the rule allows (acceptance >= day 1,
+    # opening = acceptance + 2) because tests below wind the calendar
+    # back to day 5, and an acceptance the run has not reached is
+    # refused. Day 3 is the earliest a second address can be open.
     state = new_state()
-    state.shops.append(Shop(key="shop2", district="university"))
+    state.day = 3
+    state.shops.append(Shop(key="shop2", district="university",
+                            acceptance_day=1, opening_day=3))
     state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
     return state, state.shops[0], state.shops[1]
 

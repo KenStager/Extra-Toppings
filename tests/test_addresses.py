@@ -167,9 +167,16 @@ class TestAddressValidation(unittest.TestCase):
         self.assertIn("unknown district", str(caught.exception))
 
     def test_an_address_keeping_no_wagon_is_refused(self):
-        # Canon buys the address and its wagon in one transaction.
+        # Canon buys the address and its wagon in one transaction —
+        # including from acceptance, while the site is still being
+        # built (rev. 29 item 3), which is why a DATED second address
+        # with no wagon is the case that proves this rule. The dates
+        # are what let it reach the wagon check at all: an undated
+        # second address is refused earlier, by the founding-address
+        # rule (P4b.1a).
         state = self._valid()
-        state.shops.append(Shop(key="shop2"))
+        state.shops.append(Shop(key="shop2", acceptance_day=1,
+                                opening_day=3))
         with self.assertRaises(ValueError) as caught:
             validate_addresses(state)
         self.assertIn("keeps no wagon", str(caught.exception))

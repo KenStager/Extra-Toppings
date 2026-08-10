@@ -16,9 +16,16 @@ from extra_toppings.ui import ScriptedConsole
 
 
 def two_addresses():
-    """A second address, wired up the way P4b will build it."""
+    """A second address, wired up the way P4b will build it — now
+    including its lifecycle dates (P4b.1a): a second address is
+    created by a dated transaction, and only the founding shop may be
+    undated. The calendar sits after the opening day, so the address
+    is OPEN and every surface below sees the operating shop it always
+    meant to test."""
     state = new_state()
-    second = Shop(key="shop2", district="university")
+    state.day = 16
+    second = Shop(key="shop2", district="university",
+                  acceptance_day=14, opening_day=16)
     state.shops.append(second)
     state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
     return state, state.shops[0], second

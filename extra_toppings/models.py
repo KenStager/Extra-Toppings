@@ -1071,6 +1071,12 @@ ADDRESS_CAPABILITIES = (
     "wagon_use",           # its wagon leaving the yard (any consumer)
     "staffing",            # assigning employees to it
     "pantry_supply",       # buying ingredients for opening preparation
+    # `phases._improvements` is a real address-bound surface: upgrades
+    # are bought for a named shop and land in that shop's `upgrades`.
+    # Without a capability name the authority could not actually
+    # ENFORCE "only staffing and pantry supply" — the ruling would
+    # hold in prose while a building site bought a second oven.
+    "improvements",        # buying upgrades for it
 )
 # Under construction, ALLOWED: staffing, and pantry supply for opening
 # preparation. Everything else is DISALLOWED (§2.4.2's central ruling:
@@ -1097,12 +1103,21 @@ def shop_is_open(shop: "Shop", day: int) -> bool:
 
 
 def open_shops(state: "State") -> list:
-    """Every address that is open TODAY, in storage order — the
+    """Every address that is open TODAY, in stable KEY order — the
     filtering authority behind every morning/service/night surface
-    that operates over 'the shops'. While every address is open this
-    is exactly `state.shops`, which is why P4b.1a's conversion is
-    behaviour-equivalent by construction on every released path."""
-    return [s for s in state.shops if shop_is_open(s, state.day)]
+    that operates over 'the shops'.
+
+    KEY order, never storage order (`wagons_at`'s rule, and the same
+    reason): menus will iterate this result, so storage order would
+    make a save's list position decide prompt order and therefore bot
+    decisions — reinstating exactly the positional identity stable
+    keys exist to abolish. Pinned before consumers spread, not after.
+
+    While one address exists this is exactly `state.shops`, which is
+    why P4b.1a's conversion is behaviour-equivalent by construction
+    on every released path."""
+    return sorted((s for s in state.shops if shop_is_open(s, state.day)),
+                  key=lambda s: s.key)
 
 
 def address_allows(shop: "Shop", day: int, capability: str) -> bool:
@@ -1136,9 +1151,11 @@ def wagon_claim(state: "State", wagon_key: str) -> "WagonAvailability":
     home = state.shop_by_key(wagon.shop_key)
     if address_allows(home, state.day, "wagon_use"):
         return WAGON_FREE
+    # The district's LABEL, never its key: `little_sicily` is an
+    # internal identity, and a refusal the player reads is prose.
     return WagonAvailability(
-        False, f"the {home.district} wagon is still at the "
-               f"contractor's yard")
+        False, f"the {data.DISTRICTS[home.district]['label']} wagon "
+               f"is still at the contractor's yard")
 
 
 def validate_addresses(state: "State") -> None:
@@ -1149,6 +1166,7 @@ def validate_addresses(state: "State") -> None:
     if not state.shops:
         raise ValueError("a state must carry at least one shop")
     seen: set = set()
+    undated: list = []
     for i, s in enumerate(state.shops):
         if not isinstance(s.key, str) or not s.key:
             raise ValueError(f"shops[{i}]: a shop key must be a "
@@ -1164,34 +1182,58 @@ def validate_addresses(state: "State") -> None:
                              f"{s.district!r}")
         # The lifecycle dates bind together (§2.4.2, rev. 29 item 4):
         # both or neither, whole calendar days (a bool is not a day —
-        # `type(...) is int`, the save layer's own rule), and the
-        # recorded relationship exactly. Absence is the founding
-        # state; a present-but-malformed value is refused, because
-        # repairing it would silently open or un-open an address.
+        # `type(...) is int`, the save layer's own rule), the recorded
+        # relationship exactly, and a chronology that the calendar can
+        # actually have reached. A present-but-malformed value is
+        # refused, because repairing it would silently open or un-open
+        # an address.
         acc, opn = s.acceptance_day, s.opening_day
         if (acc is None) != (opn is None):
             raise ValueError(
                 f"shops[{i}]: an address records both its acceptance "
                 f"and its opening day or neither — got acceptance "
                 f"{acc!r}, opening {opn!r}")
-        if acc is not None:
-            if type(acc) is not int or type(opn) is not int:
-                raise ValueError(
-                    f"shops[{i}]: lifecycle dates are whole calendar "
-                    f"days, got acceptance {acc!r}, opening {opn!r}")
-            if acc < 1:
-                raise ValueError(
-                    f"shops[{i}]: acceptance day {acc} predates the "
-                    f"calendar")
-            if opn != acc + CONSTRUCTION_DAYS:
-                raise ValueError(
-                    f"shops[{i}]: opening day {opn} must be "
-                    f"acceptance day {acc} + {CONSTRUCTION_DAYS} — "
-                    f"the construction span is recorded, not chosen")
-    # A world with no open address has no subject for morning, service
-    # or night: the founding shop is open by construction (it records
-    # no dates), and no path un-opens an address — so a payload where
-    # every shop is still a building site is malformed, not lean.
+        if acc is None:
+            undated.append(s.key)
+            continue
+        if type(acc) is not int or type(opn) is not int:
+            raise ValueError(
+                f"shops[{i}]: lifecycle dates are whole calendar "
+                f"days, got acceptance {acc!r}, opening {opn!r}")
+        if acc < 1:
+            raise ValueError(
+                f"shops[{i}]: acceptance day {acc} predates the "
+                f"calendar")
+        # An address cannot have been accepted on a day the run has
+        # not reached: the deal is struck at a sit-down that already
+        # happened, so a future acceptance is a payload describing a
+        # transaction nobody made. Refused, never clamped forward.
+        if acc > state.day:
+            raise ValueError(
+                f"shops[{i}]: acceptance day {acc} is in the future "
+                f"on day {state.day} — an address cannot be accepted "
+                f"before the run reaches the day it was accepted")
+        if opn != acc + CONSTRUCTION_DAYS:
+            raise ValueError(
+                f"shops[{i}]: opening day {opn} must be "
+                f"acceptance day {acc} + {CONSTRUCTION_DAYS} — "
+                f"the construction span is recorded, not chosen")
+    # Absence identifies THE founding address, and only it. Every
+    # address created after the world was built is created by a dated
+    # transaction, so a second undated address is not a lean record:
+    # it is a shop that silently claims to have been open since the
+    # beginning — the same silent default that put every stolen crate
+    # in DiNapoli's, wearing a lifecycle instead of an origin.
+    if len(undated) != 1:
+        raise ValueError(
+            f"exactly one address is undated (the founding shop); "
+            f"{len(undated)} are: {sorted(undated)}")
+    # DERIVED invariant, not a new mechanic (ruled licensed in
+    # review): the founding address records no dates and is therefore
+    # open on every day, construction never closes an open address,
+    # and no transition un-opens one — so a payload in which every
+    # shop is a building site describes a world no play can reach,
+    # and morning, service and night would have no subject.
     if not any(shop_is_open(s, state.day) for s in state.shops):
         raise ValueError("no address is open — a state must keep at "
                          "least one open shop")
