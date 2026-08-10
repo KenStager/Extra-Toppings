@@ -26,6 +26,15 @@ class Employee:
     trait: str
     wage: int
     bio: str
+    # WHERE they work (design rev. 27 item 1). One person, one job,
+    # one address: staffing two shops off one roster is the Partner
+    # branch's binding constraint, so the assignment is persisted
+    # rather than re-derived. REQUIRED, with no home default — a
+    # roster entry that names no address is a bug, and rev. 27 item 7
+    # forbids the fallback that would hide it (the one place the
+    # founding address may be inferred is the one-address save
+    # migration).
+    shop_key: str
     hired: bool = False
     aware: bool = False          # read in on the real business
     morale: int = 6              # 0-10
@@ -34,12 +43,6 @@ class Employee:
     routes_survived: int = 0
     familiarity: dict = field(default_factory=dict)   # district -> routes driven there
     resignation_pending: bool = False    # confronted you; one chance to fix it
-    # WHERE they work (design rev. 27 item 1). One person, one job,
-    # one address: staffing two shops off one roster is the Partner
-    # branch's binding constraint, so the assignment is persisted
-    # rather than re-derived. Defaults to the founding address, which
-    # is the only one any existing payload could mean.
-    shop_key: str = HOME_SHOP_KEY
 
     @property
     def available(self) -> bool:
@@ -64,13 +67,42 @@ class District:
     sold_yesterday: dict = field(default_factory=dict)   # good -> units (price depression)
 
 
+@dataclass(frozen=True)
+class RaidWarning:
+    """A telegraphed raid: how many nights out, and WHICH address it
+    named (design rev. 23 item 2). One value, validated at
+    construction, because a countdown and a target held as two loose
+    fields can disagree — and a warning already on the board must not
+    be able to change its mind about where it is going when a save is
+    reloaded."""
+
+    nights: int
+    shop_key: str
+
+    def __post_init__(self) -> None:
+        if type(self.nights) is not int or self.nights < 1:
+            raise ValueError(f"a warning counts down from at least one "
+                             f"night, got {self.nights!r}")
+        if not isinstance(self.shop_key, str) or not self.shop_key:
+            raise ValueError(f"a warning must name an address, got "
+                             f"{self.shop_key!r}")
+
+    def counted_down(self):
+        """One night closer. None once it arrives."""
+        if self.nights > 1:
+            return RaidWarning(self.nights - 1, self.shop_key)
+        return None
+
+
 @dataclass
 class Rival:
     key: str
     strength: float
     relation: float = -10.0       # -100 vendetta … +100 partner
     tribute_demanded: int = 0
-    raid_warning: int = 0         # days until their telegraphed raid (0 = none)
+    # THE telegraphed raid, typed: the countdown and the address it
+    # named are one value or they are nothing (rev. 23 item 2).
+    warning: "RaidWarning | None" = None
     ledger_stolen: bool = False
     ovens_wrecked_days: int = 0
     alertness: float = 0.0        # 0-10: how hard their security has learned
@@ -79,6 +111,13 @@ class Rival:
     @property
     def alive(self) -> bool:
         return self.strength > 0
+
+    @property
+    def raid_warning(self) -> int:
+        """Nights until their raid, 0 when none is on the board. A
+        DERIVED read: the warning itself is the typed value, so there
+        is no second field to fall out of step with it."""
+        return self.warning.nights if self.warning is not None else 0
 
 
 @dataclass
@@ -467,10 +506,15 @@ ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
 class Wagon:
     """A vehicle, owned by one address. Capacity is NOT a field: it is
     fixed by the model (`data.VEHICLE_CARGO`), exactly as
-    RouteManifest already states — no payload chooses its own wagon."""
+    RouteManifest already states — no payload chooses its own wagon.
 
-    key: str = HOME_WAGON_KEY
-    shop_key: str = HOME_SHOP_KEY
+    Both identities are REQUIRED (rev. 27 item 7): a wagon that names
+    neither itself nor where it is kept is not a lean record, it is a
+    vehicle nobody can find. The founding wagon is inferred in exactly
+    one place — the one-address save migration."""
+
+    key: str
+    shop_key: str
 
 
 @dataclass(frozen=True)
@@ -966,6 +1010,48 @@ def exactly_one_shop(state: "State") -> "Shop":
     return state.shops[0]
 
 
+def operating_shop(state: "State") -> "Shop":
+    """THE address a single-address surface is talking about (design
+    rev. 27 item 6).
+
+    Act I, the Straight Path and the Quiet Sale all concern ONE
+    established shop — that is their story, not an accident of the
+    schema — so they resolve it here, ONCE, at their boundary and
+    thread the result through instead of each call site reaching for
+    "the shop". It is deliberately the same refusal as
+    `exactly_one_shop`: the day a surface that assumed one address
+    meets two, it fails in a test rather than silently operating on
+    whichever happens to sit first in the list.
+
+    This is not a compatibility alias by another spelling. An alias
+    is read wherever a shop is wanted; this is called at a boundary,
+    and everything downstream takes a Shop parameter."""
+    return exactly_one_shop(state)
+
+
+def raid_target(state: "State", rival_key: str) -> str:
+    """THE address-target authority (design rev. 22 item 5): which of
+    the player's addresses a rival moves against. P4a supplies the
+    mechanism and P4b the policy (rev. 27 item 4) — while one address
+    exists the answer is that address, and "the softer of your two
+    shops" becomes a real decision only once there are two.
+
+    It never guesses: with no address there is nothing to raid, and
+    that is a refusal rather than a home default."""
+    if not state.shops:
+        raise ValueError("no address exists for a raid to target")
+    if len(state.shops) != 1:
+        # P4b owns the "softer of your two shops" policy (rev. 27
+        # item 4). Until it exists, picking one would be picking by
+        # LIST POSITION — reversing state.shops would move the raid to
+        # a different address, which is the whole defect stable keys
+        # exist to abolish. So this refuses rather than guessing.
+        raise ValueError(
+            f"{len(state.shops)} addresses exist and no targeting "
+            f"policy has been ruled on — P4b owns that choice")
+    return state.shops[0].key
+
+
 def validate_addresses(state: "State") -> None:
     """Shops and wagons are identified by key, so the keys must BE
     identities (rev. 27 item 1): present, non-empty, unique within
@@ -1019,6 +1105,13 @@ def validate_addresses(state: "State") -> None:
         if e.shop_key not in seen:
             raise ValueError(f"employees[{i}] ({e.key}): assigned to "
                              f"unknown address {e.shop_key!r}")
+    # A telegraphed raid names an address that exists — a warning
+    # pointing nowhere could never be resolved, and reloading must not
+    # be able to retarget one already on the board (rev. 23 item 2).
+    for key, rv in state.rivals.items():
+        if rv.warning is not None and rv.warning.shop_key not in seen:
+            raise ValueError(f"rival {key!r}: warning names unknown "
+                             f"address {rv.warning.shop_key!r}")
 
 
 def validate_cross_state(state: "State") -> None:
@@ -1068,22 +1161,48 @@ def validate_execution_history(state: "State") -> None:
     succeeded raid damage against jobs-channel damage, and route
     corner damage against corners-channel damage, by day and rival.
     Refused, never repaired."""
-    for name, log, kind in (("raid_log", state.raid_log,
-                             RaidAttemptRecord),
-                            ("route_log", state.route_log,
-                             RouteExecutionRecord)):
-        prev = 0
-        for i, rec in enumerate(log):
-            if not isinstance(rec, kind):
-                raise ValueError(f"{name}[{i}]: not a {kind.__name__}")
-            if rec.day > state.day:
-                raise ValueError(f"{name}[{i}]: day {rec.day} post-dates "
-                                 f"the state's day {state.day}")
-            if rec.day <= prev:
-                raise ValueError(f"{name}[{i}]: one job a night — days "
-                                 f"must strictly increase "
-                                 f"({prev} → {rec.day})")
-            prev = rec.day
+    # Raids stay one a night. Routes are ordered by day and unique on
+    # (day, ORIGIN) — design rev. 22 item 1: one wagon per address per
+    # night, so a second address may run its own route the same night
+    # while no address runs two. With one address that is exactly the
+    # old rule.
+    prev = 0
+    for i, rec in enumerate(state.raid_log):
+        if not isinstance(rec, RaidAttemptRecord):
+            raise ValueError(f"raid_log[{i}]: not a RaidAttemptRecord")
+        if rec.day > state.day:
+            raise ValueError(f"raid_log[{i}]: day {rec.day} post-dates "
+                             f"the state's day {state.day}")
+        if rec.day <= prev:
+            raise ValueError(f"raid_log[{i}]: one job a night — days "
+                             f"must strictly increase "
+                             f"({prev} → {rec.day})")
+        prev = rec.day
+    prev = 0
+    seen_routes: set = set()
+    for i, rec in enumerate(state.route_log):
+        if not isinstance(rec, RouteExecutionRecord):
+            raise ValueError(f"route_log[{i}]: not a "
+                             f"RouteExecutionRecord")
+        if rec.day > state.day:
+            raise ValueError(f"route_log[{i}]: day {rec.day} post-dates "
+                             f"the state's day {state.day}")
+        if rec.day < prev:
+            raise ValueError(f"route_log[{i}]: routes are booked in "
+                             f"calendar order ({prev} → {rec.day})")
+        if (rec.day, rec.origin_shop) in seen_routes:
+            raise ValueError(f"route_log[{i}]: one route per address "
+                             f"per night — day {rec.day} already has "
+                             f"one from that address")
+        seen_routes.add((rec.day, rec.origin_shop))
+        prev = rec.day
+        # A booked route left a REAL address (rev. 27 item 7): an
+        # origin naming nowhere could never have happened, so the
+        # payload is refused rather than loaded and puzzled over.
+        if rec.origin_shop not in {sh.key for sh in state.shops}:
+            raise ValueError(f"route_log[{i}]: origin "
+                             f"{rec.origin_shop!r} is not an address "
+                             f"this state has")
 
     camps = (state.branch_state.campaigns
              if state.branch == "war" and state.branch_state is not None
@@ -1305,10 +1424,22 @@ class RouteExecutionRecord:
     units_sold: int
     corner_damage_h: int
     contested: bool
+    # WHICH address the wagon rolled out of (design rev. 22 item 1).
+    # Chronology is keyed on (day, origin), so without it a second
+    # address's route is indistinguishable from a duplicate of the
+    # first's. REQUIRED (rev. 27 item 7): a record that names no
+    # origin would silently book itself against the founding address
+    # and collide with a route that really ran there. Pre-origin
+    # payloads are migrated at the one-address save boundary, which is
+    # the only place the founding address may be assumed.
+    origin_shop: str
 
     def __post_init__(self) -> None:
         if type(self.day) is not int or self.day < 1:
             raise ValueError(f"route record: bad day {self.day!r}")
+        if not isinstance(self.origin_shop, str) or not self.origin_shop:
+            raise ValueError(f"route record: bad origin "
+                             f"{self.origin_shop!r}")
         if self.district not in data.DISTRICTS:
             raise ValueError(f"route record: unknown district "
                              f"{self.district!r}")
@@ -1341,16 +1472,18 @@ class RouteExecutionRecord:
 
     @classmethod
     def of_market(cls, day: int, rm, units_sold: int,
-                  corner_damage_h: int) -> "RouteExecutionRecord":
+                  corner_damage_h: int, origin_shop: str
+                  ) -> "RouteExecutionRecord":
         """The authoritative constructor: band, multiplier, district
         and contested flag come from the RouteMarket view the route
-        actually ran on."""
+        actually ran on, and the origin from the address it left."""
         return cls(day=day, district=rm.district,
                    heat_band=rm.heat.band,
                    capacity_mult=rm.heat.capacity_mult,
                    units_sold=units_sold,
                    corner_damage_h=corner_damage_h,
-                   contested=rm.corner_rate > 0.0)
+                   contested=rm.corner_rate > 0.0,
+                   origin_shop=origin_shop)
 
 
 # ── THE storage capacity authority (rev. 18 item 2, made SAFE per
@@ -1502,7 +1635,7 @@ def move_goods(state: "State", src: str, dst: str, good: str,
     b[good] = b.get(good, 0) + units
 
 
-def place_haul(state: "State", haul: dict) -> tuple:
+def place_haul(state: "State", haul: dict, destination: str) -> tuple:
     """THE haul-placement authority (rev. 15 item 2): stolen or
     salvaged goods fill the shop stash first, then the warehouse if
     rented, and anything past that stays where it was found. Returns
@@ -1515,14 +1648,16 @@ def place_haul(state: "State", haul: dict) -> tuple:
     mutate — a refusal leaves every stash byte-identical, never a
     half-placed haul."""
     validate_inventory_map(haul, "haul")
-    # P4a.2 names the address explicitly instead of indexing it; the
-    # crew's actual RETURN address becomes a parameter in P4a.3, which
-    # is where haul placement stops assuming there is only one.
-    home = exactly_one_shop(state).key
-    storage_preflight(state, home)
+    # The crew unloads where they actually came back to (design
+    # rev. 22 item 5). An unknown destination is refused, never
+    # resolved to the founding address — a silent home default is
+    # exactly how every stolen crate used to land at DiNapoli's
+    # whichever address the wagon drove home.
+    shop = state.shop_by_key(destination)
+    storage_preflight(state, destination)
     if state.warehouse is not None:
         storage_preflight(state, WAREHOUSE)
-    shop_room = space_cap(state, home) - space_used(state.shop_stash)
+    shop_room = space_cap(state, destination) - space_used(shop.stash)
     wh_room = (space_cap(state, WAREHOUSE)
                - space_used(state.warehouse)
                if state.warehouse is not None else 0)
@@ -1548,7 +1683,7 @@ def place_haul(state: "State", haul: dict) -> tuple:
         if u - rest:
             kept[g] = u - rest
     for g, u in to_shop_all.items():             # the ONE commit
-        state.shop_stash[g] = state.shop_stash.get(g, 0) + u
+        shop.stash[g] = shop.stash.get(g, 0) + u
     if to_wh_all:
         wh = state.warehouse
         assert wh is not None                    # allocation implies rented
@@ -1649,7 +1784,13 @@ def set_relation(state: "State", rival_key: str, value: float) -> None:
 class Shop:
     # THE address's stable identity (rev. 27 item 1) — never its index
     # in state.shops, which changes the moment a second address opens.
-    key: str = HOME_SHOP_KEY
+    # REQUIRED (rev. 27 item 7): an address that does not say which
+    # one it is cannot be looked up, targeted or staffed, and quietly
+    # becoming the home shop is precisely the silent default that put
+    # every stolen crate in DiNapoli's. The founding address is named
+    # once, where the world is built; a keyless payload is inferred
+    # once, at the one-address save migration.
+    key: str
     quality: str = "standard"        # purchasing policy: cheap / standard / gourmet
     price: str = "standard"          # cheap / standard / gourmet  (menu pricing)
     ingredients: int = 40            # one unit = one order
@@ -1687,8 +1828,14 @@ class State:
     clean: int = data.START_CLEAN
     dirty: int = data.START_DIRTY
     debt: int = data.START_DEBT
-    shops: list = field(default_factory=lambda: [Shop()])  # keyed, not indexed
-    wagons: list = field(default_factory=lambda: [Wagon()])
+    # The founding address and its wagon, NAMED — not inferred. A
+    # bare State() is still the one-shop world every test and study
+    # starts from; what it may no longer do is build an address whose
+    # identity nobody stated.
+    shops: list = field(          # keyed, not indexed
+        default_factory=lambda: [Shop(key=HOME_SHOP_KEY)])
+    wagons: list = field(default_factory=lambda: [
+        Wagon(key=HOME_WAGON_KEY, shop_key=HOME_SHOP_KEY)])
     warehouse: dict | None = None                        # good -> units, None = not rented
     warehouse_cash: int = 0                              # dirty cash stashed off-site
     employees: list = field(default_factory=list)
@@ -1737,13 +1884,18 @@ class State:
                       key=lambda w: w.key)
 
     # ── the shop, addressed as one while there is one ────────────
-    # Every alias below routes through the ONE exactly_one_shop
-    # authority (rev. 27 item 6), which refuses zero addresses as
-    # firmly as it refuses several: a state with no shop is as
-    # malformed as a state with two the caller never expected. These
-    # exist only until their consumers name an address; by the end of
-    # P4a.3 the legacy-equivalence projection is the only place a
-    # bare "the shop" is still the correct idea.
+    # NO production module reads these any more (rev. 27 item 6,
+    # completed in P4a.3): every engine surface names the address it
+    # means, and a surface that is deliberately about one address
+    # resolves it through `operating_shop` at its own boundary. What
+    # remains is the legacy-equivalence projection — which renders a
+    # save-v2 world where "the shop" genuinely WAS the whole story —
+    # and tests that deliberately exercise one-address worlds.
+    #
+    # They still route through the ONE exactly_one_shop authority,
+    # which refuses zero addresses as firmly as several, so a
+    # consumer creeping back in fails in a test the moment a second
+    # address exists rather than quietly picking the first.
     @property
     def shop(self) -> Shop:
         return exactly_one_shop(self)
@@ -1877,15 +2029,20 @@ class State:
 
 def new_state() -> State:
     s = State()
-    s.shops = [Shop(district=data.HOME_DISTRICT)]
+    # The founding address, its stash and its roster all name the one
+    # address they belong to at the moment the world is built. Nothing
+    # here reads a one-shop alias to get there.
+    s.shops = [Shop(key=HOME_SHOP_KEY, district=data.HOME_DISTRICT,
+                    stash=dict(data.START_STASH))]
+    s.wagons = [Wagon(key=HOME_WAGON_KEY, shop_key=HOME_SHOP_KEY)]
     s.employees = [
-        Employee(key=f"e{i}", **spec) for i, spec in enumerate(data.EMPLOYEE_POOL)
+        Employee(key=f"e{i}", shop_key=HOME_SHOP_KEY, **spec)
+        for i, spec in enumerate(data.EMPLOYEE_POOL)
     ]
     # You start with Rosa (driver) and Tony (cook) already on payroll.
     for e in s.employees:
         if e.name.startswith(("Rosa", "Tony")):
             e.hired = True
-    s.shop_stash = dict(data.START_STASH)
     s.districts = {k: District(key=k) for k in data.DISTRICTS}
     s.districts[data.HOME_DISTRICT].known_price_age = 0
     s.rivals = {k: Rival(key=k, strength=v["strength"]) for k, v in data.RIVALS.items()}

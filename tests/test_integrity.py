@@ -5,7 +5,8 @@ double-booking, and permanent coupon damage."""
 import random
 import unittest
 
-from extra_toppings import market, phases, raids, rivals, routes, shop
+from extra_toppings import (market, models, phases, raids, rivals,
+                            routes, shop)
 from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
@@ -58,7 +59,7 @@ class TestCompleteLegitLedger(unittest.TestCase):
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         before = state.legit_revenue_today
         plan = {"district": "university", "driver": rosa, "ride_along": False,
-                "cargo": {}, "legit": 8}
+                "cargo": {}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertGreater(state.legit_revenue_today, before)
         self.assertGreater(shop.believable_ceiling(state, state.shop, state.legit_revenue_today),
@@ -123,7 +124,7 @@ class TestAssignments(unittest.TestCase):
         raids_led_before = state.raids_led
         plans = {"route": None,
                  "raid": {"rival": "vinnie", "objective": "ledger",
-                          "team": team, "armed": False}}
+                          "team": team, "armed": False, "return_shop": models.HOME_SHOP_KEY}}
         phases.night(state, plans, {"revenue": 0}, ScriptedConsole([4]),
                      Streams(15))
         self.assertEqual(state.raids_led, raids_led_before)
@@ -201,7 +202,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state.shop.ingredients = 200
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False, "driver": rosa}
+                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
         phases._commit_route(state, plan, ScriptedConsole())
         state.demand_today = 100
         report = shop.simulate_shift(state, state.shop, plan["legit"], random.Random(1))
@@ -214,7 +215,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state.shop.ingredients = 3
         rosa = next(e for e in state.employees if e.hired)
         plan = {"cargo": {}, "legit": 12, "district": "university",
-                "ride_along": False, "driver": rosa}
+                "ride_along": False, "driver": rosa, "origin_shop": models.HOME_SHOP_KEY}
         phases._commit_route(state, plan, ScriptedConsole())
         self.assertEqual(plan["legit"], 3)
 
@@ -349,7 +350,7 @@ class TestQualityIdentity(unittest.TestCase):
         state.shop.ingredients = 0
         state.shop.quality = buy_quality
         state.clean = 10000
-        phases._buy_ingredients(state, ScriptedConsole([40]))
+        phases._buy_ingredients(state, state.shop, ScriptedConsole([40]))
         state.shop.quality = serve_policy_quality
         state.shop.price = "gourmet"
         shop.roll_demand(state, random.Random(9))
@@ -370,10 +371,10 @@ class TestQualityIdentity(unittest.TestCase):
         state.shop.ingredients = 0
         state.clean = 10000
         state.shop.quality = "gourmet"
-        phases._buy_ingredients(state, ScriptedConsole([20]))
+        phases._buy_ingredients(state, state.shop, ScriptedConsole([20]))
         self.assertEqual(state.shop.pantry_quality, "gourmet")
         state.shop.quality = "cheap"
-        phases._buy_ingredients(state, ScriptedConsole([20]))
+        phases._buy_ingredients(state, state.shop, ScriptedConsole([20]))
         self.assertEqual(state.shop.pantry_quality, "cheap")
 
 

@@ -67,7 +67,7 @@ def hire(state, first_name):
 
 def arriving(state, *rival_keys):
     for key in rival_keys:
-        state.rivals[key].raid_warning = 1
+        state.rivals[key].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
     return state
 
 
@@ -83,7 +83,7 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         state = arriving(shop_with_stash(), "vinnie")
         driver = hire(state, "Rosa")
         plans = {"route": {"district": "old_harbor", "driver": driver,
-                           "ride_along": False, "cargo": {}, "legit": 0},
+                           "ride_along": False, "cargo": {}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY},
                  "raid": None}
         con = run_night(state, plans, Watching([1, 0]))
         offers = con.decoy_offers()
@@ -149,7 +149,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": objective,
                           "team": [crew], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
         return state, run_night(state, plans, Watching(script))
 
     def test_a_departed_stock_theft_denies_the_decoy(self):
@@ -172,7 +172,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [crew], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
         con = run_night(state, plans, Watching([1]))
         self.assertTrue(con.said("The night job is scrubbed"))
         offers = con.decoy_offers()
@@ -188,7 +188,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
             plans = {"route": None, "salvage": None,
                      "raid": {"rival": "sal", "objective": "steal_stock",
                               "team": [crew], "armed": False,
-                              "table_warned": True}}
+                              "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
             con = Watching([1, 0])
             phases.night(state, plans, {}, con, Streams(seed))
             offers = con.decoy_offers()
@@ -237,42 +237,64 @@ class TestTwoRivalsInOneNight(unittest.TestCase):
 class TestTheAuthorityItself(unittest.TestCase):
     """The ledger's own contract, independent of any night."""
 
+    def _fleet(self):
+        state = new_state()
+        return state, phases.WagonNight(state), models.HOME_SHOP_KEY
+
     def test_it_starts_free_and_is_claimed_once(self):
-        wagon = phases.WagonNight()
-        self.assertTrue(wagon.available)
-        self.assertEqual(wagon.note, "")
-        wagon.claim("route")
-        self.assertFalse(wagon.available)
-        self.assertEqual(wagon.note, "out on tonight's route")
+        _state, wagon, home = self._fleet()
+        self.assertTrue(wagon.available_at(home))
+        self.assertEqual(wagon.note_at(home), "")
+        wagon.claim_at(home, "route")
+        self.assertFalse(wagon.available_at(home))
+        self.assertEqual(wagon.note_at(home), "out on tonight's route")
 
     def test_a_second_claim_is_refused_not_absorbed(self):
-        # There is one wagon. A second claim means a consumer acted on
-        # a stale `available`, which is the bug class this authority
-        # exists to end — so it must surface, not be swallowed.
-        wagon = phases.WagonNight()
-        wagon.claim("route")
+        # One wagon at that address. A second claim means a consumer
+        # acted on a stale `available_at`, which is the bug class this
+        # authority exists to end — so it must surface.
+        _state, wagon, home = self._fleet()
+        wagon.claim_at(home, "route")
         with self.assertRaises(RuntimeError) as caught:
-            wagon.claim("decoy")
-        self.assertIn("already", str(caught.exception))
-        self.assertEqual(wagon.note, "out on tonight's route")
+            wagon.claim_at(home, "decoy")
+        self.assertIn("no wagon left", str(caught.exception))
+        self.assertEqual(wagon.note_at(home), "out on tonight's route")
 
     def test_even_the_same_consumer_cannot_claim_twice(self):
-        wagon = phases.WagonNight()
-        wagon.claim("raid")
+        _state, wagon, home = self._fleet()
+        wagon.claim_at(home, "raid")
         with self.assertRaises(RuntimeError):
-            wagon.claim("raid")
+            wagon.claim_at(home, "raid")
 
     def test_an_unknown_consumer_is_refused(self):
+        _state, wagon, home = self._fleet()
         with self.assertRaises(ValueError):
-            phases.WagonNight().claim("helicopter")
+            wagon.claim_at(home, "helicopter")
 
     def test_the_view_is_one_consistent_value(self):
-        wagon = phases.WagonNight()
-        self.assertEqual(wagon.view(), models.WagonAvailability(True, ""))
-        wagon.claim("route")
-        view = wagon.view()
+        _state, wagon, home = self._fleet()
+        self.assertEqual(wagon.view_at(home),
+                         models.WagonAvailability(True, ""))
+        wagon.claim_at(home, "route")
+        view = wagon.view_at(home)
         self.assertFalse(view.available)
         self.assertEqual(view.note, "out on tonight's route")
+
+    def test_one_addresss_wagon_does_not_ground_another(self):
+        # The point of the fleet: a second shop keeps its own wagon.
+        state = new_state()
+        state.shops.append(models.Shop(key="shop2", district="university"))
+        state.wagons.append(models.Wagon(key="wagon2", shop_key="shop2"))
+        wagon = phases.WagonNight(state)
+        wagon.claim_at(models.HOME_SHOP_KEY, "route")
+        self.assertFalse(wagon.available_at(models.HOME_SHOP_KEY))
+        self.assertTrue(wagon.available_at("shop2"))
+        self.assertEqual(wagon.claim_at("shop2", "route"), "wagon2")
+
+    def test_an_unknown_address_is_refused(self):
+        _state, wagon, _home = self._fleet()
+        with self.assertRaises(KeyError):
+            wagon.available_at("nowhere")
 
     def test_a_contradictory_availability_is_refused(self):
         # The pair travels as one value precisely so "free, and out on

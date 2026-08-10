@@ -5,7 +5,7 @@ decoy protects one wagonload, and ledger leverage is single-use."""
 import random
 import unittest
 
-from extra_toppings import data, market, raids, rivals
+from extra_toppings import models, data, market, raids, rivals
 from extra_toppings.models import new_state
 from extra_toppings.ui import BotConsole, ScriptedConsole
 
@@ -27,7 +27,7 @@ def crew_for(state, n=3):
 def steal_plan(state, wagon_free=True):
     return {"rival": "vinnie", "objective": "steal_stock",
             "team": [e for e in crew_for(state) if e.available],
-            "armed": False, "wagon_free": wagon_free}
+            "armed": False, "wagon_free": wagon_free, "return_shop": models.HOME_SHOP_KEY}
 
 
 class TestTargetHardening(unittest.TestCase):
@@ -138,14 +138,14 @@ class TestDecoyCap(unittest.TestCase):
     def test_decoy_protects_exactly_one_wagonload(self):
         state, rng = fresh(44)
         state.shop_stash = {"mushrooms": 40}       # bulk 40 > wagon 24
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
         raids.incoming_raid(state, "vinnie", ScriptedConsole([1]), rng)
         self.assertEqual(state.stash_bulk(state.shop_stash), data.VEHICLE_CARGO)
 
     def test_decoy_still_saves_a_small_stash_whole(self):
         state, rng = fresh(44)
         state.shop_stash = {"mushrooms": 10}       # bulk 10 <= wagon 24
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
         raids.incoming_raid(state, "vinnie", ScriptedConsole([1]), rng)
         self.assertEqual(state.shop_stash["mushrooms"], 10)
 
@@ -189,7 +189,7 @@ class TestExpectedValueDeclines(unittest.TestCase):
                 before = value(state)
                 plan = {"rival": "vinnie", "objective": "steal_stock",
                         "team": [e for e in crew if e.available],
-                        "armed": False, "wagon_free": True}
+                        "armed": False, "wagon_free": True, "return_shop": models.HOME_SHOP_KEY}
                 if not plan["team"]:
                     break
                 raids.run_raid(state, plan,
@@ -212,7 +212,7 @@ class TestSurvivorCarry(unittest.TestCase):
         crew = crew_for(state)
         survivors = crew[:2]                     # one didn't make it upright
         plan = {"rival": "vinnie", "objective": "steal_stock",
-                "team": list(crew), "armed": False, "wagon_free": True}
+                "team": list(crew), "armed": False, "wagon_free": True, "return_shop": models.HOME_SHOP_KEY}
         rspec = data.RIVALS["vinnie"]
         raids._payoff(state, plan, state.rivals["vinnie"], rspec,
                       ScriptedConsole(), rng, True, survivors)

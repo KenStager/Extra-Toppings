@@ -61,7 +61,11 @@ def war_clause_armed(state: State) -> bool:
 
 
 def upgrade_spend(state: State) -> int:
-    return sum(data.UPGRADES[k]["cost"] for k in state.shop.upgrades)
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
+    return sum(data.UPGRADES[k]["cost"] for k in shop_at.upgrades)
 
 
 @dataclass(frozen=True)
@@ -93,7 +97,11 @@ class MarkBreakdown:
 
 
 def build_mark(state: State) -> MarkBreakdown:
-    rep = state.shop.reputation
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
+    rep = shop_at.reputation
     case = state.case
     spend = upgrade_spend(state)
     rep_term = round(rep * REP_PRICE)
@@ -125,6 +133,10 @@ def compute_mark(state: State) -> int:
 def _show_card(state: State, con: Console) -> None:
     """Renders the MarkBreakdown and nothing else — every displayed
     dollar figure comes from the view, and they sum to the mark."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     card = build_mark(state)
     con.say(f"  The broker's card, itemized: base {money(BASE_PRICE)} + "
             f"rep {card.reputation:.1f} x {money(REP_PRICE)} = "
@@ -153,7 +165,7 @@ def _show_card(state: State, con: Console) -> None:
     # The classification, projected before anyone signs anything: the
     # exact tolerance and where the close lands as things stand.
     held = state.dirty + state.warehouse_cash
-    stock = state.stash_bulk(state.shop_stash) + (
+    stock = state.stash_bulk(shop_at.stash) + (
         state.stash_bulk(state.warehouse) if state.warehouse else 0)
     verdict = ("Sold the shop, kept the trade — capped at the modest tier"
                if stock > 0 or held > DIRTY_TOLERANCE
@@ -167,6 +179,10 @@ def _show_card(state: State, con: Console) -> None:
 def diligence_morning(state: State, con: Console, streams: Streams) -> None:
     """Runs before the regular morning while the sale is in escrow.
     Marks the price, narrates the week, and on day 5 holds the closing."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     bs = _bs(state)
     dd = diligence_day(state)
     if dd > DILIGENCE_DAYS:
@@ -187,7 +203,7 @@ def diligence_morning(state: State, con: Console, streams: Streams) -> None:
         con.bullet("The crew figured out what the man in the good suit was "
                    "measuring. Nobody says anything. Morale dips; they're "
                    "waiting to hear what happens to THEM.")
-    if state.stash_bulk(state.shop_stash) > 0:
+    if state.stash_bulk(shop_at.stash) > 0:
         # §3.4's oregano question, every morning it still needs asking:
         # the wagon can only sell so much before the afternoon walk, the
         # warehouse is a 20% truck and a kept-the-trade close — or the
@@ -207,6 +223,10 @@ def walkthrough(state: State, con: Console, streams: Streams) -> None:
     """The buyer's man, every diligence afternoon. Day 1 he walks for
     certain; later days scale with the neighborhood's heat. Contraband
     on premises when he walks is an incident."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     if state.game_over or state.branch != "quiet_sale":
         return
     dd = diligence_day(state)
@@ -219,7 +239,7 @@ def walkthrough(state: State, con: Console, streams: Streams) -> None:
         con.bullet("No sign of the buyer's man today. The neighborhood "
                    "waits with you.")
         return
-    if state.stash_bulk(state.shop_stash) > 0:
+    if state.stash_bulk(shop_at.stash) > 0:
         con.bullet("The buyer's man lifts the walk-in latch and goes very "
                    "quiet. He photographs nothing. He doesn't have to.")
         record_incident(state, con, streams,
@@ -260,10 +280,14 @@ def burn_assets(state: State, stock: bool = False,
     meet the incinerator; warehouse stock likewise burns only after it
     comes home. Returns (units burned, dollars burned); narration
     belongs to the caller's branch."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     units = 0
-    if stock and state.stash_bulk(state.shop_stash) > 0:
-        units = sum(u for u in state.shop_stash.values() if u > 0)
-        state.shop_stash = {}
+    if stock and state.stash_bulk(shop_at.stash) > 0:
+        units = sum(u for u in shop_at.stash.values() if u > 0)
+        shop_at.stash = {}
     burned = 0
     if cash > 0:
         burned = min(cash, state.dirty)
@@ -320,11 +344,15 @@ def offsite_move_risk(state: State, con: Console, streams: Streams) -> None:
 def revert_to_standpat(state: State, con: Console, collapsed: bool) -> None:
     """Collapse and walk-away are NOT endings (§2.5): both revert to
     stand-pat with the buyer gone forever."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     state.branch = "stand_pat"
     state.branch_state = None
     validate_branch_state(state.branch, state.branch_state)
     if collapsed:
-        state.shop.reputation = max(0.0, state.shop.reputation - 8)
+        shop_at.reputation = max(0.0, shop_at.reputation - 8)
         con.say("  Word gets around: the sale fell through and nobody says "
                 "why. The crew is bruised; the shop is yours; the buyer "
                 "buys elsewhere. (Reputation -8.)")
@@ -414,7 +442,11 @@ def _closing(state: State, con: Console) -> None:
 def _kept_the_trade(state: State) -> bool:
     """Closing while contraband or > $200 unlaundered cash sits anywhere —
     shop, wagon, or warehouse — reclassifies the ending (§2.4.4)."""
-    stock = state.stash_bulk(state.shop_stash)
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
+    stock = state.stash_bulk(shop_at.stash)
     if state.warehouse:
         stock += state.stash_bulk(state.warehouse)
     return stock > 0 or (state.dirty + state.warehouse_cash) > DIRTY_TOLERANCE
@@ -424,8 +456,12 @@ def walkaway_total(state: State) -> int:
     """Settlement + clean + whatever leaves with you, retained stock at
     base book value — exactly as net_worth() prices stock. The
     settlement is already in clean by signing time."""
+    # This branch is about ONE established shop (design rev. 27
+    # item 6) — resolved here at its own surface, never read as
+    # "the shop" further down.
+    shop_at = models.operating_shop(state)
     stock = sum(u * data.GOODS[g]["base"]
-                for g, u in state.shop_stash.items())
+                for g, u in shop_at.stash.items())
     if state.warehouse:
         stock += sum(u * data.GOODS[g]["base"]
                      for g, u in state.warehouse.items())

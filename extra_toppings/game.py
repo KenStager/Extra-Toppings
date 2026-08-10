@@ -82,7 +82,8 @@ def _check_endings(state: State) -> None:
     if state.case >= 100:
         state.game_over = "arrested"
     elif state.clean <= 0 and state.dirty <= 0 and state.warehouse_cash <= 0 \
-            and not state.shop_stash and state.shop.ingredients <= 0 \
+            and not any(sh.stash for sh in state.shops) \
+            and all(sh.ingredients <= 0 for sh in state.shops) \
             and state.debt > data.START_DEBT * 2:
         state.game_over = "broke"
 
@@ -253,7 +254,7 @@ def epilogue(state: State, con: Console) -> None:
         con.say(f"  What it cost is on the board too: Case "
                 f"{state.case:.0f}/100, {crew_standing} of "
                 f"{len(state.hired())} crew standing, and a shop that "
-                f"{'kept its ovens' if not state.shop.damage_days else 'is still limping'}.")
+                f"{'kept its ovens' if not any(sh.damage_days for sh in state.shops) else 'is still limping'}.")
         con.say("  ENDING: The Harbor Is Yours.")
     elif e == "long_war":
         camp = war.campaigns(state)[-1] if war.campaigns(state) else None

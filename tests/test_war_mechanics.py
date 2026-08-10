@@ -283,7 +283,7 @@ class TestTheLedgerSpends(unittest.TestCase):
 
 class TestDefenseTaxonomy(unittest.TestCase):
     def _incoming(self, state, script, seed=7):
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         return raids.incoming_raid(state, "vinnie", Scripted(script),
                                    Streams(seed).raids)
 
@@ -292,7 +292,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
         # the raid menu must not reopen it — two options, no envelope.
         state = war_state()
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = Scripted([2])          # the old tribute index, clamped
         r = raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         _prompt, options = con.menus[-1]
@@ -315,7 +315,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
     def test_flag_off_tribute_is_untouched(self):
         state = new_state()
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = Scripted([2])
         r = raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         _prompt, options = con.menus[-1]
@@ -348,7 +348,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
         state.shop.damage_days = 2
         con = Scripted([2])
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         self.assertIsNotNone(con.find("nothing left to reopen"))
         _prompt, options = con.menus[-1]
@@ -358,7 +358,7 @@ class TestDefenseTaxonomy(unittest.TestCase):
         state = new_state()
         state.shop.damage_days = 2
         state.dirty = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = Scripted([2])
         raids.incoming_raid(state, "vinnie", con, Streams(7).raids)
         self.assertIsNone(con.find("nothing left to reopen"))
@@ -375,7 +375,7 @@ class TestBurnedOut(unittest.TestCase):
         state = war_state()
         state.clean = 5000
         state.shop.damage_days = 2
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         con = self._night(state, [1, 5])     # decoy; lock up
         self.assertEqual(state.game_over, "burned_out")
         self.assertIsNotNone(con.find("The war came home"))
@@ -383,7 +383,7 @@ class TestBurnedOut(unittest.TestCase):
     def test_the_first_raid_never_burns_out(self):
         state = war_state()
         state.clean = 5000
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         self._night(state, [1, 5])
         self.assertIsNone(state.game_over)
         self.assertEqual(state.shop.damage_days, 2)
@@ -397,7 +397,7 @@ class TestBurnedOut(unittest.TestCase):
         state.clean = 5000
         state.dirty = 5000
         state.shop.damage_days = 2
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         self._night(state, [2, 5])
         self.assertIsNone(state.game_over)
 
@@ -405,7 +405,7 @@ class TestBurnedOut(unittest.TestCase):
         state = new_state()
         state.clean = 5000
         state.shop.damage_days = 2
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         self._night(state, [1, 0, 4])   # decoy; then default menu path
         self.assertIsNone(state.game_over)
 
@@ -439,7 +439,7 @@ class TestTargetOnlyJobs(unittest.TestCase):
         rosa.hired = True
         rosa.aware = True
         plan = {"rival": "vinnie", "objective": "steal_stock",
-                "team": [rosa], "armed": False, "table_warned": True}
+                "team": [rosa], "armed": False, "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}
         break_target(state)                  # the corners got him first
         alert_before = state.rivals["vinnie"].alertness
         con = Scripted([5])                  # just lock up
@@ -613,7 +613,8 @@ class TestWarPersistenceMidCampaign(unittest.TestCase):
         state.route_log.append(RouteExecutionRecord(
             day=state.day, district="little_sicily", heat_band="cool",
             capacity_mult=1.0, units_sold=9,
-            corner_damage_h=round(applied * 100), contested=True))
+            corner_damage_h=round(applied * 100), contested=True,
+            origin_shop=models_mod.HOME_SHOP_KEY))
         d = save.state_to_dict(state)
         restored = save.state_from_dict(d)
         self.assertEqual(restored.branch_state, state.branch_state)
@@ -688,7 +689,7 @@ class TestRevision15Boundaries(unittest.TestCase):
     def test_paying_insurance_cancels_the_telegraphed_raid(self):
         state = war_state(target="vinnie")
         state.dirty = 1000
-        state.rivals["sal"].raid_warning = 2
+        state.rivals["sal"].warning = models_mod.RaidWarning(2, models_mod.HOME_SHOP_KEY)
         war.insurance_card(state, Scripted([0]))
         self.assertEqual(state.rivals["sal"].raid_warning, 0)
 
@@ -745,7 +746,7 @@ class TestRevision15Boundaries(unittest.TestCase):
         set_relation(state, "sal",
                      min(state.rivals["sal"].relation, VENDETTA_RELATION))
         state.shop.damage_days = 1
-        state.rivals["vinnie"].raid_warning = 1
+        state.rivals["vinnie"].warning = models_mod.RaidWarning(1, models_mod.HOME_SHOP_KEY)
         r = raids.incoming_raid(state, "vinnie", Scripted([1]),
                                 Streams(7).raids)
         self.assertEqual(r.damage_before, 1)
@@ -783,7 +784,7 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "vinnie", "objective": "steal_stock",
                           "team": [rosa], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         con = Scripted([6])                   # lock up (war night menu)
         phases.night(state, plans, {}, con, Streams(11))
@@ -912,7 +913,7 @@ class TestRevision16Boundaries(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
@@ -922,7 +923,7 @@ class TestRevision16Boundaries(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], True)
 
@@ -1010,7 +1011,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         report = {"salvage": war.SalvageResult(outcome="scrubbed",
                                                wagon_used=False)}
@@ -1022,7 +1023,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         report = {"salvage": war.SalvageResult(outcome="collected",
                                                wagon_used=True,
@@ -1035,7 +1036,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True},
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
                  "salvage": {"rival": "vinnie", "driver": rosa}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
@@ -1068,7 +1069,7 @@ class TestRevision17Instruments(unittest.TestCase):
         before = round(state.rivals["sal"].strength * 100)
         plan = {"rival": "sal", "objective": "steal_stock",
                 "team": [rosa, marcus], "armed": False,
-                "table_warned": True, "wagon_free": True}
+                "table_warned": True, "wagon_free": True, "return_shop": models_mod.HOME_SHOP_KEY}
         # Guard prompts answered by script; an exhausted script
         # aborts the job — either way the attempt is booked.
         base = len(state.raid_log)      # break_target booked its jobs
@@ -1094,7 +1095,7 @@ class TestRevision17Instruments(unittest.TestCase):
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
                           "team": [marcus], "armed": False,
-                          "table_warned": True}}
+                          "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         scrubs = [e for e in state.raid_log if e.outcome == "scrubbed"]
         self.assertEqual(len(scrubs), 1)
@@ -1126,7 +1127,7 @@ class TestRevision17Instruments(unittest.TestCase):
         market.roll_prices(state, _random.Random(3))
         plan = {"district": "little_sicily", "driver": rosa,
                 "ride_along": False, "legit": 0,
-                "cargo": {"mushrooms": 6}}
+                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY}
         report = routes.resolve_route(state, plan, Quiet(),
                                       _random.Random(4))
         state.districts["little_sicily"].sold_yesterday["mushrooms"] = -8
@@ -1144,7 +1145,7 @@ class TestRevision17Instruments(unittest.TestCase):
         state.districts["little_sicily"].heat = 60.0     # amber now
         plan = {"district": "little_sicily", "driver": rosa,
                 "ride_along": False, "legit": 0,
-                "cargo": {"mushrooms": 6}}
+                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY}
         routes.resolve_route(state, plan, Quiet(), _random.Random(4))
         state.districts["little_sicily"].heat = 0.0      # cools after
         record = state.route_log[-1]

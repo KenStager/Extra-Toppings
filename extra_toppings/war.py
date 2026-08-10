@@ -412,7 +412,7 @@ def insurance_card(state: State, con: Console) -> None:
             # Rev. 15 item 6: "seven quiet nights" must cancel a raid
             # already telegraphed — coverage that lets the cars keep
             # circling is not coverage.
-            sal.raid_warning = 0
+            sal.warning = None
             con.say("  Across the street, the unfamiliar cars start "
                     "their engines and leave. A merchant honors his "
                     "coverage.")
@@ -542,7 +542,10 @@ def run_salvage(state: State, plan: dict, con: Console,
             space -= take * bulk
         wagon_left += max(0, share - take)
         want -= share
-    kept, storage_left = models.place_haul(state, haul)
+    # The pickup unloads at the address its wagon came home to
+    # (rev. 22 item 5) — explicit, never a home default.
+    kept, storage_left = models.place_haul(
+        state, haul, models.exactly_one_shop(state).key)
     left_behind = wagon_left + storage_left
     state.add_heat(data.RIVALS[camp.rival_key]["home"], SALVAGE_HEAT)
     if kept:

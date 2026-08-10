@@ -56,7 +56,6 @@ import hashlib
 import json
 import os
 import random
-from dataclasses import asdict
 
 from extra_toppings import game, rng
 from extra_toppings.bot import GreedyBot
@@ -80,6 +79,14 @@ V2_EMPLOYEE_FIELDS = ("key", "name", "role", "food", "driving", "nerve",
                       "aware", "morale", "injured_days", "arrested",
                       "routes_survived", "familiarity",
                       "resignation_pending")
+# Rivals project explicitly for the same reason employees do (P4a.2):
+# asdict() renders today's dataclass, so a later field silently enters
+# the digest. raid_warning is DERIVED here — the engine now stores a
+# typed warning carrying its target address, and the v2 shape is the
+# bare countdown it always was.
+V2_RIVAL_FIELDS = ("key", "strength", "relation", "tribute_demanded",
+                   "ledger_stolen", "ovens_wrecked_days", "alertness",
+                   "last_raided_day")
 SHARED_STREAMS = ("routes", "rivals", "raids", "staff")
 BOTS = {"random": BotConsole, "greedy": GreedyBot}
 
@@ -106,7 +113,9 @@ def legacy_projection(state) -> dict:
                           "known_price_age": d.known_price_age,
                           "sold_yesterday": dict(d.sold_yesterday)}
                       for k, d in state.districts.items()},
-        "rivals": {k: asdict(r) for k, r in state.rivals.items()},
+        "rivals": {k: {**{f: getattr(r, f) for f in V2_RIVAL_FIELDS},
+                       "raid_warning": r.raid_warning}
+                   for k, r in state.rivals.items()},
         "prices": state.prices,
         "events": [{"id": e.spec["id"], "days_left": e.days_left}
                    for e in state.events],

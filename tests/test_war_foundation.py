@@ -326,6 +326,7 @@ class TestCampaignValidation(unittest.TestCase):
 
 class TestWarPersistence(unittest.TestCase):
     def test_a_campaign_round_trips_exactly(self):
+        from extra_toppings import models
         from extra_toppings.models import (RaidAttemptRecord,
                                            RouteExecutionRecord)
         state = war_state()
@@ -341,7 +342,8 @@ class TestWarPersistence(unittest.TestCase):
         state.route_log.append(RouteExecutionRecord(
             day=state.day, district="old_harbor", heat_band="cool",
             capacity_mult=1.0, units_sold=9,
-            corner_damage_h=round(corner * 100), contested=True))
+            corner_damage_h=round(corner * 100), contested=True,
+            origin_shop=models.HOME_SHOP_KEY))
         d = save.state_to_dict(state)
         restored = save.state_from_dict(d)
         self.assertEqual(restored.branch_state, state.branch_state)

@@ -7,7 +7,7 @@ import random
 import tempfile
 import unittest
 
-from extra_toppings import data, market, phases, raids, rivals, routes, save, shop
+from extra_toppings import models, data, market, phases, raids, rivals, routes, save, shop
 from extra_toppings.bot import GreedyBot
 from extra_toppings.game import run
 from extra_toppings.models import new_state
@@ -118,7 +118,7 @@ class TestRevision18Inventory(unittest.TestCase):
         rosa.aware = True
         plan = {"district": "university", "driver": rosa,
                 "ride_along": False, "legit": 1,
-                "cargo": {"oregano": 12}}          # 25 space in 24
+                "cargo": {"oregano": 12}, "origin_shop": models.HOME_SHOP_KEY}          # 25 space in 24
         con = ScriptedConsole([])
         with self.assertRaises(ValueError):
             phases._commit_route(state, plan, con)
@@ -196,11 +196,11 @@ class TestRevision19Storage(unittest.TestCase):
         with self.assertRaises(ValueError):
             models.move_goods(state, "shop", "bogus", "oregano", 1)
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"oregano": True})
+            models.place_haul(state, {"oregano": True}, state.shop.key)
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"oregano": 1.5})
+            models.place_haul(state, {"oregano": 1.5}, state.shop.key)
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"oregano": -2})
+            models.place_haul(state, {"oregano": -2}, state.shop.key)
         with self.assertRaises(ValueError):
             models.space_used({"oregano": -2})
         self.assertEqual(state.shop_stash, {"oregano": 3})
@@ -225,7 +225,8 @@ class TestRevision19Storage(unittest.TestCase):
         from extra_toppings.models import RouteExecutionRecord
         ok = {"day": 15, "district": "old_harbor", "heat_band": "cool",
               "capacity_mult": 1.0, "units_sold": 5,
-              "corner_damage_h": 0, "contested": False}
+              "corner_damage_h": 0, "contested": False,
+              "origin_shop": models.HOME_SHOP_KEY}
         RouteExecutionRecord(**ok)
         for change in ({"heat_band": "cool", "capacity_mult": 0.5},
                        {"heat_band": "amber", "capacity_mult": 1.0},
@@ -283,7 +284,7 @@ class TestRevision20Storage(unittest.TestCase):
         state.shop_stash = {}
         state.warehouse = {"oregano": 1.5}          # invalid
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"mushrooms": 60})
+            models.place_haul(state, {"mushrooms": 60}, state.shop.key)
         self.assertEqual(state.shop_stash, {})
         self.assertEqual(state.warehouse, {"oregano": 1.5})
 
@@ -293,7 +294,7 @@ class TestRevision20Storage(unittest.TestCase):
         state.shop_stash = {}
         state.warehouse = {"mushrooms": 250}        # already over cap
         with self.assertRaises(ValueError):
-            models.place_haul(state, {"mushrooms": 5})
+            models.place_haul(state, {"mushrooms": 5}, state.shop.key)
         self.assertEqual(state.shop_stash, {})
         self.assertEqual(state.warehouse, {"mushrooms": 250})
 
@@ -347,7 +348,7 @@ class TestSharedCapacity(unittest.TestCase):
         rosa.aware = True
         plan = {"district": "university", "driver": rosa,
                 "ride_along": False, "legit": 10,
-                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}}
+                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}, "origin_shop": models.HOME_SHOP_KEY}
         with self.assertRaises(ValueError):
             routes.resolve_route(state, plan, ScriptedConsole([]), rng)
 
@@ -412,7 +413,7 @@ class TestMoneySeparation(unittest.TestCase):
         driver = next(e for e in state.employees if e.hired and e.driving >= 4)
         driver.aware = True
         plan = {"district": "university", "driver": driver, "ride_along": False,
-                "cargo": {"mushrooms": 8}, "legit": 0}
+                "cargo": {"mushrooms": 8}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertEqual(state.clean, clean_before)
 
@@ -424,14 +425,14 @@ class TestTelegraphedRaids(unittest.TestCase):
             state, rng = fresh(seed)
             vinnie = state.rivals["vinnie"]
             vinnie.relation = -90     # maximum grudge, maximum aggression
-            vinnie.raid_warning = 0
+            vinnie.warning = None
             rivals.rival_phase(state, ScriptedConsole(), rng)
             self.assertNotEqual(vinnie.raid_warning, 1,
                                 "raid must never arrive the night it is decided")
 
     def test_warning_countdown_passes_through_a_visible_day(self):
         state, _ = fresh(6)
-        state.rivals["vinnie"].raid_warning = 3
+        state.rivals["vinnie"].warning = models.RaidWarning(3, models.HOME_SHOP_KEY)
         state.rivals["sal"].strength = 0          # keep sal quiet
         plans = {"route": None, "raid": None}
         report = {"revenue": 0}
@@ -448,7 +449,7 @@ class TestRecoverableFailure(unittest.TestCase):
             state.shop_stash = {"mushrooms": 10}
             state.dirty = 2000
             state.rivals["vinnie"].strength = 95
-            state.rivals["vinnie"].raid_warning = 1
+            state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
             raids.incoming_raid(state, "vinnie",
                                 ScriptedConsole([0]), rng)   # always fight
             if state.shop.damage_days > 0:
@@ -468,7 +469,7 @@ class TestRecoverableFailure(unittest.TestCase):
                 e.hired = e.aware = True
             case_before = state.case
             plan = {"rival": "vinnie", "objective": "ledger",
-                    "team": list(crew), "armed": False}
+                    "team": list(crew), "armed": False, "return_shop": models.HOME_SHOP_KEY}
             # Always pick "Abort the job" whenever a guard forces a choice.
             raids.run_raid(state, plan, ScriptedConsole([3] * 10), rng)
             if not state.rivals["vinnie"].ledger_stolen:

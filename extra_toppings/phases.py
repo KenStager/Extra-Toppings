@@ -6,12 +6,12 @@ by anything the player does. Player-facing dice use persistent streams.
 """
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from . import (data, escrow, evidence, market, models, raids, rivals,
                routes, shop, straight, war)
 from .config import GameConfig
-from .models import SitdownSnapshot, State, case_prefix
+from .models import Shop, SitdownSnapshot, State, case_prefix
 from .rng import Streams
 from .ui import Console, money
 
@@ -57,49 +57,64 @@ WAGON_NOTES = {
 
 @dataclass
 class WagonNight:
-    """THE night's wagon assignment (design rev. 25 item 1): ONE
-    stateful answer, updated by each consumer as it executes.
+    """THE night's wagon assignments (design rev. 25 item 1, widened
+    to a fleet in P4a.3): ONE stateful answer per wagon, updated by
+    each consumer as it executes.
 
     A derived boolean cannot do this job. `wagon_used` below reads
     the morning's plans and the service report, so it is blind to
     everything that happens later the same night — the outgoing raid
-    that hauls with the wagon, and the decoy that loads it against
-    the first of two arriving rivals. The night therefore carries
-    this object and spends it exactly once; every later consumer
+    that hauls with a wagon, and the decoy that loads one against the
+    first of two arriving rivals. The night therefore carries this
+    object and spends each wagon exactly once; every later consumer
     asks it rather than re-deriving an answer that has gone stale.
+
+    Availability is answered PER ADDRESS, not globally: a second shop
+    with its own wagon is not grounded because the home wagon left.
     """
 
-    claimed_by: str | None = None
+    state: "State"
+    claims: dict = field(default_factory=dict)   # wagon key -> consumer
 
-    @property
-    def available(self) -> bool:
-        return self.claimed_by is None
+    def free_at(self, shop_key: str) -> list:
+        """Wagons still at an address, in stable key order."""
+        return [w for w in self.state.wagons_at(shop_key)
+                if w.key not in self.claims]
 
-    @property
-    def note(self) -> str:
-        """The player-facing reason, empty while the wagon is free."""
-        return WAGON_NOTES.get(self.claimed_by or "", "")
+    def available_at(self, shop_key: str) -> bool:
+        return bool(self.free_at(shop_key))
 
-    def view(self) -> models.WagonAvailability:
-        """The immutable answer consumers read. One value, so an
-        availability flag and its reason cannot arrive contradicting
-        each other."""
-        return models.WagonAvailability(self.available, self.note)
+    def note_at(self, shop_key: str) -> str:
+        """Why that address has nothing to load, empty while it has.
+        With several wagons gone, the FIRST claim in key order is the
+        reason given — one sentence, deterministic."""
+        if self.available_at(shop_key):
+            return ""
+        for w in self.state.wagons_at(shop_key):
+            if w.key in self.claims:
+                return WAGON_NOTES[self.claims[w.key]]
+        return "not kept at this address"
 
-    def claim(self, by: str) -> None:
-        """Take the wagon out, exclusively. Fails CLOSED: there is one
-        wagon, so a second claim is not a thing to absorb quietly — it
-        means a consumer asked `available` and acted on a stale answer,
-        which is exactly the class of bug this authority exists to end.
-        Every caller checks availability first, so no legitimate path
-        reaches a second claim."""
+    def view_at(self, shop_key: str) -> models.WagonAvailability:
+        """The immutable answer consumers read, for one address. One
+        value, so availability and its reason cannot contradict."""
+        return models.WagonAvailability(self.available_at(shop_key),
+                                        self.note_at(shop_key))
+
+    def claim_at(self, shop_key: str, by: str) -> str:
+        """Take a wagon out from an address, exclusively; returns the
+        wagon key. Fails CLOSED when that address has none left: it
+        means a consumer asked `available_at` and acted on a stale
+        answer, which is the bug class this authority exists to end."""
         if by not in WAGON_NOTES:
             raise ValueError(f"unknown wagon consumer {by!r}")
-        if self.claimed_by is not None:
+        free = self.free_at(shop_key)
+        if not free:
             raise RuntimeError(
-                f"the wagon is already {self.note} — {by!r} cannot "
-                f"take it too; there is only one wagon")
-        self.claimed_by = by
+                f"no wagon left at that address — {by!r} cannot take "
+                f"one; every wagon there is {self.note_at(shop_key)}")
+        self.claims[free[0].key] = by
+        return free[0].key
 
 
 def wagon_used(plans: dict, service_report: dict) -> bool:
@@ -120,13 +135,19 @@ def wagon_used(plans: dict, service_report: dict) -> bool:
 
 def morning(state: State, con: Console, streams: Streams) -> dict:
     """Read the news, set the day up. Returns plans for later phases."""
+    # The address this surface is about, resolved ONCE at the
+    # boundary and threaded through (design rev. 27 item 6):
+    # Act I, the Straight Path and the Quiet Sale each concern
+    # one established shop, and every helper below takes it as
+    # a parameter rather than reaching for "the shop".
+    shop_at = models.operating_shop(state)
     market.draw_events(state, streams.daily(state.day, "events"))
     market.roll_prices(state, streams.daily(state.day, "market"))
     shop.roll_demand(state, streams.daily(state.day, "demand"))
 
     con.header(f"DAY {state.day} of {data.DEBT_DUE_DAY} — MORNING")
     con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
-            f"Debt {money(state.debt)} | Rep {state.shop.reputation:.0f} | "
+            f"Debt {money(state.debt)} | Rep {shop_at.reputation:.0f} | "
             f"Case {state.case:.0f}/100")
     if state.debt > 0:
         days_left = data.DEBT_DUE_DAY - state.day
@@ -140,8 +161,8 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
     elif state.branch == "war":
         war.morning_lines(state, con)
 
-    con.say(f"  Order book: ~{state.demand_today} customers expected, "
-            f"{state.delivery_pool} delivery orders on the board.")
+    con.say(f"  Order book: ~{shop_at.demand_today} customers expected, "
+            f"{shop_at.delivery_pool} delivery orders on the board.")
     for line in state.news:
         con.bullet(f"NEWS: {line}")
     for line in market.rumor_sheet(state, streams.daily(state.day, "rumors")):
@@ -162,10 +183,10 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
     # frozen, and stand-pat is the control (the carve-out is recorded
     # in rev. 15, not hidden here).
     active_branch = state.branch is not None and state.branch != "stand_pat"
-    if state.shop.ingredients < 10 and state.clean < 200 \
+    if shop_at.ingredients < 10 and state.clean < 200 \
             and not active_branch:
-        shop.stock_pantry(state, state.shop, 40)
-        state.debt += 40 * data.INGREDIENT_COST[state.shop.quality] + 100
+        shop.stock_pantry(state, shop_at, 40)
+        state.debt += 40 * data.INGREDIENT_COST[shop_at.quality] + 100
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
                    "The account, of course, is the debt.")
 
@@ -205,17 +226,17 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             "Open for service →",
         ])
         if c == 0:
-            _market_board(state, con)
+            _market_board(state, shop_at, con)
         elif c == 1:
-            _kitchen_policy(state, con, plans)
+            _kitchen_policy(state, shop_at, con, plans)
         elif c == 2:
-            _buy_ingredients(state, con)
+            _buy_ingredients(state, shop_at, con)
         elif c == 3 and supplier:
-            supplier = _buy_supplier(state, supplier, con)
+            supplier = _buy_supplier(state, shop_at, supplier, con)
         elif c == 4:
             _staff_menu(state, con, streams.staff)
         elif c == 5:
-            _improvements(state, con)
+            _improvements(state, shop_at, con)
         elif c == 6:
             plans["route"] = routes.plan_route(
                 state, con, streams.routes,
@@ -236,6 +257,12 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
 
 def _straight_morning_menu(state: State, con: Console, streams: Streams,
                            plans: dict, offer: dict | None) -> None:
+    # The address this surface is about, resolved ONCE at the
+    # boundary and threaded through (design rev. 27 item 6):
+    # Act I, the Straight Path and the Quiet Sale each concern
+    # one established shop, and every helper below takes it as
+    # a parameter rather than reaching for "the shop".
+    shop_at = models.operating_shop(state)
     """The branch's morning (rev. 9 item 9): the supplier slot belongs
     to the temptation offer, 'Plan tonight's route' is Disposal with
     the counted runs in its label, and the raid verb is gone."""
@@ -256,18 +283,18 @@ def _straight_morning_menu(state: State, con: Console, streams: Streams,
         ]
         c = con.menu("Morning at the shop:", options)
         if c == 0:
-            _market_board(state, con)
+            _market_board(state, shop_at, con)
         elif c == 1:
-            _kitchen_policy(state, con, plans)
+            _kitchen_policy(state, shop_at, con, plans)
         elif c == 2:
-            _buy_ingredients(state, con)
+            _buy_ingredients(state, shop_at, con)
         elif c == 3 and offer:
             if straight.take_temptation(state, offer, con, streams):
                 offer = None
         elif c == 4:
             _staff_menu(state, con, streams.staff)
         elif c == 5:
-            _improvements(state, con)
+            _improvements(state, shop_at, con)
         elif c == 6:
             fire_sale_done = _disposal_menu(state, con, streams, plans,
                                             fire_sale_done)
@@ -279,6 +306,12 @@ def _straight_morning_menu(state: State, con: Console, streams: Streams,
 
 def _war_morning_menu(state: State, con: Console, streams: Streams,
                       plans: dict, supplier: dict | None) -> None:
+    # The address this surface is about, resolved ONCE at the
+    # boundary and threaded through (design rev. 27 item 6):
+    # Act I, the Straight Path and the Quiet Sale each concern
+    # one established shop, and every helper below takes it as
+    # a parameter rather than reaching for "the shop".
+    shop_at = models.operating_shop(state)
     """The war's morning: the full market morning plus the board, the
     salvage pickup, and the standing second-declaration offer
     (rev. 14 item 9 — never a missable one-morning prompt). Entries
@@ -315,17 +348,17 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
         key = entries[con.menu("Morning at the shop:",
                                [label for label, _k in entries])][1]
         if key == "market":
-            _market_board(state, con)
+            _market_board(state, shop_at, con)
         elif key == "kitchen":
-            _kitchen_policy(state, con, plans)
+            _kitchen_policy(state, shop_at, con, plans)
         elif key == "buy":
-            _buy_ingredients(state, con)
+            _buy_ingredients(state, shop_at, con)
         elif key == "supplier" and supplier:
-            supplier = _buy_supplier(state, supplier, con)
+            supplier = _buy_supplier(state, shop_at, supplier, con)
         elif key == "staff":
             _staff_menu(state, con, streams.staff)
         elif key == "improve":
-            _improvements(state, con)
+            _improvements(state, shop_at, con)
         elif key == "route":
             if wagon_job(plans, but="route") is not None:
                 con.say("  The wagon is spoken for tonight — the pickup "
@@ -457,12 +490,12 @@ def _case_first_crossed_60_day(state: State) -> int | None:
     return None
 
 
-def _market_board(state: State, con: Console) -> None:
+def _market_board(state: State, shop_at: Shop, con: Console) -> None:
     con.say("")
     # Inventory reads units × bulk each = bulk used, everywhere a
     # stash is shown (rev. 17 item 1).
-    for line in routes.inventory_lines("The back room", state.shop_stash,
-                                       state.shop.stash_cap):
+    for line in routes.inventory_lines("The back room", shop_at.stash,
+                                       shop_at.stash_cap):
         con.say(f"  {line}")
     if state.warehouse is not None:
         for line in routes.inventory_lines("The warehouse", state.warehouse,
@@ -490,43 +523,44 @@ def _market_board(state: State, con: Console) -> None:
                     f"run a route to get fresh numbers")
 
 
-def _kitchen_policy(state: State, con: Console, plans: dict | None = None) -> None:
-    con.say(f"  Pantry holds {state.shop.ingredients} orders of "
-            f"{state.shop.pantry_quality} stock — the kitchen cooks what "
+def _kitchen_policy(state: State, shop_at: Shop, con: Console,
+                    plans: dict | None = None) -> None:
+    con.say(f"  Pantry holds {shop_at.ingredients} orders of "
+            f"{shop_at.pantry_quality} stock — the kitchen cooks what "
             f"it has, whatever the menu says.")
-    q = con.menu(f"Ingredient quality (now: {state.shop.quality}):",
+    q = con.menu(f"Ingredient quality (now: {shop_at.quality}):",
                  [f"{lv} (cost {money(data.INGREDIENT_COST[lv])}/order)"
                   for lv in QUALITY_LEVELS])
-    state.shop.quality = QUALITY_LEVELS[q]
-    p = con.menu(f"Menu pricing (now: {state.shop.price}):",
+    shop_at.quality = QUALITY_LEVELS[q]
+    p = con.menu(f"Menu pricing (now: {shop_at.price}):",
                  [f"{lv} (ticket {money(data.TICKET_PRICE[lv])})"
                   for lv in QUALITY_LEVELS])
-    state.shop.price = QUALITY_LEVELS[p]
-    if state.shop.price == "gourmet" and state.shop.quality == "cheap":
+    shop_at.price = QUALITY_LEVELS[p]
+    if shop_at.price == "gourmet" and shop_at.quality == "cheap":
         con.say("  Charging gourmet prices for cheap pies. Bold. Reviews incoming.")
     # New prices, new crowd — the order book re-forms around the menu.
-    shop.recompute_demand(state, state.shop)
-    con.say(f"  Order book now: ~{state.demand_today} customers, "
-            f"{state.delivery_pool} delivery orders.")
+    shop.recompute_demand(state, shop_at)
+    con.say(f"  Order book now: ~{shop_at.demand_today} customers, "
+            f"{shop_at.delivery_pool} delivery orders.")
     route = (plans or {}).get("route")
-    if route and route["legit"] > state.delivery_pool:
+    if route and route["legit"] > shop_at.delivery_pool:
         con.say("  Tonight's route was planned against the old order book — "
                 "the kitchen will fill what it can.")
 
 
-def _buy_ingredients(state: State, con: Console) -> None:
-    cost = data.INGREDIENT_COST[state.shop.quality]
+def _buy_ingredients(state: State, shop_at: Shop, con: Console) -> None:
+    cost = data.INGREDIENT_COST[shop_at.quality]
     most = state.clean // cost if cost else 0
-    restock = max(0, min(most, 80 - state.shop.ingredients))
+    restock = max(0, min(most, 80 - shop_at.ingredients))
     n = con.ask_int(f"Buy how many orders of stock? ({money(cost)} each, clean cash, "
-                    f"have {state.shop.ingredients} {state.shop.pantry_quality})",
+                    f"have {shop_at.ingredients} {shop_at.pantry_quality})",
                     0, min(most, 200), restock)
     state.clean -= n * cost
-    before_q = state.shop.pantry_quality if state.shop.ingredients else None
-    shop.stock_pantry(state, state.shop, n)
-    if before_q and state.shop.pantry_quality != before_q:
-        con.say(f"  The new {state.shop.quality} stock mixes into the walk-in — "
-                f"the pantry now cooks as {state.shop.pantry_quality}.")
+    before_q = shop_at.pantry_quality if shop_at.ingredients else None
+    shop.stock_pantry(state, shop_at, n)
+    if before_q and shop_at.pantry_quality != before_q:
+        con.say(f"  The new {shop_at.quality} stock mixes into the walk-in — "
+                f"the pantry now cooks as {shop_at.pantry_quality}.")
 
 
 def _supplier_offer(state: State, rng: random.Random) -> dict | None:
@@ -541,9 +575,10 @@ def _supplier_offer(state: State, rng: random.Random) -> dict | None:
     }
 
 
-def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
+def _buy_supplier(state: State, shop_at: Shop, offer: dict,
+                  con: Console) -> dict | None:
     # The storage authority prices the bound (rev. 18 item 2).
-    fit = models.units_that_fit(state, state.shop.key, offer["good"])
+    fit = models.units_that_fit(state, shop_at.key, offer["good"])
     afford = (state.dirty + state.clean) // offer["price"]
     top = min(offer["units"], fit, afford)
     if top <= 0:
@@ -555,11 +590,11 @@ def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
         from_dirty = min(state.dirty, cost)   # dirty cash first — it's harder to spend
         state.dirty -= from_dirty
         state.clean -= cost - from_dirty
-        state.shop_stash[offer["good"]] = state.shop_stash.get(offer["good"], 0) + n
+        shop_at.stash[offer["good"]] = shop_at.stash.get(offer["good"], 0) + n
         offer["units"] -= n
         con.say(f"  Boxes come in through the alley door. The back room: "
-                f"{models.space_used(state.shop_stash)}/"
-                f"{models.space_cap(state, state.shop.key)} space used.")
+                f"{models.space_used(shop_at.stash)}/"
+                f"{models.space_cap(state, shop_at.key)} space used.")
     return offer if offer["units"] > 0 else None
 
 
@@ -693,9 +728,9 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
             return
 
 
-def _improvements(state: State, con: Console) -> None:
+def _improvements(state: State, shop_at: Shop, con: Console) -> None:
     while True:
-        owned = state.shop.upgrades
+        owned = shop_at.upgrades
         # Branch verbs first (rev. 9 items 8 and 10): counsel and
         # advertising live here on the Straight Path. Flag-off and
         # stand-pat menus are untouched — extras is empty there.
@@ -732,7 +767,7 @@ def _improvements(state: State, con: Console) -> None:
                 state.clean -= cost
                 owned.add(k)
                 con.say(f"  {data.UPGRADES[k]['label']}: done by closing time.")
-                shop.recompute_demand(state, state.shop)
+                shop.recompute_demand(state, shop_at)
         elif state.warehouse is None and c == len(keys):
             state.warehouse = {}
             con.say("  Keys to a rusted rolling door. Nobody asks what's in the crates.")
@@ -743,20 +778,31 @@ def _improvements(state: State, con: Console) -> None:
 # ══ SERVICE ═══════════════════════════════════════════════════════
 
 def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
+    # The address this surface is about, resolved ONCE at the
+    # boundary and threaded through (design rev. 27 item 6):
+    # Act I, the Straight Path and the Quiet Sale each concern
+    # one established shop, and every helper below takes it as
+    # a parameter rather than reaching for "the shop".
+    shop_at = models.operating_shop(state)
     con.header(f"DAY {state.day} — SERVICE")
     plan = plans.get("route")
     if plan and not _commit_route(state, plan, con):
         plans["route"] = plan = None
+    # The cover pizzas were cooked and deducted at the address the
+    # plan NAMED; the shift below is this surface's address. They are
+    # the same shop while one exists, and `operating_shop` refuses the
+    # moment they could differ — the shift going per-address is P4b's
+    # work, not something to half-build here.
     route_legit = plan["legit"] if plan else 0
-    report = shop.simulate_shift(state, state.shop, route_legit,
+    report = shop.simulate_shift(state, shop_at, route_legit,
                                  streams.daily(state.day, "critic"))
     lost = f" ({report['lost']} turned away)" if report["lost"] else ""
     con.say(f"  Orders {report['orders']}/{report['demand']} demanded{lost}"
             f" | clean revenue {money(report['revenue'])}")
     if report["critic_line"]:
         con.bullet(report["critic_line"])
-    if state.shop.ingredients < 10:
-        con.bullet(f"Pantry low: {state.shop.ingredients} orders of stock left.")
+    if shop_at.ingredients < 10:
+        con.bullet(f"Pantry low: {shop_at.ingredients} orders of stock left.")
 
     if plans.get("route"):
         r = routes.resolve_route(state, plans["route"], con, streams.routes)
@@ -783,7 +829,19 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
 def _commit_route(state: State, plan: dict, con: Console) -> bool:
     """Morning plans are intentions; resources commit when service starts.
     Cancelled or replaced plans never touch inventory. Returns False (and
-    commits nothing) if the plan can no longer run at all."""
+    commits nothing) if the plan can no longer run at all.
+
+    The stash and pantry spent here belong to the address the plan
+    NAMED, resolved from the plan itself and never from whichever
+    address the surface happens to be about (rev. 22 item 1). A plan
+    that names no origin, or names one that does not exist, is a bug
+    and refuses BEFORE any inventory moves (rev. 27 item 7) — the
+    alternative is a wagon loading out of a shop nobody owns."""
+    origin_key = plan.get("origin_shop")
+    if not origin_key:
+        raise KeyError("route plan names no origin address — a wagon "
+                       "cannot load where nobody said it was")
+    origin = state.shop_by_key(origin_key)
     driver = plan["driver"]
     if not driver.available:
         con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
@@ -806,7 +864,7 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
     # first; only then does its inventory transaction apply, atomically.
     committed = routes.RouteManifest()
     for g, want in planned.cargo.items():
-        have = state.shop_stash.get(g, 0)
+        have = origin.stash.get(g, 0)
         take = min(want, have)
         if take < want:
             con.bullet(f"Only {take}x {data.GOODS[g]['label']} left to load — "
@@ -814,16 +872,16 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
         if take:
             committed.cargo[g] = take
     # Cover pizzas are real orders AND real oven time.
-    committed.legit = min(planned.legit, state.delivery_pool,
-                          state.shop.kitchen_cap, state.shop.ingredients)
+    committed.legit = min(planned.legit, origin.delivery_pool,
+                          origin.kitchen_cap, origin.ingredients)
     if committed.legit < planned.legit:
         con.bullet(f"The kitchen fills {committed.legit} of "
                    f"{planned.legit} planned delivery orders — orders, "
                    f"ovens and pantry set the limit.")
     committed.validate()
     for g, take in committed.cargo.items():
-        state.shop_stash[g] = state.shop_stash.get(g, 0) - take
-    state.shop.ingredients -= committed.legit
+        origin.stash[g] = origin.stash.get(g, 0) - take
+    origin.ingredients -= committed.legit
     if isinstance(plan, routes.RoutePlan):
         plan.manifest = committed
     else:                       # legacy dict plans (tests only)
@@ -847,23 +905,37 @@ def _commit_route(state: State, plan: dict, con: Console) -> bool:
 
 def night(state: State, plans: dict, service_report: dict, con: Console,
           streams: Streams, config: GameConfig | None = None) -> None:
+    # The address this surface is about, resolved ONCE at the
+    # boundary and threaded through (design rev. 27 item 6):
+    # Act I, the Straight Path and the Quiet Sale each concern
+    # one established shop, and every helper below takes it as
+    # a parameter rather than reaching for "the shop".
+    shop_at = models.operating_shop(state)
     con.header(f"DAY {state.day} — AFTER CLOSE")
     # The night's wagon, opened from what the service phase actually
     # did (a departed route or pickup holds it; a pickup scrubbed
     # before departure never took it out) and spent by each later
     # consumer in turn — design rev. 25 item 1.
-    wagon = WagonNight()
+    wagon = WagonNight(state)
     service_job = wagon_job(plans)
     if service_job is not None and wagon_used(plans, service_report):
-        wagon.claim(service_job)
+        # The service job left from the address it was planned at.
+        job_plan = plans[service_job]
+        origin = (job_plan.get("origin_shop")
+                  if service_job == "route"
+                  else None) or models.exactly_one_shop(state).key
+        wagon.claim_at(origin, service_job)
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight
     # keeps its full stated duration of service days.
-    if state.shop.damage_days:
-        state.shop.damage_days -= 1
-    if state.shop.coupon_days:
-        state.shop.coupon_days -= 1
+    # Every address heals and every coupon blitz expires on its own
+    # clock — the counters belong to the shop that carries them.
+    for a_shop in state.shops:
+        if a_shop.damage_days:
+            a_shop.damage_days -= 1
+        if a_shop.coupon_days:
+            a_shop.coupon_days -= 1
 
     raid_plan = plans.get("raid")
     if raid_plan and not state.rivals[raid_plan["rival"]].alive:
@@ -900,7 +972,8 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # asks what actually happened tonight — a committed route
             # or a pickup that DEPARTED holds the wagon; a pickup
             # scrubbed before departure never took it out.
-            raid_plan["wagon_free"] = wagon.available
+            raid_home = raid_plan["return_shop"]
+            raid_plan["wagon_free"] = wagon.available_at(raid_home)
             # §2.1 rev. 4: the day's takings can put payoff in reach
             # after the job was planned — recheck once, before it runs.
             if not raid_plan.get("table_warned") and state.payoff_in_reach():
@@ -915,7 +988,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
                     and raid_plan["wagon_free"]):
                 # Claimed BEFORE the job runs: departure is what
                 # consumes the wagon, not the outcome.
-                wagon.claim("raid")
+                wagon.claim_at(raid_home, "raid")
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():
@@ -923,10 +996,13 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # Both rivals can arrive on one night, and the first
             # decoy takes the wagon with it — the second gets the
             # truth, not the morning's answer (design rev. 25).
+            # The decoy loads a wagon kept at the address they are
+            # hitting — the home wagon cannot cover a shop across town.
+            hit = rival.warning.shop_key
             result = raids.incoming_raid(state, key, con, streams.raids,
-                                         wagon=wagon.view())
+                                         wagon=wagon.view_at(hit))
             if result.wagon_taken:
-                wagon.claim("decoy")
+                wagon.claim_at(hit, "decoy")
             # Escrow's truth table is the merged one: any raid that
             # arrives — fought off or not — is an incident.
             if result.outcome != "averted" and state.branch == "quiet_sale" \
@@ -1004,7 +1080,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         elif key == "debt":
             _pay_debt(state, con)
         elif key == "storage":
-            _storage(state, con, streams)
+            _storage(state, shop_at, con, streams)
         elif key == "rival":
             rivals.negotiate(state, con, streams.rivals)
         elif key == "settle":
@@ -1184,7 +1260,8 @@ def _carmine_remark(state: State, amt: int, con: Console) -> None:
                 "when this is over — you're deciding that now.'")
 
 
-def _storage(state: State, con: Console, streams: Streams) -> None:
+def _storage(state: State, shop_at: Shop, con: Console,
+             streams: Streams) -> None:
     if state.warehouse is None:
         con.say("  You'd need the warehouse for that. (Improvements, mornings.)")
         return
@@ -1194,7 +1271,7 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
                                 "Back"])
     if c == 0:
         moved = 0
-        for g, u in list(state.shop_stash.items()):
+        for g, u in list(shop_at.stash.items()):
             if u <= 0:
                 continue
             # The storage authority prices the bound and says why
@@ -1206,7 +1283,7 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
                 f"{models.space_cap(state, models.WAREHOUSE)} space used; "
                 f"{fits} more units fit)",
                 0, min(u, fits), min(u, fits))
-            models.move_goods(state, state.shop.key, models.WAREHOUSE, g, n)
+            models.move_goods(state, shop_at.key, models.WAREHOUSE, g, n)
             moved += n
         if moved and state.branch == "quiet_sale":
             # A truck at the rolling door while the buyer's man watches
@@ -1216,14 +1293,14 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
         for g, u in list(state.warehouse.items()):
             if u <= 0:
                 continue
-            fits = models.units_that_fit(state, state.shop.key, g)
+            fits = models.units_that_fit(state, shop_at.key, g)
             n = con.ask_int(
                 f"Bring back {data.GOODS[g]['label']} (there {u}; back "
-                f"room {models.space_used(state.shop_stash)}/"
-                f"{models.space_cap(state, state.shop.key)} space used; "
+                f"room {models.space_used(shop_at.stash)}/"
+                f"{models.space_cap(state, shop_at.key)} space used; "
                 f"{fits} more units fit)",
                 0, min(u, fits), 0)
-            models.move_goods(state, models.WAREHOUSE, state.shop.key, g, n)
+            models.move_goods(state, models.WAREHOUSE, shop_at.key, g, n)
     elif c == 2:
         n = con.ask_int("Stash how much dirty cash off-site?", 0, state.dirty, 0)
         state.dirty -= n
@@ -1236,20 +1313,26 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
 
 def _law_phase(state: State, con: Console, rng: random.Random) -> None:
     """Heat is local weather. The Case is climate."""
-    home_heat = state.heat(data.HOME_DISTRICT)
-    if home_heat > 70 and rng.random() < 0.35:
+    # The law watches every address the player keeps, each against its
+    # OWN district's weather — a second shop in a quiet district is not
+    # sheltered by the home district's heat, nor punished by it. Shops
+    # are walked in stable key order so the sweep never depends on list
+    # position.
+    for a_shop in sorted(state.shops, key=lambda sh: sh.key):
+        if state.heat(a_shop.district) <= 70 or rng.random() >= 0.35:
+            continue
         con.bullet("A squad car parks across the street for an hour. Just parks.")
         if state.branch == "straight":
             # §2.4.1: with nothing to find, searches attack the exit
             # through people — no RNG, first watcher on the roster.
             straight.search_spook(state, con)
-        if rng.random() < 0.4 and state.stash_bulk(state.shop_stash) > 0:
+        if rng.random() < 0.4 and state.stash_bulk(a_shop.stash) > 0:
             con.bullet("Then two officers 'stop in for a slice' and look at everything.")
             if rng.random() < 0.5:
                 seized = 0
-                for g in list(state.shop_stash):
-                    seized += state.shop_stash[g]
-                    state.shop_stash[g] = 0
+                for g in list(a_shop.stash):
+                    seized += a_shop.stash[g]
+                    a_shop.stash[g] = 0
                 state.add_case(12 + seized * 0.2, "a walk-through found the shop stash")
                 con.bullet(f"They leave with {seized} units in evidence bags. "
                            f"Nobody's under arrest. Yet.")

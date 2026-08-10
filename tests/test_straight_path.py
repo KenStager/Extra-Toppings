@@ -6,7 +6,8 @@ save round-trip — through the real scene and the real phases."""
 import random
 import unittest
 
-from extra_toppings import data, game, phases, rivals, save, sitdown, straight
+from extra_toppings import (data, game, models, phases, rivals, save,
+                            sitdown, straight)
 from extra_toppings.config import GameConfig
 from extra_toppings.models import SitdownSnapshot, new_state
 from extra_toppings.rng import Streams
@@ -185,7 +186,7 @@ class TestDisposalRuns(unittest.TestCase):
         driver.aware = True
         return {"district": "university", "driver": driver,
                 "ride_along": False, "cargo": dict(cargo), "legit": 0,
-                "disposal": True}
+                "disposal": True, "origin_shop": models.HOME_SHOP_KEY}
 
     def test_the_run_spends_at_commit_and_resets_the_clock(self):
         state = in_branch(stash={"mushrooms": 6})
@@ -452,7 +453,7 @@ def _exit_ready(state):
     state.warehouse_cash = 0
     state.shop.reputation = 60.0
     for r in state.rivals.values():
-        r.raid_warning = 0
+        r.warning = None
         r.relation = -10.0
 
 
@@ -581,7 +582,7 @@ class TestDisposalVoice(unittest.TestCase):
                       if e.name.startswith("Rosa"))
         driver.aware = True
         plan = {"district": "university", "driver": driver,
-                "ride_along": True, "cargo": {"mushrooms": 8}, "legit": 0}
+                "ride_along": True, "cargo": {"mushrooms": 8}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
         if disposal:
             plan["disposal"] = True
         con = CaptureConsole([0] * 40)        # sell at every stop

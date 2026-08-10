@@ -3,7 +3,7 @@
 import random
 import unittest
 
-from extra_toppings import data, market, raids, routes, shop
+from extra_toppings import models, data, market, raids, routes, shop
 from extra_toppings.models import new_state
 from extra_toppings.ui import BotConsole
 
@@ -33,7 +33,7 @@ class TestRaids(unittest.TestCase):
                 con = BotConsole(random.Random(seed))
                 team = self._crew(state)
                 plan = {"rival": "vinnie", "objective": objective,
-                        "team": list(team), "armed": seed % 2 == 0}
+                        "team": list(team), "armed": seed % 2 == 0, "return_shop": models.HOME_SHOP_KEY}
                 before = state.rivals["vinnie"].strength
                 raids.run_raid(state, plan, con, rng)
                 # A raid always leaves a mark on someone: rival weakened,
@@ -52,7 +52,7 @@ class TestRaids(unittest.TestCase):
             state, rng = prepped_state(seed)
             team = self._crew(state)
             plan = {"rival": "vinnie", "objective": "steal_stock",
-                    "team": team, "armed": False}
+                    "team": team, "armed": False, "return_shop": models.HOME_SHOP_KEY}
             raids.run_raid(state, plan, con, rng)
             if sum(state.shop_stash.values()) > sum(data.START_STASH.values()):
                 return   # at least one clean haul across seeds
@@ -61,7 +61,7 @@ class TestRaids(unittest.TestCase):
     def test_incoming_raid_resolves(self):
         for seed in range(8):
             state, rng = prepped_state(seed)
-            state.rivals["vinnie"].raid_warning = 1
+            state.rivals["vinnie"].warning = models.RaidWarning(1, models.HOME_SHOP_KEY)
             state.dirty = 3000
             raids.incoming_raid(state, "vinnie", BotConsole(random.Random(seed)), rng)
             self.assertEqual(state.rivals["vinnie"].raid_warning, 0)
@@ -77,7 +77,7 @@ class TestRoutes(unittest.TestCase):
             driver.aware = True
             state.shop_stash = {}   # plan_route already moved cargo to the wagon
             plan = {"district": "university", "driver": driver,
-                    "ride_along": False, "cargo": {"mushrooms": 10}, "legit": 8}
+                    "ride_along": False, "cargo": {"mushrooms": 10}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY}
             report = routes.resolve_route(state, plan, BotConsole(random.Random(seed)), rng)
             if report["busted"]:
                 outcomes.add("busted")

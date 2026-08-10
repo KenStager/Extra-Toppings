@@ -6,7 +6,7 @@ the brokers stream drawn only after the chair is actually taken."""
 import random
 import unittest
 
-from extra_toppings import data, escrow, game, phases, save, sitdown
+from extra_toppings import models, data, escrow, game, phases, save, sitdown
 from extra_toppings.bot import GreedyBot
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (BranchState, SitdownSnapshot, new_state,
@@ -137,7 +137,7 @@ class TestTheMark(unittest.TestCase):
         state.rivals["vinnie"].relation = -60.0
         self.assertEqual(escrow.compute_mark(state), int(6465 * 0.8))
         state.rivals["vinnie"].relation = -10.0
-        state.rivals["vinnie"].raid_warning = 2
+        state.rivals["vinnie"].warning = models.RaidWarning(2, models.HOME_SHOP_KEY)
         self.assertEqual(escrow.compute_mark(state), int(6465 * 0.8))
 
     def test_incident_discounts_compound_into_the_mark(self):

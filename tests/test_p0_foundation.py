@@ -7,7 +7,6 @@ goldens); these tests pin the schema semantics themselves."""
 
 import random
 import unittest
-from dataclasses import asdict
 
 from extra_toppings import data, market, save
 from extra_toppings.models import BranchState, new_state
@@ -105,11 +104,40 @@ class TestShopsCollection(unittest.TestCase):
                           s0.legit_revenue_today), (44, 15, 380))
 
 
+# The v2 schema, FROZEN — read off the v2 serializer (save.py @
+# 3d79d17), never off today's dataclasses. Borrowing `asdict` for
+# these was fine while the schemas matched and quietly stopped being
+# fine the moment Employee gained `shop_key` and Rival's countdown
+# became a typed `warning`: the fixture kept calling itself an
+# authentic v2 payload while carrying fields v2 never wrote, so the
+# migration it "proved" was one no real save could ever exercise. A
+# fixture that tracks the model cannot test the migration away from
+# it. District is frozen for the same reason even though it has not
+# drifted yet — it is the third of the same three borrowings.
+V2_EMPLOYEE_FIELDS = ("key", "name", "role", "food", "driving", "nerve",
+                      "loyalty", "trait", "wage", "bio", "hired",
+                      "aware", "morale", "injured_days", "arrested",
+                      "routes_survived", "familiarity",
+                      "resignation_pending")
+V2_RIVAL_FIELDS = ("key", "strength", "relation", "tribute_demanded",
+                   "raid_warning", "ledger_stolen", "ovens_wrecked_days",
+                   "alertness", "last_raided_day")
+V2_DISTRICT_FIELDS = ("key", "heat", "known_price_age", "sold_yesterday")
+
+
+def _v2(obj, fields) -> dict:
+    """One v2 record, built from the frozen field list. `raid_warning`
+    is a derived read today and a stored field in v2 — which is
+    exactly the shape a v2 save had — so it is taken by name like
+    every other field."""
+    return {f: getattr(obj, f) for f in fields}
+
+
 def v2_payload() -> dict:
     """An authentic version-2 save, shaped field-for-field like the v2
-    serializer (save.py @ 3d79d17) wrote it. Employees, districts and
-    rivals kept the same schema across versions, so they are borrowed
-    from a fresh state; the shop and Case use the old flat shape."""
+    serializer (save.py @ 3d79d17) wrote it: the shop and Case in the
+    old flat shape, and employees, districts and rivals through the
+    frozen v2 field lists above."""
     state, _ = fresh(9)
     return {
         "version": 2,
@@ -121,9 +149,11 @@ def v2_payload() -> dict:
         "shop_stash": {"oregano": 5, "mushrooms": 2},
         "warehouse": {"oregano": 4},
         "warehouse_cash": 300,
-        "employees": [asdict(e) for e in state.employees],
-        "districts": {k: asdict(d) for k, d in state.districts.items()},
-        "rivals": {k: asdict(r) for k, r in state.rivals.items()},
+        "employees": [_v2(e, V2_EMPLOYEE_FIELDS) for e in state.employees],
+        "districts": {k: _v2(d, V2_DISTRICT_FIELDS)
+                      for k, d in state.districts.items()},
+        "rivals": {k: _v2(r, V2_RIVAL_FIELDS)
+                   for k, r in state.rivals.items()},
         "prices": state.prices,
         "events": [],
         "case": 37.5,
@@ -135,6 +165,45 @@ def v2_payload() -> dict:
         "demand_shock": 1.02, "demand_today": 58, "delivery_pool": 20,
         "legit_revenue_today": 0,
     }
+
+
+class TestTheV2FixtureIsFrozen(unittest.TestCase):
+    """A migration fixture that borrows today's dataclasses migrates
+    nothing: it drifts forward with the model it is supposed to be
+    testing the migration AWAY from. These pin that the payload is
+    shaped like v2 and not like now."""
+
+    def test_it_carries_no_field_v2_never_wrote(self):
+        payload = v2_payload()
+        for e in payload["employees"]:
+            self.assertEqual(tuple(e), V2_EMPLOYEE_FIELDS)
+        for r in payload["rivals"].values():
+            self.assertEqual(tuple(r), V2_RIVAL_FIELDS)
+        for d in payload["districts"].values():
+            self.assertEqual(tuple(d), V2_DISTRICT_FIELDS)
+
+    def test_it_stores_the_countdown_v2_stored(self):
+        # v2 had no typed warning and no address on it; the countdown
+        # was a bare stored int, and 0 meant none.
+        for r in v2_payload()["rivals"].values():
+            self.assertNotIn("warning", r)
+            self.assertIs(type(r["raid_warning"]), int)
+
+    def test_it_assigns_nobody_to_an_address(self):
+        # Addresses did not have identities in v2, so nothing in the
+        # payload names one — the migration supplies it.
+        for e in v2_payload()["employees"]:
+            self.assertNotIn("shop_key", e)
+        self.assertNotIn("wagons", v2_payload())
+
+    def test_the_migration_supplies_what_v2_left_out(self):
+        loaded = save.state_from_dict(v2_payload())
+        self.assertEqual([s.key for s in loaded.shops], ["shop1"])
+        self.assertEqual([w.shop_key for w in loaded.wagons], ["shop1"])
+        self.assertTrue(all(e.shop_key == "shop1"
+                            for e in loaded.employees))
+        self.assertTrue(all(r.warning is None
+                            for r in loaded.rivals.values()))
 
 
 class TestV2Migration(unittest.TestCase):

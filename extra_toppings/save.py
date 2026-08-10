@@ -103,25 +103,66 @@ def state_from_dict(d: dict) -> State:
         d = _migrate_v2(d)
     if d.get("version") != SAVE_VERSION:
         raise ValueError(f"unsupported save version {d.get('version')!r}")
+    # ── THE one-address migration boundary (design rev. 27 item 7) ──
+    # This function is the ONLY place in the engine permitted to infer
+    # an address for a record that does not name one, and only while
+    # the payload carries exactly one address — because then there is
+    # precisely one address it could have meant. Nothing outside this
+    # boundary infers: the canonical models require every identity,
+    # and a multi-address payload missing one is refused, not guessed.
+    #
+    # The test is PRESENCE, never truthiness. Payloads written before
+    # addresses had identities OMITTED these fields; none of them ever
+    # carried an empty one. So an absent field is history to migrate,
+    # while a present `""`, None or False is a malformed reference —
+    # and migrating that would repair a broken save into a plausible
+    # one, which is the opposite of what this boundary is for. Present
+    # values, whatever they are, flow into canonical validation and
+    # are refused there.
+    one_address = len(d["shops"]) == 1
+
+    def _addressed(payload: dict, field: str, what: str) -> dict:
+        v = dict(payload)
+        if field in v:
+            return v
+        if not one_address:
+            raise ValueError(
+                f"{what} names no address and the payload carries "
+                f"{len(d['shops'])} of them — which one it meant "
+                f"cannot be inferred, only guessed")
+        v[field] = sole_key
+        return v
+
     shops = []
     for s in d["shops"]:
         sd = dict(s)
         sd["upgrades"] = set(sd["upgrades"])
-        # Additive with a default (design rev. 27 item 1): a v3 payload
-        # written before addresses had keys carries exactly one shop,
-        # so the home key is the only identity it could have had.
-        sd.setdefault("key", models.HOME_SHOP_KEY)
+        # A v3 payload written before addresses had keys carries
+        # exactly one shop, and the founding key is the only identity
+        # it could ever have had. A payload that HAS a key keeps it,
+        # even an unusable one — that is validation's refusal to make.
+        if "key" not in sd:
+            if not one_address:
+                raise ValueError(
+                    f"{len(d['shops'])} addresses and one carries no "
+                    f"key — its identity cannot be inferred")
+            sd["key"] = models.HOME_SHOP_KEY
         shops.append(Shop(**sd))
+    # Every later inference resolves to THE sole address, whatever it
+    # is called — never to the home key by reflex, which would mint a
+    # dangling reference in a single-address save keyed otherwise.
+    sole_key = shops[0].key if one_address else ""
     # Same migration for the wagon: a payload written before wagons
     # had identities carries exactly one address and one wagon kept
     # there. More than one address with no wagon list is not a payload
     # this migration can honestly interpret, so it is refused rather
     # than guessed (rev. 27 item 7).
     if "wagons" in d:
-        wagons = [models.Wagon(**w) for w in d["wagons"]]
-    elif len(shops) == 1:
+        wagons = [models.Wagon(**_addressed(w, "shop_key", "a wagon"))
+                  for w in d["wagons"]]
+    elif one_address:
         wagons = [models.Wagon(key=models.HOME_WAGON_KEY,
-                               shop_key=shops[0].key)]
+                               shop_key=sole_key)]
     else:
         raise ValueError(
             f"{len(shops)} addresses but no wagon list — cannot infer "
@@ -132,10 +173,11 @@ def state_from_dict(d: dict) -> State:
         wagons=wagons,
         warehouse=dict(d["warehouse"]) if d["warehouse"] is not None else None,
         warehouse_cash=d["warehouse_cash"],
-        employees=[Employee(**{"shop_key": models.HOME_SHOP_KEY, **e})
+        employees=[Employee(**_addressed(e, "shop_key", "an employee"))
                    for e in d["employees"]],
         districts={k: District(**v) for k, v in d["districts"].items()},
-        rivals={k: Rival(**v) for k, v in d["rivals"].items()},
+        rivals={k: _rival_from(v, sole_key)
+                for k, v in d["rivals"].items()},
         prices={k: dict(v) for k, v in d["prices"].items()},
         events=[ActiveEvent(spec=_EVENTS_BY_ID[e["id"]], days_left=e["days_left"])
                 for e in d["events"]],
@@ -150,10 +192,16 @@ def state_from_dict(d: dict) -> State:
         if d.get("sitdown_snapshot") is not None else None,
         # Typed, validated at construction (rev. 18 items 3-4):
         # malformed or inconsistent log entries are refused, never
-        # round-tripped.
-        raid_log=[RaidAttemptRecord(**e) for e in d.get("raid_log") or []],
-        route_log=[RouteExecutionRecord(**e)
-                   for e in d.get("route_log") or []],
+        # round-tripped. The same presence rule as the address
+        # references: an ABSENT log is history from before the ledgers
+        # existed and migrates to empty; a PRESENT one must be a list,
+        # because rewriting a malformed log into "nothing ever
+        # happened" is the loudest silent repair in the file.
+        raid_log=[RaidAttemptRecord(**e)
+                  for e in _log(d, "raid_log")],
+        route_log=[RouteExecutionRecord(
+            **_addressed(e, "origin_shop", "a route record"))
+            for e in _log(d, "route_log")],
     )
     # A payload naming a branch must carry a coherent BranchState — a
     # mixed, impossible, or terminally-contradictory combination is
@@ -167,6 +215,79 @@ def state_from_dict(d: dict) -> State:
     validate_evidence(state.evidence)
     validate_cross_state(state)
     return state
+
+
+def _log(d: dict, name: str) -> list:
+    """One execution ledger, read by the presence rule. Absent means a
+    payload written before the ledgers existed — empty history is the
+    only thing it could have meant. Present means the save claims to
+    carry one, so it must actually be a list; None, False, "" and {}
+    are malformed, and quietly reading them as "no history" would
+    erase a campaign's whole record without a word."""
+    if name not in d:
+        return []
+    value = d[name]
+    if not isinstance(value, list):
+        raise ValueError(f"{name}: a ledger is a list of records, got "
+                         f"{value!r}")
+    return value
+
+
+def _rival_from(payload: dict, sole_key: str) -> Rival:
+    """A telegraphed raid is a typed value carrying its target address
+    (design rev. 23 item 2). A payload written before warnings named
+    an address carries the bare countdown, and with one address there
+    was only one target it could ever have meant — `sole_key` is empty
+    when the payload carries several, and an untargeted countdown is
+    then refused rather than aimed at a guess.
+
+    The two spellings are an EXACT SCHEMA UNION: canonical `warning`
+    or legacy `raid_warning`, exactly one of them, never both and
+    never neither. A payload carrying both is two sources of truth
+    about the same raid with no rule for which wins; a payload
+    carrying neither is a rival record shaped like no version this
+    game ever wrote. Both are refused. Nothing here coerces: a
+    countdown is an `int` or it is not a countdown, and erasing or
+    inventing a telegraphed raid across a reload is a story failure,
+    not a rounding error."""
+    v = dict(payload)
+    has_typed = "warning" in v
+    has_legacy = "raid_warning" in v
+    warning = v.pop("warning", None)
+    nights = v.pop("raid_warning", None)
+    if has_typed and has_legacy:
+        raise ValueError(
+            "a rival carries both a typed warning and a legacy "
+            "countdown — two answers about the same raid, with no "
+            "rule for which one is true")
+    if not has_typed and not has_legacy:
+        raise ValueError(
+            "a rival carries no warning field at all — every version "
+            "wrote one of the two, so this payload is malformed")
+    if has_typed:
+        if warning is None:
+            v["warning"] = None                   # no raid on the board
+        elif isinstance(warning, dict):
+            v["warning"] = models.RaidWarning(**warning)
+        else:
+            raise ValueError(f"a typed warning must be a record or "
+                             f"nothing, got {warning!r}")
+    else:
+        # `True` is not an int here — `type(...) is int` — because a
+        # boolean countdown is a malformed save, not a one-night raid.
+        if type(nights) is not int or nights < 0:
+            raise ValueError(f"a legacy countdown must be a whole "
+                             f"number of nights, got {nights!r}")
+        if nights == 0:
+            v["warning"] = None                   # 0 always meant none
+        else:
+            if not sole_key:
+                raise ValueError(
+                    "a telegraphed raid names no target address and "
+                    "the payload carries several — which shop the "
+                    "crew was coming for cannot be inferred")
+            v["warning"] = models.RaidWarning(nights, sole_key)
+    return Rival(**v)
 
 
 def _branch_state_from(payload: dict | None) -> BranchState | None:
