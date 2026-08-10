@@ -112,3 +112,39 @@ Budget this phase: 11 characters × 2 seeds = 22 generations.
 Question: does the anchor-silhouette method produce distinct,
 memorable, on-bio identities across a full cast? Theme role: the
 whole warm↔cold axis, person by person.
+
+## Results (same day, 22 generations, 22/22 PASS the character contract)
+
+The anchor-silhouette method holds across a full cast: the lineup
+(`review/cast_lineup.png`) shows eleven distinguishable people on the
+shop floor at native scale — no shared silhouette class, and Carmine
+reads as the single cold black column at the end of the row, exactly
+what the design law ordered.
+
+Provisional picks (user's board rules; per-character honesty notes):
+
+| Character | Pick | Note |
+| --- | --- | --- |
+| Rosa | s9001 | s9002 REJECTED: grew a red beard — different person |
+| Tony | s9011 | round + rosy; s9012 viable darker alt |
+| Bee | s9022 | posture excellent; the glasses glint DID NOT survive in either seed — the 2 px tell is a candidate for recorded manual curation |
+| Marcus | s9031 | messy + unfinished; s9032 too burglar-shady |
+| Lena | s9042 | the heat headscarf became bright red HAIR in both seeds — accepted as the better tell (only redhead in the cast; the scarf was the art's invention, not the bio's) |
+| Sammy | s9052 | cap-low hunch landed; s9051 lost the cap |
+| Angelo | s9062 | stubble + wrapped hands, "four years upstate" read; s9061 too heroic |
+| Priya | s9072 | deeper tone per brief, buttons crisp, vertical |
+| Sal | s9081 | the lean welcoming bow; s9082 rounder padrone alt |
+| Vinnie | s9092 | s9091 grew sunglasses — off-theme accessory |
+| Carmine | s9101 | strikingly cold, coat rendered near-black; s9102 drifted priestly. The near-black raises a palette-semantics question for the board: outline-black as garment field is otherwise unused — keeping it makes Carmine literally the darkest thing in the game, which may be exactly right |
+
+Recorded drift pattern worth keeping: 4-px-class accent tells (chain,
+glint, tiepin) survive inconsistently at init@120; silhouette and
+palette register survive reliably. Consequence for future briefs:
+memorability must live in silhouette first (it does), and micro-tells
+that matter can be restored by recorded deterministic curation after
+the board picks — same policy family as the brand layer.
+
+Spend: 22 generations, all provenanced. AWAITING the user's board:
+confirm/override the eleven picks, rule on Bee's glasses curation and
+Carmine's black, then approved picks proceed to the E08 v3
+rotation+walk path (5 gens per character).
