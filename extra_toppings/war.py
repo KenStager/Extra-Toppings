@@ -461,7 +461,7 @@ def salvage_ready(state: State):
 
 def plan_salvage(state: State, con: Console, reserved: list,
                  wagon: models.PlannedWagon,
-                 origin_shop: str = "") -> dict | None:
+                 origin_shop: str) -> dict | None:
     """Morning: assign the wagon and a driver to the dead man's
     stockroom. Reservations come from THE night-assignment view
     (rev. 15 item 2): people already spoken for by the route or the
@@ -493,11 +493,12 @@ def plan_salvage(state: State, con: Console, reserved: list,
                     f"who drives?", names)
     if pick == len(drivers):
         return None
-    # The pickup NAMES the address it leaves from (P4b.1a): a wagon
-    # job with no origin cannot be answered per address, and the
-    # per-address availability view refuses to guess one.
+    # The pickup NAMES the address it leaves from (P4b.1a), and the
+    # caller must say which — a wagon job with no origin cannot be
+    # answered per address, and inferring the home shop here is the
+    # implicit default rev. 27 item 7 forbids.
     return {"rival": camp.rival_key, "driver": drivers[pick],
-            "origin_shop": origin_shop or models.exactly_one_shop(state).key}
+            "origin_shop": origin_shop}
 
 
 @dataclass(frozen=True)

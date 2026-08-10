@@ -417,7 +417,8 @@ class TestTargetOnlyJobs(unittest.TestCase):
         rosa.hired = True
         rosa.aware = True
         con = Scripted([len(data.RIVALS)])   # answer clamps to "Never mind"
-        raids.plan_raid(state, con, Streams(3).raids)
+        raids.plan_raid(state, con, Streams(3).raids,
+                        wagon=models_mod.PlannedWagon((models_mod.HOME_WAGON_KEY,)))
         prompt, options = next((p, o) for p, o in con.menus
                                if p == "Hit whom?")
         self.assertEqual(len(options), 2)    # Vinnie + Never mind
@@ -430,7 +431,8 @@ class TestTargetOnlyJobs(unittest.TestCase):
         rosa.hired = True
         rosa.aware = True
         con = Scripted([])
-        self.assertIsNone(raids.plan_raid(state, con, Streams(3).raids))
+        self.assertIsNone(raids.plan_raid(
+            state, con, Streams(3).raids, wagon=models_mod.PlannedWagon((models_mod.HOME_WAGON_KEY,))))
         self.assertIsNotNone(con.find("Name the next war"))
 
     def test_a_route_broken_target_scrubs_the_planned_raid(self):
@@ -463,7 +465,8 @@ class TestSalvage(unittest.TestCase):
         camp = war.campaign_for(state, "vinnie")
         self.assertTrue(camp.salvage_available)
         plan = war.plan_salvage(state, Scripted([0]), reserved=[],
-                                 wagon=models_mod.PlannedWagon(("wagon1",)))
+                                 wagon=models_mod.PlannedWagon(("wagon1",)),
+                                 origin_shop=models_mod.HOME_SHOP_KEY)
         self.assertEqual(plan, {"rival": "vinnie", "driver": rosa,
                                 "origin_shop": models_mod.HOME_SHOP_KEY})
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
@@ -487,13 +490,15 @@ class TestSalvage(unittest.TestCase):
             war.plan_salvage(state, Quiet(), reserved=[],
                              wagon=models_mod.PlannedWagon(
                                  blocked_by="route",
-                                 note=models_mod.WAGON_NOTES["route"])))
+                                 note=models_mod.WAGON_NOTES["route"]),
+                             origin_shop=models_mod.HOME_SHOP_KEY))
 
     def test_a_missing_driver_scrubs_transactionally(self):
         state, rosa = self._captured()
         camp = war.campaign_for(state, "vinnie")
         plan = war.plan_salvage(state, Scripted([0]), reserved=[],
-                                 wagon=models_mod.PlannedWagon(("wagon1",)))
+                                 wagon=models_mod.PlannedWagon(("wagon1",)),
+                                 origin_shop=models_mod.HOME_SHOP_KEY)
         rosa.injured_days = 3
         stash_before = dict(state.shop_stash)
         war.run_salvage(state, plan, Quiet(), Streams(21).war)

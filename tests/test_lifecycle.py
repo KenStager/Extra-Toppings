@@ -338,17 +338,6 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         self.assertTrue(away.available)
         self.assertEqual(away.free, ("wagon2",))
 
-    def test_two_routes_can_leave_two_addresses_the_same_night(self):
-        # Canon: both wagons run real routes, simultaneously, one per
-        # address per night (rev. 22 items 1 and 4).
-        state = _with_site(day=7, acceptance=5)
-        plans = {"route": {"origin_shop": HOME_SHOP_KEY}}
-        self.assertTrue(
-            phases.planned_wagon(state, plans, "shop2").available)
-        plans["route2"] = {"origin_shop": "shop2"}      # not yet a job
-        self.assertTrue(
-            phases.planned_wagon(state, plans, "shop2").available)
-
     def test_the_view_names_which_wagons_not_merely_whether(self):
         # Identity, not a boolean: an address with two wagons must be
         # representable, and a consumer must know WHICH one it takes.
@@ -361,6 +350,17 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         one_left = phases.planned_wagon(state, plans, "shop2")
         self.assertTrue(one_left.available)
         self.assertEqual(one_left.free, ("wagon3",))
+
+    def test_a_wagon_job_must_name_an_exact_origin_key(self):
+        # Not merely truthy: a non-string origin is a malformed plan,
+        # and inferring the home shop from it is the implicit default
+        # rev. 27 item 7 forbids.
+        for bogus in ({}, {"origin_shop": ""}, {"origin_shop": None},
+                      {"origin_shop": 1}, {"origin_shop": True}):
+            with self.assertRaises(ValueError, msg=repr(bogus)):
+                phases.plan_origin(bogus)
+        self.assertEqual(
+            phases.plan_origin({"origin_shop": "shop2"}), "shop2")
 
     def test_a_free_view_refuses_to_name_a_wagon_it_has_not_got(self):
         blocked = phases.planned_wagon(
@@ -394,6 +394,35 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
             models.PlannedWagon()
         with self.assertRaises(ValueError):     # blocked, but silent
             models.PlannedWagon(blocked_by="route", note="")
+
+    def test_free_wagons_must_be_a_tuple_of_real_keys(self):
+        # A bare string is iterable, so `PlannedWagon("wagon2")` used
+        # to load and hand back "w" as the wagon to take.
+        for bogus in ("wagon2", ["wagon2"], None, 3):
+            with self.assertRaises(ValueError, msg=repr(bogus)):
+                models.PlannedWagon(bogus)
+        with self.assertRaises(ValueError):          # empty key
+            models.PlannedWagon(("",))
+        with self.assertRaises(ValueError):          # non-string key
+            models.PlannedWagon((1,))
+        with self.assertRaises(ValueError):          # the same wagon twice
+            models.PlannedWagon(("wagon2", "wagon2"))
+
+    def test_a_job_block_carries_its_canonical_note(self):
+        # One home for the prose: a salvage block cannot carry a
+        # lifecycle sentence, or any other job's.
+        with self.assertRaises(ValueError):
+            models.PlannedWagon(blocked_by="salvage",
+                                note="at the contractor's yard")
+        with self.assertRaises(ValueError):
+            models.PlannedWagon(blocked_by="route",
+                                note=models.WAGON_NOTES["salvage"])
+        with self.assertRaises(ValueError):
+            models.PlannedWagon(blocked_by="unhoused", note="somewhere")
+        # Only the lifecycle names an address, so only it is free prose.
+        models.PlannedWagon(blocked_by="lifecycle",
+                            note="the University Hill wagon is still "
+                                 "at the contractor's yard")
 
     def test_an_unknown_block_is_refused_not_carried(self):
         # The vocabulary is closed: arbitrary prose in `blocked_by`
@@ -453,7 +482,8 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
             war_mechanics.TestSalvage())
         con = Listening()
         plan = war.plan_salvage(state, con, reserved=[],
-                                wagon=self._yard_view())
+                                wagon=self._yard_view(),
+                                origin_shop="shop2")
         self.assertIsNone(plan)
         self.assertTrue(con.said(
             "  The University Hill wagon is still at the contractor's "
@@ -466,7 +496,8 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
         war.plan_salvage(state, con, reserved=[],
                          wagon=models.PlannedWagon(
                              blocked_by="route",
-                             note=models.WAGON_NOTES["route"]))
+                             note=models.WAGON_NOTES["route"]),
+                         origin_shop=HOME_SHOP_KEY)
         self.assertTrue(con.said(
             "The wagon is spoken for tonight — the stockroom "
             "isn't going anywhere."))

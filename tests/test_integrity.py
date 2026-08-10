@@ -108,8 +108,10 @@ class TestAssignments(unittest.TestCase):
         for e in state.employees[:2]:
             e.hired = e.aware = True
         rosa, tony = state.employees[0], state.employees[1]
-        raid = raids.plan_raid(state, ScriptedConsole([1, 0, 0, 0, False]),
-                               rng, reserved=[rosa])
+        raid = raids.plan_raid(
+            state, ScriptedConsole([1, 0, 0, 0, False]), rng,
+            reserved=[rosa],
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         self.assertIsNotNone(raid)
         self.assertNotIn(rosa, raid["team"])
         self.assertIn(tony, raid["team"])

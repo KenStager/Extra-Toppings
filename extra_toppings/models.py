@@ -555,6 +555,10 @@ WAGON_NOTES = {
 # a category no consumer knows how to render, which is how a typo
 # turns into prose the player reads.
 WAGON_BLOCKS = frozenset(WAGON_NOTES) | {"lifecycle", "unhoused"}
+# The one address-independent block that is not a night job. Its note
+# is canonical too, so `lifecycle` is the ONLY block free to carry
+# address-specific prose — everything else reads from one home.
+UNHOUSED_NOTE = "not kept at this address"
 
 
 @dataclass(frozen=True)
@@ -578,6 +582,20 @@ class PlannedWagon:
     note: str = ""
 
     def __post_init__(self) -> None:
+        # `free` is a TUPLE OF KEYS, checked as one — a bare string is
+        # iterable, so `PlannedWagon("wagon2")` would otherwise load
+        # and hand back "w" as the wagon a consumer should take.
+        if type(self.free) is not tuple:
+            raise ValueError(
+                f"free wagons are a tuple of keys, got "
+                f"{type(self.free).__name__}")
+        for key in self.free:
+            if type(key) is not str or not key:
+                raise ValueError(
+                    f"a wagon key is a non-empty string, got {key!r}")
+        if len(set(self.free)) != len(self.free):
+            raise ValueError(
+                f"the same wagon cannot be free twice: {self.free}")
         if self.free:
             if self.blocked_by or self.note:
                 raise ValueError(
@@ -590,6 +608,17 @@ class PlannedWagon:
                 f"vocabulary is {sorted(WAGON_BLOCKS)}")
         if not self.note:
             raise ValueError("a blocked wagon must say where it is")
+        # A block's prose comes from its ONE home, so a salvage block
+        # cannot carry a lifecycle sentence (or any other). Only
+        # `lifecycle` is address-specific, because only it names which
+        # address is still being built.
+        canonical = WAGON_NOTES.get(self.blocked_by)
+        if self.blocked_by == "unhoused":
+            canonical = UNHOUSED_NOTE
+        if canonical is not None and self.note != canonical:
+            raise ValueError(
+                f"the {self.blocked_by!r} note is canonical: expected "
+                f"{canonical!r}, got {self.note!r}")
 
     @property
     def available(self) -> bool:

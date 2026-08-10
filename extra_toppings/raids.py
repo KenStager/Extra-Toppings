@@ -13,7 +13,7 @@ from .ui import Console, money
 
 def plan_raid(state: State, con: Console, rng: random.Random,
               reserved: list | None = None,
-              wagon: "models.PlannedWagon | None" = None) -> dict | None:
+              *, wagon: "models.PlannedWagon") -> dict | None:
     """`reserved` employees (tonight's driver) already have a job. If the
     wagon runs a route tonight, the crew hauls what duffel bags hold.
 
@@ -21,8 +21,9 @@ def plan_raid(state: State, con: Console, rng: random.Random,
     boolean plus loose prose: availability and its reason cannot be
     passed in contradicting each other, and the sentence below is
     rendered FROM the structured block instead of pasting a phrase
-    into the middle of another sentence."""
-    wagon = wagon if wagon is not None else models.PlannedWagon(("any",))
+    into the middle of another sentence. It is REQUIRED and
+    keyword-only — a default would be a synthetic identity, and a
+    caller that skipped the authority would silently get one."""
     if not wagon.available:
         con.say(f"  {models.wagon_gone_line(wagon)} — whatever the crew "
                 f"takes, they carry on foot.")

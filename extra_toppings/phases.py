@@ -55,8 +55,10 @@ def plan_origin(plan: dict) -> str:
     names its origin at planning time; an unnamed one is refused
     rather than resolved to the home shop (rev. 27 item 7)."""
     origin = plan.get("origin_shop")
-    if not origin:
-        raise ValueError("a planned wagon job names no origin address")
+    if type(origin) is not str or not origin:
+        raise ValueError(
+            f"a planned wagon job names no origin address, got "
+            f"{origin!r}")
     return origin
 
 
