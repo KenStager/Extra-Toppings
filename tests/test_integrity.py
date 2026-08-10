@@ -61,8 +61,8 @@ class TestCompleteLegitLedger(unittest.TestCase):
                 "cargo": {}, "legit": 8}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertGreater(state.legit_revenue_today, before)
-        self.assertGreater(shop.believable_ceiling(state, state.legit_revenue_today),
-                           shop.believable_ceiling(state, before))
+        self.assertGreater(shop.believable_ceiling(state, state.shop, state.legit_revenue_today),
+                           shop.believable_ceiling(state, state.shop, before))
 
 
 class TestRealCover(unittest.TestCase):
@@ -156,7 +156,7 @@ class TestDemandPolicyIntegrity(unittest.TestCase):
         cheap_demand = state.demand_today
 
         state.shop.price = "gourmet"
-        shop.recompute_demand(state)          # what _kitchen_policy now does
+        shop.recompute_demand(state, state.shop)          # what _kitchen_policy now does
         switched = state.demand_today
 
         state2, _ = fresh(21)
@@ -176,8 +176,8 @@ class TestDemandPolicyIntegrity(unittest.TestCase):
             shop.roll_demand(state, random.Random(42))
             if switch:
                 state.shop.price = "gourmet"
-                shop.recompute_demand(state)
-            report = shop.simulate_shift(state, 0, random.Random(1))
+                shop.recompute_demand(state, state.shop)
+            report = shop.simulate_shift(state, state.shop, 0, random.Random(1))
             return report["revenue"]
         self.assertEqual(revenue(switch=True), revenue(switch=False))
 
@@ -189,7 +189,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
         state, _ = fresh(22)
         state.shop.ingredients = 200
         state.demand_today = 100
-        report = shop.simulate_shift(state, 12, random.Random(1))
+        report = shop.simulate_shift(state, state.shop, 12, random.Random(1))
         total_baked = report["orders"] + 12
         self.assertLessEqual(total_baked, state.shop.kitchen_cap)
         self.assertEqual(report["orders"], state.shop.kitchen_cap - 12)
@@ -204,7 +204,7 @@ class TestSharedKitchenCapacity(unittest.TestCase):
                 "ride_along": False, "driver": rosa}
         phases._commit_route(state, plan, ScriptedConsole())
         state.demand_today = 100
-        report = shop.simulate_shift(state, plan["legit"], random.Random(1))
+        report = shop.simulate_shift(state, state.shop, plan["legit"], random.Random(1))
         self.assertLessEqual(report["orders"] + plan["legit"],
                              state.shop.kitchen_cap)
 
@@ -353,7 +353,7 @@ class TestQualityIdentity(unittest.TestCase):
         state.shop.quality = serve_policy_quality
         state.shop.price = "gourmet"
         shop.roll_demand(state, random.Random(9))
-        shop.simulate_shift(state, 0, random.Random(9))
+        shop.simulate_shift(state, state.shop, 0, random.Random(9))
         return state
 
     def test_pantry_keeps_purchase_quality(self):
@@ -434,9 +434,9 @@ class TestSaveCompleteness(unittest.TestCase):
         # And the reviewer's exact symptom: the same policy change must
         # produce the same demand after a reload.
         state.shop.price = "gourmet"
-        shop.recompute_demand(state)
+        shop.recompute_demand(state, state.shop)
         restored.shop.price = "gourmet"
-        shop.recompute_demand(restored)
+        shop.recompute_demand(restored, restored.shop)
         self.assertEqual(state.demand_today, restored.demand_today)
 
 

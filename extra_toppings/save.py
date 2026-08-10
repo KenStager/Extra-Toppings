@@ -132,7 +132,8 @@ def state_from_dict(d: dict) -> State:
         wagons=wagons,
         warehouse=dict(d["warehouse"]) if d["warehouse"] is not None else None,
         warehouse_cash=d["warehouse_cash"],
-        employees=[Employee(**e) for e in d["employees"]],
+        employees=[Employee(**{"shop_key": models.HOME_SHOP_KEY, **e})
+                   for e in d["employees"]],
         districts={k: District(**v) for k, v in d["districts"].items()},
         rivals={k: Rival(**v) for k, v in d["rivals"].items()},
         prices={k: dict(v) for k, v in d["prices"].items()},

@@ -69,6 +69,17 @@ GOLDEN_PATH = os.path.join(os.path.dirname(__file__), "golden_act1.json")
 # exactly this shape from any future engine.
 V2_SHOP_FIELDS = ("quality", "price", "ingredients", "pantry_quality",
                   "reputation", "damage_days", "coupon_days")
+# Employees project an EXPLICIT list for the same reason districts do:
+# asdict() renders whatever the dataclass carries TODAY, so every later
+# field silently entered the digest and the baseline drifted with the
+# engine instead of measuring it. P4a.2's shop_key was the first
+# addition to expose that (it broke all 300 runs at once, which is the
+# gate working). A v3-only field is not part of the v2 shape.
+V2_EMPLOYEE_FIELDS = ("key", "name", "role", "food", "driving", "nerve",
+                      "loyalty", "trait", "wage", "bio", "hired",
+                      "aware", "morale", "injured_days", "arrested",
+                      "routes_survived", "familiarity",
+                      "resignation_pending")
 SHARED_STREAMS = ("routes", "rivals", "raids", "staff")
 BOTS = {"random": BotConsole, "greedy": GreedyBot}
 
@@ -86,7 +97,8 @@ def legacy_projection(state) -> dict:
         "shop_stash": dict(state.shop_stash),
         "warehouse": dict(state.warehouse) if state.warehouse is not None else None,
         "warehouse_cash": state.warehouse_cash,
-        "employees": [asdict(e) for e in state.employees],
+        "employees": [{f: getattr(e, f) for f in V2_EMPLOYEE_FIELDS}
+                      for e in state.employees],
         # Districts project the EXPLICIT v2 fields — the projection is
         # a fixed shape, so post-v2 additions (route_sold, rev. 17)
         # must never leak into the digest.

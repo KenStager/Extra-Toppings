@@ -336,7 +336,7 @@ def advertise(state: State, con: Console) -> None:
         return
     state.clean -= AD_COST
     live(state).ad_days_left += AD_DAYS
-    shop.recompute_demand(state)
+    shop.recompute_demand(state, state.shop)
     con.say(f"  {money(AD_COST)} buys four days of flyers, a radio spot "
             f"and the good half-page in the neighborhood weekly. Order "
             f"book now: ~{state.demand_today} customers.")

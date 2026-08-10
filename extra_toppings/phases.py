@@ -164,7 +164,7 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
     active_branch = state.branch is not None and state.branch != "stand_pat"
     if state.shop.ingredients < 10 and state.clean < 200 \
             and not active_branch:
-        shop.stock_pantry(state, 40)
+        shop.stock_pantry(state, state.shop, 40)
         state.debt += 40 * data.INGREDIENT_COST[state.shop.quality] + 100
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
                    "The account, of course, is the debt.")
@@ -505,7 +505,7 @@ def _kitchen_policy(state: State, con: Console, plans: dict | None = None) -> No
     if state.shop.price == "gourmet" and state.shop.quality == "cheap":
         con.say("  Charging gourmet prices for cheap pies. Bold. Reviews incoming.")
     # New prices, new crowd — the order book re-forms around the menu.
-    shop.recompute_demand(state)
+    shop.recompute_demand(state, state.shop)
     con.say(f"  Order book now: ~{state.demand_today} customers, "
             f"{state.delivery_pool} delivery orders.")
     route = (plans or {}).get("route")
@@ -523,7 +523,7 @@ def _buy_ingredients(state: State, con: Console) -> None:
                     0, min(most, 200), restock)
     state.clean -= n * cost
     before_q = state.shop.pantry_quality if state.shop.ingredients else None
-    shop.stock_pantry(state, n)
+    shop.stock_pantry(state, state.shop, n)
     if before_q and state.shop.pantry_quality != before_q:
         con.say(f"  The new {state.shop.quality} stock mixes into the walk-in — "
                 f"the pantry now cooks as {state.shop.pantry_quality}.")
@@ -543,7 +543,7 @@ def _supplier_offer(state: State, rng: random.Random) -> dict | None:
 
 def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
     # The storage authority prices the bound (rev. 18 item 2).
-    fit = models.units_that_fit(state, "shop", offer["good"])
+    fit = models.units_that_fit(state, state.shop.key, offer["good"])
     afford = (state.dirty + state.clean) // offer["price"]
     top = min(offer["units"], fit, afford)
     if top <= 0:
@@ -559,7 +559,7 @@ def _buy_supplier(state: State, offer: dict, con: Console) -> dict | None:
         offer["units"] -= n
         con.say(f"  Boxes come in through the alley door. The back room: "
                 f"{models.space_used(state.shop_stash)}/"
-                f"{models.space_cap(state, 'shop')} space used.")
+                f"{models.space_cap(state, state.shop.key)} space used.")
     return offer if offer["units"] > 0 else None
 
 
@@ -732,7 +732,7 @@ def _improvements(state: State, con: Console) -> None:
                 state.clean -= cost
                 owned.add(k)
                 con.say(f"  {data.UPGRADES[k]['label']}: done by closing time.")
-                shop.recompute_demand(state)
+                shop.recompute_demand(state, state.shop)
         elif state.warehouse is None and c == len(keys):
             state.warehouse = {}
             con.say("  Keys to a rusted rolling door. Nobody asks what's in the crates.")
@@ -748,7 +748,7 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     if plan and not _commit_route(state, plan, con):
         plans["route"] = plan = None
     route_legit = plan["legit"] if plan else 0
-    report = shop.simulate_shift(state, route_legit,
+    report = shop.simulate_shift(state, state.shop, route_legit,
                                  streams.daily(state.day, "critic"))
     lost = f" ({report['lost']} turned away)" if report["lost"] else ""
     con.say(f"  Orders {report['orders']}/{report['demand']} demanded{lost}"
@@ -953,7 +953,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
 
     # The ceiling covers every honest dollar of the day — and it's a
     # nightly total, not a per-transaction allowance.
-    ceiling = shop.believable_ceiling(state, state.legit_revenue_today)
+    ceiling = shop.total_believable_ceiling(state)
     laundered_tonight = 0
     while True:
         con.say("")
@@ -1054,7 +1054,9 @@ def _payroll_and_rent(state: State, con: Console) -> bool:
     """Returns whether payroll came up short — the Straight Path's
     clean-insolvency counter reads it (rev. 9 item 11)."""
     wages = sum(e.wage for e in state.hired() if not e.arrested)
-    costs = wages + data.RENT_PER_DAY
+    # Rent is charged per open address (design rev. 22 item 7): two
+    # addresses, two rents, one canonical constant — never respelled.
+    costs = wages + data.RENT_PER_DAY * len(state.shops)
     if state.warehouse is not None:
         if state.dirty >= data.WAREHOUSE_RENT:
             state.dirty -= data.WAREHOUSE_RENT
@@ -1197,14 +1199,14 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
                 continue
             # The storage authority prices the bound and says why
             # (rev. 18 item 2): the warehouse has a cap too.
-            fits = models.units_that_fit(state, "warehouse", g)
+            fits = models.units_that_fit(state, models.WAREHOUSE, g)
             n = con.ask_int(
                 f"Move {data.GOODS[g]['label']} (have {u}; warehouse "
                 f"{models.space_used(state.warehouse)}/"
-                f"{models.space_cap(state, 'warehouse')} space used; "
+                f"{models.space_cap(state, models.WAREHOUSE)} space used; "
                 f"{fits} more units fit)",
                 0, min(u, fits), min(u, fits))
-            models.move_goods(state, "shop", "warehouse", g, n)
+            models.move_goods(state, state.shop.key, models.WAREHOUSE, g, n)
             moved += n
         if moved and state.branch == "quiet_sale":
             # A truck at the rolling door while the buyer's man watches
@@ -1214,14 +1216,14 @@ def _storage(state: State, con: Console, streams: Streams) -> None:
         for g, u in list(state.warehouse.items()):
             if u <= 0:
                 continue
-            fits = models.units_that_fit(state, "shop", g)
+            fits = models.units_that_fit(state, state.shop.key, g)
             n = con.ask_int(
                 f"Bring back {data.GOODS[g]['label']} (there {u}; back "
                 f"room {models.space_used(state.shop_stash)}/"
-                f"{models.space_cap(state, 'shop')} space used; "
+                f"{models.space_cap(state, state.shop.key)} space used; "
                 f"{fits} more units fit)",
                 0, min(u, fits), 0)
-            models.move_goods(state, "warehouse", "shop", g, n)
+            models.move_goods(state, models.WAREHOUSE, state.shop.key, g, n)
     elif c == 2:
         n = con.ask_int("Stash how much dirty cash off-site?", 0, state.dirty, 0)
         state.dirty -= n
