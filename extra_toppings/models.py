@@ -618,13 +618,11 @@ def wagon_gone_line(wagon: PlannedWagon) -> str:
         raise ValueError("a free wagon has no absence to explain")
     if wagon.blocked_by in ("lifecycle", "unhoused"):
         return wagon.note[0].upper() + wagon.note[1:]
-    # PRESERVED EXACTLY AS THE GAME SHIPS IT, including the defect:
-    # every night-consumer cause renders as the route, so a wagon the
-    # PICKUP has is described as being out on the route. That is
-    # reachable in the released war branch, so correcting it moves
-    # player-visible text and lands in its own declared commit —
-    # never smuggled into a structural change (rev. 27 item 3).
-    return "The wagon is out on tonight's route"
+    # RENDERED FROM THE BLOCKING JOB, not from whichever job the
+    # sentence happened to be written for. The literal that used to
+    # sit here named the route unconditionally, so a wagon the PICKUP
+    # had was described as being out on the route.
+    return f"The wagon is {WAGON_NOTES[wagon.blocked_by]}"
 # THE released set (§7): the Straight Path and the Quiet Sale lifted
 # together on the P2 merge approval; the Harbor War joined on the P3
 # merge disposition ("keep activation as a separate, minimal

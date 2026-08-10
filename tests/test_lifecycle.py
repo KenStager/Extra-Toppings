@@ -426,9 +426,9 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
             "yard — whatever the crew takes, they carry on foot."),
             con.lines)
 
-    def test_a_raid_without_a_note_keeps_its_existing_sentence(self):
-        # Regression guard on the wiring: the note is supplied ONLY
-        # for the lifecycle, so every existing cause is untouched.
+    def test_a_route_held_wagon_keeps_the_sentence_it_always_had(self):
+        # The route case is the one the old literal was written for,
+        # so it must come through the correction byte-identical.
         state = new_state()
         con = Listening()
         raids.plan_raid(state, con, random.Random(3), reserved=[],
@@ -470,6 +470,48 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
         self.assertTrue(con.said(
             "The wagon is spoken for tonight — the stockroom "
             "isn't going anywhere."))
+
+
+class TestTheAbsenceSentenceNamesTheRightJob(unittest.TestCase):
+    """The declared behaviour change: the sentence is rendered FROM
+    the blocking job. Before this, every night-consumer cause named
+    tonight's route, so a wagon the PICKUP had was described as being
+    out on the route — reachable in the released war branch."""
+
+    def test_each_job_names_itself(self):
+        for job, expected in (
+                ("route", "The wagon is out on tonight's route"),
+                ("salvage", "The wagon is out on tonight's pickup"),
+                ("raid", "The wagon is out with the night crew"),
+                ("decoy", "The wagon is already loaded and gone")):
+            view = models.PlannedWagon(blocked_by=job,
+                                       note=models.WAGON_NOTES[job])
+            self.assertEqual(models.wagon_gone_line(view), expected)
+
+    def test_the_lifecycle_names_the_address(self):
+        view = phases.planned_wagon(
+            _with_site(day=6, acceptance=5), {}, "shop2")
+        self.assertEqual(
+            models.wagon_gone_line(view),
+            "The University Hill wagon is still at the contractor's yard")
+
+    def test_a_salvage_held_wagon_no_longer_claims_the_route(self):
+        # The defect, as the player met it: the pickup has the wagon
+        # and the raid line said it was out on a route.
+        state = new_state()
+        con = Listening()
+        raids.plan_raid(state, con, random.Random(3), reserved=[],
+                        wagon=models.PlannedWagon(
+                            blocked_by="salvage",
+                            note=models.WAGON_NOTES["salvage"]))
+        self.assertTrue(con.said(
+            "  The wagon is out on tonight's pickup — whatever the "
+            "crew takes, they carry on foot."), con.lines)
+        self.assertFalse(con.said("out on tonight's route"))
+
+    def test_a_free_wagon_has_no_absence_to_explain(self):
+        with self.assertRaises(ValueError):
+            models.wagon_gone_line(models.PlannedWagon(("wagon1",)))
 
 
 class TestTheOneShopPlanningPathIsUnchanged(unittest.TestCase):
