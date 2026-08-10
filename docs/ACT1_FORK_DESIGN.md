@@ -649,8 +649,15 @@ who take no part in defending it. So one view answers both questions.
 *Defenders* at an address are the employees who are hired, aware,
 available **and assigned there** — the same crew test the incoming
 raid already applies, now made address-local. *Strength* is the
-existing `max(nerve) + guard bonus` calculation, unchanged in value
-and reached through the same arithmetic. *Softest* is the lowest
+existing calculation **preserved exactly, not paraphrased** (rev. 30
+precision): `max(nerve of defenders, default 3) + (4 if the guard
+upgrade is at that address)` — the **empty-defender baseline of 3**
+and the **guard bonus of 4** are part of the formula, not incidental
+constants, and the guard is read from the target address's own
+upgrades, which it already is. A view that carried "max nerve plus a
+guard bonus" without those two numbers would be a second formula
+wearing the first one's name, and an undefended address would score
+0 where the engine scores 3. *Softest* is the lowest
 strength, tie-broken by fewer defenders, then lower reputation, then
 stable key, so the answer is total and never positional. The
 persisted warning **freezes the address it chose**, and **live
@@ -742,12 +749,32 @@ design forbids.
 
 **The window is an OPPORTUNITY, not a clock** (rev. 29 item 5): after
 an arrest, a poach, a resignation, a firing or a reassignment, the
-player gets **one management menu** — the next one available — before
-the full penalty binds. Vague 24-hour arithmetic would make the window
-depend on when in the day the post emptied; an opportunity is
-something the player is actually offered and can actually take.
-Leaving the post vacant through that opportunity makes the full
-penalty bind **for service**. Initial placeholders, §6.3-class and
+player gets **one management menu** before the full penalty binds.
+Vague 24-hour arithmetic would make the window depend on when in the
+day the post emptied; an opportunity is something the player is
+actually offered and can actually take.
+
+**And it is a persisted state machine, not an optional screen**
+(rev. 30 item 2). "The next available menu" must never mean a menu
+the player can decline to open forever, which would turn the penalty
+into something avoidable by not looking at it. Exactly: (a) manager
+loss **creates a persisted pending opportunity**, recorded with the
+day the post emptied; (b) the appointment screen is **surfaced
+automatically before that address's next service** — the player does
+not go looking for it; (c) **appointing clears the vacancy**, while
+**declining it, or exhausting it, activates the full penalty**;
+(d) **save and load preserve the opportunity state**, which is never
+reconstructed from the calendar — a reload must not hand back a
+window the player already spent, nor consume one they still hold.
+*Initial vacancy, ruled:* **construction provides its one appointment
+opportunity**, so a player who takes the chair with no eligible
+manager is offered the post while the site is being built; **if the
+shop opens without a manager, Carmine's nephew runs it at the full
+penalty from its first service.** Entering the branch is never
+refused for want of a manager — the penalty is the consequence, not
+the chair being withheld.
+
+Initial placeholders, §6.3-class and
 movable only by the recorded falsification workflow: **one management
 opportunity**, **kitchen capacity × 0.50**, **believable ceiling ×
 0.50**. *One manager-transition authority* updates the manager's
@@ -1802,11 +1829,18 @@ Ordered roughly by blast radius, smallest first:
     ablations, the §2.7 letters measured, FINDINGS, and human play.
 
   Both identity gates and all three merged batteries stay binding at
-  every P4b boundary as a **containment** check — P4b touches no
-  flag-off and no stand-pat surface — and **the golden is not
-  regenerated in P4b either**. A green containment gate proves the
-  branch stayed inside its branch, never that it works, so **each PR
-  carries its own local proof** (rev. 29 item 10): the
+  every P4b boundary, and **the golden is not regenerated in P4b
+  either** — but what they PROVE differs by PR (rev. 30 item 1).
+  **At P4b.1a they are behaviour-equivalence proof, exactly as in
+  P4a**: that PR converts the shared morning, service and night
+  surfaces that flag-off and every released branch already run
+  through, so a moved transcript, RNG state, ending or study digit
+  there is a refactor defect. **From P4b.1b onward they are
+  containment checks** — those PRs add branch-local behaviour behind
+  an unreleased chair, touching no flag-off and no stand-pat surface
+  — and a green containment gate proves the branch stayed inside its
+  branch, never that it works. So **each PR carries its own local
+  proof** (rev. 29 item 10): the
   lifecycle/capability matrix and save-load transitions; atomic
   rollback, the D14–D17 walkthrough and two real routes only after
   opening; an exhaustive points-state transition table with ledger
@@ -4446,6 +4480,11 @@ contract.
    proves P4b is the §2.7 Partner battery, and it does not exist
    until P4b.5. **The golden is not regenerated in P4b either**; a
    moved digit is a containment failure, not a result.
+   *(SUPERSEDED IN PART by rev. 30 item 1: the premise "P4b touches
+   no flag-off surface" is false at **P4b.1a**, which converts the
+   shared morning, service and night surfaces. There the gates are
+   behaviour-equivalence proof, exactly as in P4a; only P4b.1b–P4b.5
+   are containment. The rest of this item stands.)*
 
 3. **The chair is visible and untakeable throughout.** `sitdown.py`
    already prints an unreleased chair with a development-build
@@ -4653,14 +4692,92 @@ amends §2.4.2 and §7 rather than living only in §8.
    through the existing `adjust_relation` authority. **A dead owner
    produces no retaliatory response.** §2.4.2 amended.
 
-10. **Local proof at every boundary.** The identity gates stay
-    containment checks (rev. 28 item 2), so each PR carries its own
-    proof: *P4b.1a* — the lifecycle/capability matrix and save-load
-    transitions; *P4b.1b* — atomic rollback, the D14–D17 walkthrough,
-    and two real routes only after opening; *P4b.2* — an exhaustive
-    points-state transition table plus ledger reconciliation;
-    *P4b.3* — staffing swaps change the target deterministically, and
-    every manager-loss path reaches the same vacancy authority;
-    *P4b.4* — exhaustive terminal and threshold edges; *P4b.5* — the
-    full empirical battery and human play. A green containment gate
-    proves the branch was contained, never that it works.
+10. **Local proof at every boundary** (corrected by rev. 30 item 1 —
+    the gate's *character* is not uniform across P4b). **At P4b.1a
+    the identity gates are behaviour-equivalence PROOF, exactly as in
+    P4a**, because P4b.1a converts the shared morning, service and
+    night surfaces that flag-off and every released branch already
+    run through; a moved transcript there is a refactor defect, not a
+    containment failure. **Only P4b.1b–P4b.5 may call them
+    containment checks**, since only those add branch-local behaviour
+    behind an unreleased chair. Rev. 28 item 2's blanket
+    "containment" reading was wrong for the first PR and is
+    superseded. Each PR still carries its own local proof:
+    *P4b.1a* — the lifecycle/capability matrix and save-load
+    transitions, ON TOP OF the identity gates as proof; *P4b.1b* —
+    atomic rollback, the D14–D17 walkthrough, and two real routes
+    only after opening; *P4b.2* — an exhaustive points-state
+    transition table plus ledger reconciliation; *P4b.3* — the
+    address-pressure matrix (rev. 30 item 3); *P4b.4* — exhaustive
+    terminal and threshold edges; *P4b.5* — the full empirical
+    battery and human play. From P4b.1b onward, a green containment
+    gate proves the branch was contained, never that it works.
+
+**Revision 30** is a narrow correction to revision 29: the gate's
+character at P4b.1a, the manager opportunity as a persisted state
+machine, and the address-pressure matrix P4b.3 owes. Paper only; no
+P4b implementation accompanies it. It amends §2.4.2, §7 and revision
+29 item 10 in place — revision 29 has not been merged, so the
+correction belongs in the text under review rather than layered on
+top of it.
+
+1. **P4b.1a's gate is behaviour-equivalence PROOF, not containment.**
+   Revision 28 item 2 called the identity gates containment checks
+   across all of P4b, and revision 29 item 10 repeated it. That is
+   wrong for the first PR: **P4b.1a converts the shared morning,
+   service and night surfaces that flag-off and every released
+   branch already run through**, which is the same class of change
+   P4a made and the same reason P4a's gate was identity. A moved
+   transcript, RNG state, ending or study digit at P4b.1a is a
+   refactor defect to be fixed, never a result to be recorded. Only
+   **P4b.1b–P4b.5** may describe the gates as containment checks,
+   because only those add branch-local behaviour behind an unreleased
+   chair. The distinction matters precisely because it is the PR
+   where a mistake would reach a released game: calling its gate
+   "containment" would have licensed reading a moved digit as
+   someone else's problem. §7 and rev. 29 item 10 amended.
+
+2. **The manager opportunity is a persisted state machine.** "The
+   next available management menu" was ambiguous and, read
+   literally, avoidable — a player who never opens an optional menu
+   would never spend the window and never take the penalty, which
+   inverts the design. Exactly: manager loss **creates a persisted
+   pending opportunity** recorded with the day the post emptied; the
+   appointment screen is **surfaced automatically before that
+   address's next service**; **appointing clears the vacancy**, and
+   **declining or exhausting the opportunity activates the full
+   penalty**; **save and load preserve the opportunity state**, never
+   reconstructing it from the calendar — a reload may neither restore
+   a spent window nor consume a held one. *Initial vacancy is ruled,
+   not left open:* **construction provides its one appointment
+   opportunity**, and **a shop that opens with no manager runs under
+   Carmine's nephew at the full penalty from its first service**.
+   Entering the branch is never refused for want of a manager.
+   §2.4.2 amended.
+
+3. **P4b.3 owes one address-pressure matrix, not a pair of spot
+   pins.** Revision 29 item 10 asked P4b.3 for two assertions —
+   staffing swaps move the target, and every manager-loss path
+   reaches one authority — which is narrower than the PR's scope.
+   The root invariant P4b.3 must prove is: **a target is selected
+   ONCE by identity, persisted wherever the consequence is delayed,
+   and every consequence resolves against THAT identity.** One matrix
+   covers it: staffing-driven selection; list-order independence
+   (reversing `state.shops` or `state.wagons` changes no answer);
+   warning and tribute surviving save and load without retargeting;
+   the informant tip's heat landing on the addressed district rather
+   than `HOME_DISTRICT`; every raid consequence — coupons, guards,
+   damage days, stash seizure, reputation, heat, law searches —
+   landing on the named shop; **construction sites excluded from
+   targeting entirely**; and **a dead owner producing no retaliatory
+   response**. P4a's lesson applies directly: each of these is
+   invisible at one address, so none of them is proved by any gate.
+
+4. **One precision on `ShopDefenseView`** (rev. 29 item 2). The view
+   must preserve the existing formula EXACTLY, including the
+   **empty-defender baseline of 3** and the **guard bonus of 4** —
+   `max(nerve, default 3) + (4 if the guard upgrade is at that
+   address)`. "Max nerve plus a guard bonus" is a paraphrase, and a
+   paraphrase here would score an undefended address 0 where the
+   engine scores 3, which changes both which shop is softest and
+   whether the raid is repelled. §2.4.2 amended.
