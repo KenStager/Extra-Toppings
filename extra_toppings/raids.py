@@ -96,12 +96,26 @@ def plan_raid(state: State, con: Console, rng: random.Random,
         con.say("  With the debt this close to settled, remember: whatever "
                 "tonight leaves behind goes into the file tomorrow's table "
                 "reads.")
+    home = models.exactly_one_shop(state).key
+    # WHICH wagon the crew would load, or an explicit None meaning
+    # they go on foot (P4b.1a). Only a stock theft loads one at all
+    # (rev. 26): ledger and sabotage jobs always walk, and they record
+    # that rather than leaving the question unanswered.
+    #
+    # The candidate is the address's CLAIMABLE wagon, not tonight's
+    # free one: a route planned this morning may be scrubbed before it
+    # departs, and the crew then leaves in the wagon that came back.
+    # Execution revalidates the key and decides; planning only names
+    # the vehicle.
+    riding = models.claimable_wagons(state, home)
     return {"rival": rival_key, "objective": objective, "team": team,
             "armed": armed, "table_warned": warned,
+            "wagon_key": (riding[0] if objective == "steal_stock"
+                          and riding else None),
             # Where the crew comes back to. Named at planning so the
             # haul cannot be unloaded somewhere nobody drove (design
             # rev. 22 item 5); with one address it is that address.
-            "return_shop": models.exactly_one_shop(state).key}
+            "return_shop": home}
 
 
 # The security word moved to models.security_word so the war board can

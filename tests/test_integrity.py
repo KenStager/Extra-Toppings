@@ -81,14 +81,16 @@ class TestRealCover(unittest.TestCase):
         state.delivery_pool = 3
         state.shop_stash = {}
         con = ScriptedConsole([0, 0, False, 12])   # ask for 12 cover stops
-        plan = routes.plan_route(state, con, rng)
+        plan = routes.plan_route(state, con, rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         self.assertEqual(plan["legit"], 3)         # only 3 real orders exist
 
     def test_hollow_shop_offers_no_cover(self):
         state, rng = fresh(13)
         state.delivery_pool = 0
         state.shop_stash = {}
-        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 12]), rng)
+        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 12]), rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         self.assertEqual(plan["legit"], 0)
 
 
@@ -99,7 +101,8 @@ class TestAssignments(unittest.TestCase):
             e.hired = e.aware = True
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 0, 0]),
-                                 rng, reserved=[rosa])
+                                 rng, reserved=[rosa],
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         self.assertIsNotNone(plan)
         self.assertIsNot(plan["driver"], rosa)
 
@@ -238,9 +241,11 @@ class TestTransactionalPlanning(unittest.TestCase):
         state, rng = self._fresh_planner()
         before = (dict(state.shop_stash), state.shop.ingredients,
                   state.delivery_pool)
-        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng)
+        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         self.assertEqual(sum(plan["cargo"].values()), 4)
-        cancelled = routes.plan_route(state, ScriptedConsole([4]), rng)
+        cancelled = routes.plan_route(state, ScriptedConsole([4]), rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         self.assertIsNone(cancelled)
         after = (dict(state.shop_stash), state.shop.ingredients,
                  state.delivery_pool)
@@ -249,13 +254,15 @@ class TestTransactionalPlanning(unittest.TestCase):
     def test_replanning_never_strands_stock(self):
         state, rng = self._fresh_planner()
         for _ in range(5):
-            routes.plan_route(state, ScriptedConsole([0, 0, False, 8, 4]), rng)
+            routes.plan_route(state, ScriptedConsole([0, 0, False, 8, 4]), rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         self.assertEqual(state.shop_stash["oregano"], 8)
         self.assertEqual(state.shop.ingredients, 40)
 
     def test_commit_takes_exactly_the_plan_once(self):
         state, rng = self._fresh_planner()
-        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng)
+        plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
         phases._commit_route(state, plan, ScriptedConsole())
         self.assertEqual(state.shop_stash["oregano"], 4)
         self.assertEqual(state.shop.ingredients, 36)
@@ -319,7 +326,8 @@ class TestDriverRevalidation(unittest.TestCase):
         state.shop_stash = {"oregano": 8}
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         rosa.aware = True
-        return routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng)
+        return routes.plan_route(state, ScriptedConsole([0, 0, False, 4, 4]), rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
 
     def test_fired_driver_scrubs_the_route_uncommitted(self):
         state, rng = fresh(32)

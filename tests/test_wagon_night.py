@@ -83,7 +83,8 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         state = arriving(shop_with_stash(), "vinnie")
         driver = hire(state, "Rosa")
         plans = {"route": {"district": "old_harbor", "driver": driver,
-                           "ride_along": False, "cargo": {}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY},
+                           "ride_along": False, "cargo": {}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
+                           "wagon_key": models.HOME_WAGON_KEY},
                  "raid": None}
         con = run_night(state, plans, Watching([1, 0]))
         offers = con.decoy_offers()
@@ -108,7 +109,9 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         arriving(state, "vinnie")
         driver = hire(state, "Rosa")
         plans = {"route": None, "raid": None,
-                 "salvage": {"rival": "sal", "driver": driver}}
+                 "salvage": {"rival": "sal", "driver": driver,
+                             "origin_shop": models.HOME_SHOP_KEY,
+                             "wagon_key": models.HOME_WAGON_KEY}}
         con = run_night(state, plans, Watching([1, 0]))
         offers = con.decoy_offers()
         self.assertIn("unavailable", offers[0])
@@ -120,7 +123,9 @@ class TestTheWagonIsSpentByWhatDeparted(unittest.TestCase):
         arriving(state, "vinnie")
         driver = hire(state, "Rosa")
         plans = {"route": None, "raid": None,
-                 "salvage": {"rival": "sal", "driver": driver}}
+                 "salvage": {"rival": "sal", "driver": driver,
+                             "origin_shop": models.HOME_SHOP_KEY,
+                             "wagon_key": models.HOME_WAGON_KEY}}
         report = {"salvage": war.SalvageResult(outcome="scrubbed",
                                                wagon_used=False)}
         con = run_night(state, plans, Watching([1]), service_report=report)
@@ -147,7 +152,12 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         state = arriving(shop_with_stash(), "vinnie")
         crew = hire(state, "Angelo")
         plans = {"route": None, "salvage": None,
+                 # Only a stock theft loads a wagon (rev. 26); every
+                 # other objective records going on foot EXPLICITLY.
                  "raid": {"rival": "sal", "objective": objective,
+                          "wagon_key": (models.HOME_WAGON_KEY
+                                        if objective == "steal_stock"
+                                        else None),
                           "team": [crew], "armed": False,
                           "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
         return state, run_night(state, plans, Watching(script))
@@ -171,6 +181,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
         crew.injured_days = 2                      # off the job tonight
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models.HOME_WAGON_KEY,
                           "team": [crew], "armed": False,
                           "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
         con = run_night(state, plans, Watching([1]))
@@ -187,6 +198,7 @@ class TestOnlyAStockTheftTakesTheWagon(unittest.TestCase):
             crew = hire(state, "Angelo")
             plans = {"route": None, "salvage": None,
                      "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models.HOME_WAGON_KEY,
                               "team": [crew], "armed": False,
                               "table_warned": True, "return_shop": models.HOME_SHOP_KEY}}
             con = Watching([1, 0])

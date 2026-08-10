@@ -89,6 +89,10 @@ class RoutePlan:
     # wagon loads would load it at the founding address by default
     # (rev. 27 item 7).
     origin_shop: str
+    # THE wagon this route rolls out in (P4b.1a). Named at planning
+    # and revalidated at execution, so the night spends the vehicle
+    # the plan chose rather than re-picking one by address.
+    wagon_key: str
     disposal: bool = False
 
     @property
@@ -100,7 +104,7 @@ class RoutePlan:
         return self.manifest.legit
 
     _KEYS = ("district", "driver", "ride_along", "cargo", "legit",
-             "disposal", "origin_shop")
+             "disposal", "origin_shop", "wagon_key")
 
     def __getitem__(self, key):
         if key in self._KEYS:
@@ -151,7 +155,8 @@ def route_suspicion(covert: int, legit: int) -> float:
 
 
 def plan_route(state: State, con: Console, rng: random.Random,
-               reserved: list | None = None) -> "RoutePlan | None":
+               reserved: list | None = None, *,
+               wagon: models.PlannedWagon) -> "RoutePlan | None":
     """Morning: pick district, driver, cargo, cover. Returns a route plan.
 
     `reserved` employees (tonight's raid crew) can't also drive the route —
@@ -295,9 +300,11 @@ def plan_route(state: State, con: Console, rng: random.Random,
                 "tonight goes into the file tomorrow's table reads.")
     return RoutePlan(district=dk, driver=driver, ride_along=ride_along,
                      manifest=manifest,
-                     # Which address the wagon leaves from. With one
-                     # address that is it; P4b lets the player choose.
-                     origin_shop=origin.key)
+                     # Which address the wagon leaves from, and WHICH
+                     # wagon. Both named at planning; the night
+                     # revalidates the key rather than choosing again.
+                     origin_shop=origin.key,
+                     wagon_key=wagon.first)
 
 
 def _payoff_reachable_tonight(state: State, shop, dk: str,

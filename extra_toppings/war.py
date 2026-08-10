@@ -501,7 +501,7 @@ def plan_salvage(state: State, con: Console, reserved: list,
     # that names an address the world does not have is refused rather
     # than returned as a job no wagon can serve.
     plan = {"rival": camp.rival_key, "driver": drivers[pick],
-            "origin_shop": origin_shop}
+            "origin_shop": origin_shop, "wagon_key": wagon.first}
     models.plan_origin(state, plan)
     return plan
 

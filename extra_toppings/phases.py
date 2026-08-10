@@ -90,12 +90,11 @@ def planned_wagon(state: "State", plans: dict, shop_key: str,
     when nothing tonight has taken it — so a wagon is never described
     as sitting at the contractor's yard when the pickup has it."""
     kept = state.wagons_at(shop_key)
-    unclaimed = [w for w in kept
-                 if models.wagon_claim(state, w.key).available]
+    claimable = models.claimable_wagons(state, shop_key)
     taken = planned_jobs_at(state, plans, shop_key, but=but)
     # Each planned job at this address spends one of its free wagons,
     # in the same key order `claim_at` would spend them.
-    free = tuple(w.key for w in unclaimed[len(taken):])
+    free = claimable[len(taken):]
     if free:
         return models.PlannedWagon(free)
     if taken:
@@ -186,6 +185,28 @@ class WagonNight:
                 f"one; every wagon there is {self.note_at(shop_key)}")
         self.claims[free[0].key] = by
         return free[0].key
+
+    def claim_key(self, wagon_key: str, by: str) -> bool:
+        """Take THE wagon a plan named, and say whether it was still
+        there. This is the execution revalidation the contract asks
+        for: a plan records an identity at morning, and the night
+        spends THAT vehicle or none — never a different wagon that
+        happens to sit at the same address.
+
+        Returns False rather than raising when the wagon is gone,
+        because a job losing its wagon between planning and nightfall
+        is ordinary play: a route that departed, a site that has not
+        opened. Raises only on incoherence — an unknown wagon, or an
+        unknown consumer."""
+        if by not in WAGON_NOTES:
+            raise ValueError(f"unknown wagon consumer {by!r}")
+        self.state.wagon_by_key(wagon_key)      # KeyError on a ghost
+        if wagon_key in self.claims:
+            return False
+        if not models.wagon_claim(self.state, wagon_key).available:
+            return False
+        self.claims[wagon_key] = by
+        return True
 
 
 def wagon_used(plans: dict, service_report: dict) -> bool:
@@ -321,7 +342,8 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
                 continue
             plans["route"] = routes.plan_route(
                 state, con, streams.routes,
-                reserved=night_reserved(plans, but="route"))
+                reserved=night_reserved(plans, but="route"),
+                wagon=wagon_now)
         elif c == 7:
             route = plans.get("route")
             if route and route["ride_along"]:
@@ -378,7 +400,7 @@ def _straight_morning_menu(state: State, con: Console, streams: Streams,
             _improvements(state, shop_at, con)
         elif c == 6:
             fire_sale_done = _disposal_menu(state, con, streams, plans,
-                                            fire_sale_done)
+                                            fire_sale_done, shop_at)
         elif c == 7:
             straight.show_case_file(state, con)
         elif c == 8:
@@ -454,7 +476,8 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
                 continue
             plans["route"] = routes.plan_route(
                 state, con, streams.routes,
-                reserved=night_reserved(plans, but="route"))
+                reserved=night_reserved(plans, but="route"),
+                wagon=wagon_now)
         elif key == "raid":
             route = plans.get("route")
             if route and route["ride_along"]:
@@ -503,7 +526,8 @@ def _second_front(state: State) -> str | None:
 
 
 def _disposal_menu(state: State, con: Console, streams: Streams,
-                   plans: dict, fire_sale_done: bool) -> bool:
+                   plans: dict, fire_sale_done: bool,
+                   shop_at: Shop) -> bool:
     """Three ways out for the remaining stash (§2.4.1): Sal's truck at
     40%, a counted run at a haircut, or the oven. Back stays last; the
     destructive option is never last (rev. 7's lesson)."""
@@ -529,7 +553,14 @@ def _disposal_menu(state: State, con: Console, streams: Streams,
         elif plans.get("route"):
             con.say("  Tonight's wagon is already spoken for.")
         else:
-            plan = routes.plan_route(state, con, streams.routes)
+            disposal_wagon = planned_wagon(state, plans, shop_at.key,
+                                           but="route")
+            if not disposal_wagon.available:
+                con.say(f"  No run leaves here tonight — "
+                        f"{disposal_wagon.note}.")
+                return fire_sale_done
+            plan = routes.plan_route(state, con, streams.routes,
+                                     wagon=disposal_wagon)
             if plan is not None:
                 if any(plan["cargo"].values()):
                     plan["disposal"] = True
@@ -1009,11 +1040,9 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     service_job = wagon_job(plans)
     if service_job is not None and wagon_used(plans, service_report):
         # The service job left from the address it was planned at.
-        job_plan = plans[service_job]
-        origin = (job_plan.get("origin_shop")
-                  if service_job == "route"
-                  else None) or models.exactly_one_shop(state).key
-        wagon.claim_at(origin, service_job)
+        # THE wagon the plan named, revalidated — not another one
+        # that happens to sit at the same address (P4b.1a).
+        wagon.claim_key(plans[service_job]["wagon_key"], service_job)
 
     # Today's wear is booked at close, BEFORE tonight's raids and rival
     # moves create new effects — a coupon blitz or smashed oven tonight
@@ -1061,8 +1090,6 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # asks what actually happened tonight — a committed route
             # or a pickup that DEPARTED holds the wagon; a pickup
             # scrubbed before departure never took it out.
-            raid_home = raid_plan["return_shop"]
-            raid_plan["wagon_free"] = wagon.available_at(raid_home)
             # §2.1 rev. 4: the day's takings can put payoff in reach
             # after the job was planned — recheck once, before it runs.
             if not raid_plan.get("table_warned") and state.payoff_in_reach():
@@ -1073,11 +1100,15 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
             # loads it (design rev. 26): ledger and sabotage jobs go
             # on foot. The outcome is irrelevant — a repelled theft
             # still drove away with it.
-            if (raid_plan["objective"] == "steal_stock"
-                    and raid_plan["wagon_free"]):
-                # Claimed BEFORE the job runs: departure is what
-                # consumes the wagon, not the outcome.
-                wagon.claim_at(raid_home, "raid")
+            #
+            # Claimed BEFORE the job runs, by the KEY the plan named:
+            # departure is what consumes the wagon, not the outcome,
+            # and a wagon that left on the route since morning simply
+            # is not there — which is what the claim reports.
+            planned_key = raid_plan.get("wagon_key")
+            raid_plan["wagon_free"] = bool(
+                planned_key is not None
+                and wagon.claim_key(planned_key, "raid"))
             raids.run_raid(state, raid_plan, con, streams.raids)
 
     for key, rival in state.rivals.items():

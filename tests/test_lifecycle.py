@@ -12,7 +12,8 @@ import random
 import unittest
 
 import test_war_mechanics as war_mechanics
-from extra_toppings import data, models, phases, raids, save, war
+from extra_toppings import (data, market, models, phases, raids, routes,
+                            save, war)
 from extra_toppings.rng import Streams
 from extra_toppings.models import (ADDRESS_CAPABILITIES,
                                    CONSTRUCTION_ALLOWED,
@@ -40,6 +41,16 @@ class Listening(ScriptedConsole):
 
     def said(self, fragment: str) -> bool:
         return any(fragment in line for line in self.lines)
+
+
+def _raid_plan(state, objective):
+    """A raid planned through the REAL planner: pick the rival, the
+    objective, the crew, unarmed."""
+    script = [0, ("steal_stock", "photograph_ledger",
+                  "wreck_ovens").index(objective), 0, False, False]
+    return raids.plan_raid(
+        state, Listening(script), random.Random(3), reserved=[],
+        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
 
 
 def _with_site(day: int, acceptance: int) -> models.State:
@@ -601,6 +612,107 @@ class TestTheOneShopPlanningPathIsUnchanged(unittest.TestCase):
             state.day = day
             self.assertTrue(
                 phases.planned_wagon(state, {}, HOME_SHOP_KEY).available)
+
+
+class TestPlansCarryTheirWagon(unittest.TestCase):
+    """Conditions 2-4: a plan records WHICH wagon it takes, or
+    records going on foot, and execution spends THAT vehicle rather
+    than choosing again by address."""
+
+    def test_a_route_plan_names_its_wagon(self):
+        # One address here deliberately: `plan_route` still resolves
+        # its origin through `operating_shop`, which refuses two — the
+        # conversion that lifts it is the next commit, and the
+        # two-address route is one of its acceptance conditions.
+        state = new_state()
+        market.roll_prices(state, random.Random(3))     # a real board
+        for e in state.employees[:2]:
+            e.hired = e.aware = True
+        view = phases.planned_wagon(state, {}, HOME_SHOP_KEY)
+        plan = routes.plan_route(state, Listening([0, 0, False, 0, 0]),
+                                 random.Random(3), reserved=[],
+                                 wagon=view)
+        self.assertIsNotNone(plan)
+        self.assertEqual(plan["wagon_key"], models.HOME_WAGON_KEY)
+        self.assertEqual(plan["origin_shop"], HOME_SHOP_KEY)
+
+    def test_a_salvage_plan_names_its_wagon(self):
+        state, _rosa = war_mechanics.TestSalvage._captured(
+            war_mechanics.TestSalvage())
+        plan = war.plan_salvage(
+            state, Listening([0]), reserved=[],
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin_shop=HOME_SHOP_KEY)
+        self.assertEqual(plan["wagon_key"], models.HOME_WAGON_KEY)
+
+    def test_a_stock_theft_names_its_wagon_others_record_on_foot(self):
+        # rev. 26: only a stock theft loads one. The others do not
+        # leave the question unanswered — they record None.
+        state = new_state()
+        for e in state.employees[:2]:
+            e.hired = e.aware = True
+        for objective, expected in (("steal_stock",
+                                     models.HOME_WAGON_KEY),
+                                    ("photograph_ledger", None),
+                                    ("wreck_ovens", None)):
+            plan = _raid_plan(state, objective)
+            self.assertEqual(plan["wagon_key"], expected, objective)
+
+    def test_execution_spends_the_named_wagon(self):
+        state = _with_site(day=7, acceptance=5)
+        night = phases.WagonNight(state)
+        self.assertTrue(night.claim_key("wagon2", "route"))
+        self.assertEqual(night.claims, {"wagon2": "route"})
+        # The home wagon is untouched: a named key spends one vehicle.
+        self.assertTrue(night.available_at(HOME_SHOP_KEY))
+
+    def test_a_wagon_taken_since_planning_reports_gone_not_swapped(self):
+        # The bug this closes: execution used to ask the ADDRESS for a
+        # wagon, so a second job could be handed a different vehicle
+        # that happened to sit there.
+        state = _with_site(day=7, acceptance=5)
+        state.wagons.append(Wagon(key="wagon3", shop_key="shop2"))
+        night = phases.WagonNight(state)
+        self.assertTrue(night.claim_key("wagon2", "route"))
+        self.assertFalse(night.claim_key("wagon2", "raid"))
+        self.assertEqual(night.claims, {"wagon2": "route"})
+
+    def test_a_construction_wagon_cannot_be_claimed_by_key(self):
+        state = _with_site(day=6, acceptance=5)
+        self.assertFalse(phases.WagonNight(state).claim_key("wagon2",
+                                                            "route"))
+
+    def test_claiming_a_ghost_wagon_is_incoherence_not_bad_luck(self):
+        state = _with_site(day=7, acceptance=5)
+        night = phases.WagonNight(state)
+        with self.assertRaises(KeyError):
+            night.claim_key("ghost", "route")
+        with self.assertRaises(ValueError):
+            night.claim_key("wagon2", "joyride")
+
+    def test_two_addresses_spend_their_own_wagons_independently(self):
+        state = _with_site(day=7, acceptance=5)
+        night = phases.WagonNight(state)
+        self.assertTrue(night.claim_key(models.HOME_WAGON_KEY, "route"))
+        self.assertTrue(night.claim_key("wagon2", "route"))
+        self.assertEqual(night.claims,
+                         {models.HOME_WAGON_KEY: "route",
+                          "wagon2": "route"})
+
+    def test_a_raid_names_the_wagon_a_scrubbed_route_gives_back(self):
+        # Behaviour PRESERVED: planning records the vehicle even while
+        # a route holds it, because a route scrubbed before departure
+        # frees it and the crew leaves in it. The key is the identity;
+        # availability is execution's question.
+        state = new_state()
+        for e in state.employees[:2]:
+            e.hired = e.aware = True
+        plans = {"route": {"origin_shop": HOME_SHOP_KEY,
+                           "wagon_key": models.HOME_WAGON_KEY}}
+        self.assertFalse(
+            phases.planned_wagon(state, plans, HOME_SHOP_KEY).available)
+        plan = _raid_plan(state, "steal_stock")
+        self.assertEqual(plan["wagon_key"], models.HOME_WAGON_KEY)
 
 
 class TestLifecycleValidation(unittest.TestCase):

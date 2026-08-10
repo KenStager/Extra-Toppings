@@ -633,6 +633,20 @@ class PlannedWagon:
         return self.free[0]
 
 
+def claimable_wagons(state: "State", shop_key: str) -> tuple:
+    """The wagons an address could send out tonight IF nothing had
+    taken them — the LIFECYCLE answer alone, in stable key order.
+
+    Deliberately blind to tonight's plans, because two questions are
+    being asked and they have different answers. "Which wagon would
+    this job take?" is settled at planning and must survive a route
+    being scrubbed before it departs; "is that wagon still here?" is
+    settled at execution. `planned_wagon` subtracts the night's
+    reservations from this; the plans record the identity from it."""
+    return tuple(w.key for w in state.wagons_at(shop_key)
+                 if wagon_claim(state, w.key).available)
+
+
 def plan_origin(state: "State", plan: dict) -> str:
     """The address a planned wagon job leaves from — validated as a
     key AND resolved to a real address.

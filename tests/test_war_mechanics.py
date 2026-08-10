@@ -468,7 +468,8 @@ class TestSalvage(unittest.TestCase):
                                  wagon=models_mod.PlannedWagon(("wagon1",)),
                                  origin_shop=models_mod.HOME_SHOP_KEY)
         self.assertEqual(plan, {"rival": "vinnie", "driver": rosa,
-                                "origin_shop": models_mod.HOME_SHOP_KEY})
+                                "origin_shop": models_mod.HOME_SHOP_KEY,
+                           "wagon_key": models_mod.HOME_WAGON_KEY})
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
         self.assertFalse(camp.salvage_available)
         self.assertEqual(camp.salvage_day, state.day)
@@ -479,7 +480,9 @@ class TestSalvage(unittest.TestCase):
         camp = war.campaign_for(state, "vinnie")
         streams = Streams(21)
         control = Streams(21)
-        plan = {"rival": "vinnie", "driver": rosa}
+        plan = {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}
         war.run_salvage(state, plan, Quiet(), streams.war)
         control.war.randint(4, 10 + camp.starting_hundredths // 1000)
         self.assertEqual(streams.war.getstate(), control.war.getstate())
@@ -777,7 +780,8 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         war.declare(state, "sal", Quiet())    # a live front to raid
         plans = {"route": None, "raid": None,
                  "salvage": {"rival": "vinnie", "driver": rosa,
-                             "origin_shop": models_mod.HOME_SHOP_KEY}}
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                           "wagon_key": models_mod.HOME_WAGON_KEY}}
         reserved = phases.night_reserved(plans, but="raid")
         self.assertIn(rosa, reserved)
         con = Scripted([])
@@ -794,9 +798,12 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         del camp
         plans = {"route": None,
                  "raid": {"rival": "vinnie", "objective": "steal_stock",
+                          "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [rosa], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
-                 "salvage": {"rival": "vinnie", "driver": rosa}}
+                 "salvage": {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}}
         con = Scripted([6])                   # lock up (war night menu)
         phases.night(state, plans, {}, con, Streams(11))
         self.assertIsNotNone(con.find("didn't make it to nightfall")
@@ -810,7 +817,9 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         # overflow it (the reviewer's 49-in-40 repro).
         bulk = data.GOODS["oregano"]["bulk"]
         state.shop_stash = {"oregano": state.shop.stash_cap // bulk}
-        plan = {"rival": "vinnie", "driver": rosa}
+        plan = {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
         self.assertLessEqual(state.stash_bulk(state.shop_stash),
                              state.shop.stash_cap)
@@ -821,7 +830,9 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         state.warehouse = {}
         bulk = data.GOODS["oregano"]["bulk"]
         state.shop_stash = {"oregano": state.shop.stash_cap // bulk}
-        plan = {"rival": "vinnie", "driver": rosa}
+        plan = {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}
         war.run_salvage(state, plan, Quiet(), Streams(21).war)
         self.assertLessEqual(state.stash_bulk(state.shop_stash),
                              state.shop.stash_cap)
@@ -832,7 +843,8 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
         break_target(state)
         plans = {"route": None, "raid": None,
                  "salvage": {"rival": "vinnie", "driver": rosa,
-                             "origin_shop": models_mod.HOME_SHOP_KEY}}
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                           "wagon_key": models_mod.HOME_WAGON_KEY}}
         self.assertEqual(phases.wagon_job(plans), "salvage")
         plans["salvage"] = None               # the recall
         self.assertIsNone(phases.wagon_job(plans))
@@ -924,9 +936,12 @@ class TestRevision16Boundaries(unittest.TestCase):
         state, rosa, marcus = self._two_front_war()
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
-                 "salvage": {"rival": "vinnie", "driver": rosa}}
+                 "salvage": {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
 
@@ -934,6 +949,7 @@ class TestRevision16Boundaries(unittest.TestCase):
         state, _rosa, marcus = self._two_front_war()
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
@@ -1022,9 +1038,12 @@ class TestRevision17Instruments(unittest.TestCase):
         state, rosa, marcus = self._two_front_war()
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
-                 "salvage": {"rival": "vinnie", "driver": rosa}}
+                 "salvage": {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}}
         report = {"salvage": war.SalvageResult(outcome="scrubbed",
                                                wagon_used=False)}
         phases.night(state, plans, report, Scripted([6]), Streams(11))
@@ -1034,9 +1053,12 @@ class TestRevision17Instruments(unittest.TestCase):
         state, rosa, marcus = self._two_front_war()
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
-                 "salvage": {"rival": "vinnie", "driver": rosa}}
+                 "salvage": {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}}
         report = {"salvage": war.SalvageResult(outcome="collected",
                                                wagon_used=True,
                                                collected_units=5)}
@@ -1047,9 +1069,12 @@ class TestRevision17Instruments(unittest.TestCase):
         state, rosa, marcus = self._two_front_war()
         plans = {"route": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY},
-                 "salvage": {"rival": "vinnie", "driver": rosa}}
+                 "salvage": {"rival": "vinnie", "driver": rosa,
+                             "origin_shop": models_mod.HOME_SHOP_KEY,
+                             "wagon_key": models_mod.HOME_WAGON_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
         self.assertIs(plans["raid"]["wagon_free"], False)
 
@@ -1106,6 +1131,7 @@ class TestRevision17Instruments(unittest.TestCase):
         break_target(state, "sal")
         plans = {"route": None, "salvage": None,
                  "raid": {"rival": "sal", "objective": "steal_stock",
+                          "wagon_key": models_mod.HOME_WAGON_KEY,
                           "team": [marcus], "armed": False,
                           "table_warned": True, "return_shop": models_mod.HOME_SHOP_KEY}}
         phases.night(state, plans, {}, Scripted([6]), Streams(11))
@@ -1139,7 +1165,8 @@ class TestRevision17Instruments(unittest.TestCase):
         market.roll_prices(state, _random.Random(3))
         plan = {"district": "little_sicily", "driver": rosa,
                 "ride_along": False, "legit": 0,
-                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY}
+                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY,
+                           "wagon_key": models_mod.HOME_WAGON_KEY}
         report = routes.resolve_route(state, plan, Quiet(),
                                       _random.Random(4))
         state.districts["little_sicily"].sold_yesterday["mushrooms"] = -8
@@ -1157,7 +1184,8 @@ class TestRevision17Instruments(unittest.TestCase):
         state.districts["little_sicily"].heat = 60.0     # amber now
         plan = {"district": "little_sicily", "driver": rosa,
                 "ride_along": False, "legit": 0,
-                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY}
+                "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY,
+                           "wagon_key": models_mod.HOME_WAGON_KEY}
         routes.resolve_route(state, plan, Quiet(), _random.Random(4))
         state.districts["little_sicily"].heat = 0.0      # cools after
         record = state.route_log[-1]
