@@ -8,15 +8,38 @@ here (§7's P4b.1a clause) — every defect this PR could introduce is
 invisible to a one-shop run and to every green gate.
 """
 
+import random
 import unittest
 
-from extra_toppings import data, models, phases, save
+import test_war_mechanics as war_mechanics
+from extra_toppings import data, models, phases, raids, save, war
+from extra_toppings.rng import Streams
 from extra_toppings.models import (ADDRESS_CAPABILITIES,
                                    CONSTRUCTION_ALLOWED,
                                    CONSTRUCTION_DAYS, HOME_SHOP_KEY,
                                    Shop, Wagon, address_allows,
                                    new_state, open_shops, shop_is_open,
                                    validate_addresses, wagon_claim)
+from extra_toppings.ui import ScriptedConsole
+
+
+class Listening(ScriptedConsole):
+    """A scripted console that also keeps what was SAID — the
+    refusals here are prose, and prose does not reach `transcript`,
+    which records only decision points."""
+
+    def __init__(self, script=None):
+        super().__init__(script)
+        self.lines: list = []
+
+    def say(self, text: str = "") -> None:
+        self.lines.append(text)
+
+    def bullet(self, text: str) -> None:
+        self.lines.append(f"• {text}")
+
+    def said(self, fragment: str) -> bool:
+        return any(fragment in line for line in self.lines)
 
 
 def _with_site(day: int, acceptance: int) -> models.State:
@@ -263,6 +286,152 @@ class TestTheNightLedgerObeysTheLifecycle(unittest.TestCase):
         self.assertFalse(night.available_at(HOME_SHOP_KEY))
         self.assertEqual(night.note_at(HOME_SHOP_KEY),
                          phases.WAGON_NOTES["route"])
+
+
+class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
+    """The planning half of rev. 29 item 3's "planning AND execution".
+
+    One view (`phases.planned_wagon`) composes the night's planned
+    reservations with `models.wagon_claim`; no consumer runs its own
+    lifecycle check. The refusal must reach the player at the MENU,
+    not as a RuntimeError when the crew is loading.
+    """
+
+    def test_a_construction_wagon_cannot_be_planned_out(self):
+        state = _with_site(day=6, acceptance=5)
+        view = phases.planned_wagon(state, {}, "shop2")
+        self.assertFalse(view.available)
+        self.assertEqual(view.blocked_by, "lifecycle")
+        self.assertIn("contractor's yard", view.note)
+
+    def test_the_open_address_plans_freely_alongside_it(self):
+        state = _with_site(day=6, acceptance=5)
+        view = phases.planned_wagon(state, {}, HOME_SHOP_KEY)
+        self.assertTrue(view.available)
+        self.assertEqual((view.note, view.blocked_by), ("", ""))
+
+    def test_a_planned_job_outranks_the_lifecycle_as_the_reason(self):
+        # Ordering matches WagonNight.note_at: a wagon the pickup has
+        # is never described as sitting at the contractor's yard.
+        state = _with_site(day=7, acceptance=5)
+        view = phases.planned_wagon(
+            state, {"salvage": {"rival": "vinnie"}}, "shop2")
+        self.assertFalse(view.available)
+        self.assertEqual(view.blocked_by, "planned")
+        self.assertEqual(view.note, phases.WAGON_NOTES["salvage"])
+
+    def test_planning_and_execution_agree_on_every_day(self):
+        # The two halves must never disagree — that disagreement is
+        # exactly what produced a menu that accepted a plan execution
+        # would then refuse.
+        for day in (5, 6, 7, 8):
+            state = _with_site(day=day, acceptance=5)
+            planned = phases.planned_wagon(state, {}, "shop2")
+            executed = phases.WagonNight(state).view_at("shop2")
+            self.assertEqual(planned.available, executed.available, day)
+            self.assertEqual(planned.note, executed.note, day)
+
+    def test_the_opening_morning_flips_both_halves_together(self):
+        state = _with_site(day=6, acceptance=5)
+        self.assertFalse(phases.planned_wagon(state, {}, "shop2").available)
+        state.day = 7                       # the recorded opening day
+        view = phases.planned_wagon(state, {}, "shop2")
+        self.assertTrue(view.available)
+        self.assertTrue(phases.WagonNight(state).available_at("shop2"))
+
+    def test_a_contradictory_planning_answer_cannot_be_built(self):
+        with self.assertRaises(ValueError):
+            phases.PlannedWagon(True, "out on tonight's route", "planned")
+        with self.assertRaises(ValueError):
+            phases.PlannedWagon(False, "", "")
+        with self.assertRaises(ValueError):
+            phases.PlannedWagon(False, "somewhere", "")
+
+
+class TestTheRefusalReachesThePlayer(unittest.TestCase):
+    """Through the REAL planning functions, not their callers: the
+    lifecycle's words must arrive in the player's prose, and every
+    pre-existing cause must keep the sentence it already had."""
+
+    def _yard_note(self):
+        state = _with_site(day=6, acceptance=5)
+        return phases.planned_wagon(state, {}, "shop2").note
+
+    def test_a_raid_says_the_wagon_is_at_the_yard(self):
+        state = new_state()
+        con = Listening()
+        raids.plan_raid(state, con, random.Random(3), reserved=[],
+                        wagon_free=False, wagon_note=self._yard_note())
+        self.assertTrue(con.said("contractor's yard"))
+        self.assertTrue(con.said("carry on foot"))
+
+    def test_a_raid_without_a_note_keeps_its_existing_sentence(self):
+        # Regression guard on the wiring: the note is supplied ONLY
+        # for the lifecycle, so every existing cause is untouched.
+        state = new_state()
+        con = Listening()
+        raids.plan_raid(state, con, random.Random(3), reserved=[],
+                        wagon_free=False)
+        self.assertTrue(con.said(
+            "The wagon is out on tonight's route — whatever the crew "
+            "takes, they carry on foot."))
+
+    def test_a_ledger_raid_is_unaffected_and_goes_on_foot(self):
+        # Only a stock theft loads the wagon (rev. 26); the others
+        # were always on foot and must not acquire a refusal.
+        state = new_state()
+        con = Listening()
+        raids.plan_raid(state, con, random.Random(3), reserved=[],
+                        wagon_free=True)
+        self.assertFalse(con.said("contractor's yard"))
+
+    def test_salvage_says_the_wagon_is_at_the_yard(self):
+        state, _rosa = war_mechanics.TestSalvage._captured(
+            war_mechanics.TestSalvage())
+        con = Listening()
+        plan = war.plan_salvage(state, con, reserved=[], wagon_taken=True,
+                                wagon_note=self._yard_note())
+        self.assertIsNone(plan)
+        self.assertTrue(con.said("contractor's yard"))
+
+    def test_salvage_without_a_note_keeps_its_existing_sentence(self):
+        state, _rosa = war_mechanics.TestSalvage._captured(
+            war_mechanics.TestSalvage())
+        con = Listening()
+        war.plan_salvage(state, con, reserved=[], wagon_taken=True)
+        self.assertTrue(con.said(
+            "The wagon is spoken for tonight — the stockroom "
+            "isn't going anywhere."))
+
+
+class TestTheOneShopPlanningPathIsUnchanged(unittest.TestCase):
+    """The behaviour-equivalence anchor, through PRODUCTION `morning`.
+
+    A one-address world can never reach the lifecycle refusal — the
+    sole address must be the undated founding one, and an undated
+    address is open on every day — so the released game's planning
+    path is untouched by construction. Proved, not assumed.
+    """
+
+    def test_the_real_morning_plans_a_route_with_no_refusal(self):
+        state = new_state()
+        # Option 6 is "plan tonight's route"; then leave the menu.
+        con = Listening([6, 0, 0, 0, 0, 0, 0, 0, 8])
+        phases.morning(state, con, Streams(7))
+        self.assertFalse(con.said("contractor's yard"))
+        self.assertFalse(con.said("No route leaves here tonight"))
+
+    def test_no_one_shop_world_can_reach_the_refusal(self):
+        # Structural, not statistical: validation admits only worlds
+        # whose sole address is undated, and those are always open.
+        state = new_state()
+        validate_addresses(state)
+        self.assertTrue(
+            phases.planned_wagon(state, {}, HOME_SHOP_KEY).available)
+        for day in (1, 15, 30):
+            state.day = day
+            self.assertTrue(
+                phases.planned_wagon(state, {}, HOME_SHOP_KEY).available)
 
 
 class TestLifecycleValidation(unittest.TestCase):

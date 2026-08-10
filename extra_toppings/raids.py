@@ -13,11 +13,21 @@ from .ui import Console, money
 
 def plan_raid(state: State, con: Console, rng: random.Random,
               reserved: list | None = None,
-              wagon_free: bool = True) -> dict | None:
+              wagon_free: bool = True,
+              wagon_note: str = "") -> dict | None:
     """`reserved` employees (tonight's driver) already have a job. If the
-    wagon runs a route tonight, the crew hauls what duffel bags hold."""
+    wagon runs a route tonight, the crew hauls what duffel bags hold.
+
+    `wagon_note` is supplied only when the ADDRESS LIFECYCLE is what
+    withheld the wagon (P4b.1a) — a site still being built — because
+    the existing sentence names tonight's route whatever the real
+    reason was, and correcting that for the other causes would be a
+    player-visible change inside a refactor. It is deliberately left
+    for its own commit."""
     if not wagon_free:
-        con.say("  The wagon is out on tonight's route — whatever the crew "
+        con.say(f"  The wagon is {wagon_note} — whatever the crew "
+                f"takes, they carry on foot." if wagon_note else
+                "  The wagon is out on tonight's route — whatever the crew "
                 "takes, they carry on foot.")
     targets = [k for k, r in state.rivals.items() if r.alive]
     if state.branch == "war":

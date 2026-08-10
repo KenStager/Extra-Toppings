@@ -460,7 +460,7 @@ def salvage_ready(state: State):
 
 
 def plan_salvage(state: State, con: Console, reserved: list,
-                 wagon_taken: bool) -> dict | None:
+                 wagon_taken: bool, wagon_note: str = "") -> dict | None:
     """Morning: assign the wagon and a driver to the dead man's
     stockroom. Reservations come from THE night-assignment view
     (rev. 15 item 2): people already spoken for by the route or the
@@ -471,7 +471,10 @@ def plan_salvage(state: State, con: Console, reserved: list,
     if camp is None:
         return None
     if wagon_taken:
-        con.say("  The wagon is spoken for tonight — the stockroom "
+        # `wagon_note` arrives only from the address lifecycle
+        # (P4b.1a); every existing cause keeps its existing sentence.
+        con.say(f"  No pickup tonight — {wagon_note}." if wagon_note else
+                "  The wagon is spoken for tonight — the stockroom "
                 "isn't going anywhere.")
         return None
     drivers = [e for e in state.hired()

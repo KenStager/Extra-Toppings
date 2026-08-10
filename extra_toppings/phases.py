@@ -55,6 +55,58 @@ WAGON_NOTES = {
 }
 
 
+@dataclass(frozen=True)
+class PlannedWagon:
+    """THE planning-time wagon answer for one address (P4b.1a).
+
+    `WagonNight` answers the same question at execution, from the
+    claims tonight actually made; this answers it from the PLANS,
+    before any of them run. Both compose the same two authorities —
+    the lifecycle (`models.wagon_claim`: may this wagon be claimed at
+    all) and the night's own reservations — so planning and execution
+    cannot reach different verdicts. `WagonNight.claim_at` remains
+    the execution revalidation; this exists so the player is refused
+    at the menu instead of discovering it when the crew is loading.
+
+    `blocked_by` is carried STRUCTURALLY rather than inferred from
+    the note, so a consumer choosing its prose never re-derives the
+    lifecycle for itself — the one authority that decided also says
+    which of its two reasons decided it."""
+
+    available: bool
+    note: str = ""
+    blocked_by: str = ""            # "" | "planned" | "lifecycle"
+
+    def __post_init__(self) -> None:
+        if self.available and (self.note or self.blocked_by):
+            raise ValueError("a free wagon carries no reason")
+        if not self.available and not (self.note and self.blocked_by):
+            raise ValueError("a blocked wagon must say what and why")
+
+
+def planned_wagon(state: "State", plans: dict, shop_key: str,
+                  but: str | None = None) -> PlannedWagon:
+    """Whether a wagon can be planned out of an address tonight.
+
+    Order matches `WagonNight.note_at` deliberately: a wagon already
+    spoken for by another plan reports THAT, and the lifecycle speaks
+    only when nothing tonight has taken it — so a wagon is never
+    described as sitting at the contractor's yard when the real
+    answer is that the pickup has it."""
+    job = wagon_job(plans, but=but)
+    if job is not None:
+        return PlannedWagon(False, WAGON_NOTES[job], "planned")
+    kept = state.wagons_at(shop_key)
+    for w in kept:
+        if models.wagon_claim(state, w.key).available:
+            return PlannedWagon(True)
+    for w in kept:
+        claim = models.wagon_claim(state, w.key)
+        if not claim.available:
+            return PlannedWagon(False, claim.note, "lifecycle")
+    return PlannedWagon(False, "not kept at this address", "lifecycle")
+
+
 @dataclass
 class WagonNight:
     """THE night's wagon assignments (design rev. 25 item 1, widened
@@ -254,6 +306,16 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         elif c == 5:
             _improvements(state, shop_at, con)
         elif c == 6:
+            # The lifecycle can refuse a route before it is planned;
+            # with one address it never does, so this adds no
+            # reachable branch to the Act I path (there is no salvage
+            # here either, so "planned" cannot arise).
+            wagon_now = planned_wagon(state, plans, shop_at.key,
+                                      but="route")
+            if not wagon_now.available:
+                con.say(f"  No route leaves here tonight — "
+                        f"{wagon_now.note}.")
+                continue
             plans["route"] = routes.plan_route(
                 state, con, streams.routes,
                 reserved=night_reserved(plans, but="route"))
@@ -262,10 +324,13 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
+            wagon_now = planned_wagon(state, plans, shop_at.key)
             plans["raid"] = raids.plan_raid(
                 state, con, streams.raids,
                 reserved=night_reserved(plans, but="raid"),
-                wagon_free=wagon_job(plans) is None)
+                wagon_free=wagon_now.available,
+                wagon_note=(wagon_now.note
+                            if wagon_now.blocked_by == "lifecycle" else ""))
         elif c == 8:
             break
     return plans
@@ -376,10 +441,16 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
         elif key == "improve":
             _improvements(state, shop_at, con)
         elif key == "route":
-            if wagon_job(plans, but="route") is not None:
+            wagon_now = planned_wagon(state, plans, shop_at.key,
+                                      but="route")
+            if wagon_now.blocked_by == "planned":
                 con.say("  The wagon is spoken for tonight — the pickup "
                         "has it. Recall it first if the route matters "
                         "more.")
+                continue
+            if wagon_now.blocked_by == "lifecycle":
+                con.say(f"  No route leaves here tonight — "
+                        f"{wagon_now.note}.")
                 continue
             plans["route"] = routes.plan_route(
                 state, con, streams.routes,
@@ -389,10 +460,13 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
                         "without you, and without your nerve.")
+            wagon_now = planned_wagon(state, plans, shop_at.key)
             plans["raid"] = raids.plan_raid(
                 state, con, streams.raids,
                 reserved=night_reserved(plans, but="raid"),
-                wagon_free=wagon_job(plans) is None)
+                wagon_free=wagon_now.available,
+                wagon_note=(wagon_now.note
+                            if wagon_now.blocked_by == "lifecycle" else ""))
         elif key == "board":
             war.board(state, con)
         elif key == "case":
@@ -406,10 +480,14 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
             if c == 0:
                 war.declare(state, next_front, con)
         elif key == "salvage":
+            wagon_now = planned_wagon(state, plans, shop_at.key,
+                                      but="salvage")
             plans["salvage"] = war.plan_salvage(
                 state, con,
                 reserved=night_reserved(plans, but="salvage"),
-                wagon_taken=wagon_job(plans, but="salvage") is not None)
+                wagon_taken=not wagon_now.available,
+                wagon_note=(wagon_now.note
+                            if wagon_now.blocked_by == "lifecycle" else ""))
         elif key == "salvage_cancel":
             plans["salvage"] = None
             con.say("  The wagon stays home tonight. The stockroom "
