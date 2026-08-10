@@ -252,3 +252,16 @@ margin-fixed anchor is the designated cleanup if the user wants it.
 Cost: 22 charged generation units total (batches 1+2+sweep); balance
 displayed $10.00 throughout; estimated ≤$0.17 by published rates.
 Awaiting user selection.
+
+## Resolution (2026-08-10): pizza_whole_12 approved as canon
+
+The user selected `pizza_whole_12` (pixflux@32, seed 204, init
+silhouette @150). Under the 32×32 world decision its un-reduced
+original is the production asset, stored as
+`.private_art/experiment_01/approved/pizza_whole_32_canon.png` with
+its provenance beside it. It passes full validation at native 32×32.
+Experiment 01's question — can PixelLab produce an Omega-compatible
+pizza prop — is answered YES, with the durable recipe recorded in
+`decision_32px_world.md`. The approved pizza is now the style/init
+anchor for the rest of the pizza prop family (slice, boxes) when that
+work is authorized.
