@@ -38,6 +38,42 @@ def from_hex(value: str) -> RGBA:
     return (int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16), 255)
 
 
+def quantize_to_palette(
+    image: Image.Image, palette: list[RGBA]
+) -> tuple[Image.Image, int]:
+    """Curation pass: snap every pixel to the palette and to binary alpha.
+
+    Returns (new image, count of changed pixels). This is the CURATION
+    step, run only on copies — raw generations are always preserved.
+    """
+    if not palette:
+        raise ValueError("palette is empty")
+    targets = [c[:3] for c in palette]
+    out = image.convert("RGBA").copy()
+    changed = 0
+    cache: dict[tuple[int, int, int], tuple[int, int, int]] = {}
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = out.getpixel((x, y))
+            if a < 128:
+                if a != 0:
+                    changed += 1
+                    out.putpixel((x, y), (0, 0, 0, 0))
+                continue
+            key = (r, g, b)
+            best = cache.get(key)
+            if best is None:
+                best = min(
+                    targets,
+                    key=lambda c: (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2,
+                )
+                cache[key] = best
+            if (r, g, b, a) != (*best, 255):
+                changed += 1
+                out.putpixel((x, y), (*best, 255))
+    return out, changed
+
+
 def save_palette_image(colors: list[RGBA], path: str | Path, swatch: int = 8) -> None:
     """Write a one-row swatch strip PNG (the PixelLab `color_image` format)."""
     if not colors:
