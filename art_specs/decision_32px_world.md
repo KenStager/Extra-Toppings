@@ -401,3 +401,23 @@ the rulings above, superseding where stated:
   tool is a permanent drift-harness row. Portraits/UI, when they
   arrive, get their own validator contract — 32×32 prop rules do not
   transfer.
+
+## Inpaint: measured and closed (2026-08-10)
+
+The P9 gate probe ran against the MCP `inpaint_image` tool, whose own
+schema promises "Everything outside the mask is preserved exactly."
+Measured on the canon pizza (32×32, 8×8 rectangular mask, provenance
+v2 record `experiment_03/provenance/inpaint_probe.json` with input and
+output hashes): **484 of 960 outside-mask pixels differed.** The
+preservation claim is false at our scale; MCP inpaint re-renders
+broadly, matching both REST failures. The probe also cost ~20
+generation credits, not 1.
+
+RULING: the masked-edit branch is CLOSED across all transports —
+three failures, zero successes, and the vendor's strongest written
+contract measurably false. Variant states (oven glow, wear) will be
+pursued via `create_object_state` and/or full regeneration with
+selection pools. The brand layer was never contingent on this (P7
+guard rail). This is the drift-harness discipline working as designed:
+one cheap probe, a named question, a byte-level verdict, a closed
+branch.
