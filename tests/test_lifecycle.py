@@ -555,14 +555,15 @@ class TestTheAbsenceSentenceNamesTheRightJob(unittest.TestCase):
                 ("raid", "The wagon is out with the night crew"),
                 ("decoy", "The wagon is already loaded and gone")):
             self.assertEqual(
-                models.wagon_gone_line(job, models.WAGON_NOTES[job]),
+                models.wagon_gone_line(models.PlannedWagon(
+                    blocked_by=job, note=models.WAGON_NOTES[job])),
                 expected)
 
     def test_the_lifecycle_names_the_address(self):
         view = phases.planned_wagon(
             _with_site(day=6, acceptance=5), {}, "shop2")
         self.assertEqual(
-            models.wagon_gone_line(view.blocked_by, view.note),
+            models.wagon_gone_line(view),
             "The University Hill wagon is still at the contractor's yard")
 
     def test_a_salvage_held_wagon_no_longer_claims_the_route(self):
@@ -581,7 +582,16 @@ class TestTheAbsenceSentenceNamesTheRightJob(unittest.TestCase):
 
     def test_a_free_wagon_has_no_absence_to_explain(self):
         with self.assertRaises(ValueError):
-            models.wagon_gone_line("", "")
+            models.wagon_gone_line(models.PlannedWagon(("wagon1",)))
+
+    def test_the_renderer_refuses_loose_strings(self):
+        # Taking two primitives undid the typed protection: an
+        # invalid pair produced a KeyError or a wrong sentence
+        # instead of being unrepresentable.
+        for bogus in (("route", "out on tonight's route"), "route",
+                      None, 3):
+            with self.assertRaises(TypeError, msg=repr(bogus)):
+                models.wagon_gone_line(bogus)
 
 
 class TestTheOneShopPlanningPathIsUnchanged(unittest.TestCase):
@@ -888,6 +898,125 @@ class TestTheClaimCarriesItsOwnReason(unittest.TestCase):
                         con.lines)
         self.assertFalse(con.said("the wagon is gone"))
         self.assertEqual(home.stash["mushrooms"], 4)
+
+
+class TestBlockAndNoteAgreeOrAreRefused(unittest.TestCase):
+    """One contract, shared by every value carrying a block. A second
+    copy is how `ClaimResult` came to accept a lifecycle note under a
+    `route` blocker — where the renderer ignored the note and
+    announced the route."""
+
+    def test_a_wrong_note_under_a_right_blocker_is_refused(self):
+        for kind in (models.ClaimResult, models.PlannedWagon):
+            for blocker, note in (
+                    ("route", "at the contractor's yard"),
+                    ("route", models.WAGON_NOTES["salvage"]),
+                    ("salvage", models.WAGON_NOTES["route"]),
+                    ("decoy", "somewhere else entirely")):
+                with self.assertRaises(ValueError,
+                                       msg=f"{kind.__name__} "
+                                           f"{blocker}/{note}"):
+                    if kind is models.ClaimResult:
+                        kind(False, "wagon2", blocker, note)
+                    else:
+                        kind(blocked_by=blocker, note=note)
+
+    def test_an_empty_lifecycle_note_is_refused(self):
+        # Lifecycle prose is free, but it is not optional — it is the
+        # only block that names WHICH address is still being built.
+        with self.assertRaises(ValueError):
+            models.ClaimResult(False, "wagon2", "lifecycle", "")
+        with self.assertRaises(ValueError):
+            models.PlannedWagon(blocked_by="lifecycle", note="")
+
+    def test_unhoused_carries_its_canonical_note(self):
+        for kind in (models.ClaimResult, models.PlannedWagon):
+            with self.assertRaises(ValueError):
+                if kind is models.ClaimResult:
+                    kind(False, "wagon2", "unhoused", "nowhere")
+                else:
+                    kind(blocked_by="unhoused", note="nowhere")
+        models.ClaimResult(False, "wagon2", "unhoused",
+                           models.UNHOUSED_NOTE)
+        models.PlannedWagon(blocked_by="unhoused",
+                            note=models.UNHOUSED_NOTE)
+
+    def test_an_unknown_blocker_is_refused_in_both_values(self):
+        for kind in (models.ClaimResult, models.PlannedWagon):
+            with self.assertRaises(ValueError):
+                if kind is models.ClaimResult:
+                    kind(False, "wagon2", "banana", "somewhere")
+                else:
+                    kind(blocked_by="banana", note="somewhere")
+
+    def test_the_note_must_be_a_string(self):
+        with self.assertRaises(ValueError):
+            models.ClaimResult(False, "wagon2", "lifecycle", 3)
+
+
+class TestAForeignAuthorityCannotSpendThisWorld(unittest.TestCase):
+    """Night's refusal comes AFTER departure. Routes and pickups roll
+    during service, so a foreign authority with matching wagon keys
+    would record the claim in another world while this one lost its
+    stock — and night's later complaint could not undo it."""
+
+    def _world(self):
+        state = new_state()
+        market.roll_prices(state, random.Random(3))
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        home.stash, home.ingredients, home.delivery_pool = (
+            {"mushrooms": 4}, 40, 10)
+        return state, home, driver
+
+    def test_a_route_refuses_a_foreign_authority_untouched(self):
+        state, home, driver = self._world()
+        foreign = phases.WagonNight(new_state())     # same keys
+        plan = {"district": "old_harbor", "driver": driver,
+                "ride_along": False, "cargo": {"mushrooms": 2},
+                "legit": 3, "origin_shop": HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
+        with self.assertRaises(ValueError) as caught:
+            phases._commit_route(state, plan, Listening(), foreign)
+        self.assertIn("different state", str(caught.exception))
+        self.assertEqual(home.stash["mushrooms"], 4)
+        self.assertEqual(home.ingredients, 40)
+        self.assertEqual(foreign.claims, {})
+
+    def test_a_pickup_refuses_a_foreign_authority_untouched(self):
+        state, _rosa = war_mechanics.TestSalvage._captured(
+            war_mechanics.TestSalvage())
+        camp = war.campaign_for(state, "vinnie")
+        foreign = phases.WagonNight(new_state())
+        rosa = next(e for e in state.employees
+                    if e.name.startswith("Rosa"))
+        with self.assertRaises(ValueError):
+            war.run_salvage(
+                state, {"rival": "vinnie", "driver": rosa,
+                        "origin_shop": HOME_SHOP_KEY,
+                        "wagon_key": models.HOME_WAGON_KEY},
+                Listening(), random.Random(3), wagons=foreign)
+        self.assertTrue(camp.salvage_available)   # still waiting
+        self.assertEqual(foreign.claims, {})
+
+    def test_the_check_and_the_claim_are_one_call(self):
+        state, _home, driver = self._world()
+        wagons = phases.WagonNight(state)
+        plan = {"origin_shop": HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY, "driver": driver}
+        self.assertTrue(
+            wagons.claim_plan(state, plan, "route").claimed)
+        self.assertEqual(wagons.claims,
+                         {models.HOME_WAGON_KEY: "route"})
+
+    def test_the_pairing_is_checked_inside_the_same_call(self):
+        state = _with_site(day=7, acceptance=5)
+        wagons = phases.WagonNight(state)
+        with self.assertRaises(ValueError):     # wagon housed away
+            wagons.claim_plan(state, {"origin_shop": HOME_SHOP_KEY,
+                                      "wagon_key": "wagon2"}, "route")
+        self.assertEqual(wagons.claims, {})
 
 
 class TestNightRefusesAForeignAuthority(unittest.TestCase):

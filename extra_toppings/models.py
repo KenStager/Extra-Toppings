@@ -602,23 +602,11 @@ class PlannedWagon:
                     f"a free wagon carries no reason, got "
                     f"{self.blocked_by!r}/{self.note!r}")
             return
-        if self.blocked_by not in WAGON_BLOCKS:
-            raise ValueError(
-                f"unknown wagon block {self.blocked_by!r} — the "
-                f"vocabulary is {sorted(WAGON_BLOCKS)}")
-        if not self.note:
-            raise ValueError("a blocked wagon must say where it is")
         # A block's prose comes from its ONE home, so a salvage block
         # cannot carry a lifecycle sentence (or any other). Only
         # `lifecycle` is address-specific, because only it names which
         # address is still being built.
-        canonical = WAGON_NOTES.get(self.blocked_by)
-        if self.blocked_by == "unhoused":
-            canonical = UNHOUSED_NOTE
-        if canonical is not None and self.note != canonical:
-            raise ValueError(
-                f"the {self.blocked_by!r} note is canonical: expected "
-                f"{canonical!r}, got {self.note!r}")
+        _validate_block(self.blocked_by, self.note)
 
     @property
     def available(self) -> bool:
@@ -631,6 +619,29 @@ class PlannedWagon:
         if not self.free:
             raise RuntimeError(f"no wagon is free — {self.note}")
         return self.free[0]
+
+
+def _validate_block(blocked_by: str, note: str) -> None:
+    """THE block/note contract, shared by every value carrying one.
+
+    Spelling it once is the point: a second copy is how `ClaimResult`
+    came to accept a lifecycle note under a `route` blocker, where the
+    renderer then ignored the note and announced the route. The pair
+    is either canonical or refused."""
+    if blocked_by not in WAGON_BLOCKS:
+        raise ValueError(
+            f"unknown wagon block {blocked_by!r} — the vocabulary is "
+            f"{sorted(WAGON_BLOCKS)}")
+    if type(note) is not str or not note:
+        raise ValueError(
+            f"a blocked wagon must say where it is, got {note!r}")
+    canonical = WAGON_NOTES.get(blocked_by)
+    if blocked_by == "unhoused":
+        canonical = UNHOUSED_NOTE
+    if canonical is not None and note != canonical:
+        raise ValueError(
+            f"the {blocked_by!r} note is canonical: expected "
+            f"{canonical!r}, got {note!r}")
 
 
 @dataclass(frozen=True)
@@ -660,17 +671,12 @@ class ClaimResult:
             if self.blocked_by or self.note:
                 raise ValueError("a spent wagon carries no refusal")
             return
-        if self.blocked_by not in WAGON_BLOCKS:
-            raise ValueError(
-                f"unknown wagon block {self.blocked_by!r} — the "
-                f"vocabulary is {sorted(WAGON_BLOCKS)}")
-        if not self.note:
-            raise ValueError("a refused claim must say where it is")
+        _validate_block(self.blocked_by, self.note)
 
     @property
     def sentence(self) -> str:
         """The refusal as the player reads it, from the one home."""
-        return wagon_gone_line(self.blocked_by, self.note)
+        return wagon_gone_line(self)
 
 
 def claimable_wagons(state: "State", shop_key: str) -> tuple:
@@ -732,7 +738,7 @@ def plan_origin(state: "State", plan: dict) -> str:
     return origin
 
 
-def wagon_gone_line(blocked_by: str, note: str) -> str:
+def wagon_gone_line(blocked: "PlannedWagon | ClaimResult") -> str:
     """THE sentence-initial rendering of a missing wagon.
 
     Two registers, one home: `note` is a mid-sentence CLAUSE ("out on
@@ -742,6 +748,11 @@ def wagon_gone_line(blocked_by: str, note: str) -> str:
     is what produced "The wagon is the University Hill wagon is still
     at the contractor's yard".
     """
+    if not isinstance(blocked, (PlannedWagon, ClaimResult)):
+        raise TypeError(
+            f"the wagon sentence renders a validated value, not "
+            f"loose strings — got {type(blocked).__name__}")
+    blocked_by, note = blocked.blocked_by, blocked.note
     if not blocked_by:
         raise ValueError("a free wagon has no absence to explain")
     if blocked_by in ("lifecycle", "unhoused"):

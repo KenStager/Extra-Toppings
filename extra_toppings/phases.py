@@ -190,6 +190,27 @@ class WagonNight:
         self.claims[free[0].key] = by
         return free[0].key
 
+    def claim_plan(self, state: "State", plan: dict,
+                   by: str) -> models.ClaimResult:
+        """THE execution authority for a planned wagon job: one
+        atomic check-and-claim.
+
+        It verifies that this authority belongs to the world being
+        mutated, that the plan's origin and wagon are a coherent
+        pair, and that the exact named wagon is free — and only then
+        spends it. Centralised deliberately: night rejecting a
+        foreign authority is too late, because routes and pickups
+        depart during SERVICE, and a foreign authority with matching
+        wagon keys would record the claim in ANOTHER world while this
+        one lost its stock. Two separate checks in two callers is the
+        arrangement that let that through."""
+        if self.state is not state:
+            raise ValueError(
+                "this wagon-assignment authority belongs to a "
+                "different state — a claim recorded there says "
+                "nothing about the world being spent here")
+        return self.claim_key(models.plan_wagon(state, plan), by)
+
     def claim_key(self, wagon_key: str, by: str) -> models.ClaimResult:
         """Take THE wagon a plan named, and say whether it was still
         there. This is the execution revalidation the contract asks
@@ -964,11 +985,7 @@ def _commit_route(state: State, plan: dict, con: Console,
     that names no origin, or names one that does not exist, is a bug
     and refuses BEFORE any inventory moves (rev. 27 item 7) — the
     alternative is a wagon loading out of a shop nobody owns."""
-    # Origin AND wagon, checked together through the one authority
-    # (P4b.1a): a plan naming shop 1 as its origin and shop 2's wagon
-    # has two well-formed halves and no coherent assignment.
-    wagon_key = models.plan_wagon(state, plan)
-    origin = state.shop_by_key(plan["origin_shop"])
+    origin = state.shop_by_key(models.plan_origin(state, plan))
     driver = plan["driver"]
     if not driver.available:
         con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
@@ -1012,7 +1029,9 @@ def _commit_route(state: State, plan: dict, con: Console,
     # wagon that left on another job scrubs this one with the stash
     # and pantry untouched, and never substitutes a different
     # vehicle that happens to sit at the same address.
-    spent = wagons.claim_key(wagon_key, "route")
+    # Origin/wagon pairing, world identity and the claim, together
+    # and atomically (P4b.1a): nothing above has mutated anything.
+    spent = wagons.claim_plan(state, plan, "route")
     if not spent.claimed:
         con.bullet(f"Tonight's route is scrubbed. {spent.sentence}.")
         return False

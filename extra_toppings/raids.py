@@ -25,7 +25,7 @@ def plan_raid(state: State, con: Console, rng: random.Random,
     keyword-only — a default would be a synthetic identity, and a
     caller that skipped the authority would silently get one."""
     if not wagon.available:
-        con.say(f"  {models.wagon_gone_line(wagon.blocked_by, wagon.note)} — whatever the crew "
+        con.say(f"  {models.wagon_gone_line(wagon)} — whatever the crew "
                 f"takes, they carry on foot.")
     targets = [k for k, r in state.rivals.items() if r.alive]
     if state.branch == "war":
