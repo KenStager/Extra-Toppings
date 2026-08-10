@@ -477,9 +477,15 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("mode", choices=["generate", "check", "standpat"])
     ap.add_argument("--seeds", type=int, default=150)
+    # A regeneration that cannot state its own reason inherits the
+    # previous act's — which is how a baseline ends up lying about
+    # its provenance. The sanctioned act names itself.
+    ap.add_argument("--reason", default=None,
+                    help="why this regeneration was sanctioned "
+                         "(recorded in the artifact's metadata)")
     args = ap.parse_args()
     if args.mode == "generate":
-        generate(args.seeds)
+        generate(args.seeds, reason=args.reason)
     elif args.mode == "standpat":
         raise SystemExit(check_standpat(args.seeds))
     else:
