@@ -259,3 +259,60 @@ storefronts remain PixelLab work on Omega tileC_town4 foundations —
 the brief-vs-study question stands; (5) day/night stands deferred,
 now including Omega-derived surfaces. The B1/B2/C artifacts remain
 in candidates/ as measurement references, promoted nowhere.
+
+## The hybrid proven: the DiNapoli block loop, v1–v5
+## (2026-08-11, board: "Proceed… quality of assets is our sole
+## focus" + "Render assets in PixelLab where necessary"; 2 gens)
+
+The chara class was extracted (39 sheets now under
+`omega/extracted/…/graphics/1x/chara/`; `cars.png` 576×384 = eight
+vehicle types in VX 48×48 chara blocks, `vehicles.png` 384×256), and
+the block mock loop ran reflect→refine→re-render five times, four of
+them free:
+
+- **v1**: A5 tiles mis-picked — stray yellow fragments, picket-seam
+  sidewalk. MEASURED FACT: every A5 road tile (cols 3–6, rows 5–6)
+  carries yellow marking pixels — **A5 has no plain asphalt; roads
+  belong to tileA2_ground exactly as the ruling's table assigned.**
+- **v2**: exposed the A2 format: this pack's A2 autotiles are
+  BLOB-style (rounded block on grass). **A2 LAW: the seamless fill
+  is assembled from the four inner 8×8 quadrants of the block's
+  rows 1–2** — for the road block at (128,0): (136,24)+(144,24)+
+  (136,32)+(144,32) → one seamless 16×16. Also: A5 marking/manhole
+  tiles carry navy backing (they belong to A5's navy road) — road
+  markings drop out of the donor layer entirely.
+- **v3**: correct donors (walk = A5 plaza fill (1,8); road = A2
+  inner-quadrant fill). Composition right, register wrong: RPG
+  saturation everywhere, no curb, no markings.
+- **v4**: the bespoke + derivation round. CURB (PixelLab-scoped,
+  "necessary"): curbstones are a regular pattern → CODE ANCHOR
+  (96×16, stones every 16px, five warm-concrete tones) + pixflux
+  wear pass @140, subtractive strip, 2 seeds (s16101/s16102, 1 gen
+  each, ledgered) — the anchor held the stone rhythm, the wear
+  landed; **s16102 picked provisionally** (richer chips). LANE
+  DASHES: regular pattern → pure code (worn ochre, 24×4 every
+  48px). RECOLOR DERIVATIONS (code, 0 gens, recorded in
+  `provenance/e16_recolor_derivations.json`): road and walk
+  luminance-mapped onto warm ramps; sedan body (blue-dominant rule)
+  onto muted slate. All ramps are INTERIM picks under the union
+  rule — decision 2 ratifies.
+- **v5** (`review/hybrid_dinapoli_block_board_v5.png`): asphalt ramp
+  flattened to four close tones (the A2 diagonal lattice read dies),
+  flank storefronts luminance-mapped warm as an interim preview.
+  THE READ: hero hierarchy correct — DiNapoli's saturated and alive,
+  environment muted warm, curb carrying the seam, figures and wagon
+  at home. Honest residual: the DINER glass band goes blind under a
+  ramp recolor — glass is a bespoke problem, owned by the rival-
+  front passes, not by mapping.
+
+Session spend after the bespoke round: 70 (4 drift + 44 + 20 + 2);
+expected balance 4,257.
+
+CANDIDATES AT THE BOARD (nothing promoted): curb s16102 (+ anchor
+recipe), the recolor derivation set (road/walk/sedan/flanks), the
+v5 block composition as the compact-exterior-scene template, and
+the bespoke queue for this scene in priority order: (1) rival/
+neighbor storefront redraws (Sal's and Vinnie's briefs first, per
+the open decision-4 question), (2) native delivery/parked vehicle
+class, (3) street props (lamppost, hydrant, signage on pixel_font),
+(4) grime/crack decal set, (5) curb corner + crosswalk pieces.
