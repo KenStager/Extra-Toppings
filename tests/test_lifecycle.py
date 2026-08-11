@@ -1914,6 +1914,163 @@ class TestBothAddressesTradeAndRun(unittest.TestCase):
         self.assertEqual(state.route_log, [])
 
 
+def _renamed_founding(key: str) -> models.State:
+    """A VALID one-address world whose founding shop is keyed
+    something other than `shop1`. Nothing in the engine promises the
+    founding key is spelled `shop1` — the save layer infers that
+    spelling only for a keyless legacy payload, and a payload that
+    carries a key keeps it — so this is a state the loader admits."""
+    state = new_state()
+    home = state.shops[0]
+    for w in state.wagons:
+        w.shop_key = key
+    for e in state.employees:
+        e.shop_key = key
+    for rv in state.rivals.values():
+        if rv.warning is not None:
+            rv.warning.shop_key = key
+    home.key = key
+    validate_addresses(state)
+    return state
+
+
+class TestTheFoundingAddressIsResolvedNotSpelled(unittest.TestCase):
+    """P4b.1a review, blocking items 3 and 4. Which address is the
+    founding one is a LIFECYCLE fact — the undated record — and one
+    resolver answers it. Comparing key spellings and reading list
+    position were two different ways of answering it wrongly."""
+
+    def test_the_undated_address_is_the_founding_one(self):
+        state = _with_site(day=7, acceptance=5)
+        self.assertIs(models.founding_shop(state),
+                      state.shop_by_key(HOME_SHOP_KEY))
+
+    def test_it_is_not_the_first_address_by_key_or_by_position(self):
+        state = _with_site(day=7, acceptance=5)
+        state.shops.append(Shop(
+            key="aaa_shop", district="meadows",
+            acceptance_day=5, opening_day=5 + CONSTRUCTION_DAYS))
+        state.wagons.append(Wagon(key="wagon3", shop_key="aaa_shop"))
+        validate_addresses(state)
+        self.assertEqual(models.founding_shop(state).key, HOME_SHOP_KEY)
+        state.shops.reverse()
+        self.assertEqual(models.founding_shop(state).key, HOME_SHOP_KEY)
+
+    def test_a_world_with_no_single_undated_address_fails_closed(self):
+        # Two undated shops each claim to predate the world; none
+        # leaves a world nobody founded. Both are incoherence, and
+        # this resolver answers neither with a guess.
+        two = _with_site(day=7, acceptance=5)
+        two.shops.append(Shop(key="shop3", district="meadows"))
+        none = _with_site(day=7, acceptance=5)
+        home = none.shop_by_key(HOME_SHOP_KEY)
+        home.acceptance_day = 1
+        home.opening_day = 1 + CONSTRUCTION_DAYS
+        for state in (two, none):
+            with self.assertRaises(ValueError) as caught:
+                models.founding_shop(state)
+            self.assertIn("undated", str(caught.exception))
+
+    def test_the_validator_and_the_resolver_are_one_authority(self):
+        # The count is not spelled twice: the validator raises through
+        # the resolver, so they cannot come to disagree about which
+        # address is the founding one.
+        state = new_state()
+        state.day = 6
+        state.shops.append(Shop(key="shop2", district="university"))
+        state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
+        with self.assertRaises(ValueError) as caught:
+            validate_addresses(state)
+        self.assertIn("undated", str(caught.exception))
+        with self.assertRaises(ValueError) as also:
+            models.founding_shop(state)
+        self.assertEqual(str(caught.exception), str(also.exception))
+
+    def test_the_channel_refuses_an_address_that_does_not_exist(self):
+        # `critic@ghost` was a whole address's dice conjured out of a
+        # typo: `state` was passed in and never consulted.
+        state = _with_site(day=7, acceptance=5)
+        with self.assertRaises(KeyError):
+            models.address_channel(state, "ghost", "critic")
+        with self.assertRaises(KeyError):
+            models.address_channel(state, "", "law")
+
+    def test_the_legacy_channel_follows_the_founding_address(self):
+        # Not the SPELLING `shop1`: a valid world whose founding shop
+        # is keyed otherwise used to lose the legacy generator every
+        # existing study and both identity gates were measured on.
+        state = _renamed_founding("zzz_home")
+        self.assertEqual(
+            models.address_channel(state, "zzz_home", "critic"), "critic")
+        self.assertEqual(
+            models.address_channel(state, "zzz_home", "law"), "law")
+
+    def test_a_second_address_still_derives_from_its_own_key(self):
+        state = _with_site(day=7, acceptance=5)
+        self.assertEqual(
+            models.address_channel(state, "shop2", "critic"),
+            "critic@shop2")
+        self.assertEqual(
+            models.address_channel(state, HOME_SHOP_KEY, "critic"),
+            "critic")
+
+
+class TestTheCompatibilityReportIsTheFoundingShift(unittest.TestCase):
+    """P4b.1a review, blocking item 4: service promised the founding
+    shift as the legacy top-level report and delivered the FIRST shift
+    in key order. A second address keyed `aaa` therefore handed every
+    existing consumer a different restaurant's day under the name they
+    have always read."""
+
+    def _pair_sorting_before_home(self):
+        state = new_state()
+        state.day = 7
+        state.shops.append(Shop(
+            key="aaa_shop", district="university", reputation=20.0,
+            ingredients=40, stash={}, acceptance_day=5,
+            opening_day=5 + CONSTRUCTION_DAYS))
+        state.wagons.append(Wagon(key="wagon2", shop_key="aaa_shop"))
+        market.roll_prices(state, random.Random(3))
+        validate_addresses(state)
+        # Two DIFFERENT days, so the report can only be one of them.
+        state.shop_by_key(HOME_SHOP_KEY).demand_today = 20
+        state.shop_by_key("aaa_shop").demand_today = 7
+        return state
+
+    def test_the_report_describes_the_founding_address(self):
+        state = self._pair_sorting_before_home()
+        self.assertEqual([a.key for a in models.addresses_allowing(
+            state, "service")], ["aaa_shop", HOME_SHOP_KEY])
+        report = phases.service(state, {"routes": {}}, Listening(),
+                                Streams(3))
+        self.assertEqual(report["demand"], 20)
+        self.assertEqual(
+            report["revenue"],
+            state.shop_by_key(HOME_SHOP_KEY).legit_revenue_today)
+
+    def test_both_addresses_still_trade(self):
+        # The correction picks WHICH shift is the compatibility
+        # report; it does not stop the other address trading.
+        state = self._pair_sorting_before_home()
+        con = Listening()
+        phases.service(state, {"routes": {}}, con, Streams(3))
+        self.assertTrue(con.said("University Hill: Orders"), con.lines)
+        self.assertTrue(con.said("Old Harbor: Orders"), con.lines)
+        self.assertGreater(
+            state.shop_by_key("aaa_shop").legit_revenue_today, 0)
+
+    def test_one_address_reports_exactly_as_it_always_did(self):
+        # The behaviour-equivalence anchor: with one address the
+        # founding shift IS the only shift, so every consumer reads
+        # what it always read.
+        state = new_state()
+        market.roll_prices(state, random.Random(3))
+        report = phases.service(state, {"routes": {}}, Listening(),
+                                Streams(3))
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        self.assertEqual(report["revenue"], home.legit_revenue_today)
+
+
 class TestLifecycleValidation(unittest.TestCase):
     def _valid(self) -> models.State:
         return _with_site(day=6, acceptance=5)

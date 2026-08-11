@@ -523,14 +523,17 @@ class TestNothingOutsideTheSaveInfersAnAddress(unittest.TestCase):
     # state_from_dict, which migrates a one-address payload. Anywhere
     # else they are the old silent default wearing a constant's name —
     # which is how a defect survives a refactor that claims to end it.
-    # `address_channel` is the fourth and last: rev. 27 item 5 makes
-    # the founding address's world channel a NAMED rule ("the home
-    # shop keeps the legacy world channel"), so deciding it requires
-    # saying which address is the founding one. It is the ONE place
-    # that knows; every consumer asks it rather than comparing keys
-    # itself.
+    #
+    # `address_channel` was a fourth until the P4b.1a review: it
+    # decided "the founding address keeps the legacy world channel" by
+    # COMPARING A SPELLING, so a world whose founding shop was keyed
+    # otherwise lost the legacy generator its studies were measured
+    # on. The rule is unchanged and the constant is gone from it —
+    # `models.founding_shop` derives the identity from the lifecycle
+    # record (undated = founding), which is where that fact already
+    # lived. Three scopes, and the world-building ones are the only
+    # places a key is ever spelled.
     SANCTIONED = {"models.py:State", "models.py:new_state",
-                  "models.py:address_channel",
                   "save.py:state_from_dict"}
 
     def test_the_founding_keys_are_named_only_where_they_may_be(self):

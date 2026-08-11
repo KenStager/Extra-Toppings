@@ -1146,16 +1146,25 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     # address's ovens.
     report: dict = {}
     open_now = models.addresses_allowing(state, "service")
+    # WHICH shift becomes the legacy top-level report is an IDENTITY
+    # question, answered by the one authority (P4b.1a review). "The
+    # first one trading" answered it by KEY ORDER, so an address
+    # sorting before the founding key — `aaa` — would have handed
+    # every existing consumer a different restaurant's day under the
+    # name they have always read. The founding address is undated,
+    # therefore open, therefore always in `open_now`: the loop below
+    # cannot leave `report` empty.
+    founding = models.founding_shop(state)
     for a_shop in open_now:
         planned = scheduled.get(a_shop.key)
         shift = shop.simulate_shift(
             state, a_shop, planned["legit"] if planned else 0,
             streams.daily(state.day, models.address_channel(
                 state, a_shop.key, "critic")))
-        if not report:
-            # The founding address's shift IS the report while one
-            # exists, so every existing consumer reads what it always
-            # read; additional addresses report beside it.
+        if a_shop.key == founding.key:
+            # The founding address's shift IS the report, so every
+            # existing consumer reads what it always read; additional
+            # addresses report beside it.
             report = shift
         where = (f"{data.DISTRICTS[a_shop.district]['label']}: "
                  if len(open_now) > 1 else "")

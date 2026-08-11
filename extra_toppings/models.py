@@ -679,6 +679,31 @@ class ClaimResult:
         return wagon_gone_line(self)
 
 
+def founding_shop(state: "State") -> "Shop":
+    """THE founding address, resolved from the lifecycle record itself
+    (P4b.1a review).
+
+    Absence of dates IS the founding identity (§2.4.2, and the
+    invariant `validate_addresses` binds): every address created after
+    the world was built is created by a dated transaction, so exactly
+    one address is undated and that one is the founding shop. Nothing
+    here reads a KEY SPELLING and nothing reads list position — a
+    world whose founding address happens to be called `shop2` has the
+    same founding address it always had, and reversing `state.shops`
+    changes nothing.
+
+    It is deliberately the same question `validate_addresses` asks, in
+    one place: the validator delegates its count here rather than
+    re-spelling "exactly one is undated" beside it."""
+    undated = [s for s in state.shops
+               if s.acceptance_day is None and s.opening_day is None]
+    if len(undated) != 1:
+        raise ValueError(
+            f"exactly one address is undated (the founding shop); "
+            f"{len(undated)} are: {sorted(s.key for s in undated)}")
+    return undated[0]
+
+
 def address_channel(state: "State", shop_key: str, channel: str) -> str:
     """THE per-address world channel (rev. 27 item 5, made real).
 
@@ -692,10 +717,20 @@ def address_channel(state: "State", shop_key: str, channel: str) -> str:
 
     Re-creating one `daily(day, channel)` generator per address gave
     every address the SAME first roll, which is not a shared world
-    fact, it is the same coin flipped once and reported twice."""
-    if shop_key == HOME_SHOP_KEY:
+    fact, it is the same coin flipped once and reported twice.
+
+    The identity is RESOLVED, both halves (P4b.1a review). A key that
+    names no address used to come back with a plausible channel of its
+    own — `critic@ghost` — so a typo drew a whole address's dice out
+    of nothing; `state` was passed in and never consulted. And the
+    legacy channel followed the SPELLING `shop1` rather than the
+    founding address, so a world whose founding shop is keyed
+    otherwise silently lost the legacy generator its studies were
+    measured on. Both now go through the lifecycle identity."""
+    shop = state.shop_by_key(shop_key)          # KeyError on a ghost
+    if shop.key == founding_shop(state).key:
         return channel
-    return f"{channel}@{shop_key}"
+    return f"{channel}@{shop.key}"
 
 
 def claimable_wagons(state: "State", shop_key: str) -> tuple:
@@ -1434,7 +1469,6 @@ def validate_addresses(state: "State") -> None:
     if not state.shops:
         raise ValueError("a state must carry at least one shop")
     seen: set = set()
-    undated: list = []
     for i, s in enumerate(state.shops):
         if not isinstance(s.key, str) or not s.key:
             raise ValueError(f"shops[{i}]: a shop key must be a "
@@ -1462,7 +1496,6 @@ def validate_addresses(state: "State") -> None:
                 f"and its opening day or neither — got acceptance "
                 f"{acc!r}, opening {opn!r}")
         if acc is None:
-            undated.append(s.key)
             continue
         if type(acc) is not int or type(opn) is not int:
             raise ValueError(
@@ -1520,10 +1553,13 @@ def validate_addresses(state: "State") -> None:
     # guard that cannot fire is worse than none, because it reads as
     # live. It is not restated as a second check ordered before this
     # one either: that would be two authorities for one fact.
-    if len(undated) != 1:
-        raise ValueError(
-            f"exactly one address is undated (the founding shop); "
-            f"{len(undated)} are: {sorted(undated)}")
+    #
+    # The count is `founding_shop`'s own refusal, invoked rather than
+    # copied (P4b.1a review): the resolver and the validator must not
+    # be able to disagree about which address is the founding one, and
+    # two spellings of "exactly one is undated" is exactly how they
+    # would come to.
+    founding_shop(state)
     wagon_keys: set = set()
     housed: set = set()
     for i, w in enumerate(state.wagons):
