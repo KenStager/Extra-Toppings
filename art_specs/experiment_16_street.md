@@ -184,3 +184,78 @@ fill-tile variance via base-tile chaining is priced (one 20-gen
 sibling set per district pair, if ruled); Godot terrain-import proof
 attaches to the shop-block step. AWAITING: the decision-1 ruling
 (adopt pro Wang as the ground system) and decisions 2–5.
+
+## THE RULING: rendered scenes rejected; the hybrid formula
+## (2026-08-11, the board; supersedes the probe recommendation)
+
+The board reviewed the rendered scenes as a whole: **"These DO NOT
+look good."** The B2 recommendation is RESCINDED. Honest reflection
+on why the whole-scene reads failed where per-tile reads passed:
+vendor tilesets deliver generic-RPG ground with a single fill tile
+per terrain — repetitive slab grids, empty asphalt fields, no
+composition vocabulary. The session judged tiles; the board judged
+SCENES. The probe stands as paid measurement (68 gens of learning:
+pipeline prices, the pitch law, the inline-download route); its
+direction is closed. PixelLab does NOT generate complete maps or a
+separate street/map pack.
+
+THE RULED ARCHITECTURE — the hybrid:
+
+**Godot builds the maps. Omega supplies the composition and donor
+artwork. PixelLab produces the distinctive native-32×32 evolution.**
+
+| Responsibility | Tool/source |
+| --- | --- |
+| Map layouts and collision | Godot TileMap |
+| Roads and pavement | Omega `tileA2_ground.png` |
+| Sidewalks, town floors and walls | Omega `tileA5_town.png` |
+| Alley/street dressing | Omega `tileB_town.png` |
+| Generic storefront geometry | Omega `tileC_town3.png` |
+| DiNapoli/rival facade foundation | Omega `tileC_town4.png` |
+| Parked cars and traffic props | Omega car/vehicle sheets |
+| Bespoke final 32×32 assets | PixelLab |
+
+Donor sheets verified on disk (2026-08-11): all five tileset sheets
+exist at 1x under
+`.private_art/omega/extracted/Omega_Modern_Mapped/graphics/1x/tileset/`
+— tileA2_ground 256×192, tileA5_town 128×256, tileB_town 256×256,
+tileC_town3 256×256, tileC_town4 256×256. The 1x sheets are 16px
+art: Omega's VX "32×32" is mechanically doubled 16×16 — it informs
+DIMENSIONS, PERSPECTIVE, PLACEMENT and VOCABULARY, and is NOT the
+finished iOS presentation. Vehicle sheets are in the pack's 39-sheet
+`chara` class (per `Omega_Modern_Asset_Map.md`); extraction is a
+work item.
+
+PixelLab's licensed scope — bespoke, native-32 redraws where added
+resolution matters:
+
+- DiNapoli's and rival storefronts;
+- distinctive street signs;
+- grime, cracks and road markings;
+- alley/loading-dock pieces;
+- district-specific props;
+- pizza delivery vehicles;
+- exterior lighting and nighttime variants;
+- hero objects that identify important locations.
+
+Explicitly OUT of PixelLab scope: every generic sidewalk, road,
+brick wall, dumpster or building — derived from Omega first,
+upgraded selectively and only with cause.
+
+Game structure ruled (not a walkable open world):
+
+- compact exterior street scenes around important locations;
+- interiors for DiNapoli's, the warehouse and rival shops;
+- alleys/loading areas for raids and clandestine activity;
+- a stylized city/route board for traveling between districts.
+
+Consequences for the open decisions: decision 1 (ground system) is
+CLOSED by this ruling — Omega donor ground, Godot-assembled.
+Decisions 2–5 are RESTATED under the hybrid: (2) district palette
+registers now govern Omega-derived recolors and PixelLab bespoke
+pieces alike; (3) the staging unit becomes the compact exterior
+scene around a location, not a generic street block; (4) rival
+storefronts remain PixelLab work on Omega tileC_town4 foundations —
+the brief-vs-study question stands; (5) day/night stands deferred,
+now including Omega-derived surfaces. The B1/B2/C artifacts remain
+in candidates/ as measurement references, promoted nowhere.
