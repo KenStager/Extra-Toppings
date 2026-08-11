@@ -340,17 +340,16 @@ def night_obligation(state: State, con: Console,
         con.say(f"  War pay bounces with the payroll — "
                 f"{money(due)} owed to people carrying crowbars.")
         return
-    # THE dirty-first authority, hoisted to `models` (rev. 29 item 7)
-    # so points and war pay draw money the same way rather than
-    # twice. It checks affordability before any mutation, exactly as
-    # this code did inline, so the arithmetic is unchanged.
-    if not models.pay_dirty_first(state, due):
+    if state.dirty + state.clean < due:
         bs.war_pay_short_nights += 1
         for e in state.hired():
             e.morale -= 2
         con.say(f"  You can't cover war pay ({money(due)}). People "
                 f"doing dangerous work notice light envelopes.")
         return
+    from_dirty = min(state.dirty, due)
+    state.dirty -= from_dirty
+    state.clean -= due - from_dirty
     bs.war_pay_paid += due
     con.say(f"  War pay goes out: {money(due)} for {len(crew)} "
             f"name(s), street money first.")

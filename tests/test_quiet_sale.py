@@ -831,7 +831,7 @@ class TestEscrowPersistence(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_branch_state(
                 "quiet_sale",
-                BranchState(diligence_day=1, points_due_day=19))
+                BranchState(diligence_day=1, points_missed=2))
 
 
 

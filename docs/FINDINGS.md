@@ -2485,62 +2485,6 @@ vacuous assertions passed both ways. That is exactly why they were
 worth finding, and why they are named here rather than folded into a
 pass count.
 
-## Round 15 — P4b.2: the points ledger, and the prerequisite that was not one
-
-The branch's pressure. Carmine takes $2,500 every five days forever,
-and this PR makes that a ledger rather than a pair of counters.
-
-**A correction first, because it cost a round trip.** Round 14 said
-one item preceded P4b.2: the points-schema ruling. **It did not.**
-Revision 28 item 4 raised the schema as a JUDGMENT CALL ending
-"Needs a ruling before P4b.2", and **revision 29 item 1 ruled it** —
-rejecting revision 28's independently mutable arrears and strike
-fields in favour of the typed append-only history with a derived
-view — with §2.4.2 amended to carry it canonically. Reading a
-superseded item as live is the same failure as reading a stale
-record as current, and it is recorded here rather than quietly
-dropped.
-
-**What was built.** `PointsCycleRecord` is appended once per cycle
-and frozen; `PartnerLedgerView` derives arrears, lifetime strikes,
-cumulative paid, the next bill and its vig, and the next due day.
-`points_missed` and `vig_owed` are retired. Arrears is the last
-record's bill if unpaid and zero otherwise — never a sum over
-misses, since each bill carries the prior arrears forward — and
-strikes counts every miss ever, so paying a later bill clears the
-money and leaves the strike standing. That difference is the whole
-reason for two books.
-
-The night presents the complete bill; there is no partial payment.
-The cursor advances from the DUE DATE, never from the night the money
-arrived, so a late payment cannot drift the schedule. The second
-strike forecloses that night, consecutive or not, and the arrest
-latch outranks it by construction.
-
-Partner joins the shared machinery (rev. 29 item 7): the remediation
-verbs, the clean-insolvency counter, and `models.pay_dirty_first` —
-the dirty-first authority hoisted out of `war.night_obligation`,
-where it lived inline, so points and war pay draw money the same way
-rather than twice.
-
-**Three findings from self-audit, closed before submission** — the
-first time this phase's defects were caught on this side of the
-relay rather than by review: the payment authority accepted a bill
-that was not whole dollars (a float or NaN slipping past the
-affordability comparison); nothing refused a cycle billed or paid on
-a day the run had never reached (the RULER class, which review taught
-in P4b.1b and which recurs the moment a new dated record appears);
-and two assertions were loose enough to pass on the wrong outcome.
-
-**Verification.** 974 tests green on 3.11, 3.12 AND 3.13; ruff and
-mypy clean. Both identity gates **300/300 on all three**, stand-pat
-**79/79** (schema v1) — containment. Golden **unchanged at
-`7a62b2af`**. Fork battery **byte-identical to merged main at BOTH
-depths**. Regression proof: `test_points` and `test_p0_foundation`
-cannot IMPORT against the pre-change engine — 53 tests do not run at
-all — which is the strongest form of "none of these names existed"
-and is reported as that rather than as a failure count.
-
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2577,15 +2521,15 @@ and is reported as that rather than as a failure count.
   **P4b.1b is complete and awaiting review**, with design revision
   31 as its paper (round 14). Next: **P4b.2 — the points ledger**,
   then P4b.3–P4b.5, with activation as a separate seventh act.
-  **P4b.2 is complete and awaiting review** (round 15). Nothing
-  preceded it: the points schema was already ruled by revision 29
-  item 1, and round 14's claim that a ruling was owed misread
-  revision 28's superseded judgment call. Next: **P4b.3 — the
-  manager, the vacancy and the two-front pressure**, which owes TWO
-  matrices (rev. 30 item 3), then P4b.4 and P4b.5, with activation
-  as a separate seventh act. The **P4 full-battery item** (the
+  **Exactly ONE item precedes P4b.2: the points-schema ruling**
+  (rev. 29 item 4's judgment call — the typed append-only
+  `PointsCycleRecord` history and its derived view, retiring
+  `points_missed` and `vig_owed`). The **P4 full-battery item** (the
   pairwise eight-component vectors) is **P4b.5's**, exactly as §7
-  assigns it — paper, execution and results alike.
+  assigns it — paper, execution and results alike — and is listed
+  here only as still owed at the end of the phase. An earlier
+  wording of this line made it a P4b.2 prerequisite; that was wrong
+  and contradicted §7, which governs.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds

@@ -9,8 +9,7 @@ import random
 import unittest
 
 from extra_toppings import data, market, save
-from extra_toppings.models import (BranchState, PointsCycleRecord,
-                                   new_state)
+from extra_toppings.models import BranchState, new_state
 from extra_toppings.rng import Streams
 
 
@@ -246,19 +245,12 @@ class TestBranchStatePersistence(unittest.TestCase):
         self.assertIsNone(d["branch_state"])
         state.act = 2
         state.branch = "partner"
-        state.day = max(state.day, 19)
-        # A paid first cycle: the run stands on the day it was paid,
-        # and the cursor has advanced past it — what the calendar
-        # check and the ledger reconciliation each require.
-        state.branch_state = BranchState(
-            points_due_day=24,
-            points_cycles=[PointsCycleRecord(
-                due_day=19, bill=2500, vig=0, paid=True, paid_day=19)])
+        state.branch_state = BranchState(points_due_day=19, points_missed=1)
         restored = save.state_from_dict(save.state_to_dict(state))
         self.assertEqual(restored.act, 2)
         self.assertEqual(restored.branch, "partner")
         self.assertEqual(restored.branch_state,
-                         state.branch_state)
+                         BranchState(points_due_day=19, points_missed=1))
 
 
 class TestStreamMigration(unittest.TestCase):
