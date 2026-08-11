@@ -83,3 +83,22 @@ after-dark register is who is out at night. Refinements adopted:
    (`man.skin_m.hair_ink.top_gray`).
 5. **Extras walk later** via the proven v3 path, per approved base,
    when street scenes need them.
+
+## Type-class results (2026-08-10, 10 generations, 10/10 PASS)
+
+Provisional picks: cop s10102 (peaked cap + duty belt — instantly a
+beat cop; s10101 read mall-guard), student s10111 (scarf/sweater
+clean), docker s10122 (broader build), seated_a s10132 and seated_b
+s10141 — both CHAIR-FREE, the pick criterion the other seeds failed
+by baking chairs into the sprite (the game composites its own
+chairs). The cop wears case blue: FIRST use of the institutional
+register on a person, awaiting the board's ruling alongside the
+picks. The seated posture survived generation — a genuinely new
+silhouette class at zero extra process cost.
+
+Skin axis + reserved-identity rule codified in recolor.py (skin ramp
+shifts one step, double-shift refused as ramp collapse; man's hair
+excluded by measured region; RESERVED_TARGETS test keeps heat hair
+and gold off every extras mapping — suite 77). Crowd demo:
+`review/crowd_demo.png`, 16 distinct passers-by from the 4 civilian
+bases at zero generations.

@@ -288,3 +288,21 @@ generations. Extras variants are then recorded recolor mappings in
 provenance (`recolor.py`, codified with tests); the classic
 crowd-sprite technique, kept inside palette law (ramps shift, never
 collapse).
+
+## Motion production results (2026-08-10)
+
+All eleven approved characters have 8-direction rotations and
+4-direction v3 walk cycles (keep_first_frame): 88/88 rotation frames
+pass the character contract after per-character curation quantize
+(max 42 px changed; each character curated against ITS OWN approved
+palette), 234/240 walk frames pass. The six failures are flagged for
+the board, not hidden: five are mid-stride limb separations of
+5–13 px (single_silhouette is a PROP rule — whether it applies to
+animation frames is an open contract question, the decal story
+again) and three 1-px specks on Sammy's north walk are genuine
+garbage, queued for recorded curation. Tony's first walk group
+silently never rendered (the vendor job-flakiness pattern again —
+resubmitted, 20/20 clean). OPERATIONAL GAP recorded: MCP-side
+generations do NOT flow through the REST spend ledger; the vendor
+balance is the only authority for them. Local curated PNGs are
+canon; character ids remain derived caches.

@@ -63,3 +63,35 @@ class RecolorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SkinAxisAndReservations(unittest.TestCase):
+    def test_skin_shift_moves_every_tier_one_step(self):
+        from tools.art_pipeline.recolor import SKIN_SHIFT, apply_mapping
+        im = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+        im.putpixel((0, 0), from_hex("#D4A068"))
+        im.putpixel((1, 0), from_hex("#C68239"))
+        im.putpixel((2, 0), from_hex("#B1552E"))
+        out = apply_mapping(im, SKIN_SHIFT)
+        self.assertEqual(out.getpixel((0, 0)), from_hex("#C68239"))
+        self.assertEqual(out.getpixel((1, 0)), from_hex("#B1552E"))
+        self.assertEqual(out.getpixel((2, 0)), from_hex("#680828"))
+
+    def test_skin_shift_excludes_man_hair(self):
+        from tools.art_pipeline.recolor import apply_skin_shift
+        im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        im.putpixel((5, 2), from_hex("#B1552E"))   # hair highlight row
+        im.putpixel((5, 20), from_hex("#B1552E"))  # hand
+        out = apply_skin_shift(im, "extra_man")
+        self.assertEqual(out.getpixel((5, 2)), from_hex("#B1552E"))   # preserved
+        self.assertEqual(out.getpixel((5, 20)), from_hex("#680828"))  # shifted
+
+    def test_double_shift_refused_as_ramp_collapse(self):
+        from tools.art_pipeline.recolor import SKIN_SHIFT, apply_mapping
+        double = {src: SKIN_SHIFT.get(dst, dst) for src, dst in SKIN_SHIFT.items()}
+        with self.assertRaises(ValueError):
+            apply_mapping(sprite(), double)
+
+    def test_roster_respects_reserved_identity(self):
+        from tools.art_pipeline.recolor import roster_respects_reservations
+        self.assertEqual(roster_respects_reservations(), [])

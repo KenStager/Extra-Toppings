@@ -91,3 +91,46 @@ def build_variant(base_image: Image.Image, variant: str) -> Image.Image:
     """Build a roster variant from its base image."""
     _, mapping, region = EXTRAS_VARIANTS[variant]
     return apply_mapping(base_image, mapping, region=region)
+
+
+# ---------------------------------------------------------------- skin axis
+# One recorded ramp shift: every tier moves down one step. A second
+# shift would collapse tiers (two sources onto #680828) — refused by
+# apply_mapping — so the skin axis has exactly two values per base:
+# native and shifted. Deeper complexions come from deep-skinned BASES
+# (the kid), not from stacking shifts.
+SKIN_SHIFT: dict[RGBA, RGBA] = _m({
+    "#D4A068": "#C68239",
+    "#C68239": "#B1552E",
+    "#B1552E": "#680828",
+})
+# The man's hair shares #B1552E (measured); restore his hair rows after
+# a skin shift so the shift touches skin, not hair.
+SKIN_SHIFT_EXCLUDE: dict[str, Box] = {"extra_man": (0, 0, 31, 6)}
+
+
+def apply_skin_shift(base_image: Image.Image, base_name: str) -> Image.Image:
+    """Shift the base's skin ramp one step down, preserving excluded zones."""
+    out = apply_mapping(base_image, SKIN_SHIFT)
+    exclude = SKIN_SHIFT_EXCLUDE.get(base_name)
+    if exclude:
+        x0, y0, x1, y1 = exclude
+        out.paste(base_image.convert("RGBA").crop((x0, y0, x1 + 1, y1 + 1)), (x0, y0))
+    return out
+
+
+# ------------------------------------------------- reserved identity rule
+# The named cast's identity features (experiment_10_extras.md taxonomy
+# v2): extras may never wear them. Enforced by test over roster data.
+RESERVED_TARGETS: frozenset[RGBA] = frozenset(
+    {from_hex("#FF8628"), from_hex("#FFE976")}  # Lena's heat hair; gold (Tony/Carmine)
+)
+
+
+def roster_respects_reservations() -> list[str]:
+    """Variant names whose mappings hit a reserved target (empty = clean)."""
+    violations = []
+    for name, (_base, mapping, _region) in EXTRAS_VARIANTS.items():
+        if any(target in RESERVED_TARGETS for target in mapping.values()):
+            violations.append(name)
+    return violations
