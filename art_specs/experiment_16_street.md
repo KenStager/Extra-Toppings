@@ -837,3 +837,32 @@ v2 in the builder, matched by measurement: 30x13 + offset lobe,
 alpha 130/150. Godot proof re-run: 0 / 230,400. v17
 (`review/hybrid_dinapoli_block_board_v17.png`) is the standing
 candidate.
+
+## v18 — the right hydrant, and everything made durable
+## (2026-08-11, board: "Make sure these things are set in a durable
+## way. Also, that is the right fire hydrant?"; 0 gens)
+
+The board's eye was right AGAIN: v17 carried the OLD s16302 - the
+builder stages from data, and the staging still pointed at the old
+asset because the swap awaited the word. This question was taken AS
+the word: s16306 is in approved/ and staging (span [358,377]); the
+size flag is RESOLVED; s16302 retired to the raw archive.
+
+DURABILITY, the full inventory:
+- The actor layer became RECORDED DATA: staging v3 gained
+  `actors_presentation` (cars at 1.5x NN per the v14 mock
+  convention - MOCK-ONLY law, native vehicle class still queued -
+  wagon, three extras, all as (x, base_y) content-bottom anchors).
+- The builder (.private_art/godot_preview_block/builder.py) now
+  composes the presentation board FROM that data - reference, Godot
+  scene, and board all rebuild from staging + laws with no session
+  memory required. Proof re-run with the new hydrant: 0 / 230,400.
+- The generation recipes (hydrant resize, Anchor Diner facade,
+  register board render) are preserved under
+  .private_art/experiment_16_street/recipes/ - the class of loss
+  that killed the v14 compose and the oxblood sedan is closed for
+  this session's work.
+- Laws, registers, validator, tests, and this record are in git
+  (pushed); staging/provenance/assets are in .private_art.
+Standing reminder attached to that last line: .private_art remains
+a SINGLE COPY on this machine.
