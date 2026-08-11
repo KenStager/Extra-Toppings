@@ -352,3 +352,36 @@ balance 4,255. Richness additions still to consider, each pending
 its slot in the bespoke queue: lamppost (period cast-iron),
 parking meters, mailbox, newspaper box, awning shadow pass,
 alley-mouth dressing (dumpster belongs there, not the front walk).
+
+## Native props round (2026-08-11, board: "quality is the main
+## focus. Generate any necessary components… reflect, refine,
+## re-render, repeat"; 6 gens)
+
+Three props the donors failed, all code-anchored where their form
+is regular + pixflux wear, subtractive register strips, 2 seeds
+each (ledgered; one 422 learned: **pixflux canvas floor is 32×32
+AREA** — the 24×32 hydrant canvas was rejected, rebuilt at 32×32):
+
+- **hydrant s16302 PICKED** (32×32, anchor@140): classic squat form,
+  domed bonnet, side caps, register red. s16301 busier (streaked).
+  Honest note: content reads ~1 head large beside the 32px cast —
+  flagged for the board, resize-by-regeneration if ruled.
+- **lamppost s16311 PICKED** (24×80, anchor@150): fluted pole,
+  amber lantern, base flare — the period silhouette the block was
+  missing. s16312 (ornate caged head) recorded as alternate.
+- **manhole s16322 PICKED** (32×32, anchor@160): strong double
+  ring, worn metal; supersedes the faint navy-lift derivation.
+  s16321 mottled.
+
+v7 (`review/hybrid_dinapoli_block_board_v7.png`) assembles all
+three at NATIVE 1:1. Scale bookkeeping, owned: the mock's TREES are
+NN-doubled 48×64 — a mock convenience that violates the
+no-mechanical-doubling principle for finished art; final trees
+regenerate at native 96×128. The DINER glass band stays blind
+pending the rival-front bespoke passes.
+
+Session spend 78 (4 drift + 44 + 20 + 2 + 2 + 6); expected balance
+4,249. AWAITING THE BOARD on the v7 block: the three prop picks,
+the tree seeds (and native-scale regeneration), curb s16102, the
+derivation set, the composition itself — and the standing decisions
+2–5.
