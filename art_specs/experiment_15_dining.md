@@ -240,3 +240,20 @@ thighs rode over the cloth edge. An A/B test settled the law:
 (n_chair, n_sitter, side chairs, side sitters, TABLE, s_sitter,
 s_chair) and shifted side anchors. The seating unit is now fully
 data: any scene that stages a four-top follows the recipe verbatim.
+
+## The vertical: sitting ON, not IN (2026-08-11, user board; 0 gens)
+
+The board's eye was ahead of the session twice here. First correction
+read as horizontal and was sealed wrong; the board clarified:
+VERTICAL. Reflection on what "sitting on a chair" means in this
+projection: the sitter's SITTING LINE (thigh-band top) rests on the
+pad's TOP row, the body rises above the seat, and the pad lip stays
+visible below the thigh. Measurement convicted the placement: the
+sitter sat exactly 6px too low (thigh row 22 vs pad top y0+14),
+embedded level with the seat — sitting IN the frame.
+
+LAW (computed, not eyeballed, now in the staging data): align the
+sprite's measured sitting line to the pad's measured top row. The
+flanking test confirmed the computed row (-3) over ±1 neighbors.
+Contact stands from the prior round (+2 toward the backrest). The
+four-top staging is final.
