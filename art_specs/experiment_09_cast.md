@@ -307,6 +307,25 @@ generations do NOT flow through the REST spend ledger; the vendor
 balance is the only authority for them. Local curated PNGs are
 canon; character ids remain derived caches.
 
+## Idle pass (2026-08-10 session 2: 11 generations, 11/11 PASS)
+
+Breathing idle, south, for all eleven — v3 `animate_character`,
+frame_count 4, keep_first_frame, one job per character with phrasing
+VARIED per character (the dedupe law; each phrase is also a small
+character note: Sammy breathes "shallow and nervous", Carmine "only
+the faintest calm breath"). Submitted in a 10-job wave + 1 (tier
+cap), curated by the standing per-character palette quantize (raw
+preserved in `idle_raw/`), validated under the ratified contract:
+**11/11 cycles pass, 55/55 frames pass, 11/11 frame-0 identity
+anchors hold against the curated rotations.** Quantize stayed in the
+walk-phase band (max 48 px, rosa frame 1). Curated frames live in
+`curated/<name>/idle_south_frame_00N.png` — canon, same as walks.
+
+Operational note for the record: Backblaze frame URLs reject
+urllib's default User-Agent (403) — a browser UA string is required;
+the first download attempt of this pass failed on exactly that and
+cost zero re-generations.
+
 ## Animation contract ratified (2026-08-10, user ruling)
 
 The user adopted the animation-frame contract verbatim: same
