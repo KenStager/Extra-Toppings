@@ -293,3 +293,20 @@ features cleanly — lens tint lives at rows 23-27, blush at rows
 from the approved original so the blush survives. Lesson appended to
 the region-scoping law: derive regions from the TARGET FEATURE's own
 census, never from a proxy detector another feature can pollute.
+
+## Bee, third catch, final fix (2026-08-11; 0 gens)
+
+The board caught the same region twice more — v3's band still paled
+under-eye rose into gray blotches. The ASCII pixel map ended the
+guessing: at 64px there ARE no lens interiors. The "tint" is 8 rose
+sclera pixels flanking the pupils on rows 23-24; all other rose
+(rows 25-28, 30-33) is under-eye warmth and blush that reads NATURAL
+on brown skin — and reads as gray damage when paled. v5 sets exactly
+those 8 pixels to cream and touches nothing else.
+
+Lesson, third and final form: BEFORE recoloring, print the pixel map
+and name what each cluster IS. Every failed pass (global hunt,
+proxy-derived box, feature-band guess) recolored pixels whose
+identity was assumed; the fix took one minute once the map named
+them. Boards judge reads; maps name pixels; recolor only named
+pixels.
