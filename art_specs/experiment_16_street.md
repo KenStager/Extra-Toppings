@@ -866,3 +866,23 @@ DURABILITY, the full inventory:
   (pushed); staging/provenance/assets are in .private_art.
 Standing reminder attached to that last line: .private_art remains
 a SINGLE COPY on this machine.
+
+## v19 — the vehicle lane law, and an erratum on my own measurement
+## (2026-08-11, board: "Wouldn't the cars be slightly larger? I feel
+## like the cars are designed to fit cleanly in the lanes."; 0 gens)
+
+The board was right, and the v17 record was wrong by MY measurement
+error, stated plainly: I claimed v14's cars were "exactly 1.5x NN" -
+that census counted only slate body colors and excluded the black
+tires and outline. Full-extent measurement: v14's car is 70x38,
+which is EXACTLY 2x NN of the cars.png frame content (35x19).
+
+THE VEHICLE LANE LAW, now recorded where it can't be lost: vehicles
+stand 38px screen height in the 40px lane bands. The hero wagon is
+65x38 native; the 2x sedan is 70x38. The board's phrase - "designed
+to fit cleanly in the lanes" - is the literal design fact, and both
+vehicle classes obey it. actors_presentation now carries scale 2
+with the law in its comment; the builder rebuilt v19 from data. The
+Godot proof is untouched (actors are presentation, not staged
+scene). NN scaling remains mock-only; the native vehicle class
+remains the real fix in the queue.
