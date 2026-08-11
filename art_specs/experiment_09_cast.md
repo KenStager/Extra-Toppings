@@ -264,3 +264,27 @@ its own word. Rotation+walk phase (v3 reference + v3 walk,
 keep_first_frame) launched for all eleven on approval, per the
 committed path. Operational finding: Tier 1 allows 8 concurrent
 background jobs; batch submissions must throttle.
+
+## The extras program (2026-08-10, user ruling: approved, with separation)
+
+The user approved extras-as-recolors with one binding constraint: NO
+overlap with the core cast — extras never reuse a named character's
+body. Dedicated extra BASES are generated for the purpose.
+
+Design law, inverted from the cast's: extras are engineered for
+LEGIBLE ANONYMITY — common silhouette classes, mid-value garments, no
+accent color, no story tell. And for RECOLORABILITY: each base is
+designed ZONE-UNIQUE — hair, top, and bottom each use a color that
+appears nowhere else on that sprite, so recorded global color swaps
+are safe without masks. Zone-uniqueness is verified per candidate and
+is a pick criterion at the board (generation may violate it; the pick
+must not).
+
+Base roster (one tile each, E09 character recipe — face-bearing
+anchors, init@140, ghost/anime negatives): adult man (average build),
+adult woman (average build), elder (stooped, silver), kid (short,
+~20 px figure — bbox floor still honored). 2 seeds each = 8
+generations. Extras variants are then recorded recolor mappings in
+provenance (`recolor.py`, codified with tests); the classic
+crowd-sprite technique, kept inside palette law (ramps shift, never
+collapse).
