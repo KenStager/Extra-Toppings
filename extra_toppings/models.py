@@ -151,14 +151,38 @@ CASE_MIN = 0.0
 CASE_MAX = 100.0
 
 
+def is_finite_number(value: object) -> bool:
+    """THE finite-number predicate, shared by every numeric boundary
+    that persistence binds: the Case domain, evidence magnitudes and
+    accruals, and the accrual entry point.
+
+    Two hazards, both of which have reached this codebase:
+
+    NaN and the infinities defeat range tests. Every comparison
+    against NaN is False, so `x < 0` and `x > 100` both fail and a
+    two-inequality bounds check waves it through; `+inf` passes any
+    "non-negative" test and folds to a Case of 100. Finiteness is
+    therefore asked FIRST and explicitly, never inferred from a
+    comparison.
+
+    And it NEVER RAISES, for any object. `math.isfinite(10**1000)`
+    raises OverflowError converting a big int to float — so a
+    predicate that reached for it unconditionally would turn a
+    doctored payload into a crash instead of a refusal. A Python int
+    is finite by construction whatever its size, so only floats are
+    asked."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    if isinstance(value, int):
+        return True                 # exact, and finite at any size
+    return math.isfinite(value)
+
+
 def case_in_domain(value: object) -> bool:
     """Whether a value is a Case the engine could have produced: a
-    real number (never a bool), FINITE, inside [CASE_MIN, CASE_MAX].
-    Finiteness is checked first and explicitly, because NaN defeats
-    range tests by making every comparison False."""
-    if not isinstance(value, (int, float)) or isinstance(value, bool):
-        return False
-    return math.isfinite(value) and CASE_MIN <= value <= CASE_MAX
+    finite real number inside [CASE_MIN, CASE_MAX]. The interval is
+    the one `fold_case` clamps into, from the same two constants."""
+    return is_finite_number(value) and CASE_MIN <= value <= CASE_MAX  # type: ignore[operator]
 
 EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
                   "suspicion")
@@ -1232,17 +1256,21 @@ def validate_evidence(records: list) -> None:
     for i, r in enumerate(records):
         if r.kind not in EVIDENCE_KINDS:
             raise ValueError(f"evidence[{i}]: unknown kind {r.kind!r}")
-        if isinstance(r.magnitude, bool) \
-                or not isinstance(r.magnitude, (int, float)) \
-                or r.magnitude < 0:
+        # FINITE, through the shared predicate (P4b.1b review). The
+        # old spelling asked type and `< 0`, and both NaN and +inf
+        # walked past it: NaN because every comparison against it is
+        # False, +inf because it is cheerfully non-negative. Either
+        # one folds the whole ledger to a Case of 100 — an arrest
+        # written by a doctored save rather than by play.
+        if not is_finite_number(r.magnitude) or r.magnitude < 0:
             raise ValueError(f"evidence[{i}]: magnitude must be a "
-                             f"non-negative number, got {r.magnitude!r}")
-        if isinstance(r.accrued, bool) \
-                or not isinstance(r.accrued, (int, float)) \
-                or r.accrued < 0 or r.magnitude > r.accrued:
-            raise ValueError(f"evidence[{i}]: accrued must be a number "
-                             f"with 0 <= effective <= accrued, got "
-                             f"effective {r.magnitude!r} of "
+                             f"finite non-negative number, got "
+                             f"{r.magnitude!r}")
+        if not is_finite_number(r.accrued) or r.accrued < 0 \
+                or r.magnitude > r.accrued:
+            raise ValueError(f"evidence[{i}]: accrued must be a finite "
+                             f"number with 0 <= effective <= accrued, "
+                             f"got effective {r.magnitude!r} of "
                              f"{r.accrued!r} (rev. 16)")
         if not isinstance(r.contested, bool):
             raise ValueError(f"evidence[{i}]: contested must be a boolean")
@@ -1732,6 +1760,10 @@ def validate_cross_state(state: "State") -> None:
     naming a nonexistent or never-aware employee, or a settled name
     still on the payroll (the closed rehire lifecycle) are refused,
     not repaired."""
+    # The calendar FIRST: every dated validator below compares
+    # against `state.day`, so a counterfeit ruler would let real
+    # dates pass by measuring them wrongly.
+    validate_calendar(state)
     validate_addresses(state)
     all_keys = [e.key for e in state.employees]
     keys = set(all_keys)
@@ -1758,6 +1790,34 @@ def validate_cross_state(state: "State") -> None:
     validate_execution_history(state)
     validate_sitdown_snapshot(state)
     _validate_witnesses_and_campaigns(state)
+
+
+def validate_calendar(state: "State") -> None:
+    """THE calendar primitives, bound at the shared boundary (P4b.1b
+    review).
+
+    Every dated check in the engine — the lifecycle's acceptance and
+    opening days, the snapshot's payoff day, the points schedule —
+    compares against `state.day` and `debt_paid_day`, and Python's
+    equality is happy to reconcile `13.0` with `13` and to satisfy
+    `<= state.day` with `14.0`. So the counterfeit day never has to
+    be the value under test; it can be the ruler. Both are exact
+    whole days here, once, and every dated validator downstream is
+    then comparing against a real calendar."""
+    if type(state.day) is not int or state.day < 1:
+        raise ValueError(
+            f"the calendar day is a positive whole day, got "
+            f"{state.day!r}")
+    if state.debt_paid_day is not None:
+        if type(state.debt_paid_day) is not int:
+            raise ValueError(
+                f"the payoff day is a whole calendar day, got "
+                f"{state.debt_paid_day!r}")
+        if not 1 <= state.debt_paid_day <= state.day:
+            raise ValueError(
+                f"the debt was paid on day {state.debt_paid_day}, "
+                f"outside the calendar the run has reached (day "
+                f"{state.day})")
 
 
 def validate_sitdown_snapshot(state: "State") -> None:
@@ -2676,7 +2736,19 @@ class State:
         set HERE, at accrual time, and arrest outranks every simultaneous
         outcome (design §2.5) — a success ending set moments earlier
         loses to the latch. Nothing accrues evidence after a run ends,
-        so a finished game is never rewritten."""
+        so a finished game is never rewritten.
+
+        THE ACCRUAL BOUNDARY refuses a non-finite magnitude rather
+        than booking it (P4b.1b review): `add_case(float("inf"), …)`
+        would append a record the fold turns into an immediate Case
+        of 100 and an arrest, and `add_case(float("nan"), …)` slips
+        past `amount <= 0` because every comparison against NaN is
+        False. Nothing in the engine computes either, so reaching
+        here with one is a caller bug — refused loudly, never
+        booked."""
+        if not is_finite_number(amount):
+            raise ValueError(
+                f"evidence accrues in finite amounts, got {amount!r}")
         if amount <= 0:
             return
         self.evidence.append(Evidence(day=self.day, magnitude=amount,

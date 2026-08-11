@@ -2408,10 +2408,10 @@ itemization with derived sums and an import-time reconciliation, the
 turf declaration through the existing relation authority, and the
 points schedule read from the address's persisted acceptance day.
 
-**Four review rounds, and what each found.** The first three rounds'
-findings are recorded in the commits; the fourth is worth stating
-here because two of its four items were defects IN THE PROOF rather
-than in the code:
+**Six review rounds, and what they found.** Fifteen findings; the
+per-round detail is in the commits, and what is worth stating here is
+the list itself — because three of these were defects IN THE PROOF
+rather than in the code, and one was a defect in this very record:
 
 1. `SITE_DISTRICTS` was DERIVED from `data.DISTRICTS`, which made an
    unrelated dictionary's insertion order the story's authority.
@@ -2439,18 +2439,51 @@ than in the code:
    schedule from a day that is not a day. Fixed at the SHARED
    persistence boundary, not inside Partner: every consumer of the
    snapshot deserves the same guarantee.
+9. The snapshot's Case check accepted `NaN`, `+inf` and `101.0` —
+   NaN defeating a two-inequality bounds test outright, because
+   every comparison against it is False.
+10. This record listed the P4 full pairwise battery as a P4b.2
+    prerequisite, contradicting §7, which assigns it to P4b.5.
+11. **The deal bypassed CHAIR ELIGIBILITY.** `accept_deal` checked
+    the sit-down morning and never the canonical Partner verdict, so
+    a payoff at R = 9, or a file at Case 72, could build a valid,
+    loadable Partner branch from a chair the scene would have shown
+    EMPTY. It now consumes `sitdown.evaluate_chairs` rather than
+    respelling `MIN_R` or `CASE_GATE`.
+12. `case_in_domain(10**1000)` RAISED `OverflowError` — a doctored
+    payload becoming a crash instead of a refusal.
+13. `validate_evidence` still accepted `NaN` and `+inf` magnitudes,
+    either of which folds the whole ledger to Case 100: an arrest
+    written by a save rather than by play. One shared finite-number
+    predicate now binds the snapshot, evidence magnitude and
+    accrued, and the accrual entry point.
+14. Calendar reconciliation accepted counterfeit RULERS:
+    `debt_paid_day=13.0` reconciles with a snapshot's `13` through
+    Python equality, and `state.day=14.0` satisfies every
+    "within the calendar reached" comparison. `validate_calendar`
+    binds both primitives at the shared boundary, first, before any
+    dated validator measures against them.
+15. **The two-route cargo proof was STILL vacuous**: it checked that
+    neither address held the other's goods, which also passes when
+    neither wagon loaded anything. It now asserts exact deltas — two
+    units out of each room's own good — alongside the cross-address
+    zero.
 
-**Verification.** 925 tests green on 3.11, 3.12 AND 3.13; ruff and
+**Verification.** 937 tests green on 3.11, 3.12 AND 3.13; ruff and
 mypy clean. Both identity gates **300/300 on all three**, stand-pat
 holding **79/79** (schema v1) — containment. Golden **unchanged at
 `7a62b2af`**. Fork battery **byte-identical to merged main at BOTH
 depths**, `diff`-compared against a fresh `origin/main` worktree run.
-Regression proof: 13 subtests of the snapshot boundary fail on the
-pre-fix engine. **The two proof seams are reported as strengthened
-COVERAGE, not as regressions** — the engine did not change under
-them and the vacuous assertions passed both ways, which is precisely
-why they were worth finding and why they are named here rather than
-folded into a pass count.
+
+**Regression proof, decomposed honestly.** The snapshot boundary: 13
+subtests fail pre-fix. The Case domain: 4 of 5 (`-inf` was already
+refused by the old `< 0` check and is coverage). The chair gate, the
+finite predicate at its three boundaries, and the calendar
+primitives all fail pre-fix. **The three PROOF seams produce no
+failures at all** — the engine did not change under them, and the
+vacuous assertions passed both ways. That is exactly why they were
+worth finding, and why they are named here rather than folded into a
+pass count.
 
 ## Still open (carried to the next design pass)
 

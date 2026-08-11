@@ -57,11 +57,15 @@ class Listening(ScriptedConsole):
 
 def table_state(payoff_day: int = 13, case: float = 20.0):
     """A world standing at the sit-down morning, one address, debt
-    dead — the only state from which the deal may be struck."""
+    dead — the only state from which the deal may be struck. The
+    Case is a REAL ledger record, so the snapshot's count is a true
+    prefix of the evidence it was frozen from."""
     state = new_state()
     state.debt = 0
     state.debt_paid_day = payoff_day
     state.day = payoff_day + 1
+    if case:
+        state.add_case(case, "prior seizures", kind="physical")
     state.sitdown_snapshot = SitdownSnapshot(
         payoff_day=payoff_day, case_at_lockup=case,
         evidence_count_at_lockup=len(state.evidence))
@@ -405,6 +409,52 @@ class TestTheTransactionIsAtomic(unittest.TestCase):
         state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
         self._refused(state, "university")
 
+    def test_an_empty_chair_moves_nothing_calendar_gate(self):
+        # Standing in the right room on the right morning is not
+        # being offered the deal. A payoff on day 21 leaves R = 9,
+        # under Partner's calendar gate, and the chair is EMPTY —
+        # a direct call must not build a branch the scene would
+        # never have seated.
+        state = table_state(payoff_day=21)
+        self._refused(state, "university")
+
+    def test_an_empty_chair_moves_nothing_case_gate(self):
+        # A file over Partner's Case gate closes the chair too:
+        # nobody invests in a burning building.
+        state = table_state(payoff_day=13, case=72.0)
+        self._refused(state, "university")
+
+    def test_the_gates_are_the_scenes_own_never_a_second_copy(self):
+        # The verdict is CONSUMED from the canonical evaluator. Two
+        # copies of MIN_R or CASE_GATE would be free to disagree with
+        # the chair the player was shown, so the boundary is asserted
+        # against `sitdown`'s own numbers rather than against
+        # literals repeated here.
+        # Derived from the canonical gate: the payoff day that
+        # leaves exactly MIN_R days seats, and one day later does
+        # not. Both numbers come from `sitdown`, never from here.
+        at_the_gate = 30 - sitdown.MIN_R["partner"]
+        for payoff in (at_the_gate, at_the_gate + 1):
+            with self.subTest(payoff=payoff):
+                state = table_state(payoff_day=payoff)
+                verdict = next(
+                    v for v in sitdown.evaluate_chairs(
+                        state.sitdown_snapshot, state.evidence)
+                    if v.chair == "partner")
+                if verdict.available:
+                    partner.accept_deal(state, "university")
+                    self.assertEqual(state.branch, "partner")
+                else:
+                    self._refused(state, "university")
+
+    def test_the_case_gate_boundary_seats_exactly_at_the_edge(self):
+        # The gate is `case >= CASE_GATE`, so one tick under it is
+        # still a chair — pinned so a future off-by-one is visible.
+        edge = sitdown.CASE_GATE["partner"]
+        state = table_state(payoff_day=13, case=edge - 0.1)
+        partner.accept_deal(state, "university")
+        self.assertEqual(state.branch, "partner")
+
     def test_a_postcondition_failure_unwinds_the_whole_deal(self):
         # Preflight alone does not make a transaction atomic: the
         # world-level validators run AFTER the records exist. There is
@@ -575,11 +625,22 @@ class TestTheWalkthrough(unittest.TestCase):
         self.assertEqual(len(state.route_log), 2)
         self.assertEqual({r.origin_shop for r in state.route_log},
                          {HOME_SHOP_KEY, "shop2"})
-        # Each address spent ITS OWN stock and ITS OWN oven: the
-        # cargo left each room, and neither pantry paid for the
-        # other's cover pizzas.
+        # Each address spent ITS OWN stock, in EXACT amounts. Asking
+        # only whether home holds no oregano and the site holds no
+        # mushrooms would pass on a night where neither wagon loaded
+        # anything at all — the cross-address check is necessary and
+        # nowhere near sufficient. Both halves are asserted: each
+        # room's own good went down by the two units its route
+        # loaded, and neither room acquired the other's.
+        self.assertEqual(before[0]["mushrooms"] - home.stash["mushrooms"],
+                         2)
+        self.assertEqual(before[1]["oregano"] - site.stash["oregano"], 2)
+        self.assertEqual((home.stash["mushrooms"], site.stash["oregano"]),
+                         (2, 1))
         self.assertEqual(home.stash.get("oregano", 0), 0)
         self.assertEqual(site.stash.get("mushrooms", 0), 0)
+        # And each oven baked its own cover: two pantries down, two
+        # tills up, neither paying for the other's pizzas.
         self.assertLess(home.ingredients, before[2])
         self.assertLess(site.ingredients, before[3])
         self.assertGreater(home.legit_revenue_today, 0)

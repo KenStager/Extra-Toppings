@@ -137,6 +137,27 @@ def _preflight(state: State, district: str) -> int:
             f"the deal is struck on the sit-down morning, day "
             f"{snap.payoff_day + 1}; this state stands on day "
             f"{state.day}")
+    # THE CHAIR MUST ACTUALLY BE OPEN (P4b.1b review). Standing in
+    # the right room on the right morning is not the same as being
+    # offered the deal: a payoff at R below Partner's calendar gate,
+    # or a file over its Case gate, leaves this chair EMPTY — and a
+    # direct call could otherwise build a valid, loadable Partner
+    # branch that the scene would never have seated.
+    #
+    # The verdict is CONSUMED from the canonical evaluator, never
+    # respelled here: MIN_R and CASE_GATE live in `sitdown`, and a
+    # second copy of either would be free to disagree with the chair
+    # the player was shown. Imported inside the function because
+    # `sitdown` imports this module to reach the deal — the same
+    # deferred-import shape the war chair already uses.
+    from . import sitdown
+    verdict = next(v for v in sitdown.evaluate_chairs(snap, state.evidence)
+                   if v.chair == "partner")
+    if not verdict.available:
+        raise ValueError(
+            f"Carmine's chair is empty — {verdict.reason} (the "
+            f"{verdict.blocker} gate: required "
+            f"{verdict.requirement:g}, had {verdict.actual:g})")
     # The pre-deal world has exactly one address. Building the
     # "second" room onto a world that already has two would mint a
     # third and call it the branch's shop.

@@ -773,6 +773,76 @@ class TestSaveRoundTrips(unittest.TestCase):
                               why="x")])
                 self.assertTrue(models.case_in_domain(folded), folded)
 
+    def test_the_finite_predicate_answers_every_object_and_never_throws(self):
+        # It is asked at three boundaries, so it must be total: a
+        # huge int used to raise OverflowError inside
+        # `math.isfinite`, turning a doctored payload into a crash
+        # instead of a refusal. A Python int is finite at any size.
+        for value, expected in (
+                (0, True), (10, True), (-3, True), (1.5, True),
+                (10 ** 1000, True),           # exact, finite, enormous
+                (float("nan"), False), (float("inf"), False),
+                (float("-inf"), False), (True, False), (False, False),
+                ("5", False), (None, False), ([], False),
+                (object(), False)):
+            with self.subTest(value=type(value).__name__):
+                self.assertIs(models.is_finite_number(value), expected)
+
+    def test_a_case_out_of_domain_cannot_ride_a_big_int_either(self):
+        self.assertFalse(models.case_in_domain(10 ** 1000))
+        self.assertFalse(models.case_in_domain(-(10 ** 1000)))
+
+    def test_evidence_refuses_non_finite_magnitudes_at_load(self):
+        # NaN and +inf both walked past `type` plus `< 0` — NaN
+        # because every comparison against it is False, +inf because
+        # it is cheerfully non-negative — and either one folds the
+        # whole ledger to a Case of 100: an arrest written by a
+        # doctored save rather than by play.
+        state = scene_state(payoff_day=12, case=20.0,
+                            evidence=[(11, 20.0, "seizures")])
+        save.state_from_dict(save.state_to_dict(state))       # baseline
+        for field in ("magnitude", "accrued"):
+            for bad in (float("nan"), float("inf"), float("-inf")):
+                with self.subTest(f"{field}={bad!r}"):
+                    payload = save.state_to_dict(state)
+                    payload["evidence"][0][field] = bad
+                    with self.assertRaises(ValueError):
+                        save.state_from_dict(payload)
+
+    def test_the_accrual_boundary_refuses_a_non_finite_amount(self):
+        state = new_state()
+        for bad in (float("nan"), float("inf")):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    state.add_case(bad, "impossible", kind="physical")
+                self.assertEqual(state.evidence, [])
+                self.assertIsNone(state.game_over)
+
+    def test_the_calendar_primitives_are_exact_whole_days(self):
+        # The counterfeit day need not be the value under test — it
+        # can be the RULER: `debt_paid_day=13.0` reconciles with a
+        # snapshot's `13` through Python equality, and `day=14.0`
+        # satisfies every "within the calendar reached" comparison.
+        good = scene_state(payoff_day=12)
+        save.state_from_dict(save.state_to_dict(good))        # baseline
+        for field, bad in (("day", 13.0), ("day", True), ("day", 0),
+                           ("day", -1), ("day", "13"),
+                           ("debt_paid_day", 12.0),
+                           ("debt_paid_day", True),
+                           ("debt_paid_day", 0),
+                           ("debt_paid_day", 99)):
+            with self.subTest(f"{field}={bad!r}"):
+                payload = save.state_to_dict(good)
+                payload[field] = bad
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(payload)
+
+    def test_a_run_that_never_paid_carries_no_payoff_day(self):
+        # None is the legal absence, and it must keep loading.
+        payload = save.state_to_dict(new_state())
+        self.assertIsNone(payload["debt_paid_day"])
+        save.state_from_dict(payload)
+
     def test_a_snapshot_reconciles_with_the_payoff_it_records(self):
         # Two answers to "when was Carmine paid" would silently
         # reprice a chair, since R is derived from the snapshot.
