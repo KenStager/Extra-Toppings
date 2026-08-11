@@ -183,3 +183,20 @@ Candidates AWAIT the board: the 8-rotation set + the E15 table
 status: all rotations single-silhouette with margins; palette
 curation quantize deferred until the board picks (same order as the
 cast pipeline).
+
+## Livery answered (2026-08-10 session 2, 0 gens): the D we already share
+
+The user's question dissolved the lettering wall: the pizza-pan D
+emblem is CODE (`branding.py: build_emblem(size)`), parameterized —
+the same mark the facade sign wears, rebuilt at panel scale
+deterministically. No generation, no derived curation of the 32px
+artifact.
+
+A placement grid (10px vs 12px × panel-low / upper-band / rear-door,
+position mirrored between sides, the mark itself NEVER mirrored)
+measured the options. Session judgment: **build_emblem(10),
+panel-low — west (23,41), east (63,41)** — a rear-door badge under
+the window line, subtle at 1×, clear of both wheels and glass. @12
+crowds the window; upper-band lands on glass; rear-door crowds the
+fender. AWAITING the user's livery ruling (brand identity, the
+user's register): emblem-only at the recommended spec, or otherwise.
