@@ -221,3 +221,35 @@ recorded as viable only for high-info sprites (Sal).
    pre-submission read (4533) with no generation activity from this
    session in between — unexplained; the vendor balance is the only
    authority for MCP-side spend and the gap is recorded, not smoothed.
+
+## The roster round (2026-08-11, ruled arc: 10 gens)
+
+The remaining eight cast under the RATIFIED recipe, one seed each +
+two targeted re-rolls. First-seed keepers: tony (balding, mustache,
+chain — the cook exactly), rosa, lena (hoops licensed — hers),
+vinnie; acceptable with drift flagged: marcus (neater than
+"unfinished"), sammy (jacket drifted hoodie — slightly off-period).
+Misses re-rolled with sharpened counters: angelo (skin darker than
+his olive sprite + blank eyes; re-roll s11252 improved the face,
+skin still browner than the sprite — flagged, the board judges) and
+priya (loose hair; re-roll s11262 pulled it back; hair reads
+gray-streaked and older than the bio — flagged).
+
+Curation queue executed as leaf-asset revisions (candidates, not
+swapped into approved/ without the word): carmine's 2 violet iris
+pixels found at their MEASURED rows and inked (two earlier hunts
+missed — one global, one stopped a row short; lesson: measure the
+target's rows, not the assumed zone); bee's lens tint required THREE
+passes — a global color hunt mottled her face (REJECTED, the booth
+polarity lesson extended: color hunts are REGION-SCOPED), the
+frame-derived region worked. Side effect shown honestly: bee's rosy
+cheek-dots paled with the lenses.
+
+Sprite-side queue items (bee wire glasses, rosa eyes, sammy ankles)
+NOT executed: each edits an approved identity source that anchors
+rotations, walks, and idles — a cascade of 30+ frames plus frame-0
+anchors per character. Deferred to an explicitly-ruled pass with the
+cascade priced, rather than quietly de-anchoring the motion canon.
+
+AWAITING the board: the ten-portrait roster (8 picks + carmine/bee
+curation swaps), and the angelo-skin / priya-age judgment calls.
