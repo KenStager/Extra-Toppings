@@ -26,6 +26,10 @@ full-screen asset class needing its own brief.
 not the 20 the tool schema's table claims for result_size 64. Balance
 deltas confirm exactly 25×2 for round 1. The schema is wrong; the
 measured number is recorded in provenance and rules planning.
+(2026-08-10 docs pass: the contradiction is confirmed against the
+live schema text — "16/32/48/64 = 20 generations (1K)" — with no
+documented mechanism that reaches 25 at 64px. Escalation to vendor
+support recommended, alongside the unexplained 50-gen debit below.)
 
 **No prompt surface exists.** The tool accepts image / direction /
 view / result_size / seed ONLY — no prompt, no negatives, no palette

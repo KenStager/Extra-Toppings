@@ -393,6 +393,16 @@ decided before the probe runs, not after.
 Tier 1 needs no new law. Tier 2 waits for Tier 1's prop approval and
 the anchor-law ruling. Neither spends until the board says so.
 
+Docs-pass note (2026-08-10): frame-0 byte-exactness under a CUSTOM
+start frame is UNDOCUMENTED by the vendor (only "keeps the reference
+frame as frame 0" is promised) — so the Tier 2 probe's first
+deliverable is that measurement itself, with our frame-0 byte-equal
+validator as the instrument. Held-prop animation guidance is
+confirmed absent from all vendor docs; and a REST-only skeleton path
+(/v2/animate-with-skeleton, keypoint schema undocumented) is recorded
+as the stronger-pose-control fallback if the text-guided probe
+disappoints.
+
 ## Animation contract ratified (2026-08-10, user ruling)
 
 The user adopted the animation-frame contract verbatim: same

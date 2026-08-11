@@ -524,7 +524,59 @@ as a probe, not a candidate. Measured cost asymmetry reinforces this:
 the promptless portrait surface costs 25 gens/call against pixflux's
 1, and E11 converged in 8 gens on class 1 after 125 on class 3.
 
-(Docs-research addendum pending: vendor documentation findings on
-keyframe pixel preservation, skeleton animation, inpaint contracts,
-and billing semantics will be recorded here when the research pass
-returns.)
+### Docs-research addendum (2026-08-10, researched against live vendor docs)
+
+A documentation pass (web + live MCP schema at api.pixellab.ai/mcp/docs,
+REST pricing at pixellab.ai/pixellab-api, docs at pixellab.ai/docs/*)
+returned the following; quotes are fetch-reported, not byte-verified:
+
+1. **Frame-0 exactness under a CUSTOM start frame is UNDOCUMENTED.**
+   keep_first_frame is documented only as "keep the reference frame as
+   frame 0" — byte-identity of a custom_start_frame's pixels is an
+   inference, not a contract. Consequence: the Tier 2 keyframe probe
+   MEASURES this (our frame-0 byte-equal validator is the instrument);
+   it must never be assumed. Contrast: MCP `inpaint_image` DOES
+   document exact preservation — "everything outside the mask is
+   preserved exactly" — which promotes the long-standing "MCP inpaint
+   awaits controlled retest" item to a justified probe (cost 20–40
+   gens, board first).
+2. **Held-prop animation is undocumented everywhere** — no official
+   guidance exists on characters holding objects, in any doc. Our
+   Tier 1 (engine staging) / Tier 2 (anchored keyframe) design stands
+   on our own measurements alone, and that is now a known fact rather
+   than a search gap.
+3. **create_8_direction_object: cost ladder documented** (1–85px = 20,
+   86–113 = 25, 114–168 = 40 generations), `reference_image_base64`
+   is an IDENTITY anchor ("generates 8 rotations from it — works well
+   for props"), style params are separate, and NO negative surface
+   exists — confirming the tool's class-2 placement above. A parallel
+   cheaper v3 lineage (create-8-rotations-v3, create-character-v3 REST
+   endpoints) exists alongside Pro; the wagon path should compare both
+   before its ruling.
+4. **Portrait pricing contradiction is real and documented**: the
+   schema says result_size 64 = 20 generations; we were charged
+   exactly 25, twice. No documented mechanism explains it. Vendor
+   support query recommended; the measured 25 remains the planning
+   number until the vendor rules.
+5. **Skeleton animation exists REST-only** (/v2/animate-with-skeleton,
+   /v2/estimate-skeleton; 64×64 ≈ $0.014/gen-equivalent; canvas set
+   includes 64 and 256; Tier 1+). Keypoint schema undocumented. A
+   candidate stronger-pose-control path if Tier 2's text-guided probe
+   disappoints — pose by construction instead of by description.
+6. **Billing semantics are the largest documentation void**: nothing
+   on reserve-vs-completion charging, failed-job refunds, or per-tier
+   concurrency. Our unexplained 50-gen debit has no docs-side
+   explanation and joins the support query. Our "10 concurrent jobs"
+   operating belief is empirical only (the tier-upgrade note), not
+   documented — treated as a working assumption.
+7. **init_image_strength: vendor semantics confirmed** ("how much of
+   init_image is PRESERVED — higher = closer to the input", default
+   150) but the vendor's own ranges doc describes 0–300 as "extremely
+   rough color guidance" with meaningful bands only above 300 — while
+   our measured @70-vs-@120+ behavior difference is large and
+   reproducible. Both are recorded; our band NAMES ("fidelity band")
+   are local terminology, and the measured knobs, not the vendor's
+   range prose, govern our recipes. Pixflux MCP cost is a flat "1
+   generation" line with no size formula; the USD table steps at
+   320/400px, so the flat-1 assumption is verified only ≤128px —
+   the ledger remains the check.

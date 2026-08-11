@@ -67,15 +67,22 @@ at wagon scale, measured, not assumed to fit.
 
 ## Decision 5 — generation path (RULING NEEDED)
 
-- **(a) `create_8_direction_object`** (20–40 gens/call, size ≤168,
+- **(a) `create_8_direction_object`** (documented cost ladder, per
+  the 2026-08-10 docs pass: 1–85px = 20, 86–113 = 25, 114–168 = 40
+  generations — the proposed 96px canvas lands in the 25 bucket;
   view low top-down, accepts `reference_image_base64`): one call
   yields all 8 directions with vendor-enforced cross-direction
-  consistency. RISK, measured this session on the portrait surface:
-  the tool has **no negative-prompt surface** (params: description,
-  reference, style only), and E11 proved promptless surfaces let
-  priors fill every vacuum. Counter: a hand-blocked side-view anchor
-  as `reference_image_base64` (the E09 anchor discipline) plus a
-  description carrying era words.
+  consistency. The docs pass confirmed `reference_image_base64` is an
+  IDENTITY anchor ("generates 8 rotations from it — works well for
+  props"), which strengthens the two-step sequence below. RISK,
+  confirmed by the same pass: the tool has **NO negative-prompt
+  surface**, and E11 proved what description-only surfaces do with a
+  vacuum. Counter: the approved side-view study as
+  `reference_image_base64` plus a description carrying era words.
+  ALSO surfaced by the docs pass: parallel cheaper v3 REST endpoints
+  exist (`create-8-rotations-v3`) alongside the Pro object path —
+  their cost and contract should be compared (one schema fetch, free)
+  before this decision is ruled.
 - **(b) pixflux per direction** (proven surface, full negatives,
   ~1 gen/attempt): 4 hand-blocked anchors (side L/R can mirror-flip
   only if the livery layer is applied AFTER mirroring — lettering
