@@ -326,6 +326,26 @@ urllib's default User-Agent (403) — a browser UA string is required;
 the first download attempt of this pass failed on exactly that and
 cost zero re-generations.
 
+## Tony peel probe (2026-08-10 session 2: 1 generation, answered by failing)
+
+The user's canvas question ("does the peel need 64×32?") was probed
+with one v3 action on the existing Tony character ("sliding a pizza
+into an oven with a long wooden peel", north, 4f). Measured: no frame
+touches the 56×56 canvas edge (max bbox 40×28) — but the fit evidence
+is WEAK because **the prop never rendered**. v3 produced billowing
+white dough/smoke masses in Tony's hands that fragment into floating
+pieces by frames 3–4; no peel, no pizza, and the later frames would
+REFUSE under the ratified animation contract (multiple disconnected
+components). Frames preserved in `peel_probe/`, deliberately
+uncurated — this is a measurement record, not a candidate.
+
+RULING IMPLIED, for the board to confirm: in-model prop-in-hand
+animation is outside v3's competence at this scale. Hand-off moments
+stage the CANON pizza asset on tiles; if a scene needs the peel it is
+its own prop generation (E01-class, validated as a prop); character
+animation stays body-motion-only. The 64×64 escalation question is
+moot until a real peel prop exists to measure.
+
 ## Animation contract ratified (2026-08-10, user ruling)
 
 The user adopted the animation-frame contract verbatim: same
