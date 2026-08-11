@@ -346,6 +346,53 @@ its own prop generation (E01-class, validated as a prop); character
 animation stays body-motion-only. The 64×64 escalation question is
 moot until a real peel prop exists to measure.
 
+## Peel probe, reflected (2026-08-10 session 2): the conclusion was confounded
+
+CORRECTION, owned plainly: the probe's conclusion overstated what was
+measured. The v3 schema documents its own contract — action
+descriptions should focus "on the movement or pose only … **avoid
+environmental details like locations or objects**" — and the probe
+prompt named three objects (pizza, oven, peel). The dough-smoke is
+what the vendor said misuse would produce. One generation measured
+PROMPT MISUSE, not competence; "prop-in-hand is outside v3's
+competence" is retracted as unproven either way.
+
+Second fact, from the full schema: **v3 accepts custom keyframes** —
+`custom_start_frame` (overrides the starting pose, ≤256×256, single
+direction) and `end_frame` (interpolation toward a target pose). A
+prop-in-hand animation can therefore be ANCHORED FROM APPROVED PIXELS
+instead of conjured from words. This also closes the user's original
+canvas question properly: the start frame may be any size up to 256²,
+so the needed canvas is measured deterministically at composite time,
+free, before any generation.
+
+### Path determination (presented for the ruling)
+
+**Tier 1 — engine staging (recommended default, serves the game
+now).** The peel becomes its own E01-class prop (side/three-quarter
+views, ~2–3 gens + board). Pizza-on-peel is the CANON pizza
+composited at a recorded offset — no second pizza is ever generated;
+single authority holds. Scenes stage and tween the peel exactly as
+the game already composites its own chairs (the standing precedent
+from the seated-extras pick criterion). The design doc's actual
+demand ("Tony watching the oven door") is a scene beat this covers
+with zero new surface risk.
+
+**Tier 2 — keyframe probe (optional, AFTER Tier 1's prop is
+approved).** Composite the approved peel(+canon pizza) into Tony's
+hands on his rot_north frame at recorded offsets — every pixel from
+approved assets, curation-class provenance. Feed it as
+`custom_start_frame` with a CONTRACT-COMPLIANT movement-only
+description ("leaning forward, sliding both arms ahead"), 1 gen,
+north only. Measure: does an anchored prop survive generated frames?
+CONTRACT FLAG for the board either way: for prop-carrying cycles the
+frame-0 identity anchor must be the recorded COMPOSITE, not the bare
+rotation — a ruled amendment to validate_walk_cycle's anchor choice,
+decided before the probe runs, not after.
+
+Tier 1 needs no new law. Tier 2 waits for Tier 1's prop approval and
+the anchor-law ruling. Neither spends until the board says so.
+
 ## Animation contract ratified (2026-08-10, user ruling)
 
 The user adopted the animation-frame contract verbatim: same
