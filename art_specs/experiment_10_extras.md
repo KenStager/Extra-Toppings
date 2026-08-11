@@ -48,3 +48,38 @@ optional region, ramp-collapse refusal, zone-uniqueness checker, the
 12-variant roster as data; 6 tests — suite 73). Every variant is a
 recorded mapping; the roster renders deterministically from approved
 bases into `roster/`.
+
+## Taxonomy v2 — extras as the simulation made visible (2026-08-10)
+
+User directive: extras are a MAJOR system; refine the approach. The
+reflection reframes them: extras are not wallpaper, they are game
+state rendered — traffic multipliers are crowd density, district
+identity is who walks there, heat is uniforms on the street, the
+after-dark register is who is out at night. Refinements adopted:
+
+1. **Anonymous individuals, legible types.** The anonymity law
+   gains a clause: extras carry NO individual tells but MUST carry
+   their TYPE tell at costume level. Type-classes and their district
+   homes: civilian (everywhere; the 4 approved bases), student
+   (University Hill), dockworker (Old Harbor), patrol officer (heat,
+   any district), night crowd (the Meadows; recolor-class — dark
+   tops on civilian bases), seated customer (shop interiors — a
+   genuinely new silhouette class). Festival/churchgoer variants
+   wait for the Little Sicily scene work.
+2. **Institutional blue gets its job.** The patrol officer wears
+   case blue `#3854DA` — the reserved institutional register used
+   for exactly its chartered purpose: heat made visible. FLAGGED for
+   the board: first use of case blue on a person.
+3. **Reserved-identity rule (testable).** Extras may never wear the
+   named cast's identity features: heat-red hair (Lena), a
+   full-cream chef field (Priya), the long-coat silhouette
+   (Carmine), gold anywhere (Tony's chain, Carmine's tiepin),
+   oxblood knuckle/tape marks (Angelo). Enforced by a unit test over
+   the roster data, not by memory.
+4. **The variant space is composable**: base × skin ramp × hair ×
+   top, every combination a recorded mapping. Skin swaps use whole
+   ramps (all three are legal), verified against measured skin
+   zones per base. Names encode the recipe
+   (`man.skin_m.hair_ink.top_gray`).
+5. **Extras walk later** via the proven v3 path, per approved base,
+   when street scenes need them.
