@@ -1050,3 +1050,49 @@ ladder (stands 25 / 30 / 36) - the fleet is rendered at the middle;
 the lane law amends to whatever the board's eye picks, and the
 staging/builder/Godot-proof update follows. Loop spend 32; session
 total 66; expected balance ~4,161 (ledger-verified).
+
+## The fleet locked; Moretti's opened (2026-08-11 session C cont.;
+## board: "The cars all look great. Lock them down and proceed";
+## 8 gens this stretch)
+
+THE LOCK-DOWN, verified end to end:
+- The five picks entered approved/ as vehicle_sedan80_slate /
+  vehicle_coupe70_oxblood / vehicle_hatch90_gray / vehicle_pickup80_
+  gray / vehicle_wagon_native (sha256s in
+  e16_vehicle_promotion_2026-08-11.json; raws stay in candidates/).
+- THE ASPECT IS RULED: the middle of the measured bracket - car
+  classes stand 30-33; the van class (wagon 81x47) keeps overflow-
+  upward. The 38-in-40 sedan convention and the lane_bottom-14 depth
+  formula are SUPERSEDED (both were 2x-NN-era derivations); recorded
+  driving depths stay base_y 290 (lane 1) / 330 (lane 2), parked 260.
+- NN SCALING IS RETIRED: actors_presentation rewritten - five native
+  vehicles at scale 1 plus the extras; the amended vehicle law and
+  the 1990s era law live in its comment. validate_scene_staging
+  passes.
+- The builder rebuilt board v21 from the staging data alone;
+  reference_python.png is BYTE-IDENTICAL to the v20 proof reference
+  (sha 4b75b757...), so the staged scene is untouched and the
+  standing 0/230,400 Godot proof holds without a re-run.
+
+MORETTI'S TRATTORIA opened (queue #2; brief and register stand).
+Three measured rounds, recorded honestly:
+- r1 (2 gens, @140, code scaffold): the scaffold returned nearly
+  unchanged - the same over-finished-anchor refusal the vehicles
+  taught, now proven on facades. Alpha holes backfilled per the law.
+- r2 (4 gens, @130/@140, coarse scaffold + repair break): NO-OP.
+  Finding worth the spend: THE REPAIR BREAK FIRES ON DETAILED PIXELS
+  ONLY - flat scaffold rectangles have no grain to break. The two
+  mechanisms do not compose on empty geometry.
+- r3 (2 gens, @120, donor scaffold): the right engine, mis-fed. The
+  tileC_town4 classical building was column-recomposed to center the
+  door, lum-mapped to the LS ramp - but my slice choice carried no
+  storefront glass (arch slots, a sliver of doorway), so it reads as
+  wainscot, not a trattoria front, and the model repaired trivially
+  (4.7/16.7%). NEXT ROUND, papered: re-source from the sheet's SHOP /
+  display-glass bands (rows 0-4 - real storefront glass for the
+  display language to light), same door-centering composition, same
+  LS mapping. Awning, MORETTI'S/TRATTORIA lettering and the menu
+  stand remain code, composited after the body is picked.
+
+Session C spend: 74 (4 drift + 62 vehicles + 8 Moretti's); expected
+balance ~4,153; ledger consistent. Recipes r1-r3 preserved.
