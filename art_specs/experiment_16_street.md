@@ -385,3 +385,50 @@ Session spend 78 (4 drift + 44 + 20 + 2 + 2 + 6); expected balance
 the tree seeds (and native-scale regeneration), curb s16102, the
 derivation set, the composition itself — and the standing decisions
 2–5.
+
+## The grounding round (2026-08-11, board: tree wells, props
+## against the building, "lacking refinement" + sequential
+## reflection directive; 2 gens, v8/v8b)
+
+The sequential-thinking reflection named four defects the eye felt
+but v7 didn't name: (1) every prop FLOATED — street objects obey two
+attachment lines, the WALL LINE (bags, booth, bench — things that
+belong to buildings) and the CURB LINE (lamppost, hydrant, tree
+wells — municipal fixtures), and v7 scattered props between them;
+(2) NOTHING CAST A SHADOW — facades read as wallpaper, props
+hovered; (3) the planter boxes were the session's own prompt
+invention — a street tree is infrastructure planted through the
+pavement; (4) mixed grain — the doubled trees (and, caught in the
+same audit, the doubled CURB of v5–v7) against native props.
+
+Fixes, cheapest first:
+
+- **CODE (0 gens)**: the SHADOW SYSTEM — building base strip (70α),
+  awning shade band (60α), content-bbox contact ellipses under
+  every prop, figure and vehicle (the first pass used canvas bounds
+  and the wagon's shadow floated — content bbox is the law); TREE
+  WELLS (regular form → code: 58×22 soil + iron grate in the manhole
+  metals, drawn under the trunk); curb tiled NATIVE 1:1 (16px band);
+  and the composition shipped as data —
+  `candidates/street_block_staging.json` with bands, both
+  attachment lines, shadow parameters and per-prop positions (the
+  four-top precedent extended to the street).
+- **CURATION (recorded)**: native trees de-tufted — the prompt's
+  invented base grass removed (green-family pixels, bottom 16 rows:
+  s16401 −149px, s16402 −136px); the well replaces the ground.
+- **GENERATION (2 gens)**: native trees s16401/s16402 at 96×128,
+  bare trunk, planter negatives — both landed; s16401 (established,
+  root flare) and s16402 (round crown) placed as street variants.
+
+v8 → v8b: wells widened to 58px (s16401's root flare had swallowed
+the 44px well), shadows moved to content bbox, sedan seated off the
+curb band. `review/hybrid_dinapoli_block_board_v8b.png` is the
+candidate: the trees read PLANTED, the wall line and curb line are
+legible at a glance, and everything touches the ground it stands on.
+
+Remaining grain honesty: booth/bags/bench are still doubled Omega
+derivations — acceptable donor furniture until their bespoke slots
+come up; the DINER glass band still awaits the rival passes.
+
+Session spend 80; expected balance 4,247. AWAITING THE BOARD:
+v8b + the staging data + the de-tufted native trees.
