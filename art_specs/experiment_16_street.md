@@ -1007,3 +1007,46 @@ car). NN scaling retires from the standing board the moment the fleet
 is ruled in. Session C spend: 34 gens (4 drift + 30 vehicles);
 expected balance ~4,193, ledger-verified (30/30 seeds accounted), API
 balance still USD-anomalous.
+
+## The vehicle loop: theme, era, aspect (2026-08-11 session C cont.;
+## board: "Critically reflect... Begin a loop... correct aspect" +
+## "This is the 90s" + "squished"; 32 gens, rounds 9-13)
+
+The critical reflection, owned in full: the first fleet carried
+realistic automobile aspect (2.2-2.4:1) and miniature-model noise
+into a dollhouse world whose approved vehicle reads are 1.7-1.84:1 -
+and my amend-the-law recommendation tried to move the world toward
+the model. WITHDRAWN. Worse: every brief said "1940s" - an era I
+inferred from the cast-iron lamppost. The board's correction landed
+mid-loop: THE GAME IS SET IN THE 1990s; the street carries 70s/80s/
+90s iron. All 40s briefs were off-theme. The family wagon's rounded
+old-van read SURVIVES on theme grounds: a thirty-year-old shop runs
+a thirty-year-old van; the street modernizes around it.
+
+THE REPAIR MECHANISM, isolated and proven (the round's law): an
+anchor made of good pixels resized NON-INTEGER reads as damaged
+pixel art, and pixflux repairs it into native grain AT THE GIVEN
+PROPORTION (17-31% redraw, aspect held exactly) - where every clean
+anchor (doubled, hand-drawn, or mass-only) returns unchanged and
+free generation reverts to realistic proportion. This is why the
+wagon worked in round 1 and nothing else did.
+
+The loop then bracketed the world's car aspect from both ends: the
+model's natural era stands (23-28) read too low; the full lane-law
+stretch (38-40 stands) the board called SQUISHED on boxy era bodies.
+Round 12 rendered the middle (stands 30-33) and round 13 closed the
+residual defects by deterministic SOURCE cleanup + rerender (the
+coupe's front cream mush -> red rule, 23 px; the hatch's roof spike
+erased, 4 px) - artifacts survive the repair pass, so they are
+removed from the source, never patched on the output.
+
+THE 90s FLEET (candidates, nothing promoted): boxy 80s sedan s16781
+(70x30, slate), 70s hardtop coupe s16792 (72x30, oxblood), 90s
+hatchback s16794 (56x31, worn gray), 80s pickup s16787 (66x33,
+gray), the family wagon s16711 curated (81x47). All 0 off-strip.
+In-scene: review/native_vehicles_inscene_v5.png. AWAITING THE
+RULING: the world's car aspect, presented as an in-scene sedan
+ladder (stands 25 / 30 / 36) - the fleet is rendered at the middle;
+the lane law amends to whatever the board's eye picks, and the
+staging/builder/Godot-proof update follows. Loop spend 32; session
+total 66; expected balance ~4,161 (ledger-verified).
