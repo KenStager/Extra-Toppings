@@ -1,8 +1,20 @@
 # Experiment 12 — The Delivery Wagon (BRIEF ONLY, 2026-08-10)
 
-Status: **PAPER. Zero generations spent or licensed. Every decision
-below is presented for the user's ruling; nothing here is doctrine
-until ruled.**
+Status: **RULED BY DELEGATION (user board 2026-08-10: "Decide E12 as
+you best see fit. Proceed") and generation licensed. The five
+decisions are ruled as the session's recommendations, recorded here
+before any pixel: (1) era/silhouette — 1950s–60s rounded-nose panel
+van, period-correct and box-bodied enough to keep the game's word
+"wagon" honest; (2) footprint — ~80×44 side-view body on a 96×96
+canvas, measured against facade and figures; (3) directions — all 8
+generated, the 4 cardinals proposed as movement canon, diagonals
+held; (4) livery — deterministic code lettering per the sign rules,
+applied post-approval, never mirrored; (5) path — class-1 pixflux
+SOUTH-view study first, then REST /generate-8-rotations-v3
+(first_frame identity anchor, ~$0.0345, no registry object), Pro
+object path as fallback. Candidates from this run still AWAIT the
+user's board — delegation covered the decisions and the spend, not
+entry into approved/.**
 
 ## Why the wagon matters (sources)
 

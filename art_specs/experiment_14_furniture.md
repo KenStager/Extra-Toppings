@@ -1,7 +1,16 @@
 # Experiment 14 — Furniture Rework: The E02 Trio Reaches the Contract (2026-08-10)
 
-Status: **5 pieces, 0 generations, 5/5 PASS the prop contract;
-AWAITING approval. Donor-derived — the flag stands on every piece.**
+Status: **RULED (user board 2026-08-10, "Proceed" with two
+corrections): counter_main, counter_end, chair_a, chair_b APPROVED
+(judgment call flagged in their records: approved by
+proceed-with-no-objection, reversible). kitchen_range REJECTED —
+"we have already built our pizza deck": the shop cooks in the
+approved E05 deck oven; a household range is off-register for a
+pizzeria. And the board confirmed what the rework found — "those
+tables don't look like tables" because they never were: the E02
+sprite was always two chairs, so the shop has NO TABLE ASSET while
+the design doc stages Carmine at "the corner table." A table study
+opens as E15.**
 
 ## What the measurements found
 
