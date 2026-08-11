@@ -1175,3 +1175,44 @@ fragments between scallops. LAW, small but real: GLINTS ARE DRAWN,
 NOT INHERITED - all 53 remnant cyan px stripped to slate; one
 deliberate 2px diagonal shine per bay at symmetric positions.
 morettis_branded_v2c is the standing candidate body.
+
+## Moretti's promoted; the template's second instance stands
+## (2026-08-11 session C cont.; board: "Promote morettis_front_with_
+## stand then oroceed" [sic]; 0 gens - all code and data)
+
+THE PROMOTION, with one data-law judgment flagged loudly: the scene
+unit stages props as DATA (painter order, contact shadows and the
+no-door clause all live in staging), so "morettis_front_with_stand"
+entered approved/ as ITS COMPOSITION - morettis_facade.png (the
+B2c body) + morettis_menu_stand.png (the wall-line prop) +
+morettis_front_reference.png (the board-approved combined read,
+kept as reference). Provenance:
+e16_morettis_promotion_2026-08-11.json.
+
+THE SCENE INSTANCE - decision 3's template generalized for the
+first time. approved/morettis_block_staging.json (schema v3,
+validate_scene_staging PASS): the eight-band law and both
+attachment lines carried unchanged; district = little_sicily;
+Moretti's in the center slot [184,439] with its doorway RECORDED
+as data [298,326] (facade-local extents + slot origin); the menu
+stand at the wall line [334,351], clear of the door - the walk is
+SWEPT per the brief (no bags, no clutter). The composer
+(recipes/morettis_block_compose.py) builds the block from staging
++ street laws alone: the DECISION-2 MACHINERY FIRED FOR REAL -
+register_mapping('walk'/'road' -> little_sicily) over the recorded
+OH fills, exact-color, collapse-refused; curb/lamppost/hydrant/
+trees/wells citywide per the infrastructure ruling; yellow curb as
+the template's translucent 6px regulation band (first draft drew
+it opaque-flat - the template's recorded schema was restored and
+the staging aligned to it); the LS street story in the actor
+layer: the oxblood coupe parked at the rival's door.
+review/morettis_block_v1.png is the scene candidate.
+
+INTERIM, flagged in the staging comment: plain code flank walls
+(LS neighbor briefs pending), OH-wardrobe extras (LS
+wardrobe_variant renders pending), upper-story band lum-mapped
+onto the LS storefront ramp. Honest read note for the board: the
+LS road register shows the A2 lattice more strongly than OH's
+darker asphalt - one cheap data revision (tighten the LS road
+tiers) if the board wants it calmer. The block's own Godot proof
+rides with its promotion, when ruled.
