@@ -280,3 +280,16 @@ FILL-AND-CLIP inits — ceil-factor NN scale, overflow clipped at the
 canvas edge; a hulk may bleed off his own frame. s11272 regenerated
 from the v2 init: coverage 55%, shoulders spanning edge to edge,
 the menace restored. Supersedes s11271 at the board.
+
+## Bee's "weird things" (2026-08-11, user board; 0 gens)
+
+The board asked why Bee had weird marks around her eyes, and the
+answer was the session's own v2 curation: the frame-derived region
+box was polluted by her black bob (dark-pixel detection can't tell
+hair from glasses), stretched to rows 12-31, and BLEACHED HER CHEEK
+BLUSH into gray-green smudges. The per-row rose census separates the
+features cleanly — lens tint lives at rows 23-27, blush at rows
+30-33 — and curation v3 recolors the lens band only (34px), starting
+from the approved original so the blush survives. Lesson appended to
+the region-scoping law: derive regions from the TARGET FEATURE's own
+census, never from a proxy detector another feature can pollute.
