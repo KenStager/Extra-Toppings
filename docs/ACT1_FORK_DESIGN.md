@@ -585,6 +585,36 @@ city, Vinnie's floor. Opening on a rival's turf is a commercial declaration
 (steep relation hit, their counterplay intensifies there); the safe pick is
 a real choice, not the only one.
 
+**The cards are ordered safe to dangerous — 1. University Hill,
+2. Little Sicily, 3. The Meadows — and that order is the STORY's, not
+the bot's** (rev. 31 item 2). The Partner bot names University Hill
+by site identity and never by index, and any owned-turf ablation
+names its district too, so a menu reorder changes what a player reads
+and nothing a study measures. Making the neutral site last, so the
+deterministic scene bot's last-option policy would land on it, was
+proposed and rejected: menu position must never decide branch
+strategy. The generic chaos bot may still fall through to The
+Meadows, which usefully exercises territorial retaliation on a path
+nobody arranged.
+
+**The second address's identity is MINTED, once, inside the deal**
+(rev. 31 item 1): the lowest unused `shop{n}` / `wagon{n}` from 2
+upward, computed independently of list order, with the shared suffix
+arithmetic in one model authority and a thin wrapper per kind.
+Minting reserves nothing — two calls before a commit return the same
+key — so the atomic transaction is the SOLE production caller: mint
+once, build both records locally, preflight the whole transaction,
+commit once. No caller-supplied keys, no overwrites, no persisted
+counter, and no district-derived identity.
+
+**The first points date** is `acceptance_day + (10 if payoff_day <= 10
+else 5)`, read from the address's persisted acceptance day (rev. 31
+item 3) — the early-payoff compliment defers the first cycle by one
+CYCLE of five days. Later cycles advance from the PRIOR DUE DATE by
+exactly five days, never from the day a payment was made, so the
+schedule cannot drift; opening day remains independently
+`acceptance_day + 2`.
+
 **The territorial response, executable** (rev. 29): Little Sicily
 answers to **Sal**, The Meadows to **Vinnie**, and University Hill has
 no owner — **Sal notices, and there is no turf penalty**, which is
@@ -1805,7 +1835,14 @@ Ordered roughly by blast radius, smallest first:
     two-address states before any branch can create one.
   - *P4b.1b — site and deal.* The site scene, the atomic capital
     transaction, shop and wagon creation together, the opening
-    transition, and a scripted D14–D17 walkthrough.
+    transition, and a scripted D14–D17 walkthrough. Carries rev. 31's
+    three rulings: identity minted inside the transaction and nowhere
+    else (with a call-site scope guard, and sparse-key and
+    reordered-list pins), the site cards ordered safe to dangerous
+    with every bot and ablation naming its district rather than its
+    index, and the first points date read from the persisted
+    acceptance day. **The walkthrough explicitly chooses University
+    Hill.**
   - *P4b.2 — the points ledger.* The append-only cycle records and
     their derived view, the vig, the early-payoff deferral, and the
     second-strike `foreclosure` that ends the run that night. Also
@@ -4815,3 +4852,76 @@ alternatives to it.
    paraphrase here would score an undefended address 0 where the
    engine scores 3, which changes both which shop is softest and
    whether the raid is repelled. §2.4.2 amended.
+
+**Revision 31** records the three rulings P4b.1b needed before any of
+its mechanics could harden: how a second address's identity is
+minted, what the site menu's order may and may not decide, and the
+exact first points date. Paper first — this revision lands before the
+implementation it authorizes. It amends §2.4.2 and §7 rather than
+living only in §8.
+
+1. **Identity minting: lowest unused suffix, and ONE caller.** A
+   second address needs a key, and nothing in the tree mints one —
+   the founding pair is named where the world is built and inferred
+   once at the one-address save migration, and a P4a guard test holds
+   that to three scopes. The rule: **the lowest unused `shop{n}` /
+   `wagon{n}` from 2 upward, computed INDEPENDENTLY OF LIST ORDER**,
+   so a reordered `state.shops` and a sparse key set (`shop1`,
+   `shop3`) both answer the same way. The shared suffix arithmetic
+   lives in **one model authority**, with a thin domain wrapper per
+   kind; two copies of "find the free number" is the respelling this
+   project refuses.
+
+   **Minting reserves nothing**, and that is the dangerous half.
+   Computing a key does not claim it, so two calls before a commit
+   return the SAME key and the second record silently overwrites the
+   first. Therefore **the atomic deal transaction is the sole
+   production caller**: mint once, construct both records locally,
+   preflight the complete transaction, and commit once. Explicitly
+   forbidden: caller-supplied keys, overwriting an existing record,
+   a persisted counter (a second writable source for an identity the
+   key list already carries), and district-derived identity (which
+   would make the key a fact about geography and collide the day two
+   addresses share a district). A **call-site scope guard** in the
+   test suite pins the sole-caller rule the way the founding-key
+   guard already pins its three scopes, and the minting pins cover
+   **sparse keys and a reordered list**. §2.4.2 amended.
+
+2. **Site ordering is the story's, never the bot's.** The proposal to
+   put the unowned site LAST — so the deterministic scene bot's
+   last-option policy would default to the neutral pick — is
+   REJECTED. It would make menu position decide branch strategy,
+   which is the hidden positional coupling this project has removed
+   from targeting, from prompt order and from the address surfaces,
+   and it would mean a later menu reorder silently moved the P4b.5
+   battery.
+
+   The cards keep the canonical player-facing progression, safe to
+   dangerous: **1. University Hill — neutral; 2. Little Sicily —
+   Sal's turf; 3. The Meadows — Vinnie's turf.** The **Partner bot
+   chooses University Hill BY NAME**, resolved from the site
+   identity and never from an index, and any owned-turf diagnostic or
+   ablation likewise names its district explicitly — so a reorder
+   changes what a player reads and nothing that a study measures. The
+   **D14 walkthrough explicitly chooses University Hill**. The
+   generic chaos bot may still fall through to The Meadows, which is
+   useful rather than accidental: it exercises territorial
+   retaliation on a path nobody had to arrange. §2.4.2 and §7
+   amended.
+
+3. **The first points date, exactly.** From the address's PERSISTED
+   acceptance day — never a separately reconstructed one, which would
+   be the second writable date §2.4.2 already forbids:
+
+       first_due = acceptance_day + (10 if payoff_day <= 10 else 5)
+
+   Early payoff (payoff day ≤ 10) defers the first cycle by one
+   CYCLE, five days, which is Carmine's compliment made arithmetic.
+   Boundary pins, recorded so the edge is tested rather than
+   believed: payoff 10 → acceptance 11 → due **21**; payoff 11 →
+   acceptance 12 → due **17**; the reference case payoff 13 →
+   acceptance 14 → due **19**; payoff 20 → acceptance 21 → due
+   **26**. **Later cycles advance from the PRIOR DUE DATE by exactly
+   five days**, never from the day a payment happened to be made, so
+   the schedule cannot drift. Opening day remains independently
+   `acceptance_day + 2`. §2.4.2 amended.
