@@ -71,3 +71,35 @@ Outline holds silhouette; regular patterns to code; resolution
 honesty for texture detail (channels, not buttons); @70 refines only
 what the prompt can name; curation passes must name their polarity;
 rear views of symmetric furniture are derivations, not generations.
+
+## Proportion loop (2026-08-11, user board: "tables look amazing" + two
+## corrections; 2 generations + recorded recipes)
+
+The board approved the read and caught two facts, both confirmed by
+tape measure before refining:
+
+1. **The table was 146% of figure height** (figure 28px, table 41).
+   Decomposed: the cloth alone is 89% — correct for pseudo-top-down
+   (front face + foreshortened top) — but 16 rows of leg hung below a
+   skirt that already drapes to ankle height, double-counting the
+   table's height. Fix was pure recipe: ankle-gap legs (7px), total
+   32px = **114% of figure** — what a table with a visible top should
+   occupy. Zero generations; the legs were always code.
+2. **The booth table was 38px wide against a 60px bench.** The bay
+   variant is its own asset: wide legless cloth (booth tables hide
+   their legs between benches), generated on the proven cloth recipe
+   at 64×26 — s15162 picked (straight scalloped hem), its two
+   invented caster-dots removed by recorded curation (8px);
+   s15161's shaggy fringe recorded as the alternate. The corner
+   drape-points that remain are cloth behaving like cloth; kept.
+
+Final candidates: `table_sq_v2_s15151` (48×40, 114% proportion),
+`booth_table_final` (64×26), `booth_bench_final` (64×40),
+`booth_bench_rear` (64×24). The final mock seats two customers in a
+bay whose table now spans the bench — the composition unit the
+scenes will stage. AWAITING the board.
+
+Lesson added: proportion claims are MEASURED against the figure
+(percent of figure height, decomposed into planes) before any
+refinement is attempted — the number found the defect (legs) that
+the impression ("too tall") could not localize.
