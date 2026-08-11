@@ -2380,6 +2380,78 @@ Fork battery **byte-identical to merged main at BOTH depths** —
 which is itself the measurement restated: seed 160's night is not
 one the battery harness runs.
 
+## Round 14 — P4b.1b: the site, the deal, and the room it builds
+
+The branch's first behaviour. Carmine fronts $20,000; $13,000 is
+committed to his own contractor in the same act that creates the
+second address and its wagon, and only the $7,000 float and reserve
+reach the player's clean cash. Design revision 31 — three rulings the
+PR could not harden without — landed FIRST, as its own commit.
+
+**The gate character changed here, and the change is the point.**
+From P4b.1b onward both identity gates and all three batteries are
+**containment checks** (rev. 30 item 1): they say the branch stayed
+inside its branch and say nothing whatever about whether it works.
+Partner is absent from `RELEASED_BRANCHES`, so the chair still
+renders with its development-build marker and no flag-off or
+stand-pat surface moves. What proves this PR is its own local proof,
+and what proves the branch is the §2.7 battery, which does not exist
+until P4b.5.
+
+**What was built.** `models.mint_shop_key` / `mint_wagon_key` over
+one shared suffix authority — lowest unused `{prefix}{n}` from 2,
+list order never read. `partner.accept_deal` as the sole production
+caller and the whole transaction: preflight, mint once, build both
+records locally, commit once, validate, and unwind entirely if the
+world refuses what was built. The site cards, the $20,000
+itemization with derived sums and an import-time reconciliation, the
+turf declaration through the existing relation authority, and the
+points schedule read from the address's persisted acceptance day.
+
+**Four review rounds, and what each found.** The first three rounds'
+findings are recorded in the commits; the fourth is worth stating
+here because two of its four items were defects IN THE PROOF rather
+than in the code:
+
+1. `SITE_DISTRICTS` was DERIVED from `data.DISTRICTS`, which made an
+   unrelated dictionary's insertion order the story's authority.
+2. The canonical-chair sweep's site answer was the literal `[1, 1,
+   1]` under a comment claiming identity — and the comment said
+   Little Sicily while the literal selected University Hill. The
+   seam demonstrated itself.
+3. `accept_deal` took a loose `payoff_day`; it now consumes the
+   persisted snapshot, and the preflight binds the real scene morning
+   and the one-address pre-deal world.
+4. Preflight alone did not make the transaction atomic —
+   `validate_cross_state` runs after the records exist — so a
+   postcondition failure would have left an address standing on a
+   state that had already spent the money and started the clock.
+5. **The "two real routes" proof was an INSPECTION**: it asserted
+   wagon availability and called that §7's requirement. It now runs
+   two real plans with distinct drivers through the real service.
+6. **The till assertion was VACUOUS**: `>= 0` passes when the second
+   shop earns nothing, which is exactly the outcome it existed to
+   exclude.
+7. The site-card check accepted duplicates — set equality admits a
+   repeated card, which would offer Vinnie's floor twice.
+8. The lock-up snapshot accepted `payoff_day=13.0`, which passes
+   every arithmetic the scene does and would set a PERMANENT points
+   schedule from a day that is not a day. Fixed at the SHARED
+   persistence boundary, not inside Partner: every consumer of the
+   snapshot deserves the same guarantee.
+
+**Verification.** 925 tests green on 3.11, 3.12 AND 3.13; ruff and
+mypy clean. Both identity gates **300/300 on all three**, stand-pat
+holding **79/79** (schema v1) — containment. Golden **unchanged at
+`7a62b2af`**. Fork battery **byte-identical to merged main at BOTH
+depths**, `diff`-compared against a fresh `origin/main` worktree run.
+Regression proof: 13 subtests of the snapshot boundary fail on the
+pre-fix engine. **The two proof seams are reported as strengthened
+COVERAGE, not as regressions** — the engine did not change under
+them and the vacuous assertions passed both ways, which is precisely
+why they were worth finding and why they are named here rather than
+folded into a pass count.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2410,13 +2482,16 @@ one the battery harness runs.
   plus `CLAUDE.md` (PR #22). **P4a is merged** in its three sequential
   PRs (#18, #19, #20) — the retrospective record is round 12 above.
 - **The current position, exactly.** **P4b.1a is MERGED** (PR #23,
-  approved at 2df2ae6) — four review rounds, eleven defects, recorded
-  in round 12. The **seizure correction** is complete and awaiting
-  review as its own PR, with its reachability measured before
-  anything changed and the golden therefore untouched (round 13).
-  Next after it: **P4b.1b**, then the rest of P4b's six PRs, with
-  activation as a separate seventh act. The P4 full-battery item (the
-  pairwise eight-component vectors, per §7) remains owed.
+  approved at 2df2ae6; round 12) and so is the **seizure correction**
+  (PR #24, approved at d444389; round 13 — reachability measured
+  before anything changed, so the golden was not regenerated).
+  **P4b.1b is complete and awaiting review**, with design revision
+  31 as its paper (round 14). Next: **P4b.2 — the points ledger**,
+  then P4b.3–P4b.5, with activation as a separate seventh act. Two
+  items are owed before P4b.2 can be built: the **points schema
+  ruling** (rev. 29 item 4's judgment call — the typed append-only
+  `PointsCycleRecord` history and its derived view) and the P4
+  full-battery item (the pairwise eight-component vectors, per §7).
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
