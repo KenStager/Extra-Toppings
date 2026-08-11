@@ -15,10 +15,17 @@ that; these tests pin the transcript itself."""
 
 import unittest
 
-from extra_toppings import data, market, phases, routes
+from extra_toppings import data, market, models, phases, routes
 from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
+
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
 
 # Fragments that identify each telegraph line in a transcript.
 REMARK_BIG_EARLY = "worth backing"
@@ -77,7 +84,7 @@ def run_morning(state, script=None, seed=1):
 
 def run_night(state, script, seed=1):
     con = CaptureConsole(script)
-    phases.night(state, {}, {}, con, Streams(seed))
+    phases.night(state, {"routes": {}}, _wag(state), con, Streams(seed))
     return con
 
 
@@ -288,14 +295,16 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         # Plan through the real planner: meadows, first driver, ride
         # along, load 20, no cover — the loudest possible wagon.
         plan_con = CaptureConsole([3, 0, 1, 20, 0])
-        plan = routes.plan_route(state, plan_con, streams.routes)
+        plan = routes.plan_route(state, plan_con, streams.routes,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         # Service with "Sell" at every stop and "Play it cool" at every
         # blue light — the reviewer's path to a search.
         service_con = CaptureConsole([0] * 40)
-        phases.service(state, {"route": plan, "raid": None},
+        phases.service(state, {"routes": {models.HOME_SHOP_KEY: plan}, "raid": None},
                        service_con, streams)
         night_con = CaptureConsole([1, 1000, 4])
-        phases.night(state, {}, {}, night_con, streams)
+        phases.night(state, {"routes": {}}, _wag(state), night_con, streams)
         return state, plan_con, night_con
 
     def test_the_bust_payoff_night_is_warned_at_plan_time(self):
@@ -320,7 +329,9 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         state.clean = 1500
         market.roll_prices(state, Streams(1).daily(12, "market"))
         con = CaptureConsole([3, 0, 1, 0, 0])       # ride along, load nothing
-        routes.plan_route(state, con, Streams(1).routes)
+        routes.plan_route(state, con, Streams(1).routes,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsNone(con.find(ROUTE_WARNING))
 
         state = new_state()
@@ -329,7 +340,9 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         state.shop_stash = {"mushrooms": 20}
         market.roll_prices(state, Streams(1).daily(12, "market"))
         con = CaptureConsole([3, 0, 1, 20, 0])
-        routes.plan_route(state, con, Streams(1).routes)
+        routes.plan_route(state, con, Streams(1).routes,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsNone(con.find(ROUTE_WARNING))
 
     def test_a_route_that_would_fund_the_payoff_is_warned(self):
@@ -345,7 +358,9 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         market.roll_prices(state, Streams(1).daily(12, "market"))
         self.assertFalse(state.payoff_in_reach())
         con = CaptureConsole([3, 0, 1, 20, 0])
-        routes.plan_route(state, con, Streams(1).routes)
+        routes.plan_route(state, con, Streams(1).routes,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsNotNone(con.find(ROUTE_WARNING))
 
 
@@ -389,7 +404,7 @@ class TestRaidPlanWarning(unittest.TestCase):
         plans = phases.morning(state, plan_con, streams)
         state.clean = clean_at_night        # the day's takings
         night_con = CaptureConsole([])      # guards abort, then lock up
-        phases.night(state, plans, {}, night_con, streams)
+        phases.night(state, plans, {"wagons": phases.WagonNight(state)}, night_con, streams)
         return plan_con, night_con
 
     def test_takings_arriving_after_planning_warn_at_execution(self):

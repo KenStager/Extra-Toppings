@@ -460,7 +460,8 @@ def salvage_ready(state: State):
 
 
 def plan_salvage(state: State, con: Console, reserved: list,
-                 wagon_taken: bool) -> dict | None:
+                 wagon: models.PlannedWagon,
+                 origin_shop: str) -> dict | None:
     """Morning: assign the wagon and a driver to the dead man's
     stockroom. Reservations come from THE night-assignment view
     (rev. 15 item 2): people already spoken for by the route or the
@@ -470,8 +471,13 @@ def plan_salvage(state: State, con: Console, reserved: list,
     camp = salvage_ready(state)
     if camp is None:
         return None
-    if wagon_taken:
-        con.say("  The wagon is spoken for tonight — the stockroom "
+    if not wagon.available:
+        # The lifecycle names the address it is talking about; every
+        # pre-existing cause keeps the sentence the game ships.
+        con.say(f"  {models.wagon_gone_line(wagon)} — the stockroom "
+                f"isn't going anywhere."
+                if wagon.blocked_by in ("lifecycle", "unhoused") else
+                "  The wagon is spoken for tonight — the stockroom "
                 "isn't going anywhere.")
         return None
     drivers = [e for e in state.hired()
@@ -487,7 +493,17 @@ def plan_salvage(state: State, con: Console, reserved: list,
                     f"who drives?", names)
     if pick == len(drivers):
         return None
-    return {"rival": camp.rival_key, "driver": drivers[pick]}
+    # The pickup NAMES the address it leaves from (P4b.1a), and the
+    # caller must say which — a wagon job with no origin cannot be
+    # answered per address, and inferring the home shop here is the
+    # implicit default rev. 27 item 7 forbids.
+    # The origin is validated HERE, before the plan exists: a pickup
+    # that names an address the world does not have is refused rather
+    # than returned as a job no wagon can serve.
+    plan = {"rival": camp.rival_key, "driver": drivers[pick],
+            "origin_shop": origin_shop, "wagon_key": wagon.first}
+    models.plan_origin(state, plan)
+    return plan
 
 
 @dataclass(frozen=True)
@@ -503,7 +519,8 @@ class SalvageResult:
 
 def run_salvage(state: State, plan: dict, con: Console,
                 rng: random.Random,
-                reserved: list | None = None) -> SalvageResult:
+                reserved: list | None = None,
+                *, wagons) -> SalvageResult:
     """Service: the pickup rolls. Revalidated transactionally against
     the SAME assignment view that planned it (rev. 15 item 2) — the
     driver must still be standing and still unclaimed by any other
@@ -520,6 +537,14 @@ def run_salvage(state: State, plan: dict, con: Console,
     if not driver.available or driver in (reserved or []):
         con.bullet(f"The pickup is scrubbed — {driver.name} isn't "
                    f"free to drive it after all.")
+        return SalvageResult(outcome="scrubbed", wagon_used=False)
+    # THE DEPARTURE, through the one execution authority: world
+    # identity, origin/wagon pairing and the claim together, before
+    # the salvage is consumed — so a pickup that cannot roll scrubs
+    # with the campaign's stockroom still waiting (P4b.1a).
+    spent = wagons.claim_plan(state, plan, "salvage")
+    if not spent.claimed:
+        con.bullet(f"The pickup is scrubbed. {spent.sentence}.")
         return SalvageResult(outcome="scrubbed", wagon_used=False)
     rival = state.rivals[camp.rival_key]
     spec = data.RIVALS[camp.rival_key]
@@ -545,7 +570,7 @@ def run_salvage(state: State, plan: dict, con: Console,
     # The pickup unloads at the address its wagon came home to
     # (rev. 22 item 5) — explicit, never a home default.
     kept, storage_left = models.place_haul(
-        state, haul, models.exactly_one_shop(state).key)
+        state, haul, plan["origin_shop"])
     left_behind = wagon_left + storage_left
     state.add_heat(data.RIVALS[camp.rival_key]["home"], SALVAGE_HEAT)
     if kept:

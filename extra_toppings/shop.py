@@ -7,7 +7,7 @@ serve as cover on a route. A hollow restaurant has nothing to hide behind.
 
 import random
 
-from . import data, market, straight
+from . import data, market, models, straight
 from .models import State
 
 
@@ -46,9 +46,28 @@ def roll_demand(state: State, rng: random.Random) -> None:
     the same crowd honestly — it can't keep a cheap-menu crowd at
     gourmet tickets."""
     state.demand_shock = rng.uniform(0.85, 1.15)
-    for s in state.shops:
+    # Only addresses ALLOWED an order book get one (§2.4.2): a site
+    # under construction serves nothing and carries no order book, so
+    # rolling demand for it was the lifecycle authority being
+    # decorative — the record existed and the engine used it anyway.
+    #
+    # And the roll establishes the COMPLETE postcondition for every
+    # address, not just the eligible ones (P4b.1a review). Skipping a
+    # building site left whatever it happened to be carrying in place:
+    # an injected `demand_today` survived the morning, the shift and a
+    # save/load round trip, so the record claimed customers and a
+    # day's takings at an address canon says earns nothing. The daily
+    # authority ENDS the roll with a disallowed address at zero on all
+    # three fields; `validate_addresses` refuses one that arrives
+    # otherwise.
+    serving = {s.key for s in models.addresses_allowing(state, "demand")}
+    for s in sorted(state.shops, key=lambda a: a.key):
         s.legit_revenue_today = 0
-        recompute_demand(state, s)
+        if s.key in serving:
+            recompute_demand(state, s)
+        else:
+            s.demand_today = 0
+            s.delivery_pool = 0
 
 
 def recompute_demand(state: State, shop) -> None:
@@ -137,5 +156,7 @@ def total_believable_ceiling(state: State) -> int:
     own upgrades (design rev. 22 item 8). Two believable-revenue
     ceilings help launder — as arithmetic, not as prose — and the
     ceiling still grows only as fast as real trade does."""
+    # A building site launders nothing: it has no believable sales
+    # to hide behind (§2.4.2 disallows `laundering`).
     return sum(believable_ceiling(state, s, s.legit_revenue_today)
-               for s in state.shops)
+               for s in models.addresses_allowing(state, "laundering"))

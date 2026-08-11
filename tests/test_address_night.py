@@ -17,8 +17,18 @@ from extra_toppings.ui import ScriptedConsole
 
 
 def two_addresses():
+    # The second address carries its lifecycle dates (P4b.1a): only
+    # the founding shop may be undated, and the calendar sits after
+    # the opening day so this is the OPEN, operating second address
+    # every test below is about.
+    # The dates sit as early as the rule allows (acceptance >= day 1,
+    # opening = acceptance + 2) because tests below wind the calendar
+    # back to day 5, and an acceptance the run has not reached is
+    # refused. Day 3 is the earliest a second address can be open.
     state = new_state()
-    state.shops.append(Shop(key="shop2", district="university"))
+    state.day = 3
+    state.shops.append(Shop(key="shop2", district="university",
+                            acceptance_day=1, opening_day=3))
     state.wagons.append(Wagon(key="wagon2", shop_key="shop2"))
     return state, state.shops[0], state.shops[1]
 
@@ -224,7 +234,9 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
     def _plan(self, driver, origin, **over):
         plan = {"district": "old_harbor", "driver": driver,
                 "ride_along": False, "cargo": {"mushrooms": 2},
-                "legit": 3, "origin_shop": origin}
+                "legit": 3, "origin_shop": origin,
+                "wagon_key": ("wagon2" if origin == "shop2"
+                              else HOME_WAGON_KEY)}
         plan.update(over)
         return plan
 
@@ -243,7 +255,8 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
     def test_it_loads_out_of_the_address_the_plan_named(self):
         state, home, second, driver = self._world()
         self.assertTrue(phases._commit_route(
-            state, self._plan(driver, "shop2"), ScriptedConsole()))
+            state, self._plan(driver, "shop2"), ScriptedConsole(),
+            phases.WagonNight(state)))
         self.assertEqual(second.stash["mushrooms"], 2)
         self.assertEqual(second.ingredients, 37)
         self.assertEqual(home.stash["mushrooms"], 4)
@@ -253,7 +266,8 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
         state, home, second, driver = self._world()
         with self.assertRaises(KeyError):
             phases._commit_route(state, self._plan(driver, "shop9"),
-                                 ScriptedConsole())
+                                 ScriptedConsole(),
+                                 phases.WagonNight(state))
         for s in (home, second):
             self.assertEqual(s.stash["mushrooms"], 4)
             self.assertEqual(s.ingredients, 40)
@@ -262,8 +276,8 @@ class TestRouteCommitmentLoadsWhereThePlanSaid(unittest.TestCase):
         state, home, second, driver = self._world()
         plan = self._plan(driver, "shop2")
         del plan["origin_shop"]
-        with self.assertRaises(KeyError):
-            phases._commit_route(state, plan, ScriptedConsole())
+        with self.assertRaises(ValueError):
+            phases._commit_route(state, plan, ScriptedConsole(), phases.WagonNight(state))
         for s in (home, second):
             self.assertEqual(s.stash["mushrooms"], 4)
             self.assertEqual(s.ingredients, 40)
@@ -277,7 +291,9 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
     def _plan(self, driver, origin):
         plan = {"district": "old_harbor", "driver": driver,
                 "ride_along": False, "cargo": {}, "legit": 2,
-                "origin_shop": origin}
+                "origin_shop": origin,
+                "wagon_key": ("wagon2" if origin == "shop2"
+                              else HOME_WAGON_KEY)}
         if origin is None:
             del plan["origin_shop"]
         return plan
@@ -304,7 +320,9 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
     def test_an_unnamed_origin_refuses_at_resolution(self):
         from extra_toppings import routes
         state, home, second, driver = self._world()
-        with self.assertRaises(KeyError):
+        # The canonical contract speaks first now: a missing field is
+        # a malformed plan (ValueError), not a lookup miss.
+        with self.assertRaises(ValueError):
             routes.resolve_route(state, self._plan(driver, None),
                                  ScriptedConsole(), random.Random(3))
         for s in (home, second):
@@ -505,6 +523,16 @@ class TestNothingOutsideTheSaveInfersAnAddress(unittest.TestCase):
     # state_from_dict, which migrates a one-address payload. Anywhere
     # else they are the old silent default wearing a constant's name —
     # which is how a defect survives a refactor that claims to end it.
+    #
+    # `address_channel` was a fourth until the P4b.1a review: it
+    # decided "the founding address keeps the legacy world channel" by
+    # COMPARING A SPELLING, so a world whose founding shop was keyed
+    # otherwise lost the legacy generator its studies were measured
+    # on. The rule is unchanged and the constant is gone from it —
+    # `models.founding_shop` derives the identity from the lifecycle
+    # record (undated = founding), which is where that fact already
+    # lived. Three scopes, and the world-building ones are the only
+    # places a key is ever spelled.
     SANCTIONED = {"models.py:State", "models.py:new_state",
                   "save.py:state_from_dict"}
 

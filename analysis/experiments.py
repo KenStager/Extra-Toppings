@@ -1167,13 +1167,19 @@ def _heat_exposure_probe(trials: int = 400) -> None:
             market.roll_prices(state, random.Random(9000 + seed))
             state.districts[dk].heat = 55.0
             driver = next(e for e in state.employees if e.hired)
-            # A LEGAL manifest (rev. 17 item 3): 24 units of bulk-1
-            # goods fill the 24-slot wagon exactly — validated by the
-            # same RouteManifest the game refuses illegal loads with.
+            # A LEGAL ROUTE (rev. 17 item 3): 24 units of bulk-1
+            # goods fill the 24-slot wagon exactly. Checked by the
+            # same CANONICAL contract the game validates plans with —
+            # not by the manifest alone, which says nothing about the
+            # wagon this load is supposed to leave in. The fixture
+            # carried no `wagon_key` and reached `resolve_route`
+            # anyway; naming it is the fix, not exempting it.
             plan = {"district": dk, "driver": driver,
                     "cargo": {"mushrooms": 12, "hot_honey": 12},
-                    "legit": 0, "ride_along": True, "origin_shop": models.HOME_SHOP_KEY}
-            _routes.RouteManifest.of_plan(plan)
+                    "legit": 0, "ride_along": True,
+                    "origin_shop": models.HOME_SHOP_KEY,
+                    "wagon_key": models.HOME_WAGON_KEY}
+            _routes.validate_route_plan(state, plan)
             report = _routes.resolve_route(state, plan, _Sell(),
                                            random.Random(seed))
             camp = state.branch_state.campaigns[0]

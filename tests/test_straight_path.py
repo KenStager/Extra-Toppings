@@ -13,6 +13,13 @@ from extra_toppings.models import SitdownSnapshot, new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 STRAIGHT_ON = GameConfig(fork_enabled=True,
                          enabled_branches=frozenset({"straight"}))
 
@@ -186,13 +193,14 @@ class TestDisposalRuns(unittest.TestCase):
         driver.aware = True
         return {"district": "university", "driver": driver,
                 "ride_along": False, "cargo": dict(cargo), "legit": 0,
-                "disposal": True, "origin_shop": models.HOME_SHOP_KEY}
+                "disposal": True, "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
 
     def test_the_run_spends_at_commit_and_resets_the_clock(self):
         state = in_branch(stash={"mushrooms": 6})
         con = CaptureConsole([])
         plan = self._plan(state, {"mushrooms": 6})
-        self.assertTrue(phases._commit_route(state, plan, con))
+        self.assertTrue(phases._commit_route(state, plan, con, phases.WagonNight(state)))
         self.assertEqual(state.branch_state.disposal_runs_left, 2)
         self.assertEqual(state.branch_state.last_crime_day, state.day)
         self.assertIsNotNone(con.find("disposal run"))
@@ -202,7 +210,7 @@ class TestDisposalRuns(unittest.TestCase):
         plan = self._plan(state, {"mushrooms": 6})
         plan["driver"].injured_days = 2
         self.assertFalse(phases._commit_route(state, plan,
-                                              CaptureConsole([])))
+                                              CaptureConsole([]), phases.WagonNight(state)))
         self.assertEqual(state.branch_state.disposal_runs_left, 3)
         self.assertIsNone(state.branch_state.last_crime_day)
 
@@ -213,7 +221,7 @@ class TestDisposalRuns(unittest.TestCase):
         plan = self._plan(state, {})
         plan["legit"] = 4
         self.assertTrue(phases._commit_route(state, plan,
-                                             CaptureConsole([])))
+                                             CaptureConsole([]), phases.WagonNight(state)))
         self.assertEqual(state.branch_state.disposal_runs_left, 3)
         self.assertIsNone(state.branch_state.last_crime_day)
 
@@ -225,7 +233,7 @@ class TestDisposalRuns(unittest.TestCase):
         streams = Streams(5)
         con = CaptureConsole([])
         plan = self._plan(state, {"mushrooms": 8})
-        phases._commit_route(state, plan, con)
+        phases._commit_route(state, plan, con, phases.WagonNight(state))
         board = state.prices["university"]["mushrooms"]
         report = None
         for _ in range(20):                      # find a selling night
@@ -367,7 +375,7 @@ class TestBranchNight(unittest.TestCase):
     def test_settle_menu_replaces_carmine(self):
         state = in_branch()
         con = CaptureConsole([4])            # lock up immediately
-        phases.night(state, {"route": None, "raid": None}, {}, con,
+        phases.night(state, {"routes": {}, "raid": None}, _wag(state), con,
                      Streams(3), STRAIGHT_ON)
         self.assertIsNotNone(con.find("Settle with a witness"))
         self.assertIsNone(con.find("Pay Carmine"))
@@ -582,7 +590,8 @@ class TestDisposalVoice(unittest.TestCase):
                       if e.name.startswith("Rosa"))
         driver.aware = True
         plan = {"district": "university", "driver": driver,
-                "ride_along": True, "cargo": {"mushrooms": 8}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
+                "ride_along": True, "cargo": {"mushrooms": 8}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         if disposal:
             plan["disposal"] = True
         con = CaptureConsole([0] * 40)        # sell at every stop

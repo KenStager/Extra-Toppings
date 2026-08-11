@@ -539,6 +539,332 @@ class WagonAvailability:
 
 
 WAGON_FREE = WagonAvailability(True)
+
+# Why a wagon is gone, in the player's words — ONE home, so the menu,
+# the raid line, the pickup line and the tests all read the same
+# sentence. Keyed by the night consumer that took it.
+WAGON_NOTES = {
+    "route": "out on tonight's route",
+    "salvage": "out on tonight's pickup",
+    "raid": "out with the night crew",
+    "decoy": "already loaded and gone",
+}
+# THE closed vocabulary of reasons no wagon can leave an address: a
+# night consumer took it, the lifecycle withholds it, or the address
+# keeps none. Closed deliberately — an arbitrary string would become
+# a category no consumer knows how to render, which is how a typo
+# turns into prose the player reads.
+WAGON_BLOCKS = frozenset(WAGON_NOTES) | {"lifecycle", "unhoused"}
+# The one address-independent block that is not a night job. Its note
+# is canonical too, so `lifecycle` is the ONLY block free to carry
+# address-specific prose — everything else reads from one home.
+UNHOUSED_NOTE = "not kept at this address"
+
+
+@dataclass(frozen=True)
+class PlannedWagon:
+    """WHICH wagons may leave an address tonight — and if none, why.
+
+    Identity, not a boolean (P4b.1a review): `free` carries the wagon
+    KEYS, in stable order, exactly as `WagonNight.free_at` returns
+    wagon records. A boolean cannot say WHICH wagon, so it cannot
+    represent an address with two of them, nor two routes leaving
+    different addresses on the same night — and the fleet is the whole
+    point of the Partner branch.
+
+    `blocked_by` is a value from `WAGON_BLOCKS`, never free prose, so
+    a consumer chooses its sentence by CASE and the note is rendered
+    from one home rather than pasted into another sentence's middle.
+    """
+
+    free: tuple = ()
+    blocked_by: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        # `free` is a TUPLE OF KEYS, checked as one — a bare string is
+        # iterable, so `PlannedWagon("wagon2")` would otherwise load
+        # and hand back "w" as the wagon a consumer should take.
+        if type(self.free) is not tuple:
+            raise ValueError(
+                f"free wagons are a tuple of keys, got "
+                f"{type(self.free).__name__}")
+        for key in self.free:
+            if type(key) is not str or not key:
+                raise ValueError(
+                    f"a wagon key is a non-empty string, got {key!r}")
+        if len(set(self.free)) != len(self.free):
+            raise ValueError(
+                f"the same wagon cannot be free twice: {self.free}")
+        if self.free:
+            if self.blocked_by or self.note:
+                raise ValueError(
+                    f"a free wagon carries no reason, got "
+                    f"{self.blocked_by!r}/{self.note!r}")
+            return
+        # A block's prose comes from its ONE home, so a salvage block
+        # cannot carry a lifecycle sentence (or any other). Only
+        # `lifecycle` is address-specific, because only it names which
+        # address is still being built.
+        _validate_block(self.blocked_by, self.note)
+
+    @property
+    def available(self) -> bool:
+        return bool(self.free)
+
+    @property
+    def first(self) -> str:
+        """The wagon a consumer would take. Fails closed rather than
+        handing back a name when there is nothing to take."""
+        if not self.free:
+            raise RuntimeError(f"no wagon is free — {self.note}")
+        return self.free[0]
+
+
+def _validate_block(blocked_by: str, note: str) -> None:
+    """THE block/note contract, shared by every value carrying one.
+
+    Spelling it once is the point: a second copy is how `ClaimResult`
+    came to accept a lifecycle note under a `route` blocker, where the
+    renderer then ignored the note and announced the route. The pair
+    is either canonical or refused."""
+    if blocked_by not in WAGON_BLOCKS:
+        raise ValueError(
+            f"unknown wagon block {blocked_by!r} — the vocabulary is "
+            f"{sorted(WAGON_BLOCKS)}")
+    if type(note) is not str or not note:
+        raise ValueError(
+            f"a blocked wagon must say where it is, got {note!r}")
+    canonical = WAGON_NOTES.get(blocked_by)
+    if blocked_by == "unhoused":
+        canonical = UNHOUSED_NOTE
+    if canonical is not None and note != canonical:
+        raise ValueError(
+            f"the {blocked_by!r} note is canonical: expected "
+            f"{canonical!r}, got {note!r}")
+
+
+@dataclass(frozen=True)
+class ClaimResult:
+    """What happened when a job tried to spend the wagon it named.
+
+    The authority that decides ALREADY KNOWS why, so it says so here
+    rather than returning a bare boolean and leaving each caller to
+    reconstruct prose from the address. That reconstruction breaks
+    under a fleet: asking an address why its wagon is gone returns
+    nothing at all when a DIFFERENT wagon is still parked there, and
+    the route would announce "the wagon is gone" about an address
+    that has one. Same anti-contradiction contract as
+    `WagonAvailability` and `PlannedWagon`: the outcome and its
+    reason travel as one value and are validated together."""
+
+    claimed: bool
+    wagon_key: str
+    blocked_by: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        if type(self.wagon_key) is not str or not self.wagon_key:
+            raise ValueError(
+                f"a claim names a wagon, got {self.wagon_key!r}")
+        if self.claimed:
+            if self.blocked_by or self.note:
+                raise ValueError("a spent wagon carries no refusal")
+            return
+        _validate_block(self.blocked_by, self.note)
+
+    @property
+    def sentence(self) -> str:
+        """The refusal as the player reads it, from the one home."""
+        return wagon_gone_line(self)
+
+
+def founding_shop(state: "State") -> "Shop":
+    """THE founding address, resolved from the lifecycle record itself
+    (P4b.1a review).
+
+    Absence of dates IS the founding identity (§2.4.2, and the
+    invariant `validate_addresses` binds): every address created after
+    the world was built is created by a dated transaction, so exactly
+    one address is undated and that one is the founding shop. Nothing
+    here reads a KEY SPELLING and nothing reads list position — a
+    world whose founding address happens to be called `shop2` has the
+    same founding address it always had, and reversing `state.shops`
+    changes nothing.
+
+    It is deliberately the same question `validate_addresses` asks, in
+    one place: the validator delegates its count here rather than
+    re-spelling "exactly one is undated" beside it."""
+    undated = [s for s in state.shops
+               if s.acceptance_day is None and s.opening_day is None]
+    if len(undated) != 1:
+        raise ValueError(
+            f"exactly one address is undated (the founding shop); "
+            f"{len(undated)} are: {sorted(s.key for s in undated)}")
+    return undated[0]
+
+
+def canonical_shop(state: "State", shop: "Shop") -> "Shop":
+    """THE address-REFERENCE authority (P4b.1a review): a surface
+    handed a `Shop` proves it is THIS WORLD'S shop before it reads a
+    lifecycle date off it or writes a crate into it.
+
+    A `Shop` is a mutable record, not an identity. A detached copy
+    carrying a real key passes every key-based lookup, answers the
+    lifecycle question with ITS OWN dates, and then receives the
+    goods while the canonical address's stash never moves — real cash
+    spent, stock delivered into a world that does not exist. Mixing
+    the two at one transaction boundary (check the copy, price
+    against the state, mutate the copy) is the defect this closes.
+    `routes.validate_route_plan` already refuses the same thing for a
+    driver: a clone carrying a real key is not that person.
+
+    Refused, never redirected. Substituting the canonical object
+    would repair the call while leaving everything the caller already
+    read off the copy — its dates, its upgrades, its stash — sourced
+    from somewhere else, which is a quieter version of the same bug.
+
+    WHERE IT BINDS, stated once so the roster is not guesswork: the
+    six player-facing morning surfaces that take a `Shop` — the
+    market board, kitchen policy, buying ingredients, the supplier,
+    improvements and storage. That is the complete set of generic
+    address-specific phase surfaces, and it is a defect class rather
+    than a spending rule: a board can DISPLAY a detached room, policy
+    can mutate a copy, and storage can combine copy-derived
+    information (`shop_at.stash`) with canonical transfers
+    (`move_goods(state, shop_at.key, …)`) in one operation.
+
+    Domain internals are deliberately NOT swept: `simulate_shift`,
+    route commitment and resolution, and the raid path derive their
+    address from the state or carry their own contracts
+    (`validate_route_plan`, `plan_origin`), and adding a second check
+    there would be a second authority for a settled question."""
+    canonical = state.shop_by_key(shop.key)     # KeyError on a ghost
+    if canonical is not shop:
+        raise ValueError(
+            f"the address handed in is not this world's {shop.key!r} "
+            f"— a detached copy carrying a real key is not that "
+            f"address")
+    return canonical
+
+
+def address_channel(state: "State", shop_key: str, channel: str) -> str:
+    """THE per-address world channel (rev. 27 item 5, made real).
+
+    The founding address keeps EXACTLY the channel it has always
+    used, so its dice never move: that is what makes every existing
+    study and both identity gates still mean something. Additional
+    addresses derive a channel from their own STABLE KEY, so a second
+    shop's critic is a different critic — and reordering
+    `state.shops` cannot change anybody's roll, because nothing here
+    reads list position.
+
+    Re-creating one `daily(day, channel)` generator per address gave
+    every address the SAME first roll, which is not a shared world
+    fact, it is the same coin flipped once and reported twice.
+
+    The identity is RESOLVED, both halves (P4b.1a review). A key that
+    names no address used to come back with a plausible channel of its
+    own — `critic@ghost` — so a typo drew a whole address's dice out
+    of nothing; `state` was passed in and never consulted. And the
+    legacy channel followed the SPELLING `shop1` rather than the
+    founding address, so a world whose founding shop is keyed
+    otherwise silently lost the legacy generator its studies were
+    measured on. Both now go through the lifecycle identity."""
+    shop = state.shop_by_key(shop_key)          # KeyError on a ghost
+    if shop.key == founding_shop(state).key:
+        return channel
+    return f"{channel}@{shop.key}"
+
+
+def claimable_wagons(state: "State", shop_key: str) -> tuple:
+    """The wagons an address could send out tonight IF nothing had
+    taken them — the LIFECYCLE answer alone, in stable key order.
+
+    Deliberately blind to tonight's plans, because two questions are
+    being asked and they have different answers. "Which wagon would
+    this job take?" is settled at planning and must survive a route
+    being scrubbed before it departs; "is that wagon still here?" is
+    settled at execution. `planned_wagon` subtracts the night's
+    reservations from this; the plans record the identity from it."""
+    return tuple(w.key for w in state.wagons_at(shop_key)
+                 if wagon_claim(state, w.key).available)
+
+
+def plan_wagon(state: "State", plan, field: str = "origin_shop") -> str:
+    """THE wagon a plan departs in, validated against its own origin.
+
+    A key alone is not an assignment: shop 1 can name shop 2's wagon
+    and both halves look well-formed. The pair is checked together,
+    here, so no departure path has to remember to do it — and a job
+    that names a vehicle kept somewhere else is refused before it
+    touches anything."""
+    origin = plan_origin(state, plan, field)
+    key = plan.get("wagon_key")
+    if type(key) is not str or not key:
+        raise ValueError(
+            f"a wagon job names no wagon, got {key!r}")
+    wagon = state.wagon_by_key(key)          # KeyError on a ghost
+    if wagon.shop_key != origin:
+        raise ValueError(
+            f"wagon {key!r} is kept at {wagon.shop_key!r}, not at "
+            f"{origin!r} where this job loads")
+    return key
+
+
+def plan_origin(state: "State", plan, field: str = "origin_shop") -> str:
+    """The address a planned wagon job leaves from — validated as a
+    key AND resolved to a real address.
+
+    Shape alone is not identity. A job naming "ghost" has the right
+    type and belongs to no address, so every real address reports its
+    wagons free while a job that reserves nothing sits in the plans:
+    a wagonless job, which is worse than a refused one. The key
+    therefore resolves through `state.shop_by_key`, which fails closed
+    on an unknown address exactly as every other lookup does
+    (rev. 27 items 1 and 7).
+
+    It lives here rather than in `phases` so the planners that build
+    these jobs — `war.plan_salvage` among them — can validate through
+    the same authority without importing the phase machinery back.
+
+    `field` names WHICH address the plan pairs its wagon with: routes
+    and pickups load at an `origin_shop`, an outgoing raid brings its
+    haul back to a `return_shop`. One authority, told where to look —
+    never a second, raid-shaped copy of the same three checks."""
+    origin = plan.get(field)
+    if type(origin) is not str or not origin:
+        raise ValueError(
+            f"a planned wagon job names no address in {field!r}, got "
+            f"{origin!r}")
+    state.shop_by_key(origin)          # KeyError on a ghost address
+    return origin
+
+
+def wagon_gone_line(blocked: "PlannedWagon | ClaimResult") -> str:
+    """THE sentence-initial rendering of a missing wagon.
+
+    Two registers, one home: `note` is a mid-sentence CLAUSE ("out on
+    tonight's route", "the University Hill wagon is still at the
+    contractor's yard") for use after a dash; this is the same fact
+    as a sentence OPENING. Pasting a clause where a sentence belongs
+    is what produced "The wagon is the University Hill wagon is still
+    at the contractor's yard".
+    """
+    if not isinstance(blocked, (PlannedWagon, ClaimResult)):
+        raise TypeError(
+            f"the wagon sentence renders a validated value, not "
+            f"loose strings — got {type(blocked).__name__}")
+    blocked_by, note = blocked.blocked_by, blocked.note
+    if not blocked_by:
+        raise ValueError("a free wagon has no absence to explain")
+    if blocked_by in ("lifecycle", "unhoused"):
+        return note[0].upper() + note[1:]
+    # RENDERED FROM THE BLOCKING JOB, not from whichever job the
+    # sentence happened to be written for. The literal that used to
+    # sit here named the route unconditionally, so a wagon the PICKUP
+    # had was described as being out on the route.
+    return f"The wagon is {WAGON_NOTES[blocked_by]}"
 # THE released set (§7): the Straight Path and the Quiet Sale lifted
 # together on the P2 merge approval; the Harbor War joined on the P3
 # merge disposition ("keep activation as a separate, minimal
@@ -1038,18 +1364,145 @@ def raid_target(state: "State", rival_key: str) -> str:
 
     It never guesses: with no address there is nothing to raid, and
     that is a refusal rather than a home default."""
-    if not state.shops:
+    targetable = addresses_allowing(state, "rival_targeting")
+    if not targetable:
         raise ValueError("no address exists for a raid to target")
-    if len(state.shops) != 1:
+    # A site under construction is not a target — there is nothing
+    # there to raid — so a founding shop plus a building site is
+    # still ONE targetable address, and the policy question does not
+    # arise until two are actually open (§2.4.2).
+    if len(targetable) != 1:
         # P4b owns the "softer of your two shops" policy (rev. 27
         # item 4). Until it exists, picking one would be picking by
         # LIST POSITION — reversing state.shops would move the raid to
         # a different address, which is the whole defect stable keys
         # exist to abolish. So this refuses rather than guessing.
         raise ValueError(
-            f"{len(state.shops)} addresses exist and no targeting "
-            f"policy has been ruled on — P4b owns that choice")
-    return state.shops[0].key
+            f"{len(targetable)} targetable addresses exist and no "
+            f"targeting policy has been ruled on — P4b owns that "
+            f"choice")
+    return targetable[0].key
+
+
+# ── the address lifecycle (§2.4.2; rev. 29 items 3–4) ────────────
+# THE canonical capability vocabulary. §2.4.2's capability ruling,
+# spelled once: every surface that wonders what an address may do asks
+# `address_allows` with one of these names — no consumer decides for
+# itself what a building site may do, and an unknown capability is a
+# caller bug, refused rather than defaulted either way.
+ADDRESS_CAPABILITIES = (
+    "demand",              # the order book: rolling and serving demand
+    "service",             # running a service phase at all
+    "routes",              # originating delivery routes
+    "cover",               # counting as cover for concealed drops
+    "laundering",          # contributing a believable ceiling
+    "rent",                # being charged rent
+    "rival_targeting",     # a rival may move against it
+    "law_targeting",       # the law phase may search it
+    "contraband_storage",  # holding stash
+    "wagon_use",           # its wagon leaving the yard (any consumer)
+    "staffing",            # assigning employees to it
+    "pantry_supply",       # buying ingredients for opening preparation
+    # `phases._improvements` is a real address-bound surface: upgrades
+    # are bought for a named shop and land in that shop's `upgrades`.
+    # Without a capability name the authority could not actually
+    # ENFORCE "only staffing and pantry supply" — the ruling would
+    # hold in prose while a building site bought a second oven.
+    "improvements",        # buying upgrades for it
+)
+# Under construction, ALLOWED: staffing, and pantry supply for opening
+# preparation. Everything else is DISALLOWED (§2.4.2's central ruling:
+# today's engine would roll demand for a building site and charge it
+# rent the moment the record exists). Opening enables the complete
+# address in ONE transition — there is no third, partially-capable
+# phase.
+CONSTRUCTION_ALLOWED = frozenset({"staffing", "pantry_supply"})
+# THE construction span (rev. 29 item 4): opening day = acceptance
+# day + 2, deterministically — Carmine's own contractor, no dice.
+CONSTRUCTION_DAYS = 2
+
+
+def shop_is_open(shop: "Shop", day: int) -> bool:
+    """THE lifecycle question (§2.4.2's three recorded phases, made
+    operational). An address with no recorded dates is a founding
+    address: open since the world began. An address with dates stands
+    under construction until its recorded opening day and opens at
+    the start of that morning — `day >= opening_day` — after which it
+    cannot close (raid damage limps a shop, never shutters it)."""
+    if shop.opening_day is None:
+        return True
+    return day >= shop.opening_day
+
+
+def open_shops(state: "State") -> list:
+    """Every address that is open TODAY, in stable KEY order — the
+    filtering authority behind every morning/service/night surface
+    that operates over 'the shops'.
+
+    KEY order, never storage order (`wagons_at`'s rule, and the same
+    reason): menus will iterate this result, so storage order would
+    make a save's list position decide prompt order and therefore bot
+    decisions — reinstating exactly the positional identity stable
+    keys exist to abolish. Pinned before consumers spread, not after.
+
+    While one address exists this is exactly `state.shops`, which is
+    why P4b.1a's conversion is behaviour-equivalent by construction
+    on every released path."""
+    return sorted((s for s in state.shops if shop_is_open(s, state.day)),
+                  key=lambda s: s.key)
+
+
+def addresses_allowing(state: "State", capability: str) -> list:
+    """Every address that may do `capability` TODAY, in stable key
+    order (P4b.1a review).
+
+    THE filter every consumer uses — the picker, the demand roll,
+    service, rent, the laundering ceiling, law and rival targeting.
+    `open_shops` was not enough: "open" and "allowed" are different
+    questions, and a site under construction is legitimately allowed
+    to take a pantry delivery while it may not roll an order book or
+    be charged rent. Spelling "open means allowed" in each consumer
+    is how the lifecycle became decorative in the first place."""
+    return [s for s in sorted(state.shops, key=lambda a: a.key)
+            if address_allows(s, state.day, capability)]
+
+
+def address_allows(shop: "Shop", day: int, capability: str) -> bool:
+    """THE central capability decision (§2.4.2, rev. 29 item 3): one
+    lifecycle view decides what an address can do. Open addresses do
+    everything; a building site does nothing but prepare — staffing
+    and pantry supply — and no consumer gets to reach a different
+    answer by asking a different question."""
+    if capability not in ADDRESS_CAPABILITIES:
+        raise ValueError(f"unknown address capability {capability!r} — "
+                         f"the vocabulary is ADDRESS_CAPABILITIES")
+    if shop_is_open(shop, day):
+        return True
+    return capability in CONSTRUCTION_ALLOWED
+
+
+def wagon_claim(state: "State", wagon_key: str) -> "WagonAvailability":
+    """THE lifecycle leg of wagon claimability (rev. 29 item 3): a
+    wagon exists from acceptance — an address keeps its wagon from the
+    same transaction — but it is unclaimable until its address opens.
+    Consulted by routes, outgoing raids, salvage and the decoy alike,
+    at planning AND at execution, and the refusal is visible, in the
+    player's words — a silent absence would read as a bug, and the
+    whole point of the construction window is that the player can see
+    what they are waiting for.
+
+    This answers only the lifecycle question. Whether the wagon is
+    out tonight is the night-assignment ledger's question (P3.5);
+    the two authorities compose, they do not merge."""
+    wagon = state.wagon_by_key(wagon_key)
+    home = state.shop_by_key(wagon.shop_key)
+    if address_allows(home, state.day, "wagon_use"):
+        return WAGON_FREE
+    # The district's LABEL, never its key: `little_sicily` is an
+    # internal identity, and a refusal the player reads is prose.
+    return WagonAvailability(
+        False, f"the {data.DISTRICTS[home.district]['label']} wagon "
+               f"is still at the contractor's yard")
 
 
 def validate_addresses(state: "State") -> None:
@@ -1073,6 +1526,93 @@ def validate_addresses(state: "State") -> None:
         if s.district not in data.DISTRICTS:
             raise ValueError(f"shops[{i}]: unknown district "
                              f"{s.district!r}")
+        # The lifecycle dates bind together (§2.4.2, rev. 29 item 4):
+        # both or neither, whole calendar days (a bool is not a day —
+        # `type(...) is int`, the save layer's own rule), the recorded
+        # relationship exactly, and a chronology that the calendar can
+        # actually have reached. A present-but-malformed value is
+        # refused, because repairing it would silently open or un-open
+        # an address.
+        acc, opn = s.acceptance_day, s.opening_day
+        if (acc is None) != (opn is None):
+            raise ValueError(
+                f"shops[{i}]: an address records both its acceptance "
+                f"and its opening day or neither — got acceptance "
+                f"{acc!r}, opening {opn!r}")
+        if acc is None:
+            continue
+        if type(acc) is not int or type(opn) is not int:
+            raise ValueError(
+                f"shops[{i}]: lifecycle dates are whole calendar "
+                f"days, got acceptance {acc!r}, opening {opn!r}")
+        if acc < 1:
+            raise ValueError(
+                f"shops[{i}]: acceptance day {acc} predates the "
+                f"calendar")
+        # An address cannot have been accepted on a day the run has
+        # not reached: the deal is struck at a sit-down that already
+        # happened, so a future acceptance is a payload describing a
+        # transaction nobody made. Refused, never clamped forward.
+        if acc > state.day:
+            raise ValueError(
+                f"shops[{i}]: acceptance day {acc} is in the future "
+                f"on day {state.day} — an address cannot be accepted "
+                f"before the run reaches the day it was accepted")
+        if opn != acc + CONSTRUCTION_DAYS:
+            raise ValueError(
+                f"shops[{i}]: opening day {opn} must be "
+                f"acceptance day {acc} + {CONSTRUCTION_DAYS} — "
+                f"the construction span is recorded, not chosen")
+        # A SITE UNDER CONSTRUCTION CARRIES NO ORDER BOOK — §2.4.2's
+        # initial state, bound at persistence (P4b.1a review). The
+        # daily roll now establishes that as a complete postcondition
+        # rather than merely skipping the address, and this is the
+        # other half: a payload arriving with customers, a delivery
+        # pool or a day's honest till at an address that serves nobody
+        # is describing a restaurant that does not exist. Refused,
+        # never zeroed — repairing it would accept the impossible day
+        # and silently keep whatever the numbers were worth.
+        # EXACT INTEGER ZERO, not a value that merely compares equal
+        # to it (P4b.1a review): `False == 0` and `0.0 == 0`, so a
+        # bare `!= 0` accepted a boolean and a float where the field
+        # is a count of customers, of delivery orders and of dollars.
+        # This project has ruled the same way everywhere it matters —
+        # `type(...) is int` on the lifecycle dates just above, the
+        # cover count in `validate_route_plan` — because a payload
+        # that types a count as a flag is malformed even when its
+        # arithmetic happens to agree today.
+        if not address_allows(s, state.day, "demand"):
+            for name in ("demand_today", "delivery_pool",
+                         "legit_revenue_today"):
+                value = getattr(s, name)
+                if type(value) is not int or value != 0:
+                    raise ValueError(
+                        f"shops[{i}]: an address under construction "
+                        f"serves nobody and carries no order book — "
+                        f"{name} is {value!r}")
+    # Absence identifies THE founding address, and only it. Every
+    # address created after the world was built is created by a dated
+    # transaction, so a second undated address is not a lean record:
+    # it is a shop that silently claims to have been open since the
+    # beginning — the same silent default that put every stolen crate
+    # in DiNapoli's, wearing a lifecycle instead of an origin.
+    #
+    # THIS INVARIANT ALSO PROVES THE WORLD ALWAYS HAS AN OPEN ADDRESS,
+    # which morning, service and night all require a subject for: an
+    # undated shop has no opening day, so `shop_is_open` returns True
+    # on every day, and exactly one address is always undated. A
+    # separate "at least one shop is open" check was written here and
+    # removed — once this check passes it could never fire, and a
+    # guard that cannot fire is worse than none, because it reads as
+    # live. It is not restated as a second check ordered before this
+    # one either: that would be two authorities for one fact.
+    #
+    # The count is `founding_shop`'s own refusal, invoked rather than
+    # copied (P4b.1a review): the resolver and the validator must not
+    # be able to disagree about which address is the founding one, and
+    # two spellings of "exactly one is undated" is exactly how they
+    # would come to.
+    founding_shop(state)
     wagon_keys: set = set()
     housed: set = set()
     for i, w in enumerate(state.wagons):
@@ -1807,6 +2347,16 @@ class Shop:
     demand_today: int = 0
     delivery_pool: int = 0
     legit_revenue_today: int = 0
+    # The lifecycle dates (§2.4.2, rev. 29 item 4): BOTH persisted on
+    # the address, their relationship validated, and the opening day
+    # never duplicated in BranchState — two homes for one date is two
+    # dates. Absent on every address written before the Partner branch
+    # existed, and absence migrates as the founding state: open since
+    # the world began (`Shop(**payload)` leaves an omitted field at
+    # this default, which is exactly P4a's absence-only discipline).
+    # A PRESENT-but-malformed value is refused in validate_addresses.
+    acceptance_day: int | None = None
+    opening_day: int | None = None
 
     @property
     def stash_cap(self) -> int:

@@ -14,6 +14,13 @@ from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import BotConsole, ScriptedConsole
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 
 def fresh(seed=1):
     rng = random.Random(seed)
@@ -37,7 +44,7 @@ class TestDeterminism(unittest.TestCase):
                     break
                 plans = phases.morning(state, con, streams)
                 report = phases.service(state, plans, con, streams)
-                phases.night(state, plans, report, con, streams)
+                phases.night(state, plans, _wag(state, **report), con, streams)
                 if state.debt > 0:
                     state.debt = int(state.debt * (1 + data.DEBT_RATE))
 
@@ -121,7 +128,7 @@ class TestRevision18Inventory(unittest.TestCase):
                 "cargo": {"oregano": 12}, "origin_shop": models.HOME_SHOP_KEY}          # 25 space in 24
         con = ScriptedConsole([])
         with self.assertRaises(ValueError):
-            phases._commit_route(state, plan, con)
+            phases._commit_route(state, plan, con, phases.WagonNight(state))
         self.assertEqual(state.shop_stash, {"oregano": 12})
         self.assertEqual(state.shop.ingredients, 30)
 
@@ -135,7 +142,9 @@ class TestRevision18Inventory(unittest.TestCase):
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         rosa.aware = True
         con = ScriptedConsole([0, 0, False, 8, 0, 12, 1])
-        plan = routes.plan_route(state, con, rng)
+        plan = routes.plan_route(state, con, rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertEqual(plan["cargo"], {"oregano": 8})
 
     def test_the_plan_is_typed_and_carries_one_manifest(self):
@@ -145,7 +154,9 @@ class TestRevision18Inventory(unittest.TestCase):
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         rosa.aware = True
         plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 2, 4]),
-                                 rng)
+                                 rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsInstance(plan, routes.RoutePlan)
         self.assertIs(plan["cargo"], plan.manifest.cargo)
         self.assertEqual(plan["legit"], plan.manifest.legit)
@@ -309,7 +320,9 @@ class TestSharedCapacity(unittest.TestCase):
         # script: district 0, driver Rosa (only driver option order varies) ->
         # pick 0, ride_along False, load N, legit 12 requested
         con = ScriptedConsole([0, 0, False, load_units, 12])
-        plan = routes.plan_route(state, con, rng)
+        plan = routes.plan_route(state, con, rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         return plan
 
     def test_full_cargo_leaves_no_room_for_pizzas(self):
@@ -336,7 +349,9 @@ class TestSharedCapacity(unittest.TestCase):
         rosa = next(e for e in state.employees if e.name.startswith("Rosa"))
         rosa.aware = True
         con = ScriptedConsole([0, 0, False, 24])
-        plan = routes.plan_route(state, con, rng)
+        plan = routes.plan_route(state, con, rng,
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertEqual(plan["legit"], 24)
 
     def test_an_over_capacity_manifest_is_refused_at_resolution(self):
@@ -348,7 +363,9 @@ class TestSharedCapacity(unittest.TestCase):
         rosa.aware = True
         plan = {"district": "university", "driver": rosa,
                 "ride_along": False, "legit": 10,
-                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8}, "origin_shop": models.HOME_SHOP_KEY}
+                "cargo": {"oregano": 12, "mushrooms": 10, "hot_honey": 8},
+                "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         with self.assertRaises(ValueError):
             routes.resolve_route(state, plan, ScriptedConsole([]), rng)
 
@@ -413,7 +430,9 @@ class TestMoneySeparation(unittest.TestCase):
         driver = next(e for e in state.employees if e.hired and e.driving >= 4)
         driver.aware = True
         plan = {"district": "university", "driver": driver, "ride_along": False,
-                "cargo": {"mushrooms": 8}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY}
+                "cargo": {"mushrooms": 8}, "legit": 0,
+                "origin_shop": models.HOME_SHOP_KEY,
+                "wagon_key": models.HOME_WAGON_KEY}
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertEqual(state.clean, clean_before)
 
@@ -434,9 +453,9 @@ class TestTelegraphedRaids(unittest.TestCase):
         state, _ = fresh(6)
         state.rivals["vinnie"].warning = models.RaidWarning(3, models.HOME_SHOP_KEY)
         state.rivals["sal"].strength = 0          # keep sal quiet
-        plans = {"route": None, "raid": None}
+        plans = {"routes": {}, "raid": None}
         report = {"revenue": 0}
-        phases.night(state, plans, report, ScriptedConsole(), Streams(6))
+        phases.night(state, plans, _wag(state, **report), ScriptedConsole(), Streams(6))
         self.assertEqual(state.rivals["vinnie"].raid_warning, 2)
         self.assertEqual(state.shop.damage_days, 0)   # no raid yet
 

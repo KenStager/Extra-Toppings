@@ -13,12 +13,21 @@ from .ui import Console, money
 
 def plan_raid(state: State, con: Console, rng: random.Random,
               reserved: list | None = None,
-              wagon_free: bool = True) -> dict | None:
+              *, wagon: "models.PlannedWagon",
+              home: "models.Shop") -> dict | None:
     """`reserved` employees (tonight's driver) already have a job. If the
-    wagon runs a route tonight, the crew hauls what duffel bags hold."""
-    if not wagon_free:
-        con.say("  The wagon is out on tonight's route — whatever the crew "
-                "takes, they carry on foot.")
+    wagon runs a route tonight, the crew hauls what duffel bags hold.
+
+    `wagon` arrives as ONE typed value (P4b.1a review) rather than a
+    boolean plus loose prose: availability and its reason cannot be
+    passed in contradicting each other, and the sentence below is
+    rendered FROM the structured block instead of pasting a phrase
+    into the middle of another sentence. It is REQUIRED and
+    keyword-only — a default would be a synthetic identity, and a
+    caller that skipped the authority would silently get one."""
+    if not wagon.available:
+        con.say(f"  {models.wagon_gone_line(wagon)} — whatever the crew "
+                f"takes, they carry on foot.")
     targets = [k for k, r in state.rivals.items() if r.alive]
     if state.branch == "war":
         # One front at a time (rev. 14 item 9): outgoing jobs go to the
@@ -88,12 +97,27 @@ def plan_raid(state: State, con: Console, rng: random.Random,
         con.say("  With the debt this close to settled, remember: whatever "
                 "tonight leaves behind goes into the file tomorrow's table "
                 "reads.")
+    # WHERE THE CREW COMES BACK TO, chosen by the caller (P4b.1a).
+    home_key = home.key
+    # WHICH wagon the crew would load, or an explicit None meaning
+    # they go on foot (P4b.1a). Only a stock theft loads one at all
+    # (rev. 26): ledger and sabotage jobs always walk, and they record
+    # that rather than leaving the question unanswered.
+    #
+    # The candidate is the address's CLAIMABLE wagon, not tonight's
+    # free one: a route planned this morning may be scrubbed before it
+    # departs, and the crew then leaves in the wagon that came back.
+    # Execution revalidates the key and decides; planning only names
+    # the vehicle.
+    riding = models.claimable_wagons(state, home_key)
     return {"rival": rival_key, "objective": objective, "team": team,
             "armed": armed, "table_warned": warned,
+            "wagon_key": (riding[0] if objective == "steal_stock"
+                          and riding else None),
             # Where the crew comes back to. Named at planning so the
             # haul cannot be unloaded somewhere nobody drove (design
             # rev. 22 item 5); with one address it is that address.
-            "return_shop": models.exactly_one_shop(state).key}
+            "return_shop": home_key}
 
 
 # The security word moved to models.security_word so the war board can

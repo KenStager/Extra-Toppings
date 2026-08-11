@@ -8,6 +8,25 @@ from .models import Employee, State
 from .ui import Console, money
 
 
+
+# Every field a route plan must name. Its ONE home is here, beside
+# the plan it describes.
+ROUTE_FIELDS = ("district", "driver", "ride_along", "cargo", "legit",
+                "origin_shop", "wagon_key")
+
+
+def _named(plan, name: str):
+    """A canonical field, PRESENT. Absence is refused here rather
+    than surfacing later as a KeyError from whichever line happened
+    to read it first."""
+    try:
+        return plan[name]
+    except (KeyError, TypeError):
+        raise ValueError(
+            f"the route names no {name!r} — a plan missing a "
+            f"canonical field is malformed, not lean")
+
+
 @dataclass
 class RouteManifest:
     """THE wagon inventory model (rev. 17 item 1, hardened rev. 18
@@ -62,11 +81,31 @@ class RouteManifest:
         (rev. 18 item 1: no int() coercion — True, 1.5 and "3" are
         refused, not repaired) and refused if illegal."""
         if isinstance(plan, RoutePlan):
+            # A typed plan is not automatically a valid one: a
+            # manifest that is missing or of the wrong type is a
+            # deliberate refusal here, not an AttributeError from the
+            # next line that touches it.
+            if not isinstance(plan.manifest, RouteManifest):
+                raise ValueError(
+                    f"a route plan carries a manifest, got "
+                    f"{plan.manifest!r}")
             plan.manifest.validate()
             return plan.manifest
-        legit = plan.get("legit", 0)
-        m = cls(cargo=dict(plan.get("cargo") or {}),
-                legit=0 if legit is None else legit)
+        # PRESENCE, never a default. An absent `cargo` or `legit` is
+        # a malformed plan, and filling it in with the legal zero is
+        # how a broken plan becomes an empty-manifest route nobody
+        # planned. `None` is refused for the same reason.
+        cargo = _named(plan, "cargo")
+        legit = _named(plan, "legit")
+        if type(cargo) is not dict:
+            raise ValueError(
+                f"a route's cargo is a mapping of good -> units, got "
+                f"{cargo!r}")
+        if legit is None:
+            raise ValueError(
+                "a route's cover is a whole number of orders, not "
+                "nothing at all")
+        m = cls(cargo=dict(cargo), legit=legit)
         m.validate()
         return m
 
@@ -89,6 +128,10 @@ class RoutePlan:
     # wagon loads would load it at the founding address by default
     # (rev. 27 item 7).
     origin_shop: str
+    # THE wagon this route rolls out in (P4b.1a). Named at planning
+    # and revalidated at execution, so the night spends the vehicle
+    # the plan chose rather than re-picking one by address.
+    wagon_key: str
     disposal: bool = False
 
     @property
@@ -100,7 +143,7 @@ class RoutePlan:
         return self.manifest.legit
 
     _KEYS = ("district", "driver", "ride_along", "cargo", "legit",
-             "disposal", "origin_shop")
+             "disposal", "origin_shop", "wagon_key")
 
     def __getitem__(self, key):
         if key in self._KEYS:
@@ -150,16 +193,70 @@ def route_suspicion(covert: int, legit: int) -> float:
     return covert / total
 
 
+def validate_route_plan(state: State, plan) -> None:
+    """THE per-route contract (P4b.1a review).
+
+    One plan, checked completely, before it meets any other plan and
+    long before it moves a crate. Cross-route facts — one driver
+    twice, the owner riding two wagons — are the SCHEDULE's business
+    and stay there; this is only about whether a single route is a
+    route at all.
+
+    Falsy is not malformed: `cargo={}`, `legit=0` and
+    `ride_along=False` are ordinary legal values — an EMPTY-MANIFEST
+    route with the owner staying home (a pizzas-only run is
+    `cargo={}` with `legit` above zero; naming them the same thing
+    would be a lie about what the plan carries). What is refused is
+    falsy of the WRONG SHAPE — `cargo=False`, a missing
+    `ride_along`, a driver who is not one of this world's people."""
+    for name in ROUTE_FIELDS:
+        _named(plan, name)
+    if plan["district"] not in data.DISTRICTS:
+        raise ValueError(
+            f"the route names no real district: {plan['district']!r}")
+    # `type(...) is bool` — riding along is a decision, and 1, "yes"
+    # and None are not decisions.
+    if type(plan["ride_along"]) is not bool:
+        raise ValueError(
+            f"riding along is a decision, got {plan['ride_along']!r}")
+    if type(plan["cargo"]) is not dict:
+        raise ValueError(
+            f"a route's cargo is a mapping of good -> units, got "
+            f"{plan['cargo']!r}")
+    # `type(...) is int` excludes bool: True is not a count.
+    legit = plan["legit"]
+    if type(legit) is not int or legit < 0:
+        raise ValueError(
+            f"a route's cover is a whole number of orders, got "
+            f"{legit!r}")
+    # THE driver is one of this world's people, BY IDENTITY. A
+    # look-alike carrying a real key compares equal as a dataclass
+    # and would ride as a second copy of someone who is standing
+    # somewhere else — arrested, injured, or driving another wagon.
+    driver = plan["driver"]
+    if not any(person is driver for person in state.employees):
+        raise ValueError(
+            f"the route's driver is not one of this world's people: "
+            f"{getattr(driver, 'name', driver)!r}")
+    # Origin and wagon as a pair, through the shared authority.
+    models.plan_wagon(state, plan)
+    RouteManifest.of_plan(plan).validate()
+
+
 def plan_route(state: State, con: Console, rng: random.Random,
-               reserved: list | None = None) -> "RoutePlan | None":
+               reserved: list | None = None, *,
+               wagon: models.PlannedWagon,
+               origin: "models.Shop") -> "RoutePlan | None":
     """Morning: pick district, driver, cargo, cover. Returns a route plan.
 
     `reserved` employees (tonight's raid crew) can't also drive the route —
     one person, one job per night."""
     reserved = reserved or []
-    # The address this route leaves from, resolved ONCE here and
-    # threaded through planning; P4b lets the player pick which.
-    origin = models.operating_shop(state)
+    # The address this route leaves from is CHOSEN BY THE CALLER
+    # (P4b.1a): the morning menu resolves it once through the address
+    # picker and hands it here, so planning never reaches for "the
+    # shop" and a second address is a real choice rather than a
+    # refusal.
     drivers = [e for e in state.hired()
                if e.available and e.driving >= 4 and e not in reserved]
     if not drivers:
@@ -295,9 +392,11 @@ def plan_route(state: State, con: Console, rng: random.Random,
                 "tonight goes into the file tomorrow's table reads.")
     return RoutePlan(district=dk, driver=driver, ride_along=ride_along,
                      manifest=manifest,
-                     # Which address the wagon leaves from. With one
-                     # address that is it; P4b lets the player choose.
-                     origin_shop=origin.key)
+                     # Which address the wagon leaves from, and WHICH
+                     # wagon. Both named at planning; the night
+                     # revalidates the key rather than choosing again.
+                     origin_shop=origin.key,
+                     wagon_key=wagon.first)
 
 
 def _payoff_reachable_tonight(state: State, shop, dk: str,
@@ -357,6 +456,11 @@ def _stop_risk(state: State, plan: dict) -> float:
 
 
 def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
+    # THE canonical contract, FIRST — before revenue, familiarity or
+    # the execution ledger. Without it a route missing its wagon
+    # completed and appended a RouteExecutionRecord: a wagonless
+    # ghost route becoming real history.
+    validate_route_plan(state, plan)
     dk = plan["district"]
     # The address this wagon rolled out of (design rev. 22 item 1) —
     # the record carries it, and chronology is keyed on it.

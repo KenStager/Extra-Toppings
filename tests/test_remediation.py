@@ -660,7 +660,9 @@ class TestWitnessStatusMatrix(unittest.TestCase):
             state.shop_stash = {"mushrooms": 6}
             plan = {"district": "university", "driver": rosa,
                     "ride_along": False, "cargo": {"mushrooms": 6},
-                    "legit": 0, "disposal": True, "origin_shop": models.HOME_SHOP_KEY}
+                    "legit": 0, "disposal": True,
+                    "origin_shop": models.HOME_SHOP_KEY,
+                    "wagon_key": models.HOME_WAGON_KEY}
             routes.resolve_route(state, plan, Quiet(),
                                  random.Random(seed))
             if rosa.arrested:

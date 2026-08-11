@@ -14,6 +14,13 @@ from extra_toppings.models import (BranchState, SitdownSnapshot, new_state,
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
 
+def _wag(state, **report):
+    """Every direct `night` call needs the assignment authority the
+    service phase would have opened (P4b.1a). An UNSPENT one is the
+    honest fixture here: these tests do not run service, so no wagon
+    departed."""
+    return {**report, "wagons": phases.WagonNight(state)}
+
 SALE_ON = GameConfig(fork_enabled=True,
                      enabled_branches=frozenset({"quiet_sale"}))
 
@@ -175,7 +182,7 @@ class TestDiligenceRules(unittest.TestCase):
         state.dirty = 5000
         evidence_before = len(state.evidence)
         con = CaptureConsole([0, 0, 4])        # Burn → nothing → Lock up
-        phases.night(state, {}, {}, con, Streams(3))
+        phases.night(state, {"routes": {}}, _wag(state), con, Streams(3))
         self.assertIsNotNone(con.find("nothing washes"))
         self.assertEqual(state.dirty, 5000)
         self.assertEqual(len(state.evidence), evidence_before)
@@ -229,7 +236,7 @@ class TestDiligenceRules(unittest.TestCase):
             state.warehouse = {}
             state.shop_stash = {"oregano": 5}
             con = CaptureConsole([2, 0, 5, 4])   # Move stash → shop→wh → all
-            phases.night(state, {}, {}, con, Streams(seed))
+            phases.night(state, {"routes": {}}, _wag(state), con, Streams(seed))
             if con.find("INCIDENT: a loaded truck") is not None:
                 fired = True
             elif con.find("nobody writes anything down") is not None:
@@ -509,7 +516,7 @@ class TestDisposal(unittest.TestCase):
             state.dirty = 5000
             state.clean = 1000
             con = CaptureConsole([0, amount, 4])
-            phases.night(state, {}, {}, con, Streams(3))
+            phases.night(state, {"routes": {}}, _wag(state), con, Streams(3))
             return state, con
         burned, con = run_burn(4800)
         control, _ = run_burn(0)
@@ -525,7 +532,7 @@ class TestDisposal(unittest.TestCase):
         state.warehouse = {}
         state.warehouse_cash = 5000
         con = CaptureConsole([0, 5300, 4])     # try to burn more than held
-        phases.night(state, {}, {}, con, Streams(3))
+        phases.night(state, {"routes": {}}, _wag(state), con, Streams(3))
         self.assertEqual(state.dirty, 0)       # capped at the till in hand
         self.assertEqual(state.warehouse_cash, 5000)
 
@@ -533,14 +540,14 @@ class TestDisposal(unittest.TestCase):
         state = in_escrow()
         state.dirty = 500
         con = CaptureConsole([4])
-        phases.night(state, {}, {}, con, Streams(3))
+        phases.night(state, {"routes": {}}, _wag(state), con, Streams(3))
         self.assertIsNotNone(con.find("Burn dirty cash"))
         self.assertIsNone(con.find("Launder dirty cash"))
         self.assertIsNotNone(con.find("nothing washes"))
         plain = new_state()
         plain.dirty = 500
         con2 = CaptureConsole([4])
-        phases.night(plain, {}, {}, con2, Streams(3))
+        phases.night(plain, {"routes": {}}, _wag(plain), con2, Streams(3))
         self.assertIsNotNone(con2.find("Launder dirty cash"))
         self.assertIsNone(con2.find("Burn dirty cash"))
 
@@ -554,7 +561,7 @@ class TestDisposal(unittest.TestCase):
         state.shop_stash = {}
         state.day -= 1                          # one diligence night left
         con = CaptureConsole([0, 700, 4])       # burn down to tolerance
-        phases.night(state, {}, {}, con, Streams(3))
+        phases.night(state, {"routes": {}}, _wag(state), con, Streams(3))
         self.assertEqual(state.day,
                          escrow.sitdown_day(state) + escrow.DILIGENCE_DAYS)
         self.assertEqual(state.dirty, escrow.DIRTY_TOLERANCE)
@@ -653,13 +660,13 @@ class TestEscrowSafeFallbacks(unittest.TestCase):
     def test_exhausted_night_keeps_the_cash(self):
         state = in_escrow()
         state.dirty = 5000
-        phases.night(state, {}, {}, CaptureConsole([]), Streams(3))
+        phases.night(state, {"routes": {}}, _wag(state), CaptureConsole([]), Streams(3))
         self.assertEqual(state.dirty, 5000)
 
     def test_a_selected_burn_with_no_amount_answer_burns_nothing(self):
         state = in_escrow()
         state.dirty = 5000
-        phases.night(state, {}, {}, CaptureConsole([0]), Streams(3))
+        phases.night(state, {"routes": {}}, _wag(state), CaptureConsole([0]), Streams(3))
         self.assertEqual(state.dirty, 5000)    # ask_int default is zero
 
 
