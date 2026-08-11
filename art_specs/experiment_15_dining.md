@@ -156,3 +156,32 @@ an eyes-over-the-table peek; +52 leaked floor; +47 buried the hem.
 unchanged — three consecutive board questions (proportion, far side,
 gap) have now been answered for a total of 2 generations, everything
 else measurement, code, derivation, and staging data.
+
+## Promotion and the chair question (2026-08-11, user board)
+
+"Promote this!" — the five-piece dining set entered `approved/`
+(table_sq_48, booth_table_64, booth_bench_64, booth_bench_rear_64
+with the donor flag via its counter-derived shell, booth_bay_staging).
+
+"Let's work to make chairs that work" — reflection before pixels:
+the E02 pair measures 157% of figure height (the table's proportion
+crime, pre-committed) and reads parlor, not shop floor. They keep
+their approval as PARLOR-CLASS props (a candidate for Carmine's
+corner scene) and leave the dining rotation.
+
+## Chairs round 1 (2 gens): the four-top
+
+Design computed before generation: wood café frame + oxblood vinyl
+pad (booth vinyl + counter wood = one dining language), target
+content ~20-22px on a 32 canvas. Outlined code anchor (rails, pad
+planes, legs), init@150, subtractive strip. Both seeds PASS; s15201
+picked (82% of figure — landed the computed band); s15202's mid-rail
+smeared.
+
+Economy measured in the mock: a rail-back chair is front-back
+symmetric with the pad visible through open rails, so ONE sprite
+serves north and south facings — the four-top mock (table ringed by
+four chairs, one sprite) reads instantly as the pizzeria dining
+room. Honest note for the board: the east/west chairs use the same
+frontal sprite (RPG convention); strict perspective wants profile
+variants eventually — flagged as optional refinement, not a blocker.
