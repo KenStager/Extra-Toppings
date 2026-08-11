@@ -202,3 +202,23 @@ backrest points away from the cloth.
 Candidates: chair_south_s15201 (front view), chair_north_s15212
 (back view), chair_west_final, chair_east_final. AWAITING the
 board's chair ruling.
+
+## Seating the four-top (2026-08-11, user directive; rounds A-D, 0 gens)
+
+Characters seated and the placement loop run to convergence. The
+defects each round measured and killed: canvas-aligned placement
+(cast canvases are 56px with off-center content - placement must
+align OPAQUE CONTENT, never canvases); side sitters drawn behind the
+table (they sit beside it - draw after); floating waists (waist meets
+pad, measured); and a facing inversion the loop caught in round C -
+the west seat's sitter faces EAST toward the cloth, and I had both
+side sitters facing away. Projection law recorded: seated head rows
+differ by depth (north ~8px higher on screen, south lowest) and must
+NOT be equalized.
+
+The recipe ships as data (`fourtop_staging.json`): per-seat draw
+order, content-based centering, head rows, facings. Inventory fact
+flagged for the board: approved seated extras are SOUTH-FACING ONLY;
+the S/E/W seats currently take cast upper-body crops (rot crops at
+the waist, content-placed) - story-true when named characters sit,
+but anonymous crowds need seated-direction extras bases if ruled.
