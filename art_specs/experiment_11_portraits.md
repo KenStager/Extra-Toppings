@@ -253,3 +253,14 @@ cascade priced, rather than quietly de-anchoring the motion canon.
 
 AWAITING the board: the ten-portrait roster (8 picks + carmine/bee
 curation swaps), and the angelo-skin / priya-age judgment calls.
+
+## Angelo's eyes (2026-08-11, user board reflection; 0 gens)
+
+The board approved angelo s11252 but flagged the plain white eyes.
+The zoom found the true cause: pupils EXISTED (2px each, rows 23-24)
+but a full row of white sclera sat beneath them — the under-white is
+what read as wide startled blankness, the opposite of heavy-lidded
+calm. Fix: 4px recorded curation extending each pupil one row down
+into the under-sclera band, corner glints kept. The gaze now reads
+direct and settled. `angelo_portrait64_curated` supersedes the raw
+seed as the approval candidate.
