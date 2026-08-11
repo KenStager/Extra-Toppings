@@ -264,3 +264,19 @@ calm. Fix: 4px recorded curation extending each pupil one row down
 into the under-sclera band, corner glints kept. The gaze now reads
 direct and settled. `angelo_portrait64_curated` supersedes the raw
 seed as the approval candidate.
+
+## Vinnie's scale (2026-08-11, user board question; 1 gen)
+
+"Why does Vinnie seem so small?" Measured cause: the head-init
+recipe's FLOOR-division integer scaling. Portrait mass tracks init
+mass almost exactly (tony 70%->71%, priya 100%->100%), and Vinnie —
+the hulk class, head sunk into wide shoulders — produced a WIDE crop
+whose floor factor left the init at 34% of canvas -> portrait at
+37%. The recipe punished exactly the character whose build should
+crowd the frame: the game's biggest man got its smallest portrait.
+
+RECIPE AMENDMENT: hulk-class (wide-crop) characters use
+FILL-AND-CLIP inits — ceil-factor NN scale, overflow clipped at the
+canvas edge; a hulk may bleed off his own frame. s11272 regenerated
+from the v2 init: coverage 55%, shoulders spanning edge to edge,
+the menace restored. Supersedes s11271 at the board.
