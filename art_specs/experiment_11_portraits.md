@@ -1,9 +1,10 @@
 # Experiment 11 — Portraits: The Close-Up Register (2026-08-10)
 
-Status: **Sal APPROVED. Round 2 measured: seed-luck hypothesis dead —
-the promptless surface fails low-info and dark-skinned inputs. Method
-pivot PROPOSED (character-recipe busts via pixflux); AWAITING the
-board's ruling before any further portrait spend.**
+Status: **Sal APPROVED (promptless pro surface). Rounds 3–4: the
+user's ruled method (prompt the envisioned character; the signed-off
+sprite as rough starting point) CONVERGED at init@70 — four true
+64px busts on the pixflux surface at 1 gen each. Carmine and Bee
+candidates AWAIT the board's picks.**
 
 ## Purpose and method (user-approved direction)
 
@@ -151,13 +152,66 @@ tool. The promptless surface stays recorded as viable ONLY for
 high-info sprites (it produced Sal). Identity-by-ancestry weakens to
 identity-by-anchor — the same standard the approved cast itself met.
 
-## Open at the board (after round 2)
+## Round 3 — the user's ruled method, first attempt (4 gens)
 
-1. The method pivot above — character-recipe busts via pixflux for
-   Carmine, Bee, and any further portraits. AWAITING the ruling.
-2. Whether s11003's elder read (minus eyepatch) informs the Carmine
-   bust anchor — the age register it found is the target.
-3. Spend ledger observation, flagged: 50 generations were debited
+The board superseded the session's hand-blocked-anchor proposal with a
+better formulation: **prompt for how we ENVISION the character
+(the E09 brief in words), using the signed-off sprite as a ROUGH
+STARTING POINT.** Ancestry stays pixel-derived with no hand-invention:
+the init is a recorded deterministic head crop of the approved sprite
+(top 16 opaque rows, opaque-column crop, square pad, NN ×4 to 64).
+
+Result, honestly: **direction right, knob wrong.** All four outputs
+(carmine s11101/11102, bee s11121/11122) kept the init's 4×4 block
+structure — init@120 treated the NN blowup as structure to preserve,
+so effective detail stayed ~16px. Blocky heads, not busts. But two
+questions died in the same 4 gens: Bee's skin came back BROWN (the
+prompt counters the blue-alien mode) and Carmine's tiepin and silver
+register appeared. The prompt surface works; the init strength was
+calibrated for real anchors, not for blown-up crops.
+
+## Round 4 — strength correction + controls (4 gens): CONVERGED
+
+1. **carmine s11103, head-init@70:** true bust — gaunt lined elder,
+   silver sweep, dark coat, oxblood tie. Drift: a small gray mustache
+   (unlicensed by the brief) and a tie where the brief says tiepin.
+2. **carmine s11104, pro-elder-init@110 (labeled experiment: init =
+   round-2 s11003, itself generated from the approved sprite — the
+   ancestry chain is fully recorded and rooted in approved pixels):**
+   the strongest Carmine yet — wild silver hair, deep frown, black
+   coat, the eyepatch negated away. Two purple iris pixels are
+   curation-class.
+3. **bee s11123, head-init@70:** deep brown skin, legible wire
+   glasses (the tell that failed three sprite generations reads at
+   64px!), black bob, cream cardigan. Drifts: bob vs the brief's
+   short crop; rose-tinted lens pixels; reads young.
+4. **bee s11124, no-init control:** afro, tan cardigan, and a GOLD
+   NECKLACE — the jewelry negative failed AND gold is reserved. The
+   control proves the init earns its place: s11123 is measurably
+   closer to the sprite identity (hair class, cardigan color, no
+   invented jewelry).
+
+Measured (all four): 64×64, hard alpha, coverage 41–59%, 42–85 free
+colors (no palette forcing was applied; the own-register ruling
+stands). Cost: 1 generation per attempt, REST-ledgered — against 25
+promptless. Eight total generations to converge, versus 125 spent
+learning the promptless surface's limits.
+
+**PORTRAIT RECIPE (ratification candidate):** envisioned-character
+prompt (E09 brief in words, heritage plain) + approved-sprite head
+init at strength ~70 (or a recorded rooted intermediate at ~110) +
+standing negatives + per-character counter-terms, pixflux 64px,
+view "side", medium shading/detail. The promptless pro tool remains
+recorded as viable only for high-info sprites (Sal).
+
+## Open at the board (after round 4)
+
+1. Carmine pick: s11104 (session recommends) vs s11103 vs re-roll.
+2. Bee pick: s11123 (session recommends) vs re-roll (crop-hair
+   counter-words, lens-tint negatives).
+3. Ratify the PORTRAIT RECIPE above for the remaining cast.
+4. Curation queue if picked: s11104 purple irises; s11123 lens tint.
+5. Spend ledger observation, flagged: 50 generations were debited
    between this session's first balance read (4583 remaining) and the
    pre-submission read (4533) with no generation activity from this
    session in between — unexplained; the vendor balance is the only
