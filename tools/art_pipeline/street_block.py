@@ -314,6 +314,88 @@ DISTRICT_REGISTERS: dict[str, dict[str, list[RGB]]] = {
 AFTER_DARK_VARIANTS: dict[str, None] = {name: None for name in DISTRICT_REGISTERS}
 
 
+# ------------------------------------------------- scene-unit validation
+# Decision 3 (2026-08-11): the DiNapoli block is THE compact exterior
+# scene unit; new scenes are staging-v3 instances of it, and this
+# validator holds the unit's INVARIANT laws. Validation REFUSES, never
+# repairs (the engine's doctrine). The laws it can check are the ones
+# recorded AS DATA — which is the point of schema v3: doorways and
+# prop spans became data precisely so the no-door and x-slot clauses
+# stopped living in prose and board eyesight alone.
+SCENE_WIDTH = 640
+SCENE_HEIGHT = 360
+PROP_LINES = frozenset({"wall", "curb", "road"})
+
+
+def _spans_overlap(a: "tuple[int, int] | list[int]", b: "tuple[int, int] | list[int]") -> bool:
+    return not (a[1] < b[0] or b[1] < a[0])
+
+
+def validate_scene_staging(data: dict) -> None:
+    """Refuse a scene staging dict that breaks the scene-unit laws.
+
+    Raises ValueError naming the first violation; returns None on a
+    lawful instance. Only schema v3 is accepted — v2 files predate the
+    unit's formalization and carry placement semantics that died with
+    their compose scripts.
+    """
+    if data.get("schema_version") != 3:
+        raise ValueError("staging schema_version must be 3")
+    for key in ("district", "bands", "wall_line_base_y", "curb_line_base_y",
+                "slots", "doorways", "props"):
+        if key not in data:
+            raise ValueError(f"staging is missing required field {key!r}")
+    if data["district"] not in DISTRICT_REGISTERS:
+        raise ValueError(f"unknown district {data['district']!r}")
+    bands = data["bands"]
+    spans = sorted(bands.values(), key=lambda s: s[0])
+    if spans[0][0] != 0 or spans[-1][1] != SCENE_HEIGHT:
+        raise ValueError("bands must cover rows 0..360")
+    for prev, cur in zip(spans, spans[1:]):
+        if prev[1] != cur[0]:
+            raise ValueError(f"band gap or overlap at row {prev[1]}")
+    walk, curb = bands["walk"], bands["curb"]
+    if not walk[0] <= data["wall_line_base_y"] < walk[1]:
+        raise ValueError("wall_line_base_y must sit inside the walk band")
+    if not curb[0] <= data["curb_line_base_y"] < curb[1]:
+        raise ValueError("curb_line_base_y must sit inside the curb band")
+    slots = data["slots"]
+    ids = [s["id"] for s in slots]
+    if len(set(ids)) != len(ids):
+        raise ValueError("slot ids must be unique")
+    for slot in slots:
+        x0, x1 = slot["span"]
+        if not (0 <= x0 <= x1 < SCENE_WIDTH):
+            raise ValueError(f"slot {slot['id']!r} span out of scene")
+    for a in range(len(slots)):
+        for b in range(a + 1, len(slots)):
+            if _spans_overlap(slots[a]["span"], slots[b]["span"]):
+                raise ValueError(
+                    f"slots {slots[a]['id']!r} and {slots[b]['id']!r} overlap"
+                )
+    for door in data["doorways"]:
+        if not any(s["span"][0] <= door[0] and door[1] <= s["span"][1] for s in slots):
+            raise ValueError(f"doorway {door} lies in no slot")
+    by_line: dict[str, list[tuple[str, list[int]]]] = {"wall": [], "curb": [], "road": []}
+    for name, prop in data["props"].items():
+        if prop["line"] not in PROP_LINES:
+            raise ValueError(f"prop {name!r} has unknown line {prop['line']!r}")
+        x0, x1 = prop["span"]
+        if not (0 <= x0 <= x1 < SCENE_WIDTH):
+            raise ValueError(f"prop {name!r} span out of scene")
+        by_line[prop["line"]].append((name, prop["span"]))
+    for name, span in by_line["wall"]:
+        for door in data["doorways"]:
+            if _spans_overlap(span, door):
+                raise ValueError(f"wall prop {name!r} blocks doorway {door}")
+    for wname, wspan in by_line["wall"]:
+        for cname, cspan in by_line["curb"]:
+            if _spans_overlap(wspan, cspan):
+                raise ValueError(
+                    f"wall prop {wname!r} and curb prop {cname!r} share an x-slot"
+                )
+
+
 def register_mapping(
     surface: str, to_district: str, from_district: str = "old_harbor"
 ) -> dict[tuple[int, int, int, int], tuple[int, int, int, int]]:

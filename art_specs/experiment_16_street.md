@@ -44,7 +44,8 @@ one correctly-cold district); the Meadows ink-forward with its
 after-dark variant. Each district gets a recorded strip; the union
 rule licenses interim picks.
 
-## Decision 3 — the street scene unit (ruling needed)
+## Decision 3 — the street scene unit (RULED 2026-08-11: formalized
+## — see the scene-unit record near the end of this file)
 
 Proposed composition unit (the four-top precedent — staging as
 data): a STREET BLOCK of 640×360 — roadway band, sidewalk bands,
@@ -53,7 +54,8 @@ crate props, district crowd via `wardrobe_variant` + the walk cycles.
 The shop's own block stages first (facade v2 exists); the wagon
 drives the roadway band.
 
-## Decision 4 — rival storefronts (ruling needed)
+## Decision 4 — rival storefronts (RULED 2026-08-11: briefs first;
+## names bound — see the record near the end of this file)
 
 Sal's Trattoria (host's dignity: awning, menu stand, warm glass) and
 Vinnie's Pies (bulk: painted brick, big flat sign) as facade-class
@@ -662,3 +664,79 @@ road law, mapping bijectivity, after-dark slots unruled) — suite
 its face: the Meadows reads violet-forward rather than navy-ink —
 presented as the club register's intent; one cheap data-revision
 round if the board wants it bluer.
+
+## Decisions 3 and 4 ruled — the scene unit formalized, the rivals
+## briefed, the flanks named (2026-08-11, board: "Proceed with...
+## decision 3 ... decision 4 (rival briefs + your flank names)")
+
+DECISION 3 — THE COMPACT EXTERIOR SCENE UNIT (5 reflection steps).
+The DiNapoli block IS the template; new exteriors are staging-v3
+INSTANCES. The unit's INVARIANTS: the eight-band row law summing to
+360; the two attachment lines (wall line inside the walk band, curb
+line inside the curb band) with content-bottom anchoring
+(place_on_base); the four clauses (no-door, wall/curb x-slot
+exclusion, content-bbox shadows, painter order by base row); the
+code-vs-generation assignment (regular forms are code, organic wear
+is generation). The PARAMETERS: district register key (decision 2's
+DISTRICT_REGISTERS), facade slots with business ids, prop roster
+and x positions, parking differentiation. Camera/grammar (flat-on,
+native 32) is global law, not a scene knob. Enforcement:
+`validate_scene_staging` in street_block.py REFUSES violations
+(never repairs; v2 files are refused outright — their pos second
+values carried semantics that died with the prior session's compose
+script). Schema v3 additions that turned prose clauses into
+checkable data: `district`, `slots`, `doorways`, per-prop `span`.
+FINDING recorded: the v2 no-door clause was UNENFORCEABLE as data —
+doorway extents existed only in board eyesight; they are now
+measured data (grocer door censused from the s16601 asset at
+[94,120]; DiNapoli door from the v14 mock's clean run [294,319];
+the diner door lands with the bespoke facade, constrained to the
+prop-clear range). Also corrected in the v3 upgrade: the staging
+still pointed at the retired doubled Omega bench — now the native
+s16502 per the v12 ruling; and the comment field carried a prior
+session's append bug (the V9 paragraph repeated 11x) — deduped,
+content unchanged. Tests: 10 validator tests (lawful instance
+passes; every violation class refuses); the real staging file
+validates clean. Suite 106 -> 116.
+
+DECISION 4 — RIVALS AND FLANK NAMES (4 reflection steps). Briefs
+first, ruled. ERRATUM against the tree first: data.py names the
+Little Sicily rival "Sal Moretti — MORETTI'S Trattoria" — this
+spec's earlier "Sal's Trattoria" was wrong; signage law follows the
+data: MORETTI'S. Vinnie's Pies is HOME to the Meadows and CLAIMS
+Old Harbor (and the Meadows) — his shop scene belongs to the
+Meadows register, not Old Harbor.
+
+- MORETTI'S TRATTORIA brief (Little Sicily register, facade-class):
+  legitimate excellence as a weapon (aggression 0.25, violence 0.1,
+  "fights with prices, poaching and quiet words"). Reads MORE
+  respectable than DiNapoli's: oxblood scalloped awning over cream
+  stucco (the register's accent on its widest surface), centered
+  door (a host greets), lit warmth BEHIND the glass (glass channel
+  unchanged), pilasters and proper cornice, swept walk (minimal
+  wall-line roster: menu stand — his signature prop — and a
+  planter). Fascia: MORETTI'S with TRATTORIA subline, code.
+- VINNIE'S PIES brief (Meadows register, facade-class): the shop is
+  a FRONT (aggression 0.55, violence 0.7, "the pizza is a crime in
+  itself"). Painted-over brick in the register's mid tiers (pixflux
+  wear's home ground), sign letters too large for the fascia (bulk
+  over craft), one dark window low in the glass ramp, a roll-down
+  loading door eating a third of the frontage (the warehouse truth
+  leaking through), crates at the wall line. The club-violet accent
+  appears ONLY as a thin marquee edge — Meadows money-adjacent,
+  never glamorous. Lettering and roll-door slats are code.
+- FLANK NAMES (delegated to this session by the board's wording):
+  left flank = ROSSI'S GROCERY, right flank = ANCHOR DINER. Bound
+  as staging-v3 slot data (rossis_grocery / anchor_diner).
+  Rejections recorded: MARINO'S GROCERY killed by census — Tony
+  'Two-Slices' Marino is the COOK (data.py:88), and a flank grocer
+  wearing his name implies a story nobody ruled; LEVIN & SONS
+  killed by the glyph set (no ampersand); HARBOR LUNCH runner-up
+  for the diner. Theme guard: both names read
+  thirty-years-of-neighborhood warmth; neither touches the crime
+  frame; "Extra Toppings" appears nowhere. Follow-through: s16601
+  fascia re-letters GROCER -> ROSSI'S / GROCERY (code stamp over
+  the by-design blank fascia); the diner-slot bespoke facade
+  carries ANCHOR / DINER; Moretti's and Vinnie's facades are
+  E02-scale studies in their own registers AFTER the diner slot
+  proves the 256-wide recipe.

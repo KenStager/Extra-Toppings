@@ -163,6 +163,84 @@ class DesaturateTests(unittest.TestCase):
         self.assertGreater(g, 0)
 
 
+def _lawful_staging() -> dict:
+    """Minimal lawful scene-unit instance (synthetic, decision 3 shape)."""
+    return {
+        "schema_version": 3,
+        "district": "old_harbor",
+        "bands": {
+            "upper_stories": [0, 56], "buildings": [56, 152], "walk": [152, 208],
+            "curb": [208, 224], "road_parking": [224, 264], "road_travel": [264, 344],
+            "far_curb_line": [344, 348], "far_walk": [348, 360],
+        },
+        "wall_line_base_y": 172,
+        "curb_line_base_y": 214,
+        "slots": [
+            {"id": "flank_left", "span": [0, 127], "business": "a"},
+            {"id": "center", "span": [128, 384], "business": "b"},
+        ],
+        "doorways": [[294, 319]],
+        "props": {
+            "bench": {"line": "wall", "span": [392, 451]},
+            "hydrant": {"line": "curb", "span": [360, 375]},
+        },
+    }
+
+
+class SceneStagingValidatorTests(unittest.TestCase):
+    """Decision 3: the unit's laws refuse, never repair."""
+
+    def test_lawful_instance_passes(self) -> None:
+        from tools.art_pipeline.street_block import validate_scene_staging
+
+        validate_scene_staging(_lawful_staging())
+
+    def _refuses(self, mutate, fragment: str) -> None:
+        from tools.art_pipeline.street_block import validate_scene_staging
+
+        data = _lawful_staging()
+        mutate(data)
+        with self.assertRaisesRegex(ValueError, fragment):
+            validate_scene_staging(data)
+
+    def test_v2_files_are_refused_not_migrated(self) -> None:
+        self._refuses(lambda d: d.update(schema_version=2), "schema_version")
+
+    def test_band_gap_refused(self) -> None:
+        self._refuses(lambda d: d["bands"].update(curb=[210, 224]), "gap or overlap")
+
+    def test_band_coverage_refused(self) -> None:
+        self._refuses(lambda d: d["bands"].update(far_walk=[348, 356]), "0..360")
+
+    def test_attachment_lines_must_sit_in_their_bands(self) -> None:
+        self._refuses(lambda d: d.update(wall_line_base_y=210), "wall_line_base_y")
+        self._refuses(lambda d: d.update(curb_line_base_y=204), "curb_line_base_y")
+
+    def test_unknown_district_refused(self) -> None:
+        self._refuses(lambda d: d.update(district="uptown"), "unknown district")
+
+    def test_overlapping_slots_refused(self) -> None:
+        self._refuses(
+            lambda d: d["slots"].append({"id": "x", "span": [100, 200], "business": "c"}),
+            "overlap",
+        )
+
+    def test_doorway_outside_slots_refused(self) -> None:
+        self._refuses(lambda d: d["doorways"].append([500, 520]), "no slot")
+
+    def test_wall_prop_on_doorway_refused(self) -> None:
+        self._refuses(
+            lambda d: d["props"].update(crate={"line": "wall", "span": [300, 330]}),
+            "blocks doorway",
+        )
+
+    def test_wall_and_curb_props_cannot_share_an_x_slot(self) -> None:
+        self._refuses(
+            lambda d: d["props"].update(crate={"line": "wall", "span": [350, 370]}),
+            "share an x-slot",
+        )
+
+
 class DistrictRegisterTests(unittest.TestCase):
     """Decision 2 laws (ratified 2026-08-11) over DISTRICT_REGISTERS."""
 
