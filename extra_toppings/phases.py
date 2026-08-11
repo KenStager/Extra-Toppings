@@ -881,6 +881,13 @@ def _kitchen_policy(state: State, shop_at: Shop, con: Console,
 
 
 def _buy_ingredients(state: State, shop_at: Shop, con: Console) -> None:
+    # The same mixed-identity seam the supplier had, at the other
+    # boundary that spends the operation's cash into ONE address's
+    # room (P4b.1a review; extended here rather than left open now
+    # that the class is named): the price is read off the object
+    # handed in, the cash comes out of the world, and the pantry that
+    # grows must be the world's.
+    shop_at = models.canonical_shop(state, shop_at)
     cost = data.INGREDIENT_COST[shop_at.quality]
     most = state.clean // cost if cost else 0
     restock = max(0, min(most, 80 - shop_at.ingredients))
@@ -909,6 +916,16 @@ def _supplier_offer(state: State, rng: random.Random) -> dict | None:
 
 def _buy_supplier(state: State, shop_at: Shop, offer: dict,
                   con: Console) -> dict | None:
+    # THE address, resolved through the state BEFORE it is questioned
+    # or written to (P4b.1a review). This boundary read the lifecycle
+    # off the object it was handed, priced the space against the
+    # canonical address by key, spent real cash, and then put the
+    # crates back into the object it was handed — three reads of two
+    # different identities in one transaction. A copied
+    # `Shop(key="shop2")` could therefore answer "open" with its own
+    # dates while the real address stood under construction, and take
+    # delivery of stock the real stash never sees.
+    shop_at = models.canonical_shop(state, shop_at)
     # THE capability, asked HERE — at the boundary that moves cash and
     # contraband, and not only at the menu that led to it (P4b.1a
     # review). A menu is one door; an authority only the menu consults
@@ -1074,6 +1091,12 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
 
 
 def _improvements(state: State, shop_at: Shop, con: Console) -> None:
+    # Upgrades are bought with the operation's clean cash and land in
+    # ONE address's `upgrades`, so this is the third boundary of the
+    # same class (P4b.1a review): an oven paid for out of the real
+    # till and installed in a detached copy is a purchase that never
+    # happened at an address that cannot use it.
+    shop_at = models.canonical_shop(state, shop_at)
     while True:
         owned = shop_at.upgrades
         # Branch verbs first (rev. 9 items 8 and 10): counsel and

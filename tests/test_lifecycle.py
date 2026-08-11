@@ -1794,6 +1794,77 @@ class TestTheSupplierNeverStocksABuildingSite(unittest.TestCase):
         self.assertEqual(site.stash, {})
         self.assertEqual(offer["units"], 10)
 
+    def test_a_detached_copy_is_refused_with_nothing_touched(self):
+        # The mixed-identity seam (P4b.1a review, second pass): the
+        # boundary read the lifecycle off the object handed in,
+        # priced the space against the canonical address BY KEY,
+        # spent real cash, and put the crates back into the object
+        # handed in. A faithful clone of an OPEN address is refused
+        # too — the copy is not the address, however truthful it is.
+        state = _with_site(day=7, acceptance=5)
+        real = state.shop_by_key("shop2")
+        clone = Shop(key="shop2", district="university",
+                     acceptance_day=5, opening_day=7)
+        state.clean, state.dirty = 500, 500
+        offer = {"good": "mushrooms", "units": 10, "price": 10}
+        with self.assertRaises(ValueError) as caught:
+            phases._buy_supplier(state, clone, offer, Listening([4]))
+        self.assertIn("detached copy", str(caught.exception))
+        self.assertEqual((state.clean, state.dirty), (500, 500))
+        self.assertEqual((real.stash, clone.stash), ({}, {}))
+        self.assertEqual(offer["units"], 10)
+
+    def test_a_copy_claiming_to_be_open_cannot_answer_for_the_site(self):
+        # The sharp case: the canonical address is under
+        # CONSTRUCTION and the copy carries dates that say otherwise.
+        # Identity is checked BEFORE the lifecycle, so the copy never
+        # gets to answer the question at all.
+        state = _with_site(day=6, acceptance=5)      # still building
+        real = state.shop_by_key("shop2")
+        self.assertFalse(shop_is_open(real, state.day))
+        clone = Shop(key="shop2", district="university")   # "founding"
+        self.assertTrue(shop_is_open(clone, state.day))
+        state.clean, state.dirty = 500, 500
+        offer = {"good": "mushrooms", "units": 10, "price": 10}
+        with self.assertRaises(ValueError) as caught:
+            phases._buy_supplier(state, clone, offer, Listening([4]))
+        self.assertIn("detached copy", str(caught.exception))
+        self.assertEqual((state.clean, state.dirty), (500, 500))
+        self.assertEqual((real.stash, clone.stash), ({}, {}))
+        self.assertEqual(offer["units"], 10)
+
+    def test_the_other_cash_boundaries_refuse_a_copy_too(self):
+        # The same class at the two other surfaces that spend the
+        # operation's cash into ONE address's room. Extended here
+        # rather than left open now that the class has a name.
+        state = _with_site(day=7, acceptance=5)
+        real = state.shop_by_key("shop2")
+        clone = Shop(key="shop2", district="university",
+                     acceptance_day=5, opening_day=7)
+        state.clean = 5000
+        for call in (
+            lambda: phases._buy_ingredients(state, clone,
+                                            Listening([10])),
+            lambda: phases._improvements(state, clone, Listening([0])),
+        ):
+            with self.assertRaises(ValueError) as caught:
+                call()
+            self.assertIn("detached copy", str(caught.exception))
+        self.assertEqual(state.clean, 5000)
+        self.assertEqual((real.ingredients, clone.ingredients), (0, 40))
+        self.assertEqual((real.upgrades, clone.upgrades), (set(), set()))
+
+    def test_the_canonical_address_still_passes_every_boundary(self):
+        # The authority refuses COPIES, not addresses: the object the
+        # picker actually hands over is the state's own, and every
+        # boundary takes it.
+        state = _with_site(day=7, acceptance=5)
+        real = state.shop_by_key("shop2")
+        self.assertIs(models.canonical_shop(state, real), real)
+        state.clean = 5000
+        phases._buy_ingredients(state, real, Listening([10]))
+        self.assertEqual(real.ingredients, 10)
+
     def test_the_purchase_still_serves_an_open_address(self):
         # The refusal is the lifecycle's, not a new rule about
         # suppliers: the same call at the same address succeeds the

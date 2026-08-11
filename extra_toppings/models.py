@@ -704,6 +704,34 @@ def founding_shop(state: "State") -> "Shop":
     return undated[0]
 
 
+def canonical_shop(state: "State", shop: "Shop") -> "Shop":
+    """THE address-REFERENCE authority (P4b.1a review): a surface
+    handed a `Shop` proves it is THIS WORLD'S shop before it reads a
+    lifecycle date off it or writes a crate into it.
+
+    A `Shop` is a mutable record, not an identity. A detached copy
+    carrying a real key passes every key-based lookup, answers the
+    lifecycle question with ITS OWN dates, and then receives the
+    goods while the canonical address's stash never moves — real cash
+    spent, stock delivered into a world that does not exist. Mixing
+    the two at one transaction boundary (check the copy, price
+    against the state, mutate the copy) is the defect this closes.
+    `routes.validate_route_plan` already refuses the same thing for a
+    driver: a clone carrying a real key is not that person.
+
+    Refused, never redirected. Substituting the canonical object
+    would repair the call while leaving everything the caller already
+    read off the copy — its dates, its upgrades, its stash — sourced
+    from somewhere else, which is a quieter version of the same bug."""
+    canonical = state.shop_by_key(shop.key)     # KeyError on a ghost
+    if canonical is not shop:
+        raise ValueError(
+            f"the address handed in is not this world's {shop.key!r} "
+            f"— a detached copy carrying a real key is not that "
+            f"address")
+    return canonical
+
+
 def address_channel(state: "State", shop_key: str, channel: str) -> str:
     """THE per-address world channel (rev. 27 item 5, made real).
 
