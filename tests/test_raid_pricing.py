@@ -253,7 +253,8 @@ class TestSecurityVisibility(unittest.TestCase):
         state.rivals["vinnie"].alertness = 5.0
         con = CaptureConsole([3])                # look, then Never mind
         raids.plan_raid(state, con, rng,
-                        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+                        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
         text = "\n".join(con.lines)
         self.assertIn("security hardened", text)
         self.assertIn("security sleepy", text)   # sal, untouched
@@ -264,7 +265,8 @@ class TestSecurityVisibility(unittest.TestCase):
         state.raids_led = 3
         con = CaptureConsole([3])
         raids.plan_raid(state, con, rng,
-                        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+                        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
         text = "\n".join(con.lines)
         self.assertIn("unsolved burglaries", text)
         self.assertIn("Case", text)
@@ -363,7 +365,8 @@ class TestPatternDisplayHonesty(unittest.TestCase):
         state.raids_led = 3                  # premium = min(8, 1.5*3) = 4.5
         con = CaptureConsole([3])            # look, then Never mind
         raids.plan_raid(state, con, rng,
-                        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+                        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIn("adds 4.5 Case", "\n".join(con.lines))
 
     def test_incurred_announcement_matches_the_warning(self):

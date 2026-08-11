@@ -32,6 +32,15 @@ class Listening(ScriptedConsole):
     def __init__(self, script=None):
         super().__init__(script)
         self.lines: list = []
+        self.menus: list = []
+
+    def menu(self, prompt, options):
+        self.menus.append((prompt, list(options)))
+        return super().menu(prompt, options)
+
+    def offered(self, prompt):
+        """The options a given prompt actually showed."""
+        return next((o for p, o in self.menus if p == prompt), [])
 
     def say(self, text: str = "") -> None:
         self.lines.append(text)
@@ -43,7 +52,7 @@ class Listening(ScriptedConsole):
         return any(fragment in line for line in self.lines)
 
 
-def _route(state, shop_key, wagon_key, driver=None, **over):
+def _route_plan(state, shop_key, wagon_key, driver=None, **over):
     """A COMPLETE route plan. Every canonical field is named,
     including a real driver, because the schedule refuses a plan
     missing one — a gap accepted for test convenience is how a
@@ -64,7 +73,8 @@ def _raid_plan(state, objective):
     script = [0, ("steal_stock", "ledger", "sabotage").index(objective), 0, False, False]
     return raids.plan_raid(
         state, Listening(script), random.Random(3), reserved=[],
-        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+        wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
 
 
 def _with_site(day: int, acceptance: int) -> models.State:
@@ -355,7 +365,7 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         # removed. Invisible to every gate — no released branch can
         # build two addresses — so it is pinned directly.
         state = _with_site(day=7, acceptance=5)          # shop2 OPEN
-        plans = {"routes": {HOME_SHOP_KEY: _route(
+        plans = {"routes": {HOME_SHOP_KEY: _route_plan(
             state, HOME_SHOP_KEY, models.HOME_WAGON_KEY)}}
         home = phases.planned_wagon(state, plans, HOME_SHOP_KEY)
         self.assertFalse(home.available)
@@ -372,7 +382,7 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         view = phases.planned_wagon(state, {"routes": {}}, "shop2")
         self.assertEqual(view.free, ("wagon2", "wagon3"))
         self.assertEqual(view.first, "wagon2")
-        plans = {"routes": {"shop2": _route(state, "shop2", "wagon2")}}
+        plans = {"routes": {"shop2": _route_plan(state, "shop2", "wagon2")}}
         one_left = phases.planned_wagon(state, plans, "shop2")
         self.assertTrue(one_left.available)
         self.assertEqual(one_left.free, ("wagon3",))
@@ -397,7 +407,7 @@ class TestPlanningAsksTheLifecycleToo(unittest.TestCase):
         state = _with_site(day=7, acceptance=5)
         with self.assertRaises(KeyError):
             phases.plan_origin(state, {"origin_shop": "ghost"})
-        plans = {"routes": {HOME_SHOP_KEY: _route(
+        plans = {"routes": {HOME_SHOP_KEY: _route_plan(
             state, "ghost", models.HOME_WAGON_KEY)}}
         with self.assertRaises(KeyError):
             phases.planned_jobs_at(state, plans, HOME_SHOP_KEY)
@@ -501,7 +511,8 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
         state = new_state()
         con = Listening()
         raids.plan_raid(state, con, random.Random(3), reserved=[],
-                        wagon=self._yard_view())
+                        wagon=self._yard_view(),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
         # THE COMPLETE SENTENCE, not fragments: the first cut read
         # "The wagon is the University Hill wagon is still at the
         # contractor's yard", and every fragment assertion passed.
@@ -518,7 +529,8 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
         raids.plan_raid(state, con, random.Random(3), reserved=[],
                         wagon=models.PlannedWagon(
                             blocked_by="route",
-                            note=models.WAGON_NOTES["route"]))
+                            note=models.WAGON_NOTES["route"]),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertTrue(con.said(
             "The wagon is out on tonight's route — whatever the crew "
             "takes, they carry on foot."))
@@ -529,7 +541,8 @@ class TestTheRefusalReachesThePlayer(unittest.TestCase):
         state = new_state()
         con = Listening()
         raids.plan_raid(state, con, random.Random(3), reserved=[],
-                        wagon=models.PlannedWagon(("wagon1",)))
+                        wagon=models.PlannedWagon(("wagon1",)),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertFalse(con.said("contractor's yard"))
 
     def test_salvage_says_the_wagon_is_at_the_yard(self):
@@ -590,7 +603,8 @@ class TestTheAbsenceSentenceNamesTheRightJob(unittest.TestCase):
         raids.plan_raid(state, con, random.Random(3), reserved=[],
                         wagon=models.PlannedWagon(
                             blocked_by="salvage",
-                            note=models.WAGON_NOTES["salvage"]))
+                            note=models.WAGON_NOTES["salvage"]),
+            home=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertTrue(con.said(
             "  The wagon is out on tonight's pickup — whatever the "
             "crew takes, they carry on foot."), con.lines)
@@ -657,7 +671,8 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
         view = phases.planned_wagon(state, {"routes": {}}, HOME_SHOP_KEY)
         plan = routes.plan_route(state, Listening([0, 0, False, 0, 0]),
                                  random.Random(3), reserved=[],
-                                 wagon=view)
+                                 wagon=view,
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsNotNone(plan)
         self.assertEqual(plan["wagon_key"], models.HOME_WAGON_KEY)
         self.assertEqual(plan["origin_shop"], HOME_SHOP_KEY)
@@ -742,7 +757,7 @@ class TestPlansCarryTheirWagon(unittest.TestCase):
         state = new_state()
         for e in state.employees[:2]:
             e.hired = e.aware = True
-        plans = {"routes": {HOME_SHOP_KEY: _route(
+        plans = {"routes": {HOME_SHOP_KEY: _route_plan(
             state, HOME_SHOP_KEY, models.HOME_WAGON_KEY)}}
         self.assertFalse(
             phases.planned_wagon(state, plans, HOME_SHOP_KEY).available)
@@ -1227,7 +1242,7 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
     def test_a_plan_missing_a_canonical_field_is_refused(self):
         state, drivers = self._two()
         for field in routes.ROUTE_FIELDS:
-            plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+            plan = _route_plan(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
                           driver=drivers[0])
             del plan[field]
             with self.assertRaises(ValueError, msg=field):
@@ -1236,7 +1251,7 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
 
     def test_a_route_filed_under_a_ghost_address_is_refused(self):
         state, drivers = self._two()
-        plan = _route(state, "ghost", models.HOME_WAGON_KEY,
+        plan = _route_plan(state, "ghost", models.HOME_WAGON_KEY,
                       driver=drivers[0])
         with self.assertRaises(KeyError):
             phases.routes_planned(state, {"routes": {"ghost": plan}})
@@ -1244,10 +1259,10 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
     def test_one_driver_cannot_drive_two_routes(self):
         state, drivers = self._two()
         plans = {"routes": {
-            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+            HOME_SHOP_KEY: _route_plan(state, HOME_SHOP_KEY,
                                   models.HOME_WAGON_KEY,
                                   driver=drivers[0]),
-            "shop2": _route(state, "shop2", "wagon2",
+            "shop2": _route_plan(state, "shop2", "wagon2",
                             driver=drivers[0])}}
         with self.assertRaises(ValueError) as caught:
             phases.route_schedule(state, plans)
@@ -1256,10 +1271,10 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
     def test_the_owner_cannot_ride_two_wagons(self):
         state, drivers = self._two()
         plans = {"routes": {
-            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+            HOME_SHOP_KEY: _route_plan(state, HOME_SHOP_KEY,
                                   models.HOME_WAGON_KEY,
                                   driver=drivers[0], ride_along=True),
-            "shop2": _route(state, "shop2", "wagon2",
+            "shop2": _route_plan(state, "shop2", "wagon2",
                             driver=drivers[1], ride_along=True)}}
         with self.assertRaises(ValueError) as caught:
             phases.route_schedule(state, plans)
@@ -1268,10 +1283,10 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
     def test_a_legal_pair_passes_the_preflight(self):
         state, drivers = self._two()
         plans = {"routes": {
-            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+            HOME_SHOP_KEY: _route_plan(state, HOME_SHOP_KEY,
                                   models.HOME_WAGON_KEY,
                                   driver=drivers[0], ride_along=True),
-            "shop2": _route(state, "shop2", "wagon2",
+            "shop2": _route_plan(state, "shop2", "wagon2",
                             driver=drivers[1])}}
         self.assertEqual([k for k, _p in phases.route_schedule(state, plans)],
                          [HOME_SHOP_KEY, "shop2"])
@@ -1287,12 +1302,12 @@ class TestTheScheduleIsStrictAndPreflighted(unittest.TestCase):
         site.stash, site.ingredients, site.delivery_pool = (
             {"mushrooms": 4}, 40, 10)
         plans = {"routes": {
-            HOME_SHOP_KEY: _route(state, HOME_SHOP_KEY,
+            HOME_SHOP_KEY: _route_plan(state, HOME_SHOP_KEY,
                                   models.HOME_WAGON_KEY,
                                   driver=drivers[0],
                                   cargo={"mushrooms": 2}, legit=3),
             # shop 2's route names shop 1's wagon: malformed.
-            "shop2": _route(state, "shop2", models.HOME_WAGON_KEY,
+            "shop2": _route_plan(state, "shop2", models.HOME_WAGON_KEY,
                             driver=drivers[1])}}
         with self.assertRaises(ValueError):
             phases.route_schedule(state, plans)
@@ -1312,7 +1327,7 @@ class TestOneRouteIsARouteAtAll(unittest.TestCase):
         state = new_state()
         driver = next(e for e in state.employees if e.driving >= 4)
         driver.hired = driver.aware = True
-        plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+        plan = _route_plan(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
                       driver=driver)
         plan.update(over)
         return state, plan
@@ -1394,7 +1409,7 @@ class TestEveryDoorConsumesTheOneContract(unittest.TestCase):
         state = new_state()
         driver = next(e for e in state.employees if e.driving >= 4)
         driver.hired = driver.aware = True
-        plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+        plan = _route_plan(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
                       driver=driver)
         for field in broken.pop("drop", ()):
             del plan[field]
@@ -1452,7 +1467,7 @@ class TestExecutionIsNotADoorOfItsOwn(unittest.TestCase):
         return state, home, driver
 
     def _plan(self, state, driver, **over):
-        plan = _route(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
+        plan = _route_plan(state, HOME_SHOP_KEY, models.HOME_WAGON_KEY,
                       driver=driver, cargo={"mushrooms": 2}, legit=3)
         for field in over.pop("drop", ()):
             del plan[field]
@@ -1560,6 +1575,120 @@ class TestAWalkingRaidClaimsNothingAtNight(unittest.TestCase):
     def test_the_wagon_is_still_there_afterwards(self):
         _plans, wagons = self._night("sabotage")
         self.assertTrue(wagons.available_at(HOME_SHOP_KEY))
+
+
+class TestTheAddressPickerIsSilentAtOne(unittest.TestCase):
+    """Condition 5's first term: the released game gains no prompt."""
+
+    def test_one_open_address_is_returned_without_asking(self):
+        state = new_state()
+        con = Listening()
+        self.assertIs(phases.choose_address(state, con, "Whose board?"),
+                      state.shop_by_key(HOME_SHOP_KEY))
+        self.assertEqual(con.menus, [])           # nothing was asked
+
+    def test_a_building_site_is_never_offered(self):
+        # It cannot do any of the things the picker leads to.
+        state = _with_site(day=6, acceptance=5)
+        con = Listening()
+        self.assertIs(phases.choose_address(state, con, "Whose board?"),
+                      state.shop_by_key(HOME_SHOP_KEY))
+        self.assertEqual(con.menus, [])
+
+    def test_two_open_addresses_are_offered_by_district(self):
+        state = _with_site(day=7, acceptance=5)
+        con = Listening([1])
+        picked = phases.choose_address(state, con, "Whose kitchen?")
+        self.assertEqual(picked.key, "shop2")
+        shown = con.offered("Whose kitchen?")
+        self.assertEqual(shown, ["Old Harbor", "University Hill"])
+        # A raw key is an internal identity and never reaches prose.
+        self.assertNotIn("shop1", " ".join(shown))
+        self.assertNotIn("shop2", " ".join(shown))
+
+    def test_the_order_is_stable_identity_order(self):
+        state = _with_site(day=7, acceptance=5)
+        state.shops.reverse()
+        con = Listening([0])
+        self.assertEqual(
+            phases.choose_address(state, con, "Whose kitchen?").key,
+            HOME_SHOP_KEY)
+
+
+class TestBothAddressesTradeAndRun(unittest.TestCase):
+    """Conditions 5's operating terms, through the REAL service."""
+
+    def _open_pair(self):
+        state = _with_site(day=7, acceptance=5)
+        market.roll_prices(state, random.Random(3))
+        drivers = [e for e in state.employees if e.driving >= 4][:2]
+        for e in drivers:
+            e.hired = e.aware = True
+        for a_shop, stock in ((state.shop_by_key(HOME_SHOP_KEY), 4),
+                              (state.shop_by_key("shop2"), 4)):
+            a_shop.stash = {"mushrooms": stock}
+            a_shop.ingredients, a_shop.delivery_pool = 40, 10
+            a_shop.demand_today = 20
+        return state, drivers
+
+    def _route_plan(self, state, driver, shop_key, wagon_key, **over):
+        return _route_plan(state, shop_key, wagon_key, driver=driver,
+                           cargo={"mushrooms": 2}, legit=3, **over)
+
+    def test_service_trades_at_every_open_address(self):
+        # It must not ask which restaurant opens.
+        state, _drivers = self._open_pair()
+        con = Listening()
+        phases.service(state, {"routes": {}}, con, Streams(3))
+        self.assertEqual(con.menus, [])       # no choice offered
+        self.assertTrue(con.said("Old Harbor: Orders"), con.lines)
+        self.assertTrue(con.said("University Hill: Orders"), con.lines)
+
+    def test_a_construction_site_does_not_trade(self):
+        state = _with_site(day=6, acceptance=5)    # still building
+        market.roll_prices(state, random.Random(3))
+        con = Listening()
+        phases.service(state, {"routes": {}}, con, Streams(3))
+        self.assertFalse(con.said("University Hill"), con.lines)
+
+    def test_two_routes_commit_and_resolve_independently(self):
+        state, drivers = self._open_pair()
+        plans = {"routes": {
+            HOME_SHOP_KEY: self._route_plan(state, drivers[0], HOME_SHOP_KEY,
+                                       models.HOME_WAGON_KEY),
+            "shop2": self._route_plan(state, drivers[1], "shop2", "wagon2")}}
+        report = phases.service(state, plans, Listening(), Streams(3))
+        # Both wagons rolled, each out of its own address.
+        self.assertEqual(report["wagons"].claims,
+                         {models.HOME_WAGON_KEY: "route",
+                          "wagon2": "route"})
+        # Each address ran ITS OWN route, once. The post-resolution
+        # stash is deliberately NOT asserted here: what a route
+        # leaves behind depends on the night it had (sold, seized,
+        # jumped, returned), and pinning it would make this test
+        # about route outcomes rather than about two addresses
+        # operating independently.
+        self.assertEqual(len(state.route_log), 2)
+        self.assertEqual({r.origin_shop for r in state.route_log},
+                         {HOME_SHOP_KEY, "shop2"})
+
+    def test_a_malformed_second_route_leaves_the_first_untouched(self):
+        # THE binding acceptance carried from the schedule work: the
+        # preflight refuses the SET, so the valid first route never
+        # loads, never bakes, and never takes its wagon.
+        state, drivers = self._open_pair()
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        before = (dict(home.stash), home.ingredients)
+        plans = {"routes": {
+            HOME_SHOP_KEY: self._route_plan(state, drivers[0], HOME_SHOP_KEY,
+                                       models.HOME_WAGON_KEY),
+            # shop 2's route names shop 1's wagon.
+            "shop2": self._route_plan(state, drivers[1], "shop2",
+                                 models.HOME_WAGON_KEY)}}
+        with self.assertRaises(ValueError):
+            phases.service(state, plans, Listening(), Streams(3))
+        self.assertEqual((home.stash, home.ingredients), before)
+        self.assertEqual(state.route_log, [])
 
 
 class TestLifecycleValidation(unittest.TestCase):

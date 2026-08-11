@@ -245,15 +245,18 @@ def validate_route_plan(state: State, plan) -> None:
 
 def plan_route(state: State, con: Console, rng: random.Random,
                reserved: list | None = None, *,
-               wagon: models.PlannedWagon) -> "RoutePlan | None":
+               wagon: models.PlannedWagon,
+               origin: "models.Shop") -> "RoutePlan | None":
     """Morning: pick district, driver, cargo, cover. Returns a route plan.
 
     `reserved` employees (tonight's raid crew) can't also drive the route —
     one person, one job per night."""
     reserved = reserved or []
-    # The address this route leaves from, resolved ONCE here and
-    # threaded through planning; P4b lets the player pick which.
-    origin = models.operating_shop(state)
+    # The address this route leaves from is CHOSEN BY THE CALLER
+    # (P4b.1a): the morning menu resolves it once through the address
+    # picker and hands it here, so planning never reaches for "the
+    # shop" and a second address is a real choice rather than a
+    # refusal.
     drivers = [e for e in state.hired()
                if e.available and e.driving >= 4 and e not in reserved]
     if not drivers:

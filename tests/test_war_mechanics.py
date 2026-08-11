@@ -434,7 +434,8 @@ class TestTargetOnlyJobs(unittest.TestCase):
         rosa.aware = True
         con = Scripted([len(data.RIVALS)])   # answer clamps to "Never mind"
         raids.plan_raid(state, con, Streams(3).raids,
-                        wagon=models_mod.PlannedWagon((models_mod.HOME_WAGON_KEY,)))
+                        wagon=models_mod.PlannedWagon((models_mod.HOME_WAGON_KEY,)),
+            home=state.shop_by_key(models_mod.HOME_SHOP_KEY))
         prompt, options = next((p, o) for p, o in con.menus
                                if p == "Hit whom?")
         self.assertEqual(len(options), 2)    # Vinnie + Never mind
@@ -448,7 +449,8 @@ class TestTargetOnlyJobs(unittest.TestCase):
         rosa.aware = True
         con = Scripted([])
         self.assertIsNone(raids.plan_raid(
-            state, con, Streams(3).raids, wagon=models_mod.PlannedWagon((models_mod.HOME_WAGON_KEY,))))
+            state, con, Streams(3).raids, wagon=models_mod.PlannedWagon((models_mod.HOME_WAGON_KEY,)),
+            home=state.shop_by_key(models_mod.HOME_SHOP_KEY)))
         self.assertIsNotNone(con.find("Name the next war"))
 
     def test_a_route_broken_target_scrubs_the_planned_raid(self):
@@ -808,7 +810,8 @@ class TestNightAssignmentsAndStorage(unittest.TestCase):
                                reserved=reserved,
                                wagon=phases.planned_wagon(
                                    state, plans,
-                                   models_mod.HOME_SHOP_KEY))
+                                   models_mod.HOME_SHOP_KEY),
+            home=state.shop_by_key(models_mod.HOME_SHOP_KEY))
         self.assertIsNone(plan)               # she was the only crew
 
     def test_execution_revalidates_the_same_view(self):

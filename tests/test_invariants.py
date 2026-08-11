@@ -143,7 +143,8 @@ class TestRevision18Inventory(unittest.TestCase):
         rosa.aware = True
         con = ScriptedConsole([0, 0, False, 8, 0, 12, 1])
         plan = routes.plan_route(state, con, rng,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertEqual(plan["cargo"], {"oregano": 8})
 
     def test_the_plan_is_typed_and_carries_one_manifest(self):
@@ -154,7 +155,8 @@ class TestRevision18Inventory(unittest.TestCase):
         rosa.aware = True
         plan = routes.plan_route(state, ScriptedConsole([0, 0, False, 2, 4]),
                                  rng,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsInstance(plan, routes.RoutePlan)
         self.assertIs(plan["cargo"], plan.manifest.cargo)
         self.assertEqual(plan["legit"], plan.manifest.legit)
@@ -319,7 +321,8 @@ class TestSharedCapacity(unittest.TestCase):
         # pick 0, ride_along False, load N, legit 12 requested
         con = ScriptedConsole([0, 0, False, load_units, 12])
         plan = routes.plan_route(state, con, rng,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         return plan
 
     def test_full_cargo_leaves_no_room_for_pizzas(self):
@@ -347,7 +350,8 @@ class TestSharedCapacity(unittest.TestCase):
         rosa.aware = True
         con = ScriptedConsole([0, 0, False, 24])
         plan = routes.plan_route(state, con, rng,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertEqual(plan["legit"], 24)
 
     def test_an_over_capacity_manifest_is_refused_at_resolution(self):

@@ -20,6 +20,30 @@ QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
 
 # ── THE night-assignment authority (rev. 15 item 2) ───────────────
 
+def choose_address(state: "State", con: Console,
+                   prompt: str) -> Shop:
+    """THE address picker for an address-specific action (P4b.1a).
+
+    SILENT while one address is open — it returns that shop without a
+    prompt, so the released game gains no menu and no transcript
+    moves. It speaks only when the player actually owns a choice.
+
+    Addresses are offered in stable KEY order (`open_shops`), labelled
+    by DISTRICT: a raw key is an internal identity and never reaches
+    the player (rev. 27 item 3). A construction site is not offered at
+    all — it cannot do any of the things this picker leads to."""
+    open_now = models.open_shops(state)
+    if not open_now:
+        raise ValueError("no address is open to act on")
+    if len(open_now) == 1:
+        return open_now[0]
+    return open_now[con.menu(prompt, [
+        data.DISTRICTS[s.district]["label"] for s in open_now])]
+
+
+_at = choose_address
+
+
 def routes_planned(state: "State", plans: dict) -> dict:
     """Tonight's routes, keyed BY THE ADDRESS THEY LEAVE FROM, in
     stable key order (P4b.1a).
@@ -384,8 +408,13 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
     # frozen, and stand-pat is the control (the carve-out is recorded
     # in rev. 15, not hidden here).
     active_branch = state.branch is not None and state.branch != "stand_pat"
-    if shop_at.ingredients < 10 and state.clean < 200 \
-            and not active_branch:
+    # Only reachable while the Act I debt is alive, which is exactly
+    # when one address exists — so the sole shop is resolved HERE,
+    # inside the guard, rather than at a boundary two addresses would
+    # refuse.
+    if not active_branch and state.clean < 200 \
+            and models.exactly_one_shop(state).ingredients < 10:
+        shop_at = models.exactly_one_shop(state)
         shop.stock_pantry(state, shop_at, 40)
         state.debt += 40 * data.INGREDIENT_COST[shop_at.quality] + 100
         con.bullet("Carmine's nephew drops off flour, cheese and cans 'on account.' "
@@ -426,23 +455,33 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             "Plan a night job (raid)",
             "Open for service →",
         ])
+        # Each address-specific action resolves the address it acts
+        # on, ONCE, and threads that Shop through (P4b.1a). The
+        # picker is silent while one address is open, so the released
+        # game gains no prompt. Staff is deliberately absent: the
+        # roster is one roster across the operation.
         if c == 0:
-            _market_board(state, shop_at, con)
+            _market_board(state, _at(state, con, "Whose board?"), con)
         elif c == 1:
-            _kitchen_policy(state, shop_at, con, plans)
+            _kitchen_policy(state, _at(state, con, "Whose kitchen?"),
+                            con, plans)
         elif c == 2:
-            _buy_ingredients(state, shop_at, con)
+            _buy_ingredients(state, _at(state, con, "Stock which pantry?"),
+                             con)
         elif c == 3 and supplier:
-            supplier = _buy_supplier(state, shop_at, supplier, con)
+            supplier = _buy_supplier(
+                state, _at(state, con, "Deliver where?"), supplier, con)
         elif c == 4:
             _staff_menu(state, con, streams.staff)
         elif c == 5:
-            _improvements(state, shop_at, con)
+            _improvements(state, _at(state, con, "Improve which address?"),
+                          con)
         elif c == 6:
             # The lifecycle can refuse a route before it is planned;
             # with one address it never does, so this adds no
             # reachable branch to the Act I path (there is no salvage
             # here either, so "planned" cannot arise).
+            shop_at = _at(state, con, "Which wagon rolls tonight?")
             wagon_now = planned_wagon(state, plans, shop_at.key,
                                       but="route")
             if not wagon_now.available:
@@ -453,12 +492,13 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
                 state, con, streams.routes,
                 reserved=night_reserved(state, plans, but="route",
                                         but_shop=shop_at.key),
-                wagon=wagon_now)
+                wagon=wagon_now, origin=shop_at)
             if planned is not None:
                 plans["routes"][shop_at.key] = planned
             else:
                 plans["routes"].pop(shop_at.key, None)
         elif c == 7:
+            shop_at = _at(state, con, "The crew comes back where?")
             route = routes_planned(state, plans).get(shop_at.key)
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
@@ -466,7 +506,8 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             plans["raid"] = raids.plan_raid(
                 state, con, streams.raids,
                 reserved=night_reserved(state, plans, but="raid"),
-                wagon=planned_wagon(state, plans, shop_at.key))
+                wagon=planned_wagon(state, plans, shop_at.key),
+                home=shop_at)
         elif c == 8:
             break
     return plans
@@ -592,7 +633,7 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
                 state, con, streams.routes,
                 reserved=night_reserved(state, plans, but="route",
                                         but_shop=shop_at.key),
-                wagon=wagon_now)
+                wagon=wagon_now, origin=shop_at)
             if planned is not None:
                 plans["routes"][shop_at.key] = planned
             else:
@@ -605,7 +646,8 @@ def _war_morning_menu(state: State, con: Console, streams: Streams,
             plans["raid"] = raids.plan_raid(
                 state, con, streams.raids,
                 reserved=night_reserved(state, plans, but="raid"),
-                wagon=planned_wagon(state, plans, shop_at.key))
+                wagon=planned_wagon(state, plans, shop_at.key),
+                home=shop_at)
         elif key == "board":
             war.board(state, con)
         elif key == "case":
@@ -679,7 +721,8 @@ def _disposal_menu(state: State, con: Console, streams: Streams,
                         f"{disposal_wagon.note}.")
                 return fire_sale_done
             plan = routes.plan_route(state, con, streams.routes,
-                                     wagon=disposal_wagon)
+                                     wagon=disposal_wagon,
+                                     origin=shop_at)
             if plan is not None:
                 if any(plan["cargo"].values()):
                     plan["disposal"] = True
@@ -1017,12 +1060,10 @@ def _improvements(state: State, shop_at: Shop, con: Console) -> None:
 # ══ SERVICE ═══════════════════════════════════════════════════════
 
 def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
-    # The address this surface is about, resolved ONCE at the
-    # boundary and threaded through (design rev. 27 item 6):
-    # Act I, the Straight Path and the Quiet Sale each concern
-    # one established shop, and every helper below takes it as
-    # a parameter rather than reaching for "the shop".
-    shop_at = models.operating_shop(state)
+    # No address is chosen here (P4b.1a): service is the OPERATION
+    # opening its doors, and every open address opens them. Asking
+    # the player which of their restaurants trades tonight would be
+    # a decision the fiction never offers.
     con.header(f"DAY {state.day} — SERVICE")
     # THE night's wagon assignments, opened HERE rather than at
     # nightfall: routes and pickups depart during service, so an
@@ -1035,22 +1076,34 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     for shop_key, planned in route_schedule(state, plans):
         if not _commit_route(state, planned, con, wagons):
             plans["routes"].pop(shop_key, None)
-    plan = routes_planned(state, plans).get(shop_at.key)
-    # The cover pizzas were cooked and deducted at the address the
-    # plan NAMED; the shift below is this surface's address. They are
-    # the same shop while one exists, and `operating_shop` refuses the
-    # moment they could differ — the shift going per-address is P4b's
-    # work, not something to half-build here.
-    route_legit = plan["legit"] if plan else 0
-    report = shop.simulate_shift(state, shop_at, route_legit,
-                                 streams.daily(state.day, "critic"))
-    lost = f" ({report['lost']} turned away)" if report["lost"] else ""
-    con.say(f"  Orders {report['orders']}/{report['demand']} demanded{lost}"
-            f" | clean revenue {money(report['revenue'])}")
-    if report["critic_line"]:
-        con.bullet(report["critic_line"])
-    if shop_at.ingredients < 10:
-        con.bullet(f"Pantry low: {shop_at.ingredients} orders of stock left.")
+    scheduled = routes_planned(state, plans)
+    # Every OPEN address trades, in stable key order. The cover
+    # pizzas each shift bakes are the ones ITS OWN route named — a
+    # second address's deliveries never come out of the first
+    # address's ovens.
+    report: dict = {}
+    open_now = models.open_shops(state)
+    for a_shop in open_now:
+        planned = scheduled.get(a_shop.key)
+        shift = shop.simulate_shift(
+            state, a_shop, planned["legit"] if planned else 0,
+            streams.daily(state.day, "critic"))
+        if not report:
+            # The founding address's shift IS the report while one
+            # exists, so every existing consumer reads what it always
+            # read; additional addresses report beside it.
+            report = shift
+        where = (f"{data.DISTRICTS[a_shop.district]['label']}: "
+                 if len(open_now) > 1 else "")
+        lost = f" ({shift['lost']} turned away)" if shift["lost"] else ""
+        con.say(f"  {where}Orders {shift['orders']}/{shift['demand']} "
+                f"demanded{lost} | clean revenue "
+                f"{money(shift['revenue'])}")
+        if shift["critic_line"]:
+            con.bullet(shift["critic_line"])
+        if a_shop.ingredients < 10:
+            con.bullet(f"{where}Pantry low: {a_shop.ingredients} "
+                       f"orders of stock left.")
 
     for planned in routes_planned(state, plans).values():
         r = routes.resolve_route(state, planned, con, streams.routes)
@@ -1171,12 +1224,10 @@ def _commit_route(state: State, plan: dict, con: Console,
 
 def night(state: State, plans: dict, service_report: dict, con: Console,
           streams: Streams, config: GameConfig | None = None) -> None:
-    # The address this surface is about, resolved ONCE at the
-    # boundary and threaded through (design rev. 27 item 6):
-    # Act I, the Straight Path and the Quiet Sale each concern
-    # one established shop, and every helper below takes it as
-    # a parameter rather than reaching for "the shop".
-    shop_at = models.operating_shop(state)
+    # No address is resolved here (P4b.1a): the night settles the
+    # whole operation, and the ONE surface that is address-specific
+    # — moving stock between a room and the warehouse — picks its
+    # own address at the point of use.
     con.header(f"DAY {state.day} — AFTER CLOSE")
     # The night's wagon, opened from what the service phase actually
     # did (a departed route or pickup holds it; a pickup scrubbed
@@ -1361,7 +1412,8 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         elif key == "debt":
             _pay_debt(state, con)
         elif key == "storage":
-            _storage(state, shop_at, con, streams)
+            _storage(state, _at(state, con, "Whose stockroom?"),
+                     con, streams)
         elif key == "rival":
             rivals.negotiate(state, con, streams.rivals)
         elif key == "settle":

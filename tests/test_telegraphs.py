@@ -296,7 +296,8 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         # along, load 20, no cover — the loudest possible wagon.
         plan_con = CaptureConsole([3, 0, 1, 20, 0])
         plan = routes.plan_route(state, plan_con, streams.routes,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         # Service with "Sell" at every stop and "Play it cool" at every
         # blue light — the reviewer's path to a search.
         service_con = CaptureConsole([0] * 40)
@@ -329,7 +330,8 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         market.roll_prices(state, Streams(1).daily(12, "market"))
         con = CaptureConsole([3, 0, 1, 0, 0])       # ride along, load nothing
         routes.plan_route(state, con, Streams(1).routes,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsNone(con.find(ROUTE_WARNING))
 
         state = new_state()
@@ -339,7 +341,8 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         market.roll_prices(state, Streams(1).daily(12, "market"))
         con = CaptureConsole([3, 0, 1, 20, 0])
         routes.plan_route(state, con, Streams(1).routes,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsNone(con.find(ROUTE_WARNING))
 
     def test_a_route_that_would_fund_the_payoff_is_warned(self):
@@ -356,7 +359,8 @@ class TestRouteCrossingThenPayoff(unittest.TestCase):
         self.assertFalse(state.payoff_in_reach())
         con = CaptureConsole([3, 0, 1, 20, 0])
         routes.plan_route(state, con, Streams(1).routes,
-            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)))
+            wagon=models.PlannedWagon((models.HOME_WAGON_KEY,)),
+            origin=state.shop_by_key(models.HOME_SHOP_KEY))
         self.assertIsNotNone(con.find(ROUTE_WARNING))
 
 
