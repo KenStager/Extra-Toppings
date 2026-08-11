@@ -134,3 +134,28 @@ reserved-identity test still standing over every composition.
    ever put it on a civilian; the cop wears it by generation.
 2. **All five type-class picks APPROVED** into `approved/` (cop
    s10102, student s10111, docker s10122, seated s10132/s10141).
+
+## Seated-direction bases (2026-08-11, user ruling: proceed; 4 gens)
+
+Anonymous customers at faced four-tops need back and profile seated
+bases (approved seated extras are south-facing only). E10 recipe,
+code-blocked zone-color anchors, init@140, 2 seeds each: all four
+PASS mechanically, and all four FAILED the recolorability pick
+criterion on measurement — **zone collapse**: the "slate shirt"
+rendered ink everywhere (top zone 0–13px), merging shirt and
+trousers into one color. The fix was the kid-shoe precedent,
+region-scoped deterministic zone repair: ink→slate within measured
+torso boxes (back s10202: 107px; profile s10212: 46px), zones
+verified separated after (109/22 and 59/33). West-facing profile
+derived by mirror (extras carry no marks).
+
+Picks: `extra_seated_back_final` (s10202 — hair zone present, honest
+back read), `extra_seated_profile_final` (s10212 — lean-in posture),
+`extra_seated_profile_west_final` (mirror). Sign-off render
+delivered: two four-tops seated under the crowd wardrobe law (warm
+tops via exact-color swaps on the repaired zones, slate minority).
+AWAITING the board's sign-off on chairs + seated bases together.
+
+Lesson: zone compliance is MEASURED at pick time, never assumed —
+generation collapsed the zones even with zone-colored anchors at
+init@140, and only the census caught it.
