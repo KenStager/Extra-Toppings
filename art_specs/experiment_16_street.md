@@ -886,3 +886,26 @@ with the law in its comment; the builder rebuilt v19 from data. The
 Godot proof is untouched (actors are presentation, not staged
 scene). NN scaling remains mock-only; the native vehicle class
 remains the real fix in the queue.
+
+## v20 — the wagon's stature and the driving depth law
+## (2026-08-11, board: "Why is the wagon smaller than a sedan...
+## it is essentially ready to hit the curb"; 0 gens)
+
+Reflected critically, measured, and both notes were earned. SIZE:
+the hero wagon is native 65x38, designed against figures before any
+sedan convention existed; the 2x donor sedans (70x38) out-stood it.
+A van's length can be compact (the shop's modest panel van, honest
+under the world's ~0.8 compression) but a van must stand OVER a
+sedan's roofline, and both drew 38px. The strip test ruled: 1.5x is
+a bus and breaks the lane; **1.25x (81x47) is the van** - taller
+than the sedan at comparable length. Interim: wagon at 1.25x NN
+under the mock-only law; **81x47 is recorded as the native wagon's
+target proportion** for the queued vehicle class round, where NN
+retires. Lane law amended: 38-in-40 is the SEDAN class fit; taller
+classes overflow upward, footprint in-lane. DEPTH: base_y 340 put
+the wagon's wheels 4px off the far curb - a flaw v14 carried
+uncorrected. THE DRIVING DEPTH LAW, now data: driving vehicles
+anchor base_y = lane_bottom - 14 (lane 1 -> 290, lane 2 -> 330),
+centering the footprint; parked vehicles keep the v14 precedent
+(base 260). All recorded in actors_presentation; the builder
+rebuilt v20 from data; the Godot proof stands untouched.
