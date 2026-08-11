@@ -32,6 +32,7 @@ whole-pizza prop). Pure Python + Pillow; no other dependencies.
 | `mcp_client.py` | Stdlib JSON-RPC client for the MCP-only tool surface |
 | `pixel_font.py` | Deterministic 5×7 caps font (brand lettering is code) |
 | `branding.py` | DiNapoli's sign / emblem / awning builders |
+| `street_block.py` | E16 street laws: donor derivations, code assets, grounding |
 
 ## Running the tests
 
