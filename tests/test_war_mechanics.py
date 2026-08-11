@@ -156,12 +156,19 @@ class TestTheDeclaration(unittest.TestCase):
         # assertion.
         self.assertIn(state.branch, ("stand_pat", "war"))
 
-    def test_partner_still_fails_loudly(self):
+    def test_the_partner_chair_seats_without_disturbing_the_war(self):
+        # This was `test_partner_still_fails_loudly` — partner had no
+        # commit path and stood in as the probe for the loud failure.
+        # P4b.1b gave it one, so the invariant moved to the canonical
+        # chair sweep in test_p1_foundation, and what belongs HERE is
+        # the war file's own question: seating partner leaves no war
+        # behind it.
         state = scene_state()
         cfg = GameConfig(fork_enabled=True,
                          enabled_branches=frozenset({"partner"}))
-        with self.assertRaises(NotImplementedError):
-            game.sitdown.run_scene(state, Scripted([1]), cfg)
+        game.sitdown.run_scene(state, Scripted([1, 1, 1]), cfg)
+        self.assertEqual(state.branch, "partner")
+        self.assertIsNone(models_mod.live_campaign(state))
 
 
 class TestWarPay(unittest.TestCase):

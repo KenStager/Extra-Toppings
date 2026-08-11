@@ -16,7 +16,8 @@ from dataclasses import FrozenInstanceError
 from unittest import mock
 
 from analysis import equivalence
-from extra_toppings import data, game, models, phases, save, sitdown
+from extra_toppings import (data, game, models, partner, phases,
+                            save, sitdown)
 from extra_toppings.bot import GreedyBot
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (BranchState, Evidence, SitdownSnapshot,
@@ -359,14 +360,45 @@ class TestSitdownScene(unittest.TestCase):
         self.assertIsNotNone(con.find("idle across the street"))
         self.assertEqual(state.branch, "stand_pat")
 
-    def test_an_enabled_branch_without_a_commit_path_fails_loudly(self):
-        # P2 gave `straight` its commit path; `partner` is now the
-        # probe — the invariant is the loud failure, not the branch.
-        state = scene_state()
-        cfg = GameConfig(fork_enabled=True,
-                         enabled_branches=frozenset({"partner"}))
-        with self.assertRaises(NotImplementedError):
-            sitdown.run_scene(state, CaptureConsole([1]), cfg)
+    # The site answer is BUILT FROM THE DISTRICT IDENTITY (rev. 31
+    # item 2), never written as a literal index: a positional
+    # constant here would claim identity and mean position, and a
+    # menu reorder would silently change which world this test
+    # builds while the comment still said University Hill.
+    SITE = "university"
+
+    def _chair_script(self, chair):
+        site_answer = 1 + partner.SITE_DISTRICTS.index(self.SITE)
+        return {
+            "straight": [0, 1],        # chair, burn the book
+            "partner": [1, site_answer, 1],   # chair, the site, shake
+            "war": [2, 1, 1],          # chair, name the first rival, declare
+            "quiet_sale": [3, 1],      # chair, shake on it
+        }[chair]
+
+    def test_every_canonical_chair_has_a_commit_path(self):
+        # P4b.1b seated the last chair, so no branch id is left to
+        # probe the loud failure WITH. The invariant is now pinned
+        # from the other side and over the canonical list itself:
+        # every chair in BRANCH_ORDER seats when it is enabled and
+        # chosen. Add a fifth chair without a commit path and this
+        # fails the day it is added — at test time rather than under
+        # a player — while the `NotImplementedError` in `run_scene`
+        # stays as the runtime backstop, because without it an
+        # unhandled chair falls through to an endless re-prompt,
+        # which is worse than a raise.
+        for chair in models.BRANCH_ORDER:
+            with self.subTest(chair):
+                state = scene_state()
+                cfg = GameConfig(fork_enabled=True,
+                                 enabled_branches=frozenset({chair}))
+                sitdown.run_scene(
+                    state, CaptureConsole(self._chair_script(chair)), cfg)
+                self.assertEqual(state.branch, chair)
+                self.assertEqual(state.act, 2)
+                if chair == "partner":
+                    # The chosen SITE, asserted by identity too.
+                    self.assertEqual(state.shops[-1].district, self.SITE)
 
 
 # ══ The canonical view: frozen ledger vs live morning file ════════
@@ -676,6 +708,159 @@ class TestSaveRoundTrips(unittest.TestCase):
         self.assertEqual(restored.act, 2)
         self.assertIsNone(restored.branch_state)
         self.assertFalse(sitdown.due(restored))
+
+    def test_a_snapshot_must_be_a_lock_up_at_the_load_boundary(self):
+        # P4b.1b review: `payoff_day=13.0` passed every arithmetic the
+        # scene does (`30 - 13.0` compares fine) and set a PERMANENT
+        # points schedule from a day that is not a day. The refusal
+        # binds at the SHARED persistence boundary, not inside the
+        # branch that noticed it — every consumer of the snapshot
+        # deserves the same guarantee.
+        good = scene_state(payoff_day=12, case=65.0)
+        good.evidence.append(Evidence(day=1, magnitude=1.0,
+                                      kind="physical", why="a crate"))
+        save.state_from_dict(save.state_to_dict(good))       # baseline
+        for field, bad in (
+            ("payoff_day", 13.0),            # not a whole day
+            ("payoff_day", True),            # a bool is not a day
+            ("payoff_day", "12"),            # nor a string
+            ("payoff_day", 0),               # before the calendar
+            ("payoff_day", 99),              # after the run's reach
+            ("payoff_day", 11),              # disagrees with the ledger
+            ("evidence_count_at_lockup", 1.0),
+            ("evidence_count_at_lockup", True),
+            ("evidence_count_at_lockup", -1),
+            ("evidence_count_at_lockup", 99),   # beyond the ledger
+            ("case_at_lockup", "65"),
+            ("case_at_lockup", True),
+            ("case_at_lockup", -1.0),
+            # THE Case domain (P4b.1b review). Type plus `< 0` let
+            # all three of these through: 101 is not a Case the fold
+            # could produce, infinity is not a number of evidence
+            # points, and NaN defeats a two-inequality bounds check
+            # outright, because every comparison against it is False.
+            ("case_at_lockup", 100.1),
+            ("case_at_lockup", 101.0),
+            ("case_at_lockup", float("nan")),
+            ("case_at_lockup", float("inf")),
+            ("case_at_lockup", float("-inf")),
+        ):
+            with self.subTest(f"{field}={bad!r}"):
+                payload = save.state_to_dict(good)
+                payload["sitdown_snapshot"][field] = bad
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(payload)
+
+    def test_the_case_domain_is_the_folds_own_and_its_ends_are_valid(self):
+        # One home, shared with the fold: the persisted bound IS the
+        # interval gameplay clamps into, so the endpoints must load.
+        self.assertEqual((models.CASE_MIN, models.CASE_MAX), (0.0, 100.0))
+        for value in (0, 0.0, 100, 100.0, 50.5):
+            with self.subTest(value=value):
+                state = scene_state(payoff_day=12, case=value)
+                loaded = save.state_from_dict(save.state_to_dict(state))
+                self.assertEqual(loaded.sitdown_snapshot.case_at_lockup,
+                                 value)
+
+    def test_the_domain_predicate_and_the_fold_agree(self):
+        # The fold cannot produce a value the predicate refuses —
+        # asserted over the fold's own output rather than by reading
+        # its source, so the two cannot drift.
+        for magnitude in (0.0, 1.0, 99.0, 100.0, 250.0):
+            with self.subTest(magnitude=magnitude):
+                folded = models.fold_case(
+                    [Evidence(day=1, magnitude=magnitude, kind="physical",
+                              why="x")])
+                self.assertTrue(models.case_in_domain(folded), folded)
+
+    def test_the_finite_predicate_answers_every_object_and_never_throws(self):
+        # It is asked at three boundaries, so it must be total: a
+        # huge int used to raise OverflowError inside
+        # `math.isfinite`, turning a doctored payload into a crash
+        # instead of a refusal. A Python int is finite at any size.
+        for value, expected in (
+                (0, True), (10, True), (-3, True), (1.5, True),
+                (10 ** 1000, True),           # exact, finite, enormous
+                (float("nan"), False), (float("inf"), False),
+                (float("-inf"), False), (True, False), (False, False),
+                ("5", False), (None, False), ([], False),
+                (object(), False)):
+            with self.subTest(value=type(value).__name__):
+                self.assertIs(models.is_finite_number(value), expected)
+
+    def test_a_case_out_of_domain_cannot_ride_a_big_int_either(self):
+        self.assertFalse(models.case_in_domain(10 ** 1000))
+        self.assertFalse(models.case_in_domain(-(10 ** 1000)))
+
+    def test_evidence_refuses_non_finite_magnitudes_at_load(self):
+        # NaN and +inf both walked past `type` plus `< 0` — NaN
+        # because every comparison against it is False, +inf because
+        # it is cheerfully non-negative — and either one folds the
+        # whole ledger to a Case of 100: an arrest written by a
+        # doctored save rather than by play.
+        state = scene_state(payoff_day=12, case=20.0,
+                            evidence=[(11, 20.0, "seizures")])
+        save.state_from_dict(save.state_to_dict(state))       # baseline
+        for field in ("magnitude", "accrued"):
+            for bad in (float("nan"), float("inf"), float("-inf")):
+                with self.subTest(f"{field}={bad!r}"):
+                    payload = save.state_to_dict(state)
+                    payload["evidence"][0][field] = bad
+                    with self.assertRaises(ValueError):
+                        save.state_from_dict(payload)
+
+    def test_the_accrual_boundary_refuses_a_non_finite_amount(self):
+        state = new_state()
+        for bad in (float("nan"), float("inf")):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    state.add_case(bad, "impossible", kind="physical")
+                self.assertEqual(state.evidence, [])
+                self.assertIsNone(state.game_over)
+
+    def test_the_calendar_primitives_are_exact_whole_days(self):
+        # The counterfeit day need not be the value under test — it
+        # can be the RULER: `debt_paid_day=13.0` reconciles with a
+        # snapshot's `13` through Python equality, and `day=14.0`
+        # satisfies every "within the calendar reached" comparison.
+        good = scene_state(payoff_day=12)
+        save.state_from_dict(save.state_to_dict(good))        # baseline
+        for field, bad in (("day", 13.0), ("day", True), ("day", 0),
+                           ("day", -1), ("day", "13"),
+                           ("debt_paid_day", 12.0),
+                           ("debt_paid_day", True),
+                           ("debt_paid_day", 0),
+                           ("debt_paid_day", 99)):
+            with self.subTest(f"{field}={bad!r}"):
+                payload = save.state_to_dict(good)
+                payload[field] = bad
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(payload)
+
+    def test_a_run_that_never_paid_carries_no_payoff_day(self):
+        # None is the legal absence, and it must keep loading.
+        payload = save.state_to_dict(new_state())
+        self.assertIsNone(payload["debt_paid_day"])
+        save.state_from_dict(payload)
+
+    def test_a_snapshot_reconciles_with_the_payoff_it_records(self):
+        # Two answers to "when was Carmine paid" would silently
+        # reprice a chair, since R is derived from the snapshot.
+        state = scene_state(payoff_day=12)
+        payload = save.state_to_dict(state)
+        payload["debt_paid_day"] = None
+        with self.assertRaises(ValueError):
+            save.state_from_dict(payload)
+
+    def test_the_lock_up_count_may_equal_the_ledger_length(self):
+        # The boundary the bound turns on: the count is a PREFIX
+        # length, and freezing after the last record is the ordinary
+        # case, not an off-by-one.
+        state = scene_state(payoff_day=12, case=65.0,
+                            evidence=[(11, 65.0, "seizures")])
+        self.assertEqual(state.sitdown_snapshot.evidence_count_at_lockup,
+                         len(state.evidence))
+        save.state_from_dict(save.state_to_dict(state))
 
     def test_older_v3_payloads_load_the_snapshot_as_none(self):
         d = save.state_to_dict(new_state())

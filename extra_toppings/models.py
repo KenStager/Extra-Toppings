@@ -1,5 +1,6 @@
 """Mutable game state: people, places, money, evidence."""
 
+import math
 from dataclasses import dataclass, field, fields
 
 from . import data
@@ -138,6 +139,51 @@ DORMANT_MORALE = 5
 CASE_FLOOR = 10.0
 REMEDIATION_CAP = 25.0
 
+# THE Case domain, in one home (P4b.1b review). Gameplay clamps every
+# fold into this range, so persistence must enforce the same finite
+# interval: a stored Case of 101, of infinity or of NaN is not a
+# number the game could ever have produced, and NaN in particular
+# passes `< 0` and `> 100` alike — every comparison against it is
+# False, so a bounds check written as two inequalities lets it
+# straight through. `case_in_domain` is the one predicate; the fold
+# below clamps to the same two constants rather than repeating them.
+CASE_MIN = 0.0
+CASE_MAX = 100.0
+
+
+def is_finite_number(value: object) -> bool:
+    """THE finite-number predicate, shared by every numeric boundary
+    that persistence binds: the Case domain, evidence magnitudes and
+    accruals, and the accrual entry point.
+
+    Two hazards, both of which have reached this codebase:
+
+    NaN and the infinities defeat range tests. Every comparison
+    against NaN is False, so `x < 0` and `x > 100` both fail and a
+    two-inequality bounds check waves it through; `+inf` passes any
+    "non-negative" test and folds to a Case of 100. Finiteness is
+    therefore asked FIRST and explicitly, never inferred from a
+    comparison.
+
+    And it NEVER RAISES, for any object. `math.isfinite(10**1000)`
+    raises OverflowError converting a big int to float — so a
+    predicate that reached for it unconditionally would turn a
+    doctored payload into a crash instead of a refusal. A Python int
+    is finite by construction whatever its size, so only floats are
+    asked."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    if isinstance(value, int):
+        return True                 # exact, and finite at any size
+    return math.isfinite(value)
+
+
+def case_in_domain(value: object) -> bool:
+    """Whether a value is a Case the engine could have produced: a
+    finite real number inside [CASE_MIN, CASE_MAX]. The interval is
+    the one `fold_case` clamps into, from the same two constants."""
+    return is_finite_number(value) and CASE_MIN <= value <= CASE_MAX  # type: ignore[operator]
+
 EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
                   "suspicion")
 
@@ -268,7 +314,7 @@ def fold_case(evidence: list, dormant_sources: frozenset = frozenset()) \
             if halvable >= allowance:
                 return CASE_FLOOR           # floor-bound: canonical
             total -= halvable
-    return max(0.0, min(100.0, total))
+    return max(CASE_MIN, min(CASE_MAX, total))
 
 
 @dataclass
@@ -1210,17 +1256,21 @@ def validate_evidence(records: list) -> None:
     for i, r in enumerate(records):
         if r.kind not in EVIDENCE_KINDS:
             raise ValueError(f"evidence[{i}]: unknown kind {r.kind!r}")
-        if isinstance(r.magnitude, bool) \
-                or not isinstance(r.magnitude, (int, float)) \
-                or r.magnitude < 0:
+        # FINITE, through the shared predicate (P4b.1b review). The
+        # old spelling asked type and `< 0`, and both NaN and +inf
+        # walked past it: NaN because every comparison against it is
+        # False, +inf because it is cheerfully non-negative. Either
+        # one folds the whole ledger to a Case of 100 — an arrest
+        # written by a doctored save rather than by play.
+        if not is_finite_number(r.magnitude) or r.magnitude < 0:
             raise ValueError(f"evidence[{i}]: magnitude must be a "
-                             f"non-negative number, got {r.magnitude!r}")
-        if isinstance(r.accrued, bool) \
-                or not isinstance(r.accrued, (int, float)) \
-                or r.accrued < 0 or r.magnitude > r.accrued:
-            raise ValueError(f"evidence[{i}]: accrued must be a number "
-                             f"with 0 <= effective <= accrued, got "
-                             f"effective {r.magnitude!r} of "
+                             f"finite non-negative number, got "
+                             f"{r.magnitude!r}")
+        if not is_finite_number(r.accrued) or r.accrued < 0 \
+                or r.magnitude > r.accrued:
+            raise ValueError(f"evidence[{i}]: accrued must be a finite "
+                             f"number with 0 <= effective <= accrued, "
+                             f"got effective {r.magnitude!r} of "
                              f"{r.accrued!r} (rev. 16)")
         if not isinstance(r.contested, bool):
             raise ValueError(f"evidence[{i}]: contested must be a boolean")
@@ -1298,6 +1348,54 @@ def remediation_disposition(record, state: "State | None" = None) -> str:
             return "beyond_reach"
         return "settleable"
     return "immune"
+
+
+# ── identity minting (rev. 31 item 1) ────────────────────────────
+# The founding pair is NAMED where the world is built; every later
+# address and vehicle has its identity MINTED here, and the numbering
+# starts at 2 because 1 is the founding suffix those constants carry.
+_FIRST_MINTED_SUFFIX = 2
+
+
+def _lowest_unused_key(taken, prefix: str) -> str:
+    """THE suffix arithmetic, spelled once: the lowest unused
+    `{prefix}{n}` from 2 upward.
+
+    LIST ORDER IS NEVER READ (rev. 31 item 1). Counting records, or
+    taking "the last key plus one", makes the answer depend on how
+    many rows exist and in what order — so a sparse set (`shop1`,
+    `shop3`, shop 2 having never existed or been removed by some
+    future editor) would mint a key that is already taken, and
+    reversing the list would change what a save is called. Membership
+    in the set of existing keys is the only question asked.
+
+    It deliberately does not know what a shop or a wagon IS: two
+    copies of "find the free number" is the respelling this project
+    refuses, so the domain wrappers below are three lines each."""
+    used = set(taken)
+    n = _FIRST_MINTED_SUFFIX
+    while f"{prefix}{n}" in used:
+        n += 1
+    return f"{prefix}{n}"
+
+
+def mint_shop_key(state: "State") -> str:
+    """The identity a NEW address will carry.
+
+    MINTING RESERVES NOTHING — this is a calculation, not a claim, so
+    two calls before a commit return the SAME key and the second
+    record would silently overwrite the first. The atomic deal
+    transaction is therefore the sole production caller (rev. 31
+    item 1): mint once, build both records locally, preflight the
+    whole transaction, commit once. A test guards that scope."""
+    return _lowest_unused_key((s.key for s in state.shops), "shop")
+
+
+def mint_wagon_key(state: "State") -> str:
+    """The identity a NEW wagon will carry. Same authority, same
+    reservation-free warning: an address and its wagon are created by
+    ONE transaction, so both keys are minted inside it."""
+    return _lowest_unused_key((w.key for w in state.wagons), "wagon")
 
 
 def _only_with_key(items: list, key: str, kind: str):
@@ -1662,6 +1760,10 @@ def validate_cross_state(state: "State") -> None:
     naming a nonexistent or never-aware employee, or a settled name
     still on the payroll (the closed rehire lifecycle) are refused,
     not repaired."""
+    # The calendar FIRST: every dated validator below compares
+    # against `state.day`, so a counterfeit ruler would let real
+    # dates pass by measuring them wrongly.
+    validate_calendar(state)
     validate_addresses(state)
     all_keys = [e.key for e in state.employees]
     keys = set(all_keys)
@@ -1686,7 +1788,101 @@ def validate_cross_state(state: "State") -> None:
                 f"{label} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
     validate_execution_history(state)
+    validate_sitdown_snapshot(state)
     _validate_witnesses_and_campaigns(state)
+
+
+def validate_calendar(state: "State") -> None:
+    """THE calendar primitives, bound at the shared boundary (P4b.1b
+    review).
+
+    Every dated check in the engine — the lifecycle's acceptance and
+    opening days, the snapshot's payoff day, the points schedule —
+    compares against `state.day` and `debt_paid_day`, and Python's
+    equality is happy to reconcile `13.0` with `13` and to satisfy
+    `<= state.day` with `14.0`. So the counterfeit day never has to
+    be the value under test; it can be the ruler. Both are exact
+    whole days here, once, and every dated validator downstream is
+    then comparing against a real calendar."""
+    if type(state.day) is not int or state.day < 1:
+        raise ValueError(
+            f"the calendar day is a positive whole day, got "
+            f"{state.day!r}")
+    if state.debt_paid_day is not None:
+        if type(state.debt_paid_day) is not int:
+            raise ValueError(
+                f"the payoff day is a whole calendar day, got "
+                f"{state.debt_paid_day!r}")
+        if not 1 <= state.debt_paid_day <= state.day:
+            raise ValueError(
+                f"the debt was paid on day {state.debt_paid_day}, "
+                f"outside the calendar the run has reached (day "
+                f"{state.day})")
+
+
+def validate_sitdown_snapshot(state: "State") -> None:
+    """The lock-up snapshot must BE a lock-up (P4b.1b review).
+
+    It is three primitives, and every one of them is load-bearing
+    somewhere permanent: `payoff_day` decides R and therefore which
+    chairs are offered at all, and the Partner deal reads it into a
+    points schedule that outlives the scene by the whole month. So a
+    payload carrying `payoff_day=13.0` used to sail through the
+    scene's arithmetic — `30 - 13.0` compares fine — and set a
+    permanent schedule from a day that is not a day.
+
+    This binds at the SHARED boundary rather than inside the branch
+    that noticed it: every consumer of the snapshot deserves the same
+    guarantee, and a check living in Partner would leave the same
+    payload malformed for everyone else. Refused, never repaired —
+    coercing 13.0 to 13 would accept a save nobody could have
+    written by playing."""
+    snap = state.sitdown_snapshot
+    if snap is None:
+        return
+    # Whole calendar days and whole counts — `type(...) is int`, the
+    # save layer's own rule, so a bool is not a day and 13.0 is not
+    # day 13.
+    if type(snap.payoff_day) is not int:
+        raise ValueError(
+            f"the sit-down snapshot's payoff day is a whole calendar "
+            f"day, got {snap.payoff_day!r}")
+    if type(snap.evidence_count_at_lockup) is not int:
+        raise ValueError(
+            f"the sit-down snapshot's evidence count is a whole "
+            f"number of records, got "
+            f"{snap.evidence_count_at_lockup!r}")
+    # THE Case domain, from its one home — the same interval the fold
+    # clamps every gameplay total into. Type and `< 0` were not
+    # enough: 101.0 is not a Case the engine could produce, infinity
+    # is not a number of evidence points, and NaN passes BOTH `< 0`
+    # and `> 100` because every comparison against it is False.
+    if not case_in_domain(snap.case_at_lockup):
+        raise ValueError(
+            f"the sit-down snapshot's Case must be a finite number in "
+            f"[{CASE_MIN:g}, {CASE_MAX:g}], got {snap.case_at_lockup!r}")
+    if not 1 <= snap.payoff_day <= state.day:
+        raise ValueError(
+            f"the sit-down snapshot's payoff day {snap.payoff_day} is "
+            f"outside the calendar the run has reached (day "
+            f"{state.day})")
+    # The ledger only grows, so the lock-up count is a prefix of it.
+    # A count beyond the ledger would make `evidence[:count]` silently
+    # short and the gate-crossing record wrong.
+    if not 0 <= snap.evidence_count_at_lockup <= len(state.evidence):
+        raise ValueError(
+            f"the sit-down snapshot counted "
+            f"{snap.evidence_count_at_lockup} records at lock-up; the "
+            f"ledger holds {len(state.evidence)}")
+    # And it reconciles with the payoff it was taken on: the snapshot
+    # is frozen on the night the debt died, by construction. Two
+    # different answers to "when was Carmine paid" is the two-homes
+    # defect, and here it would silently reprice a chair.
+    if state.debt_paid_day != snap.payoff_day:
+        raise ValueError(
+            f"the sit-down snapshot says the debt died on day "
+            f"{snap.payoff_day}; the ledger says "
+            f"{state.debt_paid_day!r}")
 
 
 def validate_execution_history(state: "State") -> None:
@@ -2540,7 +2736,19 @@ class State:
         set HERE, at accrual time, and arrest outranks every simultaneous
         outcome (design §2.5) — a success ending set moments earlier
         loses to the latch. Nothing accrues evidence after a run ends,
-        so a finished game is never rewritten."""
+        so a finished game is never rewritten.
+
+        THE ACCRUAL BOUNDARY refuses a non-finite magnitude rather
+        than booking it (P4b.1b review): `add_case(float("inf"), …)`
+        would append a record the fold turns into an immediate Case
+        of 100 and an arrest, and `add_case(float("nan"), …)` slips
+        past `amount <= 0` because every comparison against NaN is
+        False. Nothing in the engine computes either, so reaching
+        here with one is a caller bug — refused loudly, never
+        booked."""
+        if not is_finite_number(amount):
+            raise ValueError(
+                f"evidence accrues in finite amounts, got {amount!r}")
         if amount <= 0:
             return
         self.evidence.append(Evidence(day=self.day, magnitude=amount,
