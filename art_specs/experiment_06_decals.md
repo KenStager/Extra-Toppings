@@ -160,3 +160,10 @@ speckle decals belong on field floors (plank/parquet/tile_warm);
 checker floors take only the denser contiguous-blob decals, judged
 in context. Formal approval of the six warm cuts + flour family
 awaits the user's word now that the issue is explained.
+
+## Full approval (2026-08-10, user board)
+
+"E06, full approval" — the six warm window-cut decals and both flour
+decals moved to `approved/` with the composition guidance recorded in
+each approval record. Eight production wear decals total; the wear
+layer ships.
