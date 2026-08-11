@@ -35,3 +35,16 @@ checker), and the approved variant roster becomes data, not code.
 
 Tier note: account upgraded to 10 concurrent background jobs
 (2026-08-10); batch drivers may widen from the 8-job pacing.
+
+## Approval and codification (2026-08-10, user's proceed)
+
+Four bases APPROVED into `approved/` (kid with the recorded 3-row
+shoe curation). Measured zone report drove the roster design: man and
+elder hair colors are globally zone-unique on the approved bases
+(global swaps legal); woman and kid are NOT (hem pixels / body
+shading measured), so their hair swaps are head-region-scoped in the
+roster data. `recolor.py` is pipeline code (mapping application with
+optional region, ramp-collapse refusal, zone-uniqueness checker, the
+12-variant roster as data; 6 tests — suite 73). Every variant is a
+recorded mapping; the roster renders deterministically from approved
+bases into `roster/`.
