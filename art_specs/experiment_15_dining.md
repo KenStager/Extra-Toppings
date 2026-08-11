@@ -299,3 +299,18 @@ pad-back col 19 = offset −5, the exact mirror of the west's +5.
 Offsets now explicit in the staging data (west +5, east −5), and the
 mirror clause joins the recipe book: NEVER assume a mirrored sprite
 needs no offset — mirror the COORDINATES.
+
+## Sign-off and the in-engine proof (2026-08-11, user board: "This looks great!!")
+
+Read as the consolidated sign-off (judgment call flagged in every
+approval record, reversible): chairs (4, renamed by role:
+chair_front/back/profile_east/profile_west), seated bases (back +
+dangle profile pair), and fourtop_staging.json all PROMOTED. The
+superseded non-dangle profiles remain in candidates/ unpromoted.
+
+Durability proven the strongest way available: the full ensemble
+restaged with the booth bay and seated four-top built FROM the
+staging data (48 assets, 165 placements — bay + four-top + counter +
+peel + wagon + cast + crowd), rendered in Godot 4, and verified
+whole-frame byte-exact: 0 / 230,400 pixels deviate. The dining
+system is engine-real.
