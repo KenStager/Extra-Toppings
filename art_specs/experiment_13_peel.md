@@ -1,10 +1,14 @@
 # Experiment 13 — The Peel (Tier 1, 2026-08-10)
 
-Status: **6 generations, 6/6 PASS the prop contract; candidates AWAIT
-the board's pick. Ruled basis: the peel-probe reflection's Tier 1
-("Perfect" — the user, 2026-08-10): peel as its own E01-class prop,
-engine stages and tweens it, pizza-on-peel is the canon pizza
-composited at a recorded offset.**
+Status: **APPROVED (user board 2026-08-10: "Let's choose 48 s13004.
+Proceed."). `approved/peel_48.png` + `approved/pizza_bare_32.png` +
+recorded staging offsets; staged in-engine in the ensemble scene,
+whole-frame byte-exact (0/230,400, 148 placements). One judgment
+call flagged: the explicit word named s13004; the bare pie's
+approval was read from "Proceed" on the package it was presented
+in — reversible on the user's word. Overhang (26px pie vs 19px
+blade) stands as accepted with the pick. Tier 2 keyframe probe
+remains gated on the frame-0 anchor-law amendment.**
 
 ## Method
 
