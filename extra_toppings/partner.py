@@ -67,10 +67,15 @@ if set(SITE_DISTRICTS) != set(data.DISTRICTS) - {data.HOME_DISTRICT} \
 # existing relation authority takes the hit, at one recorded number.
 TURF_RELATION_DELTA = -25.0
 
-# THE points cadence (§2.4.2, rev. 31 item 3). Five days between
-# cycles; the early-payoff compliment defers the FIRST cycle by one
-# whole cycle, not by one day.
-POINTS_CYCLE_DAYS = 5
+# THE points cadence and prices live in `models` — validation prices
+# bills from them too, and two homes for a number both a scene and a
+# validator read is exactly the drift this project refuses. Named
+# here only so this module reads in its own language.
+POINTS_CYCLE_DAYS = models.POINTS_CYCLE_DAYS
+POINTS_PER_CYCLE = models.POINTS_PER_CYCLE
+POINTS_VIG = models.POINTS_VIG
+# The early-payoff compliment defers the FIRST cycle by one whole
+# cycle, not by one day (rev. 31 item 3).
 EARLY_PAYOFF_DAY = 10
 
 
@@ -301,3 +306,92 @@ def entry_scene(state: State, shop: Shop, con: Console) -> None:
                 f"first on day {bs.points_due_day}, unmarked bills "
                 f"preferred, forever. No amount pays him off. That is "
                 f"what equity means when Carmine says it.")
+
+
+# ── the points clock (§2.4.2; rev. 29 items 1 and 7) ─────────────
+
+def ledger(state: State) -> models.PartnerLedgerView:
+    """THE derived view, from the one history. Every consumer reads
+    this — the night, the card, the grade, the epilogue and the
+    studies — so a number can never mean one thing on screen and
+    another in FINDINGS."""
+    bs = state.branch_state
+    if bs is None:
+        raise ValueError("no branch state — the points clock belongs "
+                         "to a seated chair")
+    return models.partner_ledger(bs)
+
+
+def night_points(state: State, con: Console) -> None:
+    """The cycle that falls due tonight, if one does.
+
+    THERE IS NO PARTIAL PAYMENT: the complete bill clears the cycle
+    or the cycle records a miss, because a half-paid bill is a third
+    state the day-30 grade has no arm for. A miss stays owed — the
+    next bill is prior arrears plus the new points plus a $500 vig —
+    and the strike it leaves never unhappens, so the SECOND strike
+    forecloses at any later cycle, consecutive or not.
+
+    The record is appended ONCE and frozen; nothing here writes an
+    arrears or strike counter, because both are derived."""
+    bs = state.branch_state
+    if bs is None or bs.points_due_day is None:
+        return
+    if state.day < bs.points_due_day:
+        return
+    view = ledger(state)
+    bill, vig = view.next_bill, view.next_vig
+    # The cursor is not None here — `points_due_day` was checked at
+    # the top, and the view's next due day derives from it or from
+    # the history's last record. Narrowed with an ignore rather than
+    # an `assert` (assertions vanish under optimized Python, and this
+    # project refuses them) and rather than a guard that could never
+    # fire.
+    due: int = view.next_due_day        # type: ignore[assignment]
+    paid = models.pay_dirty_first(state, bill)
+    bs.points_cycles.append(models.PointsCycleRecord(
+        due_day=due, bill=bill, vig=vig, paid=paid,
+        paid_day=state.day if paid else None))
+    # The cursor advances from the DUE DATE, never from tonight, so
+    # the schedule cannot drift when a bill is met late.
+    bs.points_due_day = due + POINTS_CYCLE_DAYS
+    after = ledger(state)
+    if paid:
+        note = (" — arrears cleared, and the strike stays on the "
+                "books" if vig else "")
+        con.bullet(f"Points to Carmine: {money(bill)}, unmarked, "
+                   f"street money first{note}. Next on day "
+                   f"{bs.points_due_day}.")
+        return
+    if after.foreclosed:
+        # The second strike ends the run TONIGHT (§2.4.2). The arrest
+        # latch keeps precedence by construction: accrual sets
+        # game_over first, and the branch night ticks only run on
+        # live games.
+        if state.game_over is None:
+            state.game_over = "foreclosed"
+        con.bullet(f"The bill was {money(bill)} and it did not get "
+                   f"paid. Two misses. Carmine does not raise his "
+                   f"voice; a man you have never met is behind the "
+                   f"counter before the ovens are cold.")
+        return
+    con.bullet(f"You miss the points: {money(bill)} owed and unpaid. "
+               f"It stays owed, it carries {money(POINTS_VIG)} of vig "
+               f"onto the next bill, and Carmine remembers. Miss "
+               f"again — any cycle, not just the next — and the shop "
+               f"is his.")
+
+
+def night_insolvency(state: State, con: Console,
+                     payroll_short: bool) -> None:
+    """The shared clean-insolvency transition, in Partner's voice
+    (rev. 15 item 3, rev. 29 item 7): two shops fed from an empty
+    till end the same way every empty till does."""
+    outcome = models.insolvency_tick(state, payroll_short)
+    if outcome == "broke":
+        con.say("  Two nights running: no payroll, no stock, no hidden "
+                "dollar. Two rooms, both dark, and neither of them "
+                "yours by morning.")
+    elif outcome == "warned":
+        con.say("  Nothing in either till, nothing on either shelf. "
+                "One more night like this and it is finished.")

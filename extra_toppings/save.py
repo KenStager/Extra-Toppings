@@ -18,7 +18,8 @@ from . import data, models
 from .models import (RaidAttemptRecord, RouteExecutionRecord,
                      ActiveEvent, BranchState, DamageRecord, District,
                      Employee, Evidence, Rival, Shop, SitdownSnapshot, State,
-                     WarCampaignState, validate_branch_state,
+                     PointsCycleRecord, WarCampaignState,
+                     validate_branch_state,
                      validate_cross_state, validate_evidence)
 from .rng import Streams
 
@@ -314,6 +315,16 @@ def _branch_state_from(payload: dict | None) -> BranchState | None:
                 for c in payload["campaigns"]]
         except TypeError as exc:
             raise ValueError(f"war: malformed campaign payload ({exc})")
+    if payload.get("points_cycles"):
+        # The points history is typed the same way and for the same
+        # reason (rev. 29 item 1): both books DERIVE from these
+        # records, so validation must judge real ones. A payload
+        # whose shape does not fit is refused, not repaired.
+        try:
+            payload["points_cycles"] = [
+                PointsCycleRecord(**c) for c in payload["points_cycles"]]
+        except TypeError as exc:
+            raise ValueError(f"partner: malformed points payload ({exc})")
     try:
         return BranchState(**payload)
     except TypeError as exc:
