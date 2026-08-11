@@ -310,3 +310,13 @@ proxy-derived box, feature-band guess) recolored pixels whose
 identity was assumed; the fix took one minute once the map named
 them. Boards judge reads; maps name pixels; recolor only named
 pixels.
+
+## Bee v6 (2026-08-11; 0 gens)
+
+The board's reposted before/after pointed at the remaining strays:
+rose speckles clinging to the lens rims and temples. Size-gated
+component cleanup (rose components <=3px in rows 14-29, majority-
+filled with neighboring SKIN — frame and hair excluded from votes)
+removed 9 named pixels; the 5-6px blush runs and under-eye warmth
+passed the gate untouched. Bee's final face: cream sclera, clean
+rims, blush intact.
