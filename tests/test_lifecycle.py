@@ -2015,11 +2015,8 @@ class TestEverySurfaceTakesTheWorldsAddress(unittest.TestCase):
         return {
             "_market_board":
                 lambda: phases._market_board(state, a_shop, Listening()),
-            # The plan set is passed explicitly — every production
-            # caller passes one, and `plans=None` falls through to a
-            # `{}` the route contract refuses (noted for review, not
-            # changed here: it is outside this ruling and unreachable
-            # from any caller in the tree).
+            # The plan set is REQUIRED, so it is passed like every
+            # production caller passes it.
             "_kitchen_policy":
                 lambda: phases._kitchen_policy(state, a_shop,
                                                Listening([0, 2]),
@@ -2043,6 +2040,22 @@ class TestEverySurfaceTakesTheWorldsAddress(unittest.TestCase):
     def test_the_roster_is_the_six_surfaces_and_they_all_exist(self):
         for name in self.SURFACES:
             self.assertTrue(callable(getattr(phases, name)), name)
+
+    def test_kitchen_policy_requires_the_plan_set_it_reads(self):
+        # The optional default was a lie the type told: `plans or {}`
+        # handed the route contract an empty mapping, which it
+        # refuses — a night with no routes says so with
+        # `{"routes": {}}`. So the default could not work if taken,
+        # while reading as a supported way to call this. Required
+        # now, and a caller that forgets fails AT THE CALL.
+        state, real = self._world()
+        with self.assertRaises(TypeError):
+            phases._kitchen_policy(          # type: ignore[call-arg]
+                state, real, Listening([0, 2]))
+        # And the empty-night plan set, spelled the one canonical way,
+        # still passes.
+        phases._kitchen_policy(state, real, Listening([0, 2]),
+                               {"routes": {}})
 
     def test_every_surface_refuses_a_detached_copy_untouched(self):
         for name in self.SURFACES:

@@ -861,7 +861,17 @@ def _market_board(state: State, shop_at: Shop, con: Console) -> None:
 
 
 def _kitchen_policy(state: State, shop_at: Shop, con: Console,
-                    plans: dict | None = None) -> None:
+                    plans: dict) -> None:
+    # THE plan set is REQUIRED (P4b.1a review). The optional default
+    # was a lie the type told: `plans or {}` handed `routes_planned`
+    # an empty mapping, and the route contract refuses one — a night
+    # with no routes says so with `{"routes": {}}`. So the default
+    # could not work if it were ever taken, while reading as the
+    # supported way to call this. Every caller in the tree already
+    # passes a real plan set; the signature now says so, and a caller
+    # that forgets fails at the call rather than deep inside the
+    # order-book line.
+    #
     # THE address, resolved through the state: this sets quality and
     # pricing and then re-rolls the order book, so a copy would take
     # the player's decisions and leave the real kitchen unchanged.
@@ -883,7 +893,7 @@ def _kitchen_policy(state: State, shop_at: Shop, con: Console,
     shop.recompute_demand(state, shop_at)
     con.say(f"  Order book now: ~{shop_at.demand_today} customers, "
             f"{shop_at.delivery_pool} delivery orders.")
-    route = routes_planned(state, plans or {}).get(shop_at.key)
+    route = routes_planned(state, plans).get(shop_at.key)
     if route and route["legit"] > shop_at.delivery_pool:
         con.say("  Tonight's route was planned against the old order book — "
                 "the kitchen will fill what it can.")
