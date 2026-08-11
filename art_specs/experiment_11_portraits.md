@@ -1,10 +1,11 @@
 # Experiment 11 — Portraits: The Close-Up Register (2026-08-10)
 
-Status: **Sal APPROVED (promptless pro surface). Rounds 3–4: the
-user's ruled method (prompt the envisioned character; the signed-off
-sprite as rough starting point) CONVERGED at init@70 — four true
-64px busts on the pixflux surface at 1 gen each. Carmine and Bee
-candidates AWAIT the board's picks.**
+Status: **THREE PORTRAITS APPROVED (Sal, Carmine s11104, Bee s11123)
+and the PORTRAIT RECIPE RATIFIED (2026-08-10 board): brief-in-words
+prompt + approved-sprite head init@70 (or recorded rooted intermediate
+@110) + standing negatives, pixflux 64px, view side, ~1 gen/attempt.
+Curation queue (carmine purple irises, bee lens tint) recorded, NOT
+ruled — approved portraits are approved AS-IS.**
 
 ## Purpose and method (user-approved direction)
 
