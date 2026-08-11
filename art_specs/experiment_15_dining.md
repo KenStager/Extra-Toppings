@@ -116,3 +116,29 @@ now ships as data (`booth_bay_staging.json`: front bench +0, seated
 row +6, table +26, rear bench +60), zero generations. Lesson
 reinforced from the peel probe's canvas question: apparent asset
 defects can be staging defects; test the free parameter first.
+
+## The other side of the booth (2026-08-11, user board question; 2 gens
+## spent learning, 0 gens on the answer)
+
+"From the perspective we are trying to achieve, does this make
+sense visually?" It did not, and the reflection says why: in low
+top-down every object shows the camera its SOUTH face, and the south
+bench's south face is the OUTSIDE of its backrest — plain shell, not
+the sitting-side channel upholstery my derivation had reused. The
+rear bench was wearing the wrong face.
+
+Two generation attempts at a "booth back seen from behind" collapsed
+(the prior has nothing there — near-empty render, then a skeletal
+frame). The flat-panel law answered instead: the rear shell is CODE +
+DERIVATION — oxblood top rim (the backrest's top surface), a wood
+panel slice derived from the APPROVED COUNTER's own cabinetry
+(unifying the dining room's woodwork for free), dark base, outline.
+Six maroon specks inherited from the counter were removed by a
+measured despeck — the census said 6, the corrected threshold removed
+exactly 6; the first pass had hunted r>130 and found nothing, so the
+polarity lesson gains a clause: name the RANGE, not just the side.
+
+Head-peek staging ships in the bay data: a far-side customer drawn
+before the rear bench shows a hair-top above the vinyl rim — the
+detail that sells someone sitting there. `booth_bench_rear_final`
+supersedes the v1 derivation; bay staging updated (rear at +52).
