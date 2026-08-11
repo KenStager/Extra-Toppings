@@ -536,3 +536,67 @@ The Omega bench derivation is retired from the block (stays in
 derived_props as a measurement reference).
 `review/hybrid_dinapoli_block_board_v12.png` supersedes v11.
 Session spend 82; expected balance 4,245.
+
+## v13 — the askew facade, named on the third census (2026-08-11,
+## board catch; 0 gens)
+
+"The area behind the bench, on the facade, seems askew." The loop
+that followed is recorded at full price because it re-proved two
+laws:
+
+- Attempt 1 (glass-channel recolor) and attempt 2 (dark-glass
+  compression): NO CHANGE — and attempt 3's flatten rule also
+  changed nothing, which finally triggered the Bee law properly:
+  CENSUS the pixels before another rule. The census named the
+  culprit: 116 BLACK OUTLINE pixels. The "askew" area is the
+  source diner's takeout KIOSK, drawn with a slanted perspective
+  roof — GEOMETRY, which no fill recolor can erase.
+- Attempt 4's first stamp used the wrong rows and wiped most of the
+  FOOD sign (the census region had included the sign's own bright
+  cluster — region-scoping cuts both ways).
+- The fix that held (v13e): COLUMN-STAMP the kiosk zone (diner-local
+  x28–64, y14–47) with the clean fascia column at x72, sign rows
+  exempt, then the three-rule flank recolor (blue→dark glass;
+  near-neutral bright body→one wall tone; else wall ramp).
+
+Law recorded: donor SOURCE GEOMETRY that contradicts the flat-on
+grammar (perspective roofs, slanted panes) is repaired by
+structural derivation (column-stamp from a clean reference), never
+by recolor rules. And the tooling lesson bought twice this round:
+chained script edits verify with an assert — silent no-op
+str.replace cost one full false render cycle.
+
+`review/hybrid_dinapoli_block_board_v13e.png` supersedes v12.
+Spend unchanged: 82; balance 4,245.
+
+## The facade question answered (2026-08-11, board: "Is the native
+## Omega asset this way? We may need to create a new facade in
+## PixelLab"; 2 gens)
+
+YES — evidence extracted at 8x
+(`scratchpad/omega_kiosk_evidence_8x.png`, kiosk zone of the
+source diner): the Omega diner natively draws its takeout kiosk
+with a SLANTED PERSPECTIVE top and diagonal glass shine. The donor
+pack mixes viewing angles; our world is flat-on. The v13 column-
+stamp was a patch, not a fix — the board's instinct (bespoke
+facades) is the real answer, and it was already the queue's #1.
+
+PROBE (2 gens): generic neighbor storefront on the E02 recipe shape
+— code scaffold (cornice / blank sign fascia / big dark window /
+recessed door / stone base) + pixflux @140, subtractive register
+strip, view=side (flat-on), perspective and lettering in the
+negatives. **s16601 PASSED** — the window gained clean muntins, the
+grammar stayed flat, the register held (s16602's glass went noisy).
+The E02 recipe delivers neighbor facades.
+
+v14 (`review/hybrid_dinapoli_block_board_v14.png`): s16601 replaces
+the left Omega flank with code lettering "GROCER" on the fascia —
+PLACEHOLDER, flagged: neighbor business names are the board's call.
+The right flank keeps the patched Omega diner so both approaches
+sit in one frame for the ruling. Proposed follow-through if ruled:
+bespoke facades replace ALL Omega flanks block-by-block (a 256-wide
+diner-slot facade next, ~2–4 gens each + code signs), and the
+rivals (Sal's, Vinnie's) get their briefs before their facades
+(decision 4).
+
+Session spend 84; expected balance 4,243.
