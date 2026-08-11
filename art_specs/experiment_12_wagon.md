@@ -148,3 +148,38 @@ E09/E11 records).
 
 Nothing below this line exists. No generation, no anchor pixels, no
 livery mock until the user rules on decisions 1–5.
+
+## Execution round 1 (2026-08-10 session 2, 6 generations total)
+
+**South-view study (class 1, 2 gens):** s12002 landed the brief in
+one — rounded nose, split windshield, cream body, oxblood fenders,
+chrome headlights. s12001 smeared. Session pick under delegation:
+s12002.
+
+**Rotation call (REST v2 /generate-8-rotations-v3, 96×96 first_frame,
+seed 12010): 8/8 directions, ONE component each, identity held —
+measured cost 2 GENERATIONS for the full set** (the pricing page
+implied ~4; the Pro path quotes 25 at this size). Side views measure
+65×38 — under the brief's 80×44 guess and reading correctly beside
+32px figures (2 tiles long). Two honest notes: (1) the tool
+REGENERATES the south view too — the output set is self-consistent
+but the output south is not the input study frame; the canon
+candidate is the output set, with the study as its recorded ancestor.
+(2) The color balance shifted red-dominant relative to the
+cream-dominant study (cream roof over oxblood body) — arguably MORE
+DiNapoli, but it is drift, and the board should judge it knowingly.
+
+**Livery, measured constraint:** the 5×7 house font sets "DINAPOLI'S"
+at ~60px wide; the van's usable side panel is ~30px. Full lettering
+does not fit at this scale. Options for the board: emblem-only (a
+small D at panel scale — the 32px emblem is too large, a derived
+smaller mark would be its own recorded curation), roof lettering, or
+no livery (the silhouette and family colors may carry it). NOT
+decided under delegation — lettering is brand identity, the user's
+register.
+
+Candidates AWAIT the board: the 8-rotation set + the E15 table
+(48 s15001, checked cloth; the 32 read as a stool). Validation
+status: all rotations single-silhouette with margins; palette
+curation quantize deferred until the board picks (same order as the
+cast pipeline).
