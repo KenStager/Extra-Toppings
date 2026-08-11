@@ -222,3 +222,21 @@ flagged for the board: approved seated extras are SOUTH-FACING ONLY;
 the S/E/W seats currently take cast upper-body crops (rot crops at
 the waist, content-placed) - story-true when named characters sit,
 but anonymous crowds need seated-direction extras bases if ruled.
+
+## Character-on-chair placement, made lasting (2026-08-11; 0 gens)
+
+The board directed a placement pass on sitters-on-chairs. Critical
+read of the sign-off render found two defects: side sitters centered
+on their chairs OCCLUDE them entirely (the floating read), and their
+thighs rode over the cloth edge. An A/B test settled the law:
+
+- **A (adopted): side sitters draw BEFORE the table**, shifted 5px
+  toward it — knees tuck under the cloth (the physical truth),
+  torsos stay clear, backrests visible behind each sitter.
+- B (rejected): sitters after the table read as legs propped on the
+  tablecloth.
+
+`fourtop_staging.json` updated with the final draw order
+(n_chair, n_sitter, side chairs, side sitters, TABLE, s_sitter,
+s_chair) and shifted side anchors. The seating unit is now fully
+data: any scene that stages a four-top follows the recipe verbatim.
