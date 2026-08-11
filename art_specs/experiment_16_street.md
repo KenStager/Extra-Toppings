@@ -943,3 +943,67 @@ THE QUEUE, in recommended order:
    need them), cast N/E/W idles, Tier 2 keyframe probe.
 6. Flagged one-liner awaiting word: yellow-curb re-centering on
    the hydrant.
+
+## The native vehicle class round (2026-08-11 session C, board:
+## "spends and gens are not an issue. Our sole focus is quality";
+## 30 gens + 4 drift)
+
+Session C opened per protocol (fresh worktree at 644d29b, 116 tests,
+ruff clean, drift 4/4 pass - Tier B overall, the bitforge probe Tier
+A byte-identical). The queue's #1 ran eight rounds; the ladder of
+failures is the record's real payload:
+
+- **The 2x-scaffold path is measured DEAD for props.** Sedan anchored
+  on the 2x NN of the approved mock frame: size-exact, zero
+  off-strip, and 98.5-100% uniform 2x2 blocks at EVERY strength
+  (140/120/100) - a doubled anchor teaches the model 2px grain, and a
+  small simple object (unlike the E02 facades) invites no new form to
+  break the grid. Upscaled copies, rejected by the governing rule.
+- **A finished native-grain anchor is returned unchanged** (code
+  sedan, 2.0-6.1% across @140-@80): the model treats it as done. A
+  CRUDE mass-only anchor is ALSO returned unchanged (3 colors) - the
+  hydrant precedent's invention does not fire on vehicles at all.
+- **The code-drawn sedan path was closed by the board on quality**
+  ("These cars do NOT look good"), after a live catch mid-round: the
+  v5 code sedan read as "a car with essentially two front ends" -
+  symmetric overhangs, mirrored bumpers/lights, centered cabin. v7
+  fixed direction (rear-biased cabin, diagonal A-pillar, long hood)
+  but the closure stands: hand-drawn vehicles are below the world's
+  generated-asset bar.
+- **Free generation + PERIOD PROPORTION LANGUAGE is the winning
+  recipe.** Free pixflux draws genuinely modeled period cars; probes
+  measured description-vocabulary moving the stand height: 65x30
+  ("chunky toy proportions"), 72x34 ("fills the frame" - buys height,
+  pays in noise), 68x29, 50x21. The picks are board-quality period
+  vehicles, all 0 off-strip under forced strips.
+- **Colorways are native generations, never recolors**: the
+  positional tier-map that worked on code bodies turned a generated
+  pale-heavy coupe patchy-rust in-scene. Re-briefing the model under
+  a recolored strip (OXBLOOD_RAMP + slate glass) delivered a true
+  oxblood coupe first pass.
+- **The wagon redraw landed round 1**: the hero's own approved pixels
+  resized to the recorded 81x47 target as anchor @150 -> genuine
+  native redraws (35-38% changed); s16711 picked, then curated on a
+  copy (anchor-guided alpha backfill 26px; the generated emblem blob
+  cleared and the canon build_emblem(12) pan-D stamped - brand
+  geometry is code, recipes/wagon_curation.py).
+
+THE FLEET AT THE BOARD (candidates, nothing promoted): slate sedan
+s16731 (65x30), oxblood fastback coupe s16742 (76x33), gray pickup
+s16746 (66x28), hero wagon s16711 curated (81x47). In-scene board
+review/native_vehicles_inscene_v3.png; provenance
+e16_native_vehicles.json (params, censuses, sha256s); all nine
+generation/curation scripts preserved under recipes/.
+
+AWAITING THE RULING - the lane law: the recorded sedan class
+(38-in-40, derived from the 2x NN donor read) conflicts with the
+model's natural full-length proportion (28-34 stand), and every
+38-forcing path measured worse (upscaled copies, chunk toys, or
+noise). RECOMMENDATION: amend the sedan class to full-length
+footprint (63-76) at the measured 28-34 stand, driving depth
+recentered per vehicle height; the van/wagon class keeps its recorded
+overflow-upward law (the wagon at 81x47 correctly stands over every
+car). NN scaling retires from the standing board the moment the fleet
+is ruled in. Session C spend: 34 gens (4 drift + 30 vehicles);
+expected balance ~4,193, ledger-verified (30/30 seeds accounted), API
+balance still USD-anomalous.
