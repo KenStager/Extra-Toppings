@@ -460,3 +460,31 @@ flakiness on repeated states — operational finding, recorded); the
 soft-ember look was produced deterministically instead (666 fire
 pixels stepped down one warmth ramp, recorded as manual curation) and
 awaits the user's pick against lit-v1.
+
+## Ensemble scene: whole-frame byte-exact in-engine (2026-08-10, 0 gens)
+
+The Cycle C method upgraded from region sampling to the strongest
+possible form: a full shop-floor ensemble (146 placements, 29 staged
+assets) composed in the Godot preview project and verified pixel-for-
+pixel against an independent PIL composite built from the same
+`layout.json` — **0 / 230,400 pixels differ.** The layout is data;
+`main.gd` is generated from it, so the render and the expectation can
+never drift apart silently.
+
+Scene contents, per the standing laws: three approved floor families
+zoned (terracotta kitchen, checker-cream dining, parquet entry), flour
+speckles on the field floor and dense cut-warm blobs on checkers
+(E06 composition guidance), lit oven, box stack + canon pizza, facade
+v2 with the OPEN plaque (facade-as-context convention from the first
+preview), nine cast members with feet measured onto floor rows
+(rot canvases anchored by per-sprite feet row, not by assumption), a
+five-variant `wardrobe_variant` crowd skewed warm per the crowd
+wardrobe law, the docker, and the cop holding the door edge — sworn
+blue at the threshold, heat made visible.
+
+FLAGGED gaps, deliberate: counter, kitchen range, and chairs remain
+curated-UNAPPROVED and are absent (no seated extras for the same
+reason — the game composites its own chairs, and there are none).
+Rivals Sal and Vinnie are absent from the family's floor by
+composition choice. Screenshots: `out/ensemble_scene.png` (640×360)
+and `out/ensemble_scene_3x.png` (1920×1080 NN).
