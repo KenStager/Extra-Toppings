@@ -332,3 +332,17 @@ plainly: the reader rules on reads. When the board repeats a
 complaint about a zone, the fastest fix is asking WHICH pixels — or
 removing the candidates one class at a time with boards between —
 not defending a session interpretation three times.
+
+## Bee v8: why the black, answered (2026-08-11; 0 gens)
+
+The board asked why the cheeks went BLACK — the diff answered with
+named pixels: v7's rose filter (r>180) had eaten warm SKIN
+(#B67A5D, r=182) and its fill gate (sum>140) admitted HAIR-NAVY
+(#303643, sum=169), so the majority vote painted hair color onto her
+face. v8 repairs from ground truth: 13px restored to their original
+skin (they were never pink), 11px of true pink (#FB716C) filled with
+5x5-majority real skin (r>=140, r>g>b) from the approved image.
+Final face: no pink, no black, cream sclera, her own skin. Gate
+lesson recorded: color-family filters are verified against a CENSUS
+of what they match before running — both failing gates would have
+been caught by printing their matches first.
