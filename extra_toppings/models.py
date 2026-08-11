@@ -1556,11 +1556,20 @@ def validate_addresses(state: "State") -> None:
         # is describing a restaurant that does not exist. Refused,
         # never zeroed — repairing it would accept the impossible day
         # and silently keep whatever the numbers were worth.
+        # EXACT INTEGER ZERO, not a value that merely compares equal
+        # to it (P4b.1a review): `False == 0` and `0.0 == 0`, so a
+        # bare `!= 0` accepted a boolean and a float where the field
+        # is a count of customers, of delivery orders and of dollars.
+        # This project has ruled the same way everywhere it matters —
+        # `type(...) is int` on the lifecycle dates just above, the
+        # cover count in `validate_route_plan` — because a payload
+        # that types a count as a flag is malformed even when its
+        # arithmetic happens to agree today.
         if not address_allows(s, state.day, "demand"):
             for name in ("demand_today", "delivery_pool",
                          "legit_revenue_today"):
                 value = getattr(s, name)
-                if value != 0:
+                if type(value) is not int or value != 0:
                     raise ValueError(
                         f"shops[{i}]: an address under construction "
                         f"serves nobody and carries no order book — "

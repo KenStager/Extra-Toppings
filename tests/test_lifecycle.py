@@ -2322,6 +2322,38 @@ class TestLifecycleSaveLoad(unittest.TestCase):
                 save.state_from_dict(payload)
             self.assertIn("no order book", str(caught.exception))
 
+    def test_a_false_zero_is_not_an_empty_order_book(self):
+        # `False == 0` and `0.0 == 0`, so a bare `!= 0` accepted a
+        # boolean and a float where the field counts customers,
+        # delivery orders and dollars (P4b.1a review, second pass).
+        # Each field and each false zero separately, through the REAL
+        # save boundary — a payload that types a count as a flag is
+        # malformed even when its arithmetic agrees today.
+        state = _with_site(day=6, acceptance=5)
+        for name in ("demand_today", "delivery_pool",
+                     "legit_revenue_today"):
+            for bad in (False, True, 0.0, 0.5):
+                with self.subTest(f"{name}={bad!r}"):
+                    payload = save.state_to_dict(state)
+                    payload["shops"][1][name] = bad
+                    with self.assertRaises(ValueError) as caught:
+                        save.state_from_dict(payload)
+                    self.assertIn("no order book", str(caught.exception))
+
+    def test_exact_integer_zero_still_loads(self):
+        # The other end: absence and exact integer zero are the valid
+        # states, and a site that carries them reloads unremarkably.
+        state = _with_site(day=6, acceptance=5)
+        payload = save.state_to_dict(state)
+        for name in ("demand_today", "delivery_pool",
+                     "legit_revenue_today"):
+            self.assertEqual(payload["shops"][1][name], 0)
+            payload["shops"][1][name] = 0
+        loaded = save.state_from_dict(payload)
+        site = loaded.shop_by_key("shop2")
+        self.assertEqual((site.demand_today, site.delivery_pool,
+                          site.legit_revenue_today), (0, 0, 0))
+
     def test_a_present_but_malformed_date_refuses_at_load(self):
         # Presence, never truthiness: a payload CLAIMING dates must
         # carry coherent ones — repairing them would silently open or
