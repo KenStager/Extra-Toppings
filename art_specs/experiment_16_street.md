@@ -796,3 +796,24 @@ endpoint that previously reported a generations count now returns
 e16_godot_block_proof.json; vendor dashboard remains the authority.
 Session spend 16 gens total (4 drift + 4 hydrant + 8 facade);
 expected generations balance ~4,227, unverifiable via API today.
+
+## v16 — the two-tree ghost and the centered wells (2026-08-11,
+## board notes on v15; 0 gens)
+
+The board read the left tree as two trees. The census cleared the
+asset: both de-tufted trees are single trees in isolation. The
+defect was v15's METHOD - mock surgery over a populated frame
+erased the old crowns only inside the facade rows, and the
+re-placed trees landed offset over the old baked trunks. LAW,
+recorded at the cost of one board round: COMPOSE FROM DATA, NEVER
+OVER A POPULATED MOCK - the ghost was mine, not the tree's.
+Centering, measured not eyeballed: trunk-base centers (col 48 /
+col 46) now land on well centers (130 / 520); staging v3 carries
+the corrected x values with recorded centering notes. The Godot
+proof re-ran on the corrected placements: 0 / 230,400 again. v16
+(`review/hybrid_dinapoli_block_board_v16.png`) is the data-built
+set plus a presentation actor layer (slate sedan, RE-DERIVED
+oxblood sedan - the artifact died with the old compose, the recorded
+rule rebuilt it - wagon, three extras). Flagged, not changed: the
+recorded yellow-curb zone [322,392] sits mostly left of the hydrant
+span [360,375]; re-centering it is the board's call.
