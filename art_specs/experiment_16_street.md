@@ -740,3 +740,59 @@ Meadows register, not Old Harbor.
   carries ANCHOR / DINER; Moretti's and Vinnie's facades are
   E02-scale studies in their own registers AFTER the diner slot
   proves the 256-wide recipe.
+
+## The proceed round: hydrant at scale, the Anchor Diner, and the
+## block made engine-real (2026-08-11, board: "Proceed with the
+## following... reflect, refine, regenerate... quality and polish
+## above all else"; 12 gens + 4 drift)
+
+HYDRANT RESIZE-BY-REGEN (4 gens, 2 rounds). New 24px-content code
+anchor on the 32x32 area-floor canvas. Round 1 @140: s16303 REJECTED
+- pixflux pareidolia drew a face on the barrel; s16304 held height
+but lost the side caps. Round 2 @150 (caps enlarged in the anchor,
+face terms in the negatives): **s16306 is the pick** - full grammar
+(both caps, base flare, front port), and the in-scene read at the
+curb line beside a 32px figure lands at hip height where old s16302
+reads head height. Provenance e16_hydrant_resize.json; the
+approved/ swap AWAITS THE BOARD'S WORD.
+
+ANCHOR DINER FACADE (8 gens, 4 rounds - the 256-wide slot proof).
+Rounds 1-3 all failed the same way from three different directions
+(bright flat wall @140; near-black dissolution under tonal negatives
+@160; fascia noise under contrast language) before round 4 found the
+actual poison: THE WORD "diner" pulls white-and-chrome regardless of
+the forced strip - name the BUILDING FORM (storefront) and let code
+lettering name the business. Second law, paid for twice in one
+session: no_background carves alpha holes inside large facades (5227
+px in the pick) that render as false "white" through an unmasked
+sheet compositor - the census refuted my eyeball twice (0 off-palette
+pixels both times I claimed bleaching). **s16618 picked**; curation
+(recorded, on a copy): cornice rows re-asserted from scaffold, alpha
+holes backfilled, ANCHOR / DINER stamped scale-2 cream over the two
+fascia fields. Door at block [501,525], inside the prop-clear range.
+Provenance e16_anchor_diner_facade.json. v15 candidate board:
+`review/hybrid_dinapoli_block_board_v15.png` - both flanks named and
+bespoke (ROSSI'S GROCERY re-letter on raw s16601; Anchor Diner
+replacing the patched Omega slot), props re-seated from staging v3.
+Promotion of facade + names AWAITS THE BOARD'S WORD.
+
+GODOT BLOCK PROOF - **BYTE-EXACT: 0 / 230,400 pixels deviate.** The
+block restaged in Godot 4 from street_block_staging.json v3 +
+street_block.py laws (builder preserved at
+.private_art/godot_preview_block/builder.py, 15 placements): ground
+fills re-derived from the recorded donor laws (A5 (1,8) -> WALK
+ramp; A2 blob fill -> flattened ASPHALT ramp), curb s16102 tiled
+1:1, parking differentiation drawn from its recorded data,
+translucent layers flattened at bake so the engine places only
+opaque strips and binary-alpha sprites, center storefront carried as
+a RECORDED EXTRACTION of mock v14 (its compose died with the prior
+session). The street joins the dining ensemble: engine-real.
+Operational note: Godot headless cannot capture viewport textures -
+the proof runs windowed and self-quits.
+
+BILLING EVIDENCE (recorded, not investigated): the REST balance
+endpoint that previously reported a generations count now returns
+{"type": "usd", "usd": 10.0}. Raw response recorded in
+e16_godot_block_proof.json; vendor dashboard remains the authority.
+Session spend 16 gens total (4 drift + 4 hydrant + 8 facade);
+expected generations balance ~4,227, unverifiable via API today.
