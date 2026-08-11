@@ -1137,3 +1137,33 @@ his signature), and the staging-v3 scene instance - the second
 compact exterior and the template's first real test. Provenance:
 e16_morettis_facade_study.json. Session C spend 88 (4 drift + 62
 vehicles + 22 Moretti's); expected balance ~4,139, ledger-verified.
+
+## The glass ruling: B2 stands (2026-08-11 session C cont.; board:
+## "Move forward with B2"; 0 gens - all code)
+
+The glass question ("no blue glass, just this sepia tone?") was
+answered by census before opinion: DiNapoli's approved facade v2
+glazes COOL - sky-catch (117,226,239), harbor slate (78,100,114),
+midnight (48,59,90) - and all three bespoke fronts had drifted
+sepia against the canon (zero blue-dominant pixels in the diner and
+Rossi's). LAW RECORDED: glazing catches cool sky light in facade
+v2's exact vocabulary; the institutional-cyan reservation governs
+SIGNAGE AND SIGNALS, not window glass - the over-application was
+this session's own invention. Corollary discovered en route: v1's
+tall awning hid nearly all the glass and was the monotone read's
+second cause.
+
+B2 RULED IN and refined (all deterministic): one sky-catch glint
+per bay; 1px mullion at the shelf boundary; the door-notch
+intrusions blacked (280 px); awning shortened with its grounding
+drop shadow. The MENU STAND - the brief's signature prop - is code
+(18x24 easel board, oxblood header, chalk menu lines; the first
+draft read as a traffic cone at 3x and was redrawn). The brief's
+roster is complete: cream stucco, centered door, lit displays
+behind cool glass, oxblood scalloped awning, MORETTI'S/TRATTORIA
+code lettering, menu stand at the threshold.
+`candidates/morettis/morettis_front_with_stand.png` is the standing
+candidate - NOT promoted; promotion rides with the staging-v3 scene
+instance, which is next. STILL FLAGGED, awaiting explicit word: the
+matching cool-glass pass on the approved Anchor Diner and Rossi's
+fronts (block coherence argues for it; they are approved assets).
