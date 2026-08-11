@@ -2309,6 +2309,77 @@ passed for the wrong reason: `_storage` satisfied a bare
 test's oversized stash on SPACE grounds, so the pin now asserts the
 identity refusal itself.
 
+## Round 13 — the seizure that gave the goods back
+
+A correctness pass against the RELEASED game, sequenced by ruling as
+its own PR after P4b.1a merged and before P4b.1b — because it moves
+existing behaviour and therefore could not ride inside a
+behaviour-equivalence PR. Found during the P4b.1a review while
+reading the address-local return path.
+
+**The defect.** A route's night can end in a bust two ways, and the
+two arms disagreed about what a seizure IS. The interactive traffic
+stop (`routes._bust`) counted the load and emptied the manifest. The
+DELEGATED arrest — the driver running the route alone,
+`routes._auto_drops` — counted the load and left it in the manifest,
+so the shared return loop at the end of that branch carried every
+"seized" unit home to the origin's stash. The player was told the
+load was in an evidence locker and found it on the shelf in the
+morning. Two facts, "reported seized" and "actually gone", kept in
+two places, with only one of the two arms making them agree.
+
+**Measured BEFORE anything moved** (the standing precondition for
+touching the baseline), replaying exactly the 300 flag-off runs the
+golden pins, on the pre-correction engine: **3,109** route
+resolutions, of which 2,964 were ride-along and **145 delegated**.
+Only **3** of those 145 delegated routes carried any cargo at all —
+the bots overwhelmingly delegate cover-only runs — and **0** of them
+ended in an arrest. **0 units returned, 0 of 300 runs affected.**
+
+At the deeper replay (500 seeds × both bots = 1,000 runs) the arm
+fires exactly **once**: bot `random`, seed **160**, **14 units**
+handed back to the stash. That seed sits outside the golden's 0–149
+range, which is precisely why the golden's runs are untouched. So the
+defect is real and reachable in play, and simultaneously invisible to
+every instrument the project currently pins.
+
+**THE GOLDEN WAS NOT REGENERATED**, on the criterion recorded in
+advance: regenerate only if measured runs reach the corrected path.
+They do not. The gate then confirmed the prediction independently —
+300/300 identical with the correction in the tree — so the
+measurement and the gate agree from two directions.
+
+**The fix.** One authority, `routes.seize_cargo(plan)`, which counts
+the units AND empties the manifest in one call and returns what was
+taken. Both arms call it. A seizure that leaves the goods behind is
+not a seizure, and no caller should be able to spell only half of
+one. The count is still taken before the manifest empties, so what
+the Case records is unchanged — the correction changes what comes
+home, not what the law knows.
+
+**Pins:** the delegated arrest and the interactive stop each driven
+through the REAL service phase — a route planned at the founding
+address, committed and resolved — reaching their arm by seed scan
+(18 delegated, 16 interactive), each asserting it actually got there
+so a future change that stops reaching it fails rather than passes
+vacuously. Six on the shelf, four on the wagon: after the bust the
+back room holds two, the manifest holds nothing, the report says four
+seized, and the Case still carries 10 + 4 × 0.3 for an aware driver's
+arrest. Plus the authority's own contract, including that emptied
+goods keep their keys. Regression proof: **3 failures and 4 errors**
+of the 10 new pins on the pre-fix engine (the errors are the
+authority not existing); the **3 that pass both ways — the
+interactive control's two, and the Case magnitude — are added
+coverage, not proof**, and they exist to show the correction gave the
+working arm no new behaviour.
+
+**Verification.** 878 tests green on 3.11, 3.12 AND 3.13; ruff and
+mypy clean. Both identity gates **300/300 on all three**, stand-pat
+holding **79/79** (schema v1). Golden **unchanged at `7a62b2af`**.
+Fork battery **byte-identical to merged main at BOTH depths** —
+which is itself the measurement restated: seed 160's night is not
+one the battery harness runs.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2338,21 +2409,14 @@ identity refusal itself.
   whole P4 paper: design revisions 21–26 (PR #16) and 28–30 (PR #21),
   plus `CLAUDE.md` (PR #22). **P4a is merged** in its three sequential
   PRs (#18, #19, #20) — the retrospective record is round 12 above.
-- **The current position, exactly.** **P4b.1a (the address lifecycle
-  and the operational surfaces) is PR #23, OPEN and awaiting merge
-  approval** — the four review rounds recorded in round 12 are
-  answered, both gates and both battery depths are clean, and the
-  golden is untouched.
-  Then, in this order and not stacked: the **seizure correction** —
-  in `resolve_route`'s arrest arm `cargo` is reported seized but
-  never cleared, so the shared return loop puts the seized units back
-  in the origin's stash (reproduced deterministically at ONE address:
-  2 units "seized", stash 2 → 4, reachable in the RELEASED game),
-  ruled as its own correctness PR with golden reachability measured
-  BEFORE anything changes — and then **P4b.1b** and the rest of
-  P4b's six PRs, with activation as a separate seventh act. The P4
-  full-battery item (the pairwise eight-component vectors, per §7)
-  remains owed.
+- **The current position, exactly.** **P4b.1a is MERGED** (PR #23,
+  approved at 2df2ae6) — four review rounds, eleven defects, recorded
+  in round 12. The **seizure correction** is complete and awaiting
+  review as its own PR, with its reachability measured before
+  anything changed and the golden therefore untouched (round 13).
+  Next after it: **P4b.1b**, then the rest of P4b's six PRs, with
+  activation as a separate seventh act. The P4 full-battery item (the
+  pairwise eight-component vectors, per §7) remains owed.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
