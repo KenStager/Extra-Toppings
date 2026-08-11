@@ -20,8 +20,8 @@ QUALITY_LEVELS = ["cheap", "standard", "gourmet"]
 
 # ── THE night-assignment authority (rev. 15 item 2) ───────────────
 
-def choose_address(state: "State", con: Console,
-                   prompt: str) -> Shop:
+def choose_address(state: "State", con: Console, prompt: str,
+                   capability: str) -> "Shop | None":
     """THE address picker for an address-specific action (P4b.1a).
 
     SILENT while one address is open — it returns that shop without a
@@ -32,16 +32,19 @@ def choose_address(state: "State", con: Console,
     by DISTRICT: a raw key is an internal identity and never reaches
     the player (rev. 27 item 3). A construction site is not offered at
     all — it cannot do any of the things this picker leads to."""
-    open_now = models.open_shops(state)
-    if not open_now:
-        raise ValueError("no address is open to act on")
-    if len(open_now) == 1:
-        return open_now[0]
-    return open_now[con.menu(prompt, [
-        data.DISTRICTS[s.district]["label"] for s in open_now])]
-
-
-_at = choose_address
+    able = models.addresses_allowing(state, capability)
+    if not able:
+        raise ValueError(f"no address may {capability!r}")
+    if len(able) == 1:
+        return able[0]
+    # BACK IS LAST, and last is what an exhausted script takes: a
+    # picker whose final option was an address chose a shop nobody
+    # asked for. `None` means no action, and every caller treats it
+    # that way (WORKING.md's progress-last rule, read correctly —
+    # the safe option is the one that changes nothing).
+    labels = [data.DISTRICTS[a.district]["label"] for a in able]
+    pick = con.menu(prompt, labels + ["Back"])
+    return None if pick >= len(able) else able[pick]
 
 
 def routes_planned(state: "State", plans: dict) -> dict:
@@ -360,20 +363,29 @@ class WagonNight:
 
 def morning(state: State, con: Console, streams: Streams) -> dict:
     """Read the news, set the day up. Returns plans for later phases."""
-    # The address this surface is about, resolved ONCE at the
-    # boundary and threaded through (design rev. 27 item 6):
-    # Act I, the Straight Path and the Quiet Sale each concern
-    # one established shop, and every helper below takes it as
-    # a parameter rather than reaching for "the shop".
-    shop_at = models.operating_shop(state)
+    # NO address is resolved here (P4b.1a): the morning belongs to
+    # the operation, and each address-specific action resolves the
+    # address it acts on at its own boundary.
     market.draw_events(state, streams.daily(state.day, "events"))
     market.roll_prices(state, streams.daily(state.day, "market"))
     shop.roll_demand(state, streams.daily(state.day, "demand"))
 
+    # Addresses that are TRADING today — a building site has no
+    # reputation to report and no order book to show.
+    trading = models.addresses_allowing(state, "service")
     con.header(f"DAY {state.day} of {data.DEBT_DUE_DAY} — MORNING")
-    con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
-            f"Debt {money(state.debt)} | Rep {shop_at.reputation:.0f} | "
-            f"Case {state.case:.0f}/100")
+    if len(trading) == 1:
+        # Byte-for-byte the line the game has always printed.
+        con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
+                f"Debt {money(state.debt)} | "
+                f"Rep {trading[0].reputation:.0f} | "
+                f"Case {state.case:.0f}/100")
+    else:
+        # Two addresses have two reputations, and one number for both
+        # would be a lie about whichever is doing worse. The money and
+        # the Case belong to the OPERATION; the rest is per address.
+        con.say(f"  Clean {money(state.clean)} | Dirty {money(state.dirty)} | "
+                f"Debt {money(state.debt)} | Case {state.case:.0f}/100")
     if state.debt > 0:
         days_left = data.DEBT_DUE_DAY - state.day
         line = f"  Carmine expects {money(state.debt)} within {days_left} day(s)."
@@ -386,8 +398,16 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
     elif state.branch == "war":
         war.morning_lines(state, con)
 
-    con.say(f"  Order book: ~{shop_at.demand_today} customers expected, "
-            f"{shop_at.delivery_pool} delivery orders on the board.")
+    if len(trading) == 1:
+        con.say(f"  Order book: ~{trading[0].demand_today} customers "
+                f"expected, {trading[0].delivery_pool} delivery orders "
+                f"on the board.")
+    else:
+        for a_shop in trading:
+            con.say(f"  {data.DISTRICTS[a_shop.district]['label']}: "
+                    f"rep {a_shop.reputation:.0f} | order book "
+                    f"~{a_shop.demand_today} customers, "
+                    f"{a_shop.delivery_pool} delivery orders.")
     for line in state.news:
         con.bullet(f"NEWS: {line}")
     for line in market.rumor_sheet(state, streams.daily(state.day, "rumors")):
@@ -461,27 +481,41 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
         # game gains no prompt. Staff is deliberately absent: the
         # roster is one roster across the operation.
         if c == 0:
-            _market_board(state, _at(state, con, "Whose board?"), con)
+            picked = choose_address(state, con, "Whose board?", "demand")
+            if picked:
+                _market_board(state, picked, con)
         elif c == 1:
-            _kitchen_policy(state, _at(state, con, "Whose kitchen?"),
-                            con, plans)
+            picked = choose_address(state, con, "Whose kitchen?",
+                                    "service")
+            if picked:
+                _kitchen_policy(state, picked, con, plans)
         elif c == 2:
-            _buy_ingredients(state, _at(state, con, "Stock which pantry?"),
-                             con)
+            picked = choose_address(state, con, "Stock which pantry?",
+                                    "pantry_supply")
+            if picked:
+                _buy_ingredients(state, picked, con)
         elif c == 3 and supplier:
-            supplier = _buy_supplier(
-                state, _at(state, con, "Deliver where?"), supplier, con)
+            picked = choose_address(state, con, "Deliver where?",
+                                    "pantry_supply")
+            if picked:
+                supplier = _buy_supplier(state, picked, supplier, con)
         elif c == 4:
             _staff_menu(state, con, streams.staff)
         elif c == 5:
-            _improvements(state, _at(state, con, "Improve which address?"),
-                          con)
+            picked = choose_address(state, con, "Improve which address?",
+                                    "improvements")
+            if picked:
+                _improvements(state, picked, con)
         elif c == 6:
             # The lifecycle can refuse a route before it is planned;
             # with one address it never does, so this adds no
             # reachable branch to the Act I path (there is no salvage
             # here either, so "planned" cannot arise).
-            shop_at = _at(state, con, "Which wagon rolls tonight?")
+            rolling = choose_address(
+                state, con, "Which wagon rolls tonight?", "routes")
+            if rolling is None:
+                continue
+            shop_at = rolling
             wagon_now = planned_wagon(state, plans, shop_at.key,
                                       but="route")
             if not wagon_now.available:
@@ -498,7 +532,12 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             else:
                 plans["routes"].pop(shop_at.key, None)
         elif c == 7:
-            shop_at = _at(state, con, "The crew comes back where?")
+            coming_back = choose_address(
+                state, con, "The crew comes back where?",
+                "contraband_storage")
+            if coming_back is None:
+                continue
+            shop_at = coming_back
             route = routes_planned(state, plans).get(shop_at.key)
             if route and route["ride_along"]:
                 con.say("  You'll be in the wagon tonight — the crew goes "
@@ -1082,12 +1121,13 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     # second address's deliveries never come out of the first
     # address's ovens.
     report: dict = {}
-    open_now = models.open_shops(state)
+    open_now = models.addresses_allowing(state, "service")
     for a_shop in open_now:
         planned = scheduled.get(a_shop.key)
         shift = shop.simulate_shift(
             state, a_shop, planned["legit"] if planned else 0,
-            streams.daily(state.day, "critic"))
+            streams.daily(state.day, models.address_channel(
+                state, a_shop.key, "critic")))
         if not report:
             # The founding address's shift IS the report while one
             # exists, so every existing consumer reads what it always
@@ -1100,7 +1140,7 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
                 f"demanded{lost} | clean revenue "
                 f"{money(shift['revenue'])}")
         if shift["critic_line"]:
-            con.bullet(shift["critic_line"])
+            con.bullet(f"{where}{shift['critic_line']}")
         if a_shop.ingredients < 10:
             con.bullet(f"{where}Pantry low: {a_shop.ingredients} "
                        f"orders of stock left.")
@@ -1412,8 +1452,10 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         elif key == "debt":
             _pay_debt(state, con)
         elif key == "storage":
-            _storage(state, _at(state, con, "Whose stockroom?"),
-                     con, streams)
+            picked = choose_address(state, con, "Whose stockroom?",
+                                    "contraband_storage")
+            if picked:
+                _storage(state, picked, con, streams)
         elif key == "rival":
             rivals.negotiate(state, con, streams.rivals)
         elif key == "settle":
@@ -1446,7 +1488,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         escrow.night_insolvency(state, con, payroll_short)
 
     rivals.rival_phase(state, con, streams.rivals)
-    _law_phase(state, con, streams.daily(state.day, "law"))
+    _law_phase(state, con, streams)
 
     if state.branch == "straight":
         straight.exit_readout(state, con)
@@ -1465,7 +1507,11 @@ def _payroll_and_rent(state: State, con: Console) -> bool:
     wages = sum(e.wage for e in state.hired() if not e.arrested)
     # Rent is charged per open address (design rev. 22 item 7): two
     # addresses, two rents, one canonical constant — never respelled.
-    costs = wages + data.RENT_PER_DAY * len(state.shops)
+    # Rent is charged on addresses that are OPEN for business: the
+    # contractor holds the site until it opens, and §2.4.2 disallows
+    # `rent` on it explicitly.
+    costs = wages + data.RENT_PER_DAY * len(
+        models.addresses_allowing(state, "rent"))
     if state.warehouse is not None:
         if state.dirty >= data.WAREHOUSE_RENT:
             state.dirty -= data.WAREHOUSE_RENT
@@ -1644,24 +1690,39 @@ def _storage(state: State, shop_at: Shop, con: Console,
         state.dirty += n
 
 
-def _law_phase(state: State, con: Console, rng: random.Random) -> None:
+def _law_phase(state: State, con: Console, streams: Streams) -> None:
     """Heat is local weather. The Case is climate."""
-    # The law watches every address the player keeps, each against its
-    # OWN district's weather — a second shop in a quiet district is not
-    # sheltered by the home district's heat, nor punished by it. Shops
-    # are walked in stable key order so the sweep never depends on list
-    # position.
-    for a_shop in sorted(state.shops, key=lambda sh: sh.key):
-        if state.heat(a_shop.district) <= 70 or rng.random() >= 0.35:
+    # The law watches every address the player keeps OPEN, each
+    # against its OWN district's weather — a second shop in a quiet
+    # district is not sheltered by the home district's heat, nor
+    # punished by it. A site under construction is not watched at all
+    # (§2.4.2 disallows `law_targeting`): there is nothing there yet.
+    #
+    # Each address draws on its OWN derived channel, so a second
+    # address cannot shift the home shop's dice or the global law
+    # sequence below, and reordering `state.shops` changes nothing.
+    rng = streams.daily(state.day, "law")
+    for a_shop in models.addresses_allowing(state, "law_targeting"):
+        # ONE authority decides which channel an address draws on.
+        # Getting the legacy channel back means this is the founding
+        # address, and it draws on the LEGACY GENERATOR ITSELF — not a
+        # fresh one with the same seed — so the sweep's draws and the
+        # global checks below stay one continuous sequence, exactly as
+        # they always were. The law phase never names the founding key
+        # to work that out.
+        channel = models.address_channel(state, a_shop.key, "law")
+        at = rng if channel == "law" else streams.daily(state.day,
+                                                        channel)
+        if state.heat(a_shop.district) <= 70 or at.random() >= 0.35:
             continue
         con.bullet("A squad car parks across the street for an hour. Just parks.")
         if state.branch == "straight":
             # §2.4.1: with nothing to find, searches attack the exit
             # through people — no RNG, first watcher on the roster.
             straight.search_spook(state, con)
-        if rng.random() < 0.4 and state.stash_bulk(a_shop.stash) > 0:
+        if at.random() < 0.4 and state.stash_bulk(a_shop.stash) > 0:
             con.bullet("Then two officers 'stop in for a slice' and look at everything.")
-            if rng.random() < 0.5:
+            if at.random() < 0.5:
                 seized = 0
                 for g in list(a_shop.stash):
                     seized += a_shop.stash[g]

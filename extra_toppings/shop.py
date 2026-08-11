@@ -7,7 +7,7 @@ serve as cover on a route. A hollow restaurant has nothing to hide behind.
 
 import random
 
-from . import data, market, straight
+from . import data, market, models, straight
 from .models import State
 
 
@@ -46,7 +46,11 @@ def roll_demand(state: State, rng: random.Random) -> None:
     the same crowd honestly — it can't keep a cheap-menu crowd at
     gourmet tickets."""
     state.demand_shock = rng.uniform(0.85, 1.15)
-    for s in state.shops:
+    # Only addresses ALLOWED an order book get one (§2.4.2): a site
+    # under construction serves nothing and carries no order book, so
+    # rolling demand for it was the lifecycle authority being
+    # decorative — the record existed and the engine used it anyway.
+    for s in models.addresses_allowing(state, "demand"):
         s.legit_revenue_today = 0
         recompute_demand(state, s)
 
@@ -137,5 +141,7 @@ def total_believable_ceiling(state: State) -> int:
     own upgrades (design rev. 22 item 8). Two believable-revenue
     ceilings help launder — as arithmetic, not as prose — and the
     ceiling still grows only as fast as real trade does."""
+    # A building site launders nothing: it has no believable sales
+    # to hide behind (§2.4.2 disallows `laundering`).
     return sum(believable_ceiling(state, s, s.legit_revenue_today)
-               for s in state.shops)
+               for s in models.addresses_allowing(state, "laundering"))

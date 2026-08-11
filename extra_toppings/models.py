@@ -679,6 +679,25 @@ class ClaimResult:
         return wagon_gone_line(self)
 
 
+def address_channel(state: "State", shop_key: str, channel: str) -> str:
+    """THE per-address world channel (rev. 27 item 5, made real).
+
+    The founding address keeps EXACTLY the channel it has always
+    used, so its dice never move: that is what makes every existing
+    study and both identity gates still mean something. Additional
+    addresses derive a channel from their own STABLE KEY, so a second
+    shop's critic is a different critic — and reordering
+    `state.shops` cannot change anybody's roll, because nothing here
+    reads list position.
+
+    Re-creating one `daily(day, channel)` generator per address gave
+    every address the SAME first roll, which is not a shared world
+    fact, it is the same coin flipped once and reported twice."""
+    if shop_key == HOME_SHOP_KEY:
+        return channel
+    return f"{channel}@{shop_key}"
+
+
 def claimable_wagons(state: "State", shop_key: str) -> tuple:
     """The wagons an address could send out tonight IF nothing had
     taken them — the LIFECYCLE answer alone, in stable key order.
@@ -1266,18 +1285,24 @@ def raid_target(state: "State", rival_key: str) -> str:
 
     It never guesses: with no address there is nothing to raid, and
     that is a refusal rather than a home default."""
-    if not state.shops:
+    targetable = addresses_allowing(state, "rival_targeting")
+    if not targetable:
         raise ValueError("no address exists for a raid to target")
-    if len(state.shops) != 1:
+    # A site under construction is not a target — there is nothing
+    # there to raid — so a founding shop plus a building site is
+    # still ONE targetable address, and the policy question does not
+    # arise until two are actually open (§2.4.2).
+    if len(targetable) != 1:
         # P4b owns the "softer of your two shops" policy (rev. 27
         # item 4). Until it exists, picking one would be picking by
         # LIST POSITION — reversing state.shops would move the raid to
         # a different address, which is the whole defect stable keys
         # exist to abolish. So this refuses rather than guessing.
         raise ValueError(
-            f"{len(state.shops)} addresses exist and no targeting "
-            f"policy has been ruled on — P4b owns that choice")
-    return state.shops[0].key
+            f"{len(targetable)} targetable addresses exist and no "
+            f"targeting policy has been ruled on — P4b owns that "
+            f"choice")
+    return targetable[0].key
 
 
 # ── the address lifecycle (§2.4.2; rev. 29 items 3–4) ────────────
@@ -1346,6 +1371,21 @@ def open_shops(state: "State") -> list:
     on every released path."""
     return sorted((s for s in state.shops if shop_is_open(s, state.day)),
                   key=lambda s: s.key)
+
+
+def addresses_allowing(state: "State", capability: str) -> list:
+    """Every address that may do `capability` TODAY, in stable key
+    order (P4b.1a review).
+
+    THE filter every consumer uses — the picker, the demand roll,
+    service, rent, the laundering ceiling, law and rival targeting.
+    `open_shops` was not enough: "open" and "allowed" are different
+    questions, and a site under construction is legitimately allowed
+    to take a pantry delivery while it may not roll an order book or
+    be charged rent. Spelling "open means allowed" in each consumer
+    is how the lifecycle became decorative in the first place."""
+    return [s for s in sorted(state.shops, key=lambda a: a.key)
+            if address_allows(s, state.day, capability)]
 
 
 def address_allows(shop: "Shop", day: int, capability: str) -> bool:

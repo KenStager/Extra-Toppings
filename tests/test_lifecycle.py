@@ -12,7 +12,7 @@ import random
 import unittest
 
 import test_war_mechanics as war_mechanics
-from extra_toppings import (data, market, models, phases, raids, routes,
+from extra_toppings import (data, market, models, phases, raids, routes, shop,
                             save, war)
 from extra_toppings.rng import Streams
 from extra_toppings.models import (ADDRESS_CAPABILITIES,
@@ -1583,7 +1583,7 @@ class TestTheAddressPickerIsSilentAtOne(unittest.TestCase):
     def test_one_open_address_is_returned_without_asking(self):
         state = new_state()
         con = Listening()
-        self.assertIs(phases.choose_address(state, con, "Whose board?"),
+        self.assertIs(phases.choose_address(state, con, "Whose board?", "demand"),
                       state.shop_by_key(HOME_SHOP_KEY))
         self.assertEqual(con.menus, [])           # nothing was asked
 
@@ -1591,17 +1591,17 @@ class TestTheAddressPickerIsSilentAtOne(unittest.TestCase):
         # It cannot do any of the things the picker leads to.
         state = _with_site(day=6, acceptance=5)
         con = Listening()
-        self.assertIs(phases.choose_address(state, con, "Whose board?"),
+        self.assertIs(phases.choose_address(state, con, "Whose board?", "demand"),
                       state.shop_by_key(HOME_SHOP_KEY))
         self.assertEqual(con.menus, [])
 
     def test_two_open_addresses_are_offered_by_district(self):
         state = _with_site(day=7, acceptance=5)
         con = Listening([1])
-        picked = phases.choose_address(state, con, "Whose kitchen?")
+        picked = phases.choose_address(state, con, "Whose kitchen?", "service")
         self.assertEqual(picked.key, "shop2")
         shown = con.offered("Whose kitchen?")
-        self.assertEqual(shown, ["Old Harbor", "University Hill"])
+        self.assertEqual(shown, ["Old Harbor", "University Hill", "Back"])
         # A raw key is an internal identity and never reaches prose.
         self.assertNotIn("shop1", " ".join(shown))
         self.assertNotIn("shop2", " ".join(shown))
@@ -1611,8 +1611,86 @@ class TestTheAddressPickerIsSilentAtOne(unittest.TestCase):
         state.shops.reverse()
         con = Listening([0])
         self.assertEqual(
-            phases.choose_address(state, con, "Whose kitchen?").key,
+            phases.choose_address(state, con, "Whose kitchen?", "service").key,
             HOME_SHOP_KEY)
+
+
+class TestTheLifecycleActuallyBinds(unittest.TestCase):
+    """The capability view is what makes the lifecycle real: `open`
+    and `allowed` are different questions, and every consumer asks
+    the one authority rather than re-deriving it."""
+
+    def _building(self):
+        return _with_site(day=6, acceptance=5)
+
+    def test_a_building_site_rolls_no_order_book(self):
+        state = self._building()
+        site = state.shop_by_key("shop2")
+        shop.roll_demand(state, Streams(3).daily(6, "demand"))
+        self.assertEqual((site.demand_today, site.delivery_pool), (0, 0))
+        self.assertGreater(
+            state.shop_by_key(HOME_SHOP_KEY).demand_today, 0)
+
+    def test_a_building_site_pays_no_rent(self):
+        state = self._building()
+        self.assertEqual(
+            len(models.addresses_allowing(state, "rent")), 1)
+
+    def test_a_building_site_launders_nothing(self):
+        state = self._building()
+        self.assertEqual(
+            len(models.addresses_allowing(state, "laundering")), 1)
+
+    def test_a_building_site_is_not_watched_by_the_law(self):
+        state = self._building()
+        self.assertEqual(
+            [a.key for a in models.addresses_allowing(
+                state, "law_targeting")], [HOME_SHOP_KEY])
+
+    def test_a_building_site_may_still_take_a_pantry_delivery(self):
+        # Canon ALLOWS pantry supply during construction, so the
+        # picker must offer it — excluding it was the lifecycle being
+        # decorative in the other direction.
+        state = self._building()
+        self.assertEqual(
+            [a.key for a in models.addresses_allowing(
+                state, "pantry_supply")], [HOME_SHOP_KEY, "shop2"])
+
+    def test_the_view_is_stable_under_reordering(self):
+        state = self._building()
+        state.shops.reverse()
+        self.assertEqual(
+            [a.key for a in models.addresses_allowing(
+                state, "pantry_supply")], [HOME_SHOP_KEY, "shop2"])
+
+
+class TestThePickerFailsClosed(unittest.TestCase):
+    def test_an_exhausted_script_takes_back_not_a_shop(self):
+        # The last option is what an exhausted script picks, and it
+        # used to be an ADDRESS — so a script that ran out silently
+        # chose shop 2.
+        state = _with_site(day=7, acceptance=5)
+        before = [(a.key, a.quality, a.price) for a in state.shops]
+        con = Listening([])                      # exhausted
+        self.assertIsNone(phases.choose_address(
+            state, con, "Whose kitchen?", "service"))
+        self.assertEqual(
+            [(a.key, a.quality, a.price) for a in state.shops], before)
+
+    def test_back_is_the_last_option_offered(self):
+        state = _with_site(day=7, acceptance=5)
+        con = Listening([2])
+        self.assertIsNone(phases.choose_address(
+            state, con, "Whose kitchen?", "service"))
+        self.assertEqual(con.offered("Whose kitchen?")[-1], "Back")
+
+    def test_an_exhausted_morning_kitchen_changes_nothing(self):
+        # Through the REAL morning menu: option 1 is the kitchen.
+        state = _with_site(day=7, acceptance=5)
+        before = [(a.key, a.quality, a.price) for a in state.shops]
+        phases.morning(state, Listening([1]), Streams(3))
+        self.assertEqual(
+            [(a.key, a.quality, a.price) for a in state.shops], before)
 
 
 class TestBothAddressesTradeAndRun(unittest.TestCase):
@@ -1643,6 +1721,38 @@ class TestBothAddressesTradeAndRun(unittest.TestCase):
         self.assertEqual(con.menus, [])       # no choice offered
         self.assertTrue(con.said("Old Harbor: Orders"), con.lines)
         self.assertTrue(con.said("University Hill: Orders"), con.lines)
+        # Both kitchens actually BAKED and both tills actually rang —
+        # two printed lines are not two trading restaurants.
+        for a_shop in state.shops:
+            self.assertLess(a_shop.ingredients, 40, a_shop.key)
+            self.assertGreater(a_shop.legit_revenue_today, 0, a_shop.key)
+
+    def test_each_address_gets_its_own_critic(self):
+        # One `daily(day, "critic")` per address handed every shop the
+        # SAME first roll: not a shared world fact, one coin reported
+        # twice. The founding address keeps the legacy channel.
+        state, _drivers = self._open_pair()
+        self.assertEqual(
+            models.address_channel(state, HOME_SHOP_KEY, "critic"),
+            "critic")
+        self.assertNotEqual(
+            models.address_channel(state, "shop2", "critic"), "critic")
+        s = Streams(3)
+        self.assertNotEqual(
+            s.daily(7, models.address_channel(state, HOME_SHOP_KEY,
+                                              "critic")).random(),
+            s.daily(7, models.address_channel(state, "shop2",
+                                              "critic")).random())
+
+    def test_reordering_the_shops_changes_no_address_result(self):
+        state, _drivers = self._open_pair()
+        state.shops.reverse()
+        self.assertEqual(
+            [a.key for a in models.addresses_allowing(state, "service")],
+            [HOME_SHOP_KEY, "shop2"])
+        self.assertEqual(
+            models.address_channel(state, "shop2", "critic"),
+            "critic@shop2")
 
     def test_a_construction_site_does_not_trade(self):
         state = _with_site(day=6, acceptance=5)    # still building
