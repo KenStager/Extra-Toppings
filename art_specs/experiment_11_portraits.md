@@ -1,8 +1,9 @@
 # Experiment 11 — Portraits: The Close-Up Register (2026-08-10)
 
-Status: **round 1 measured (Carmine, Sal); Carmine FAILED identity;
-validator contract DRAFTED from measurements, not ratified. AWAITING
-the board.**
+Status: **Sal APPROVED. Round 2 measured: seed-luck hypothesis dead —
+the promptless surface fails low-info and dark-skinned inputs. Method
+pivot PROPOSED (character-recipe busts via pixflux); AWAITING the
+board's ruling before any further portrait spend.**
 
 ## Purpose and method (user-approved direction)
 
@@ -94,15 +95,69 @@ draft, not thresholds. Proposed `validate_portrait`:
    per portrait as a checklist in provenance, not automated.
 5. Palette register: pending the board's ruling above.
 
-## Open at the board
+## Board rulings (2026-08-10, round 1)
 
-1. Carmine re-roll (seed change is the only lever; 25 gens/attempt) —
-   or hold Carmine until a better counter-tool exists (e.g. feeding a
-   curated, more face-legible input variant).
-2. Sal: accept the beard or re-roll.
-3. Third portrait: the user's pick (session recommends Tony or Bee).
-4. Palette-register ruling (own register vs curation toward chips).
-5. Spend ledger observation, flagged: 50 generations were debited
+1. **Sal APPROVED as-is** — the beard drift accepted ("dignified elder
+   host"); `approved/sal_portrait64.png` with approval record.
+2. **Carmine: re-roll seeds now** (executed as round 2 below).
+3. **Third portrait: Bee** (executed in round 2).
+4. **Palette law RATIFIED: own close-up register.** Portraits keep
+   their generated palettes, validated for register law only (warm for
+   family, ink for pressure, case blue never on a civilian). No
+   quantize toward game chips.
+
+## Round 2 results (3 calls, 75 generations — measured 25×3 exactly)
+
+**Carmine s11002 (re-roll A): MISS.** The invented jewelry and visor
+died (14 gold px = a plausible collar clasp, zero blue) — but the age
+drifted young again. A composed young man in a navy coat is not the
+lender.
+
+**Carmine s11003 (re-roll B): MISS, closer.** The age landed — lined
+elder, silver sweep — but the model invented an EYE PATCH and a
+rust-brown stain, and the coat became a v-neck sweater. Right decade,
+wrong movie.
+
+**Bee s11021: CATASTROPHIC MISS.** Her deep skin ramp rendered as
+blue-ink alien skin with blank white eyes and an invented segmented
+metal collar. The question this call was asked — does the pro surface
+respect a deeper skin ramp from sprite ancestry alone — is answered:
+NO. The surface mapped dark skin into its ink register. This is the
+ghost failure's close-up cousin, and with no prompt surface there is
+no negative to counter it.
+
+**Finding (5 calls, 125 generations):** the seed-luck hypothesis is
+dead. Four identity failures in five calls, each inventing a different
+accessory (visor, earrings, eyepatch, collar). The promptless pro
+surface amplifies exactly the information the input sprite carries:
+Sal (max facial info — hair mass, mustache pixels, waistcoat blocking)
+succeeded; Carmine (abstract ink column) and Bee (deep skin at 32px)
+gave the model's priors a vacuum, and the priors filled it. Portrait
+fidelity scales with input face information — now confirmed across
+three characters, not predicted from one.
+
+## Method pivot PROPOSED (flagged loudly; no spend until ruled)
+
+Drop the promptless tool for the remaining cast. Generate busts
+directly via the proven CHARACTER RECIPE on the ordinary image
+surface (pixflux/pro): hand-blocked 64px bust anchor (hair shape and
+color, facial hair, brow, jaw, deliberate skin ramp — the E09 recipe
+at portrait scale), init@~140, written-heritage prompts, the standing
+negatives ("anime, manga, chibi, big eyes, glossy hair, ghost, pale
+white face, washed out") plus per-character age/clean-shaven words.
+Every counter-tool the cast recipe earned applies again, and pixflux
+at 64px costs ~1 generation per attempt against 25 for the promptless
+tool. The promptless surface stays recorded as viable ONLY for
+high-info sprites (it produced Sal). Identity-by-ancestry weakens to
+identity-by-anchor — the same standard the approved cast itself met.
+
+## Open at the board (after round 2)
+
+1. The method pivot above — character-recipe busts via pixflux for
+   Carmine, Bee, and any further portraits. AWAITING the ruling.
+2. Whether s11003's elder read (minus eyepatch) informs the Carmine
+   bust anchor — the age register it found is the target.
+3. Spend ledger observation, flagged: 50 generations were debited
    between this session's first balance read (4583 remaining) and the
    pre-submission read (4533) with no generation activity from this
    session in between — unexplained; the vendor balance is the only
