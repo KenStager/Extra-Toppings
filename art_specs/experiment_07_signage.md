@@ -28,3 +28,7 @@ difference, chip discipline, and the refusal.
 `review/signage_board.png`. Both legible at native 1× on the board's
 inset copies. No provenance records needed — no vendor call occurred;
 git history of `branding.py` is the full provenance.
+
+## Approval (2026-08-10, user board)
+
+"Signage looks good" — both plaques approved into `approved/`.

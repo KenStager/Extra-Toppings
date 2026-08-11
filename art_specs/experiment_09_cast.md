@@ -252,3 +252,15 @@ start from the figure's dominant masses and add nothing that isn't
 claimed by an anchor mass of the intended size. Light neutrals near
 faces and loose accent colors are the two measured failure modes;
 props survive when blocked at their real scale.
+
+## Approval (2026-08-10, user board): ALL ELEVEN APPROVED
+
+"Characters approved" — the eleven finals moved to `approved/` with
+approval records pointing at their generation provenance. The
+curation list (Bee's wire glasses, Rosa's eye-lighten, Sammy's
+ankles) was NOT ruled on and stays open — approved sprites are
+approved AS-IS; any curation would be a recorded revision needing
+its own word. Rotation+walk phase (v3 reference + v3 walk,
+keep_first_frame) launched for all eleven on approval, per the
+committed path. Operational finding: Tier 1 allows 8 concurrent
+background jobs; batch submissions must throttle.

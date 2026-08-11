@@ -145,3 +145,18 @@ await the user's picks alongside the deterministic flour family. The
 ink register's grime niche (thresholds, entryways) remains open — a
 re-prompt with less aggressive emptiness language is the obvious next
 probe if the board wants cold-register dirt.
+
+## Board round (2026-08-10): "looks great," one issue — investigated
+
+User: the decal seems to end up BEHIND the checkerboard. Measured:
+compositing is correct — all 48 opaque decal pixels sit on top of
+the composite byte-for-byte, and the decal (luminance 40/108) is
+darker than both checker tones (156/210); proof board
+`review/checker_contrast_proof.png` dims everything except the decal.
+The read is figure-ground: a crisp periodic checker grid reads as
+figure, so an irregular sparse stain interleaves and reads as ground.
+COMPOSITION GUIDANCE (recorded like the terracotta note): sparse
+speckle decals belong on field floors (plank/parquet/tile_warm);
+checker floors take only the denser contiguous-blob decals, judged
+in context. Formal approval of the six warm cuts + flour family
+awaits the user's word now that the issue is explained.

@@ -162,3 +162,20 @@ rotation+walk approval, phase 4 (portrait, 20 gens) word. Follow-up
 candidates behind named questions: breathing-idle via v3, ink-register
 retry for E06, drift-probe row for create_character v3 per P15 once
 the path is production-blessed.
+
+## Board round (2026-08-10): rotations+walk approved path opens; the
+## generic employee is halted honestly
+
+User approved the E09 cast (rotation+walk phase launched) and flagged
+that this experiment's employee pool predates the ghost loop — same
+corpse/ghost issues. Confirmed. Four re-roll seeds under the E09
+character recipe (8201–8204) produced ZERO board-clean generic faces:
+pale-face returns (8201, 8203), a rust face-smear (8202), a bare
+midriff (8204) — all provenanced. The generic-employee generation
+loop is HALTED on diminishing returns. PROPOSED replacement (awaiting
+word): extras/new-hires as RECORDED DETERMINISTIC RECOLORS of
+approved cast silhouettes (hair/garment ramp swaps within legal
+colors, zero generations) — the classic sprite-extra technique, and
+it keeps every extra inside the approved silhouette language. The v1
+employee's rotations/walk remain on file as method artifacts;
+production rotations belong to the approved named cast.
