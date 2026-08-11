@@ -1734,7 +1734,72 @@ def validate_cross_state(state: "State") -> None:
                 f"{label} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
     validate_execution_history(state)
+    validate_sitdown_snapshot(state)
     _validate_witnesses_and_campaigns(state)
+
+
+def validate_sitdown_snapshot(state: "State") -> None:
+    """The lock-up snapshot must BE a lock-up (P4b.1b review).
+
+    It is three primitives, and every one of them is load-bearing
+    somewhere permanent: `payoff_day` decides R and therefore which
+    chairs are offered at all, and the Partner deal reads it into a
+    points schedule that outlives the scene by the whole month. So a
+    payload carrying `payoff_day=13.0` used to sail through the
+    scene's arithmetic — `30 - 13.0` compares fine — and set a
+    permanent schedule from a day that is not a day.
+
+    This binds at the SHARED boundary rather than inside the branch
+    that noticed it: every consumer of the snapshot deserves the same
+    guarantee, and a check living in Partner would leave the same
+    payload malformed for everyone else. Refused, never repaired —
+    coercing 13.0 to 13 would accept a save nobody could have
+    written by playing."""
+    snap = state.sitdown_snapshot
+    if snap is None:
+        return
+    # Whole calendar days and whole counts — `type(...) is int`, the
+    # save layer's own rule, so a bool is not a day and 13.0 is not
+    # day 13.
+    if type(snap.payoff_day) is not int:
+        raise ValueError(
+            f"the sit-down snapshot's payoff day is a whole calendar "
+            f"day, got {snap.payoff_day!r}")
+    if type(snap.evidence_count_at_lockup) is not int:
+        raise ValueError(
+            f"the sit-down snapshot's evidence count is a whole "
+            f"number of records, got "
+            f"{snap.evidence_count_at_lockup!r}")
+    if type(snap.case_at_lockup) not in (int, float):
+        raise ValueError(
+            f"the sit-down snapshot's Case is a number, got "
+            f"{snap.case_at_lockup!r}")
+    if not 1 <= snap.payoff_day <= state.day:
+        raise ValueError(
+            f"the sit-down snapshot's payoff day {snap.payoff_day} is "
+            f"outside the calendar the run has reached (day "
+            f"{state.day})")
+    if snap.case_at_lockup < 0:
+        raise ValueError(
+            f"the sit-down snapshot's Case is negative "
+            f"({snap.case_at_lockup})")
+    # The ledger only grows, so the lock-up count is a prefix of it.
+    # A count beyond the ledger would make `evidence[:count]` silently
+    # short and the gate-crossing record wrong.
+    if not 0 <= snap.evidence_count_at_lockup <= len(state.evidence):
+        raise ValueError(
+            f"the sit-down snapshot counted "
+            f"{snap.evidence_count_at_lockup} records at lock-up; the "
+            f"ledger holds {len(state.evidence)}")
+    # And it reconciles with the payoff it was taken on: the snapshot
+    # is frozen on the night the debt died, by construction. Two
+    # different answers to "when was Carmine paid" is the two-homes
+    # defect, and here it would silently reprice a chair.
+    if state.debt_paid_day != snap.payoff_day:
+        raise ValueError(
+            f"the sit-down snapshot says the debt died on day "
+            f"{snap.payoff_day}; the ledger says "
+            f"{state.debt_paid_day!r}")
 
 
 def validate_execution_history(state: "State") -> None:

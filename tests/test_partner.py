@@ -13,10 +13,12 @@ position, and a card reorder would silently change which world these
 tests build.
 """
 
+import random
 import unittest
 from unittest import mock
 
-from extra_toppings import data, models, partner, phases, save, sitdown
+from extra_toppings import (data, market, models, partner, phases,
+                            save, sitdown)
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (CONSTRUCTION_DAYS, HOME_SHOP_KEY,
                                    Shop, SitdownSnapshot, Wagon, new_state)
@@ -169,6 +171,17 @@ class TestTheSiteCards(unittest.TestCase):
         self.assertEqual(set(partner.SITE_DISTRICTS),
                          set(data.DISTRICTS) - {data.HOME_DISTRICT})
         self.assertNotIn(data.HOME_DISTRICT, partner.SITE_DISTRICTS)
+
+    def test_no_district_is_offered_twice(self):
+        # Set equality alone accepts a repeated card — (…, "meadows",
+        # "meadows") covers exactly the same districts — and the
+        # player would be offered Vinnie's floor twice, the second
+        # copy answering to a different menu index. Coverage AND
+        # uniqueness; the import-time check enforces both.
+        self.assertEqual(len(partner.SITE_DISTRICTS),
+                         len(set(partner.SITE_DISTRICTS)))
+        self.assertEqual(len(partner.SITE_DISTRICTS),
+                         len(data.DISTRICTS) - 1)
 
     def test_the_owners_are_the_districts_own(self):
         owners = {d: data.DISTRICTS[d]["rival"]
@@ -428,6 +441,7 @@ class TestTheWalkthrough(unittest.TestCase):
     def _walk(self, district="university"):
         state = table_state(payoff_day=13)
         seat_partner(state, district)
+        market.roll_prices(state, random.Random(3))
         return state
 
     def test_the_deal_lands_on_D14(self):
@@ -476,19 +490,121 @@ class TestTheWalkthrough(unittest.TestCase):
         self.assertEqual(len(state.shops), 2)
         save.state_from_dict(save.state_to_dict(state))
 
-    def test_the_second_till_only_rings_after_it_opens(self):
+    def _stock_the_site_through_the_morning(self, state, streams, day):
+        """Day 15, the real morning: buy the site a pantry while it is
+        still a building site — canon ALLOWS exactly that, and it is
+        what makes the day-16 till a measurement rather than a hope.
+        The picker answer is derived from the eligible list, never
+        written as an index."""
+        state.day = day
+        able = [a.key for a in
+                models.addresses_allowing(state, "pantry_supply")]
+        con = ScriptedConsole([2, able.index("shop2"), 40, 8])
+        return phases.morning(state, con, streams)
+
+    def test_the_second_till_is_silent_on_15_and_rings_on_16(self):
+        # The vacuous version of this asserted `>= 0`, which passes
+        # when the second shop earns nothing at all. Deterministic
+        # now: stock bought on 15 through the real morning, and on 16
+        # the till, the clean cash and the pantry all move together.
         state = self._walk()
         streams = Streams(3)
         site = state.shops[-1]
-        takings = {}
-        for day in (15, 16):
-            state.day = day
-            con = ScriptedConsole([8])
-            plans = phases.morning(state, con, streams)
-            phases.service(state, plans, con, streams)
-            takings[day] = site.legit_revenue_today
-        self.assertEqual(takings[15], 0)          # a building site
-        self.assertGreaterEqual(takings[16], 0)   # a restaurant
+
+        plans = self._stock_the_site_through_the_morning(state, streams, 15)
+        self.assertEqual(site.ingredients, 40)     # prepared, not trading
+        phases.service(state, plans, ScriptedConsole([]), streams)
+        self.assertEqual(site.legit_revenue_today, 0)
+        self.assertEqual(site.ingredients, 40)     # nothing was baked
+        self.assertEqual(site.demand_today, 0)
+
+        state.day = 16
+        clean_before = state.clean
+        plans = phases.morning(state, ScriptedConsole([8]), streams)
+        self.assertGreater(site.demand_today, 0)   # an order book at last
+        phases.service(state, plans, ScriptedConsole([]), streams)
+        self.assertGreater(site.legit_revenue_today, 0)
+        self.assertLess(site.ingredients, 40)      # the kitchen baked
+        self.assertGreaterEqual(state.clean - clean_before,
+                                site.legit_revenue_today)
+
+    def _two_route_night(self, state):
+        """Two REAL routes, one per address, distinct drivers, each
+        carrying its own address's stock — the night §7 asks for."""
+        drivers = [e for e in state.employees if e.driving >= 4][:2]
+        for e in drivers:
+            e.hired = e.aware = True
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        site = state.shop_by_key("shop2")
+        home.stash = {"mushrooms": 4}
+        site.stash = {"oregano": 3}
+        home.ingredients = site.ingredients = 40
+        home.delivery_pool = site.delivery_pool = 10
+        plans = {"routes": {}}
+        for shop_key, driver, cargo in (
+                (HOME_SHOP_KEY, drivers[0], {"mushrooms": 2}),
+                ("shop2", drivers[1], {"oregano": 2})):
+            # The wagon KEPT at that address, by identity — not the
+            # claimable list, which is empty while the site is under
+            # construction and would turn this fixture into a ghost.
+            wagon = state.wagons_at(shop_key)
+            plans["routes"][shop_key] = {
+                "district": "old_harbor", "driver": driver,
+                "ride_along": False, "cargo": dict(cargo), "legit": 2,
+                "origin_shop": shop_key,
+                # The wagon is named from the address's OWN fleet, so
+                # this fixture cannot quietly pair the wrong pair.
+                "wagon_key": wagon[0].key}
+        return plans, drivers, home, site
+
+    def test_two_real_routes_run_the_night_it_opens(self):
+        # §7's own words, executed rather than inspected: two plans,
+        # two drivers, through the REAL service.
+        state = self._walk()
+        state.day = 16
+        plans, _drivers, home, site = self._two_route_night(state)
+        before = (dict(home.stash), dict(site.stash),
+                  home.ingredients, site.ingredients)
+        report = phases.service(state, plans, ScriptedConsole([]),
+                                Streams(3))
+        # Both EXACT wagons were claimed, each by its own address.
+        self.assertEqual(report["wagons"].claims,
+                         {models.HOME_WAGON_KEY: "route",
+                          "wagon2": "route"})
+        # Two execution records, one per origin.
+        self.assertEqual(len(state.route_log), 2)
+        self.assertEqual({r.origin_shop for r in state.route_log},
+                         {HOME_SHOP_KEY, "shop2"})
+        # Each address spent ITS OWN stock and ITS OWN oven: the
+        # cargo left each room, and neither pantry paid for the
+        # other's cover pizzas.
+        self.assertEqual(home.stash.get("oregano", 0), 0)
+        self.assertEqual(site.stash.get("mushrooms", 0), 0)
+        self.assertLess(home.ingredients, before[2])
+        self.assertLess(site.ingredients, before[3])
+        self.assertGreater(home.legit_revenue_today, 0)
+        self.assertGreater(site.legit_revenue_today, 0)
+
+    def test_the_same_night_one_day_early_never_leaves_the_yard(self):
+        # Day 15: the site's wagon is at the contractor's yard, so
+        # that route is scrubbed BEFORE it commits — its stock and
+        # pantry never move, and no record is written for it. The
+        # founding address's route is unaffected: one address's
+        # lifecycle never grounds the other's wagon.
+        state = self._walk()
+        state.day = 15
+        plans, _drivers, home, site = self._two_route_night(state)
+        site_before = (dict(site.stash), site.ingredients)
+        report = phases.service(state, plans, ScriptedConsole([]),
+                                Streams(3))
+        self.assertEqual(report["wagons"].claims,
+                         {models.HOME_WAGON_KEY: "route"})
+        self.assertEqual((dict(site.stash), site.ingredients),
+                         site_before)
+        self.assertEqual([r.origin_shop for r in state.route_log],
+                         [HOME_SHOP_KEY])
+        self.assertNotIn("shop2", plans["routes"])
+        self.assertGreater(home.legit_revenue_today, 0)
 
     def test_two_wagons_only_after_the_doors_open(self):
         # §7's "two real routes only after opening", at the lifecycle

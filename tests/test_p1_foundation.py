@@ -709,6 +709,56 @@ class TestSaveRoundTrips(unittest.TestCase):
         self.assertIsNone(restored.branch_state)
         self.assertFalse(sitdown.due(restored))
 
+    def test_a_snapshot_must_be_a_lock_up_at_the_load_boundary(self):
+        # P4b.1b review: `payoff_day=13.0` passed every arithmetic the
+        # scene does (`30 - 13.0` compares fine) and set a PERMANENT
+        # points schedule from a day that is not a day. The refusal
+        # binds at the SHARED persistence boundary, not inside the
+        # branch that noticed it — every consumer of the snapshot
+        # deserves the same guarantee.
+        good = scene_state(payoff_day=12, case=65.0)
+        good.evidence.append(Evidence(day=1, magnitude=1.0,
+                                      kind="physical", why="a crate"))
+        save.state_from_dict(save.state_to_dict(good))       # baseline
+        for field, bad in (
+            ("payoff_day", 13.0),            # not a whole day
+            ("payoff_day", True),            # a bool is not a day
+            ("payoff_day", "12"),            # nor a string
+            ("payoff_day", 0),               # before the calendar
+            ("payoff_day", 99),              # after the run's reach
+            ("payoff_day", 11),              # disagrees with the ledger
+            ("evidence_count_at_lockup", 1.0),
+            ("evidence_count_at_lockup", True),
+            ("evidence_count_at_lockup", -1),
+            ("evidence_count_at_lockup", 99),   # beyond the ledger
+            ("case_at_lockup", "65"),
+            ("case_at_lockup", -1.0),
+        ):
+            with self.subTest(f"{field}={bad!r}"):
+                payload = save.state_to_dict(good)
+                payload["sitdown_snapshot"][field] = bad
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(payload)
+
+    def test_a_snapshot_reconciles_with_the_payoff_it_records(self):
+        # Two answers to "when was Carmine paid" would silently
+        # reprice a chair, since R is derived from the snapshot.
+        state = scene_state(payoff_day=12)
+        payload = save.state_to_dict(state)
+        payload["debt_paid_day"] = None
+        with self.assertRaises(ValueError):
+            save.state_from_dict(payload)
+
+    def test_the_lock_up_count_may_equal_the_ledger_length(self):
+        # The boundary the bound turns on: the count is a PREFIX
+        # length, and freezing after the last record is the ordinary
+        # case, not an off-by-one.
+        state = scene_state(payoff_day=12, case=65.0,
+                            evidence=[(11, 65.0, "seizures")])
+        self.assertEqual(state.sitdown_snapshot.evidence_count_at_lockup,
+                         len(state.evidence))
+        save.state_from_dict(save.state_to_dict(state))
+
     def test_older_v3_payloads_load_the_snapshot_as_none(self):
         d = save.state_to_dict(new_state())
         del d["sitdown_snapshot"]

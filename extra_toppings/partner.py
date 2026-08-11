@@ -52,10 +52,16 @@ if COMMITTED + TO_CLEAN != FRONTED:                 # import-time check
 # measures: the Partner bot and every ablation name their district
 # by identity, never by index (rev. 31 item 2).
 SITE_DISTRICTS = ("university", "little_sicily", "meadows")
-if set(SITE_DISTRICTS) != set(data.DISTRICTS) - {data.HOME_DISTRICT}:
+# COVERAGE **and** UNIQUENESS, because set equality alone accepts a
+# repeated card: `(…, "meadows", "meadows")` covers exactly the same
+# districts and would offer the player Vinnie's floor twice, with the
+# second copy answering to a different menu index. Equal lengths is
+# the other half of the check.
+if set(SITE_DISTRICTS) != set(data.DISTRICTS) - {data.HOME_DISTRICT} \
+        or len(SITE_DISTRICTS) != len(set(SITE_DISTRICTS)):
     raise RuntimeError(
-        "the Partner site cards and the eligible districts have "
-        "drifted — §2.4.2 offers any district but the founding one")
+        "the Partner site cards must be each eligible district exactly "
+        "once — §2.4.2 offers any district but the founding one")
 
 # Opening on an owned district is a commercial declaration: the
 # existing relation authority takes the hit, at one recorded number.
