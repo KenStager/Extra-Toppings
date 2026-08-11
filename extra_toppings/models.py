@@ -1242,8 +1242,24 @@ def _validate_partner(bs: "BranchState", game_over: str | None) -> None:
         if game_over not in (FORECLOSURE_ENDING, "arrested"):
             raise ValueError(
                 f"partner: {view.strikes} strikes ends the run as "
-                f"{FORECLOSURE_ENDING!r} (or {'arrested'!r}, which "
+                f"{FORECLOSURE_ENDING!r} (or 'arrested', which "
                 f"outranks it); this run ended {game_over!r}")
+        # THE SECOND MISS ENDS IT, so the record that creates strike
+        # two is the LAST record, and a third strike cannot exist
+        # (P4b.2 review). Accepting "two or more" accepted a ledger
+        # that kept billing after the shop stopped being the
+        # player's: a third miss, or a cycle paid on a night Carmine
+        # already had the keys.
+        if view.strikes != POINTS_STRIKES_TO_FORECLOSE:
+            raise ValueError(
+                f"partner: the run ends on strike "
+                f"{POINTS_STRIKES_TO_FORECLOSE}; this ledger carries "
+                f"{view.strikes}")
+        if cycles[-1].paid:
+            raise ValueError(
+                "partner: the second miss ends the run, so the miss "
+                "that ended it is the last cycle — this ledger keeps "
+                "billing afterwards")
     elif game_over == FORECLOSURE_ENDING:
         raise ValueError(
             f"partner: a run ends in {FORECLOSURE_ENDING!r} on the "
@@ -2041,8 +2057,12 @@ def validate_cross_state(state: "State") -> None:
                 f"{label} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
     validate_execution_history(state)
-    validate_points_schedule(state)
+    # THE SNAPSHOT FIRST: the points schedule consumes its payoff day,
+    # so a malformed one must produce its own deliberate refusal
+    # rather than a TypeError from arithmetic downstream (P4b.2
+    # review).
     validate_sitdown_snapshot(state)
+    validate_points_schedule(state)
     _validate_witnesses_and_campaigns(state)
 
 
@@ -2117,6 +2137,19 @@ def validate_points_schedule(state: "State") -> None:
         raise ValueError(
             "partner: the second address records no acceptance day, "
             "and the points schedule starts from it")
+    # THE ANCHOR ITSELF RECONCILES (P4b.2 review). Trusting the
+    # persisted acceptance day made the whole schedule self-
+    # consistent about the wrong deal: move acceptance and opening to
+    # 15/17 on a payoff-13 save, put the cursor on 20, and every
+    # other rule agrees with the shifted story. The deal is struck at
+    # the table on the morning after the debt died (rev. 29 item 4),
+    # so that is what acceptance means and it is checked here.
+    if site.acceptance_day != snap.payoff_day + 1:
+        raise ValueError(
+            f"partner: the second address was accepted on day "
+            f"{site.acceptance_day}; the deal is struck at the table "
+            f"on day {snap.payoff_day + 1}, the morning after the "
+            f"debt died")
     first_due = first_points_due(site.acceptance_day, snap.payoff_day)
     for i, c in enumerate(bs.points_cycles):
         expected = first_due + i * POINTS_CYCLE_DAYS
@@ -2148,10 +2181,26 @@ def validate_points_schedule(state: "State") -> None:
     # A cycle the run has LIVED THROUGH has a record. Without this a
     # save could simply omit an inconvenient miss and present a
     # shorter, cleaner history that every other check accepts.
-    if state.game_over is None and cursor <= state.day:
+    #
+    # The boundary is `cursor < state.day`, not `<=` (P4b.2 review):
+    # on the MORNING a bill falls due the night has not run yet, so
+    # cursor == day is the ordinary valid state every save taken that
+    # day carries, and refusing it would refuse real saves.
+    #
+    # A finished run gets a BOUNDED exception, not a blanket one. The
+    # only legitimate lag is the single night a terminal took the
+    # run before the points tick — arrest latching on the very night
+    # a bill was due — after which the phase still advances the day
+    # once. A run standing six days past an unrecorded bill has not
+    # transitioned; it has skipped, and `game_over` is not a licence
+    # to omit history.
+    lag = state.day - cursor
+    allowed = 1 if state.game_over is not None else 0
+    if lag > allowed:
         raise ValueError(
             f"partner: day {cursor} fell due and the ledger records "
-            f"no cycle for it — a live run cannot skip a bill")
+            f"no cycle for it — a run cannot skip a bill (day "
+            f"{state.day}, ended {state.game_over!r})")
 
 
 def validate_sitdown_snapshot(state: "State") -> None:

@@ -2609,16 +2609,30 @@ incident reference, and the work returns here on
 `claude/p4b2-review`, cherry-picked with `-x` so each commit names
 the original it came from.
 
-**What now actually prevents it.** Two things, because the first one
-alone was demonstrated to be insufficient. Server-side: the ruleset
-gains *restrict updates* and a bypass actor limited to *for pull
-requests only*, never *always*. Locally: a `pre-push` hook that
-refuses any push whose REMOTE ref is `refs/heads/main`, whatever the
-local branch is — which is the check that would have caught the
-second violation, since no "am I on main?" test can see a feature
-branch aimed at main. It was verified with `--dry-run` on a
-throwaway commit, because verifying it with a real push is the
-mistake it exists to prevent.
+**What prevents it now, and what does NOT yet.** Two halves, and
+only one of them is real today — stated that way because a record
+that describes a pending safeguard as an accomplished one is the
+same failure as a stale record read as current.
+
+*Active.* A local `pre-push` hook that refuses any push whose REMOTE
+ref is `refs/heads/main`, whatever the local branch is — the check
+that would have caught the second violation, since no "am I on main?"
+test can see a feature branch aimed at main. Verified with
+`--dry-run` on a throwaway commit, because verifying it with a real
+push is the mistake it exists to prevent. It is also only a local
+hook: it protects this working copy and nothing else.
+
+*PENDING, and a stated merge prerequisite.* The server-side half.
+Ruleset 20712601 exists and is active, but its effective rules are
+still `pull_request` (zero approvals), `non_fast_forward` and
+`deletion` — which is exactly the configuration that let the second
+violation through, since "require a pull request" asks only that a
+change be ASSOCIATED with an open PR. It needs *restrict updates* and
+a bypass actor limited to *for pull requests only*, never *always*,
+and that edit belongs to a human in the repository UI. **Until it
+lands there is no server-side boundary at all**, and the only thing
+standing between this repository and a third occurrence is a hook on
+one machine.
 
 **The lesson worth keeping.** A protocol that lives only in a
 document is a habit, not a boundary, and habits fail under exactly

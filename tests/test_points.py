@@ -13,6 +13,8 @@ the reconciliation is driven through the REAL save boundary.
 """
 
 import unittest
+from dataclasses import FrozenInstanceError
+from unittest import mock
 
 from extra_toppings import evidence, models, partner, phases, save
 from extra_toppings.models import (BranchState, PointsCycleRecord,
@@ -237,6 +239,16 @@ class TestTheTransitionTable(unittest.TestCase):
         self.assertEqual(partner.ledger(state).strikes, 2)
         self.assertTrue(con.said("Two misses"), con.lines)
 
+    def test_an_overdue_cursor_refuses_before_it_mutates(self):
+        # The night is not a catch-up: billing a day late would write
+        # a record dated for a day the run had already left.
+        state = seated()
+        state.day = state.branch_state.points_due_day + 1
+        with self.assertRaises(ValueError) as caught:
+            partner.night_points(state, Listening())
+        self.assertIn("never processed", str(caught.exception))
+        self.assertEqual(state.branch_state.points_cycles, [])
+
     def test_the_schedule_never_drifts_when_a_bill_is_met_late(self):
         # The cursor advances from the DUE DATE, never from the day
         # the money happened to arrive.
@@ -250,6 +262,26 @@ class TestTheTransitionTable(unittest.TestCase):
             [first, first + CYCLE])
         self.assertEqual(state.branch_state.points_due_day,
                          first + 2 * CYCLE)
+
+    def test_evidence_after_the_points_tick_replaces_foreclosure(self):
+        # THE production order: `night_points` runs before the rival
+        # and law phases, so foreclosure is written FIRST and the
+        # night's own evidence can still latch over it. §2.5 gives
+        # arrest precedence over every simultaneous outcome, and this
+        # is the order in which that actually happens.
+        state = seated(clean=0)
+        due = state.branch_state.points_due_day
+        advance_to(state, due + 1)                  # strike one
+        state.day = due + CYCLE
+        partner.night_obligation(state, Listening())
+        self.assertEqual(state.game_over, models.FORECLOSURE_ENDING)
+        # …and then the same night's file closes.
+        state.add_case(100.0, "the file closes", kind="physical")
+        self.assertEqual(state.game_over, "arrested")
+        # The ledger still reads two strikes, and that pair is a
+        # payload the boundary accepts under the arrest ending.
+        self.assertEqual(partner.ledger(state).strikes, 2)
+        save.state_from_dict(save.state_to_dict(state))
 
     def test_the_arrest_latch_outranks_foreclosure_the_same_night(self):
         # §2.5, at the boundary where the two terminals actually
@@ -386,7 +418,7 @@ class TestTheLedgerReconciles(unittest.TestCase):
     def test_the_record_is_frozen(self):
         record = PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
                                    paid=True, paid_day=19)
-        with self.assertRaises(Exception):
+        with self.assertRaises(FrozenInstanceError):
             record.bill = 1            # type: ignore[misc]
 
     def test_a_cycle_the_run_has_not_reached_is_refused(self):
@@ -483,14 +515,48 @@ class TestTheLedgerReconciles(unittest.TestCase):
             save.state_from_dict(save.state_to_dict(state))
         self.assertIn("cannot skip a bill", str(caught.exception))
 
-    def test_a_finished_run_may_stand_past_its_last_cycle(self):
-        # The same shape after the run ends is not a skipped bill —
-        # nothing falls due once it is over.
+    def test_a_live_run_one_day_past_its_bill_is_refused_too(self):
+        # The tight edge of the same rule: one day past, still a
+        # skipped bill, because a live run processes its night.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        state.day = state.branch_state.points_due_day + 1
+        with self.assertRaises(ValueError):
+            save.state_from_dict(save.state_to_dict(state))
+
+    def test_the_morning_a_bill_is_due_is_a_valid_save(self):
+        # The off-by-one: on the MORNING a bill falls due the night
+        # has not run, so cursor == day is the ordinary state every
+        # save taken that day carries. `<=` refused real saves.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        state.day = state.branch_state.points_due_day     # day 19
+        loaded = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(loaded.branch_state.points_cycles, [])
+        self.assertEqual(loaded.branch_state.points_due_day, 19)
+
+    def test_a_terminal_may_lag_the_bill_by_exactly_one_night(self):
+        # The bounded exception: arrest latches on the very night a
+        # bill was due, the points tick never runs, and the phase
+        # still advances the day once. That is the only legitimate
+        # lag there is.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        state.day = state.branch_state.points_due_day + 1  # day 20
+        state.game_over = "arrested"
+        save.state_from_dict(save.state_to_dict(state))
+
+    def test_a_finished_run_cannot_omit_days_of_history(self):
+        # And the exception is BOUNDED: `game_over` is not a licence
+        # to drop an inconvenient miss. A run standing six days past
+        # an unrecorded bill did not transition — it skipped.
         state = table_state(payoff_day=13)
         seat_partner(state)
         state.day = 25
         state.game_over = "arrested"
-        save.state_from_dict(save.state_to_dict(state))
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(save.state_to_dict(state))
+        self.assertIn("cannot skip a bill", str(caught.exception))
 
     def test_a_live_run_cannot_carry_two_strikes(self):
         # The second strike forecloses THAT NIGHT, so a payload
@@ -502,6 +568,78 @@ class TestTheLedgerReconciles(unittest.TestCase):
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(save.state_to_dict(state))
         self.assertIn("forecloses", str(caught.exception))
+
+    def test_foreclosure_closes_the_ledger(self):
+        # The second miss ENDS the run, so the record that created
+        # strike two is the last one. "Two or more" accepted a ledger
+        # that kept billing after the shop stopped being the
+        # player's.
+        third = [
+            PointsCycleRecord(due_day=19, bill=POINTS, vig=0, paid=False),
+            PointsCycleRecord(due_day=24, bill=POINTS * 2 + VIG, vig=VIG,
+                              paid=False),
+            # 5500 arrears + 2500 + 500 vig: the bill reconciles, so
+            # what refuses it is the terminal rule and nothing else.
+            PointsCycleRecord(due_day=29, bill=POINTS * 2 + VIG + POINTS
+                              + VIG, vig=VIG, paid=False)]
+        after = [
+            PointsCycleRecord(due_day=19, bill=POINTS, vig=0, paid=False),
+            PointsCycleRecord(due_day=24, bill=POINTS * 2 + VIG, vig=VIG,
+                              paid=False),
+            PointsCycleRecord(due_day=29, bill=POINTS * 2 + VIG + POINTS
+                              + VIG, vig=VIG, paid=True, paid_day=29)]
+        for cycles, cursor, fragment in (
+                (third, 34, "ends on strike"),
+                (after, 34, "keeps billing afterwards")):
+            with self.subTest(fragment):
+                state = self._state(cycles, cursor)
+                state.game_over = models.FORECLOSURE_ENDING
+                with self.assertRaises(ValueError) as caught:
+                    save.state_from_dict(save.state_to_dict(state))
+                self.assertIn(fragment, str(caught.exception))
+
+    def test_the_anchor_reconciles_with_the_table(self):
+        # The whole story can be internally consistent and still be
+        # about a deal nobody struck: move acceptance and opening to
+        # 15/17 on a payoff-13 save, put the cursor on 20, and every
+        # other rule agrees.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        payload = save.state_to_dict(state)
+        payload["shops"][1]["acceptance_day"] = 15
+        payload["shops"][1]["opening_day"] = 17
+        payload["branch_state"]["points_due_day"] = 20
+        payload["day"] = 21
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("the morning after the debt died",
+                      str(caught.exception))
+
+    def test_a_malformed_snapshot_refuses_before_the_arithmetic(self):
+        # Ordering: the schedule CONSUMES the payoff day, so a
+        # malformed snapshot must produce its own deliberate refusal
+        # rather than a TypeError from arithmetic downstream.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        payload = save.state_to_dict(state)
+        payload["sitdown_snapshot"]["payoff_day"] = "13"
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("whole calendar day", str(caught.exception))
+
+    def test_the_branch_and_the_validator_share_one_anchor(self):
+        # ONE home, proved by identity rather than by two functions
+        # agreeing today: redirect the model's authority and the
+        # branch's wrapper follows it.
+        shop = state_shop = table_state(payoff_day=13)
+        seat_partner(state_shop)
+        site = state_shop.shops[-1]
+        self.assertEqual(partner.EARLY_PAYOFF_DAY, models.EARLY_PAYOFF_DAY)
+        with mock.patch.object(models, "first_points_due",
+                               return_value=999) as anchor:
+            self.assertEqual(partner.first_points_due(site, 13), 999)
+        anchor.assert_called_once_with(site.acceptance_day, 13)
+        self.assertIsNotNone(shop)
 
     def test_the_terminal_contract_binds_both_ways(self):
         # Checking only "two strikes on a live run" left three

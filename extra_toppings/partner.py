@@ -75,8 +75,11 @@ POINTS_CYCLE_DAYS = models.POINTS_CYCLE_DAYS
 POINTS_PER_CYCLE = models.POINTS_PER_CYCLE
 POINTS_VIG = models.POINTS_VIG
 # The early-payoff compliment defers the FIRST cycle by one whole
-# cycle, not by one day (rev. 31 item 3).
-EARLY_PAYOFF_DAY = 10
+# cycle, not by one day (rev. 31 item 3). Bound to the model's
+# constant, not re-typed as another 10 — a second literal here is
+# how the deal and the validator come to disagree about the same
+# compliment.
+EARLY_PAYOFF_DAY = models.EARLY_PAYOFF_DAY
 
 
 def first_points_due(shop: Shop, payoff_day: int) -> int:
@@ -92,9 +95,13 @@ def first_points_due(shop: Shop, payoff_day: int) -> int:
         raise ValueError("the founding address strikes no deal — the "
                          "points schedule starts from a recorded "
                          "acceptance day")
-    grace = (2 * POINTS_CYCLE_DAYS if payoff_day <= EARLY_PAYOFF_DAY
-             else POINTS_CYCLE_DAYS)
-    return shop.acceptance_day + grace
+    # DELEGATED, not re-derived (P4b.2 review). This wrapper exists
+    # only to speak in `Shop`; the arithmetic is the model's, which
+    # is the same one `validate_points_schedule` prices the anchor
+    # from. A local copy of the formula was exactly the drift the
+    # hoist was supposed to end, sitting one function below the
+    # comment that claimed it had.
+    return models.first_points_due(shop.acceptance_day, payoff_day)
 
 
 def site_label(district: str) -> str:
@@ -363,6 +370,15 @@ def night_points(state: State, con: Console) -> None:
         return
     if state.day < bs.points_due_day:
         return
+    # AN OVERDUE LIVE CURSOR IS A BUG, not a bill to catch up on
+    # (P4b.2 review). A cycle is processed on the night it falls due;
+    # arriving here a day late means a night was skipped somewhere,
+    # and quietly billing it now would write a record dated for a day
+    # the run had already left. Refused BEFORE anything is appended.
+    if state.day > bs.points_due_day:
+        raise ValueError(
+            f"partner: day {bs.points_due_day} fell due and was never "
+            f"processed; this night is day {state.day}")
     view = ledger(state)
     bill, vig = view.next_bill, view.next_vig
     # The cursor is not None here — `points_due_day` was checked at
