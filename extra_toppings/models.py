@@ -722,7 +722,23 @@ def canonical_shop(state: "State", shop: "Shop") -> "Shop":
     Refused, never redirected. Substituting the canonical object
     would repair the call while leaving everything the caller already
     read off the copy — its dates, its upgrades, its stash — sourced
-    from somewhere else, which is a quieter version of the same bug."""
+    from somewhere else, which is a quieter version of the same bug.
+
+    WHERE IT BINDS, stated once so the roster is not guesswork: the
+    six player-facing morning surfaces that take a `Shop` — the
+    market board, kitchen policy, buying ingredients, the supplier,
+    improvements and storage. That is the complete set of generic
+    address-specific phase surfaces, and it is a defect class rather
+    than a spending rule: a board can DISPLAY a detached room, policy
+    can mutate a copy, and storage can combine copy-derived
+    information (`shop_at.stash`) with canonical transfers
+    (`move_goods(state, shop_at.key, …)`) in one operation.
+
+    Domain internals are deliberately NOT swept: `simulate_shift`,
+    route commitment and resolution, and the raid path derive their
+    address from the state or carry their own contracts
+    (`validate_route_plan`, `plan_origin`), and adding a second check
+    there would be a second authority for a settled question."""
     canonical = state.shop_by_key(shop.key)     # KeyError on a ghost
     if canonical is not shop:
         raise ValueError(

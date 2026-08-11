@@ -1833,38 +1833,6 @@ class TestTheSupplierNeverStocksABuildingSite(unittest.TestCase):
         self.assertEqual((real.stash, clone.stash), ({}, {}))
         self.assertEqual(offer["units"], 10)
 
-    def test_the_other_cash_boundaries_refuse_a_copy_too(self):
-        # The same class at the two other surfaces that spend the
-        # operation's cash into ONE address's room. Extended here
-        # rather than left open now that the class has a name.
-        state = _with_site(day=7, acceptance=5)
-        real = state.shop_by_key("shop2")
-        clone = Shop(key="shop2", district="university",
-                     acceptance_day=5, opening_day=7)
-        state.clean = 5000
-        for call in (
-            lambda: phases._buy_ingredients(state, clone,
-                                            Listening([10])),
-            lambda: phases._improvements(state, clone, Listening([0])),
-        ):
-            with self.assertRaises(ValueError) as caught:
-                call()
-            self.assertIn("detached copy", str(caught.exception))
-        self.assertEqual(state.clean, 5000)
-        self.assertEqual((real.ingredients, clone.ingredients), (0, 40))
-        self.assertEqual((real.upgrades, clone.upgrades), (set(), set()))
-
-    def test_the_canonical_address_still_passes_every_boundary(self):
-        # The authority refuses COPIES, not addresses: the object the
-        # picker actually hands over is the state's own, and every
-        # boundary takes it.
-        state = _with_site(day=7, acceptance=5)
-        real = state.shop_by_key("shop2")
-        self.assertIs(models.canonical_shop(state, real), real)
-        state.clean = 5000
-        phases._buy_ingredients(state, real, Listening([10]))
-        self.assertEqual(real.ingredients, 10)
-
     def test_the_purchase_still_serves_an_open_address(self):
         # The refusal is the lifecycle's, not a new rule about
         # suppliers: the same call at the same address succeeds the
@@ -1983,6 +1951,154 @@ class TestBothAddressesTradeAndRun(unittest.TestCase):
             phases.service(state, plans, Listening(), Streams(3))
         self.assertEqual((home.stash, home.ingredients), before)
         self.assertEqual(state.route_log, [])
+
+
+def _shop_snapshot(a_shop) -> tuple:
+    """Everything a morning surface could move at one address. A
+    partial snapshot would let a surface mutate the field nobody
+    thought to record, which is the failure mode this guards."""
+    return (a_shop.quality, a_shop.price, a_shop.ingredients,
+            a_shop.pantry_quality, dict(a_shop.stash),
+            set(a_shop.upgrades), a_shop.demand_today,
+            a_shop.delivery_pool, a_shop.legit_revenue_today,
+            a_shop.reputation)
+
+
+class TestEverySurfaceTakesTheWorldsAddress(unittest.TestCase):
+    """P4b.1a review, third pass: the bounded surface completion.
+
+    THE SIX generic address-specific phase surfaces — the complete
+    set of player-facing boundaries that accept a `Shop` — each
+    resolve their address through the state before reading from it or
+    writing to it. Not a spending rule: a board can DISPLAY a
+    detached room as if the player owned it, kitchen policy can take
+    the player's decisions and leave the real kitchen unchanged, and
+    storage reads what to move off the object handed in while moving
+    it canonically by key.
+
+    Domain internals are deliberately out of scope (`simulate_shift`,
+    route commitment and resolution, the raid path): they derive
+    their address from state or carry their own contracts, and a
+    second check there would be a second authority.
+    """
+
+    SURFACES = ("_market_board", "_kitchen_policy", "_buy_ingredients",
+                "_buy_supplier", "_improvements", "_storage")
+
+    def _world(self):
+        """An open second address with a warehouse to move goods to,
+        stock worth moving, and money worth spending — so every
+        surface below would really do something if it ran."""
+        state = _with_site(day=7, acceptance=5)
+        market.roll_prices(state, random.Random(3))
+        state.warehouse = {}
+        state.clean, state.dirty = 5000, 5000
+        real = state.shop_by_key("shop2")
+        real.stash = {"mushrooms": 3}
+        real.ingredients = 10
+        return state, real
+
+    def _clone_of(self, real):
+        """A faithful copy: same key, same district, same dates. It
+        is refused for being a copy, not for being wrong."""
+        return Shop(key=real.key, district=real.district,
+                    ingredients=real.ingredients,
+                    stash=dict(real.stash),
+                    acceptance_day=real.acceptance_day,
+                    opening_day=real.opening_day)
+
+    def _call(self, name, state, a_shop):
+        """Each surface driven with answers that WOULD move something
+        — buy stock, take an upgrade, move goods, set both policies —
+        so "nothing touched" means the guard stopped it rather than
+        the script having asked for nothing."""
+        return {
+            "_market_board":
+                lambda: phases._market_board(state, a_shop, Listening()),
+            # The plan set is passed explicitly — every production
+            # caller passes one, and `plans=None` falls through to a
+            # `{}` the route contract refuses (noted for review, not
+            # changed here: it is outside this ruling and unreachable
+            # from any caller in the tree).
+            "_kitchen_policy":
+                lambda: phases._kitchen_policy(state, a_shop,
+                                               Listening([0, 2]),
+                                               {"routes": {}}),
+            "_buy_ingredients":
+                lambda: phases._buy_ingredients(state, a_shop,
+                                                Listening([12])),
+            "_buy_supplier":
+                lambda: phases._buy_supplier(
+                    state, a_shop,
+                    {"good": "mushrooms", "units": 10, "price": 10},
+                    Listening([6])),
+            "_improvements":
+                lambda: phases._improvements(state, a_shop,
+                                             Listening([0])),
+            "_storage":
+                lambda: phases._storage(state, a_shop, Listening([0, 3]),
+                                        Streams(3)),
+        }[name]()
+
+    def test_the_roster_is_the_six_surfaces_and_they_all_exist(self):
+        for name in self.SURFACES:
+            self.assertTrue(callable(getattr(phases, name)), name)
+
+    def test_every_surface_refuses_a_detached_copy_untouched(self):
+        for name in self.SURFACES:
+            with self.subTest(name):
+                state, real = self._world()
+                clone = self._clone_of(real)
+                before = (_shop_snapshot(real), _shop_snapshot(clone),
+                          state.clean, state.dirty,
+                          dict(state.warehouse))
+                with self.assertRaises(ValueError) as caught:
+                    self._call(name, state, clone)
+                self.assertIn("detached copy", str(caught.exception))
+                self.assertEqual(
+                    (_shop_snapshot(real), _shop_snapshot(clone),
+                     state.clean, state.dirty, dict(state.warehouse)),
+                    before)
+
+    def test_every_surface_refuses_a_ghost_address(self):
+        # A key naming no address is not a copy but the same class of
+        # incoherence, and it fails closed through the same lookup.
+        for name in self.SURFACES:
+            with self.subTest(name):
+                state, _real = self._world()
+                ghost = Shop(key="nowhere", district="university")
+                with self.assertRaises(KeyError):
+                    self._call(name, state, ghost)
+
+    def test_every_surface_takes_the_canonical_address(self):
+        # The authority refuses COPIES, not addresses: the object the
+        # picker actually hands over is the state's own, and it must
+        # pass every one of the six.
+        for name in self.SURFACES:
+            with self.subTest(name):
+                state, real = self._world()
+                self.assertIs(models.canonical_shop(state, real), real)
+                self._call(name, state, real)     # must not raise
+
+    def test_the_authority_is_reached_before_anything_is_read(self):
+        # Order matters: a copy must not get to answer the lifecycle,
+        # price against the canonical room, or print a room's stock
+        # before being refused. A copy whose fields would all produce
+        # DIFFERENT answers is refused just the same.
+        state, real = self._world()
+        liar = Shop(key="shop2", district="meadows", ingredients=99,
+                    stash={"truffle": 40}, quality="gourmet")
+        for name in self.SURFACES:
+            with self.subTest(name):
+                with self.assertRaises(ValueError) as caught:
+                    self._call(name, state, liar)
+                # THE identity refusal specifically. A bare
+                # `assertRaises(ValueError)` was satisfied on the
+                # pre-guard engine by `_storage` refusing the liar's
+                # 40 truffles on space grounds — the right exception
+                # type for the wrong reason, which is a pin that
+                # proves nothing.
+                self.assertIn("detached copy", str(caught.exception))
 
 
 def _renamed_founding(key: str) -> models.State:
