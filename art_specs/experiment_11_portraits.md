@@ -320,3 +320,15 @@ filled with neighboring SKIN — frame and hair excluded from votes)
 removed 9 named pixels; the 5-6px blush runs and under-eye warmth
 passed the gate untouched. Bee's final face: cream sclera, clean
 rims, blush intact.
+
+## Bee v7, the actual target (2026-08-11; 0 gens)
+
+The board finally named it in words: "the pink cheeks under the
+glasses" — the blush clusters the session had DEFENDED as a feature
+through three rounds while the board pointed at them. v7 removes all
+remaining rose from the face (51px, skin-majority fill, 3 passes):
+no pink anywhere, cream sclera, clean rims, lip intact. Recorded
+plainly: the reader rules on reads. When the board repeats a
+complaint about a zone, the fastest fix is asking WHICH pixels — or
+removing the candidates one class at a time with boards between —
+not defending a session interpretation three times.
