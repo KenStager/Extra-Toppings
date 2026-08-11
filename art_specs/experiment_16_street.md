@@ -316,3 +316,39 @@ neighbor storefront redraws (Sal's and Vinnie's briefs first, per
 the open decision-4 question), (2) native delivery/parked vehicle
 class, (3) street props (lamppost, hydrant, signage on pixel_font),
 (4) grime/crack decal set, (5) curb corner + crosswalk pieces.
+
+## The richness round (2026-08-11, board: "add richness… a tree on
+## the sidewalk, a manhole"; 2 gens, v6 loop)
+
+tileB_town surveyed and grid-mapped: it is the street-dressing
+donor — phone booth (the pressure arrives by phone), dumpster,
+trash cans and bags, mailbox, benches, traffic lights, vending,
+fences. The one asset no donor sheet carries is the SIDEWALK TREE —
+organic form, generation's home ground, district-prop scope.
+
+**Bespoke trees** (2 gens, ledgered): pixflux, no anchor (organic),
+48×64, subtractive 10-tone strip — muted olive crown + trunk +
+facade-brick planter (interim under the union rule). BOTH seeds
+landed first pass (s16201/s16202): round crowns, brick planters,
+register-true. Both placed in the mock as natural variants.
+
+**Derived props** (0 gens, recorded): phone booth (B (5,6)–(6,8)),
+trash bags ((4,9)–(6,10)), bench ((3,13)–(6,14)) — each through a
+gentle desat-warm pass (k=0.22) to knock the RPG saturation;
+manhole lifted off its navy A5 backing by a navy-drop rule and
+lum-mapped onto warm metal. All in `candidates/derived_props/`.
+
+**v6 → v6c loop**: v6 placed everything; the zoom convicted the
+Omega HYDRANT — at 16px it reads as a red blob beside our 32px
+cast, a donor-quality failure, not a placement one. Pulled; native
+hydrant confirmed in the bespoke queue. v6c
+(`review/hybrid_dinapoli_block_board_v6c.png`) is the richness
+candidate: trees flanking the block, bags at the shop corner,
+bench and booth at the diner end, manhole on the road — the street
+reads inhabited.
+
+Session spend 72 (4 drift + 44 + 20 + 2 curb + 2 tree); expected
+balance 4,255. Richness additions still to consider, each pending
+its slot in the bespoke queue: lamppost (period cast-iron),
+parking meters, mailbox, newspaper box, awning shadow pass,
+alley-mouth dressing (dumpster belongs there, not the front walk).
