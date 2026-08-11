@@ -1167,3 +1167,11 @@ candidate - NOT promoted; promotion rides with the staging-v3 scene
 instance, which is next. STILL FLAGGED, awaiting explicit word: the
 matching cool-glass pass on the approved Anchor Diner and Rossi's
 fronts (block coherence argues for it; they are approved assets).
+
+Addendum to the glass ruling (same day, board catch): the "strange
+lighter blue flanking the door" was inherited sky-catch remnants -
+generation shine kept by a lazy keep-leftmost rule, plus transom
+fragments between scallops. LAW, small but real: GLINTS ARE DRAWN,
+NOT INHERITED - all 53 remnant cyan px stripped to slate; one
+deliberate 2px diagonal shine per bay at symmetric positions.
+morettis_branded_v2c is the standing candidate body.
