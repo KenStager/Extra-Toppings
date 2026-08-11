@@ -1631,6 +1631,38 @@ class TestTheLifecycleActuallyBinds(unittest.TestCase):
         self.assertGreater(
             state.shop_by_key(HOME_SHOP_KEY).demand_today, 0)
 
+    def test_the_roll_leaves_a_building_site_with_nothing_at_all(self):
+        # Skipping the address was not the same as clearing it
+        # (P4b.1a review, blocking item 2). Whatever a site was
+        # carrying survived the morning, the shift AND a save/load
+        # round trip, so the record could claim 49 customers, 17
+        # deliveries and a day's takings at an address canon says
+        # serves nothing and earns nothing. The daily authority owns
+        # the complete postcondition now.
+        state = self._building()
+        site = state.shop_by_key("shop2")
+        site.demand_today, site.delivery_pool = 49, 17
+        site.legit_revenue_today = 123
+        shop.roll_demand(state, Streams(3).daily(6, "demand"))
+        self.assertEqual((site.demand_today, site.delivery_pool,
+                          site.legit_revenue_today), (0, 0, 0))
+        self.assertGreater(
+            state.shop_by_key(HOME_SHOP_KEY).demand_today, 0)
+
+    def test_the_postcondition_survives_the_real_morning(self):
+        # Through the REAL morning, not the roll alone: the injected
+        # numbers are gone by the time the player sees a menu, and the
+        # payload they leave behind is one a reload accepts.
+        state = self._building()
+        site = state.shop_by_key("shop2")
+        site.demand_today, site.delivery_pool = 49, 17
+        site.legit_revenue_today = 123
+        market.roll_prices(state, random.Random(3))
+        phases.morning(state, Listening([8]), Streams(3))
+        self.assertEqual((site.demand_today, site.delivery_pool,
+                          site.legit_revenue_today), (0, 0, 0))
+        save.state_from_dict(save.state_to_dict(state))
+
     def test_a_building_site_pays_no_rent(self):
         state = self._building()
         self.assertEqual(
@@ -1971,6 +2003,30 @@ class TestLifecycleValidation(unittest.TestCase):
         # every save carries exactly one undated address.
         validate_addresses(new_state())
 
+    def test_a_site_carrying_an_order_book_is_refused(self):
+        # §2.4.2's initial state, bound at persistence (P4b.1a
+        # review): an address that serves nobody cannot also record
+        # customers, a delivery pool or a day's honest till.
+        for name, value in (("demand_today", 49),
+                            ("delivery_pool", 17),
+                            ("legit_revenue_today", 123)):
+            state = self._valid()
+            setattr(state.shop_by_key("shop2"), name, value)
+            with self.assertRaises(ValueError) as caught:
+                validate_addresses(state)
+            self.assertIn("no order book", str(caught.exception))
+            self.assertIn(name, str(caught.exception))
+
+    def test_an_open_address_keeps_its_order_book(self):
+        # The refusal is the CONSTRUCTION phase's, not a new rule
+        # about order books: the same numbers pass the morning the
+        # address opens.
+        state = _with_site(day=7, acceptance=5)
+        site = state.shop_by_key("shop2")
+        site.demand_today, site.delivery_pool = 49, 17
+        site.legit_revenue_today = 123
+        validate_addresses(state)
+
     def test_a_validated_world_always_keeps_an_open_address(self):
         # The open-address guarantee is a CONSEQUENCE of the undated
         # rule, not a check of its own: an undated shop has no opening
@@ -2020,6 +2076,23 @@ class TestLifecycleSaveLoad(unittest.TestCase):
         self.assertIsNone(home.acceptance_day)
         self.assertIsNone(home.opening_day)
         self.assertTrue(shop_is_open(home, loaded.day))
+
+    def test_an_injected_order_book_no_longer_survives_a_round_trip(self):
+        # The reviewer's exact repro: demand 49, deliveries 17 and
+        # $123 of takings written onto a building site survived the
+        # morning AND a save/load, so the payload claimed a
+        # restaurant that does not exist. It refuses at the boundary
+        # now — one field at a time, because each is a separate claim.
+        state = _with_site(day=6, acceptance=5)
+        save.state_from_dict(save.state_to_dict(state))      # baseline
+        for name, value in (("demand_today", 49),
+                            ("delivery_pool", 17),
+                            ("legit_revenue_today", 123)):
+            payload = save.state_to_dict(state)
+            payload["shops"][1][name] = value
+            with self.assertRaises(ValueError) as caught:
+                save.state_from_dict(payload)
+            self.assertIn("no order book", str(caught.exception))
 
     def test_a_present_but_malformed_date_refuses_at_load(self):
         # Presence, never truthiness: a payload CLAIMING dates must

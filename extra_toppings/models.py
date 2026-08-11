@@ -1486,6 +1486,24 @@ def validate_addresses(state: "State") -> None:
                 f"shops[{i}]: opening day {opn} must be "
                 f"acceptance day {acc} + {CONSTRUCTION_DAYS} — "
                 f"the construction span is recorded, not chosen")
+        # A SITE UNDER CONSTRUCTION CARRIES NO ORDER BOOK — §2.4.2's
+        # initial state, bound at persistence (P4b.1a review). The
+        # daily roll now establishes that as a complete postcondition
+        # rather than merely skipping the address, and this is the
+        # other half: a payload arriving with customers, a delivery
+        # pool or a day's honest till at an address that serves nobody
+        # is describing a restaurant that does not exist. Refused,
+        # never zeroed — repairing it would accept the impossible day
+        # and silently keep whatever the numbers were worth.
+        if not address_allows(s, state.day, "demand"):
+            for name in ("demand_today", "delivery_pool",
+                         "legit_revenue_today"):
+                value = getattr(s, name)
+                if value != 0:
+                    raise ValueError(
+                        f"shops[{i}]: an address under construction "
+                        f"serves nobody and carries no order book — "
+                        f"{name} is {value!r}")
     # Absence identifies THE founding address, and only it. Every
     # address created after the world was built is created by a dated
     # transaction, so a second undated address is not a lean record:

@@ -50,9 +50,24 @@ def roll_demand(state: State, rng: random.Random) -> None:
     # under construction serves nothing and carries no order book, so
     # rolling demand for it was the lifecycle authority being
     # decorative — the record existed and the engine used it anyway.
-    for s in models.addresses_allowing(state, "demand"):
+    #
+    # And the roll establishes the COMPLETE postcondition for every
+    # address, not just the eligible ones (P4b.1a review). Skipping a
+    # building site left whatever it happened to be carrying in place:
+    # an injected `demand_today` survived the morning, the shift and a
+    # save/load round trip, so the record claimed customers and a
+    # day's takings at an address canon says earns nothing. The daily
+    # authority ENDS the roll with a disallowed address at zero on all
+    # three fields; `validate_addresses` refuses one that arrives
+    # otherwise.
+    serving = {s.key for s in models.addresses_allowing(state, "demand")}
+    for s in sorted(state.shops, key=lambda a: a.key):
         s.legit_revenue_today = 0
-        recompute_demand(state, s)
+        if s.key in serving:
+            recompute_demand(state, s)
+        else:
+            s.demand_today = 0
+            s.delivery_pool = 0
 
 
 def recompute_demand(state: State, shop) -> None:
