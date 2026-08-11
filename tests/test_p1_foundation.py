@@ -16,7 +16,8 @@ from dataclasses import FrozenInstanceError
 from unittest import mock
 
 from analysis import equivalence
-from extra_toppings import data, game, models, phases, save, sitdown
+from extra_toppings import (data, game, models, partner, phases,
+                            save, sitdown)
 from extra_toppings.bot import GreedyBot
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (BranchState, Evidence, SitdownSnapshot,
@@ -359,16 +360,21 @@ class TestSitdownScene(unittest.TestCase):
         self.assertIsNotNone(con.find("idle across the street"))
         self.assertEqual(state.branch, "stand_pat")
 
-    # The chair scripts, by identity — never by index (rev. 31
-    # item 2): the site and target menus put "Reconsider" first, so
-    # every selection below names what it wants and a menu reorder
-    # cannot quietly change which world these tests build.
-    CHAIR_SCRIPTS = {
-        "straight": [0, 1],            # chair, burn the book
-        "partner": [1, 1, 1],          # chair, Little Sicily, shake
-        "war": [2, 1, 1],              # chair, name the first rival, declare
-        "quiet_sale": [3, 1],          # chair, shake on it
-    }
+    # The site answer is BUILT FROM THE DISTRICT IDENTITY (rev. 31
+    # item 2), never written as a literal index: a positional
+    # constant here would claim identity and mean position, and a
+    # menu reorder would silently change which world this test
+    # builds while the comment still said University Hill.
+    SITE = "university"
+
+    def _chair_script(self, chair):
+        site_answer = 1 + partner.SITE_DISTRICTS.index(self.SITE)
+        return {
+            "straight": [0, 1],        # chair, burn the book
+            "partner": [1, site_answer, 1],   # chair, the site, shake
+            "war": [2, 1, 1],          # chair, name the first rival, declare
+            "quiet_sale": [3, 1],      # chair, shake on it
+        }[chair]
 
     def test_every_canonical_chair_has_a_commit_path(self):
         # P4b.1b seated the last chair, so no branch id is left to
@@ -387,10 +393,12 @@ class TestSitdownScene(unittest.TestCase):
                 cfg = GameConfig(fork_enabled=True,
                                  enabled_branches=frozenset({chair}))
                 sitdown.run_scene(
-                    state, CaptureConsole(list(self.CHAIR_SCRIPTS[chair])),
-                    cfg)
+                    state, CaptureConsole(self._chair_script(chair)), cfg)
                 self.assertEqual(state.branch, chair)
                 self.assertEqual(state.act, 2)
+                if chair == "partner":
+                    # The chosen SITE, asserted by identity too.
+                    self.assertEqual(state.shops[-1].district, self.SITE)
 
 
 # ══ The canonical view: frozen ledger vs live morning file ════════

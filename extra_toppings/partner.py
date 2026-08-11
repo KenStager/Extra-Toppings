@@ -36,18 +36,26 @@ if COMMITTED + TO_CLEAN != FRONTED:                 # import-time check
                        "what Carmine fronts")
 
 # ── the site cards (§2.4.2; rev. 31 item 2) ──────────────────────
-# Any district but the founding one, in the district table's own
-# order — which reads safe to dangerous: University Hill (no owner),
-# Little Sicily (Sal), The Meadows (Vinnie). DERIVED, not respelled,
-# so "any district but Old Harbor" has one home; a test pins the
-# resulting order, because that order is the STORY's and a reorder
-# must fail loudly rather than quietly reshuffling the cards.
+# THE order, written out: safe to dangerous — University Hill (no
+# owner), Little Sicily (Sal's), The Meadows (Vinnie's). It is
+# EXPLICIT rather than derived from `data.DISTRICTS` because
+# deriving it would make an unrelated dictionary's insertion order
+# the story's authority: someone adding a district, or tidying that
+# table, would silently reshuffle the cards a player reads.
 #
-# The order decides what a player READS and nothing a study measures:
-# the Partner bot and every ablation name their district by identity,
-# never by index (rev. 31 item 2).
-SITE_DISTRICTS = tuple(k for k in data.DISTRICTS
-                       if k != data.HOME_DISTRICT)
+# What derivation was protecting — "any district but Old Harbor",
+# spelled once — is kept as an import-time SET check instead. The
+# set is the rule and the sequence is the telling, and the two
+# cannot drift apart without the module refusing to load.
+#
+# The order decides what a player READS and nothing a study
+# measures: the Partner bot and every ablation name their district
+# by identity, never by index (rev. 31 item 2).
+SITE_DISTRICTS = ("university", "little_sicily", "meadows")
+if set(SITE_DISTRICTS) != set(data.DISTRICTS) - {data.HOME_DISTRICT}:
+    raise RuntimeError(
+        "the Partner site cards and the eligible districts have "
+        "drifted — §2.4.2 offers any district but the founding one")
 
 # Opening on an owned district is a commercial declaration: the
 # existing relation authority takes the hit, at one recorded number.
@@ -88,29 +96,84 @@ def site_label(district: str) -> str:
     return f"{spec['label']} — {spec['flavor']} ({who})"
 
 
-def _preflight(state: State, district: str) -> None:
+def _preflight(state: State, district: str) -> int:
     """Everything that can refuse the deal, asked BEFORE a single
-    field moves (§7's atomic-rollback proof for this PR).
+    field moves, returning the payoff day the schedule reads.
 
-    A transaction that validates halfway through is not atomic: it
-    leaves an address standing on a state that has already spent
-    Carmine's money. So every refusal lives here, and the commit
-    below cannot fail."""
+    It binds the SCENE, not merely a plausible state: the deal is
+    struck at the table on the morning after the debt died, and the
+    room it builds is the SECOND one. A caller handing in a district
+    and a day is not evidence that either happened."""
     if district not in data.DISTRICTS:
         raise ValueError(f"unknown district {district!r}")
     if district == data.HOME_DISTRICT:
         raise ValueError(
             f"the second shop does not open in {district!r} — the "
             f"founding district is not a site (§2.4.2)")
+    if district not in SITE_DISTRICTS:            # belt: the card set
+        raise ValueError(f"{district!r} is not a site card")
     if state.branch is not None:
         raise ValueError(
             f"a chair is already taken ({state.branch!r}) — the deal "
             f"is struck once, at the table")
-    if state.day < 1:
-        raise ValueError(f"day {state.day} predates the calendar")
+    # THE payoff day comes from the PERSISTED snapshot, never from a
+    # caller (review): a loose argument is a second spelling of when
+    # the debt died, and the points schedule would then rest on
+    # whatever a call site believed rather than on what the run
+    # recorded.
+    snap = state.sitdown_snapshot
+    if snap is None:
+        raise ValueError(
+            "no sit-down snapshot — the deal is struck at the table, "
+            "and the table is what records the payoff day")
+    if state.day != snap.payoff_day + 1:
+        raise ValueError(
+            f"the deal is struck on the sit-down morning, day "
+            f"{snap.payoff_day + 1}; this state stands on day "
+            f"{state.day}")
+    # The pre-deal world has exactly one address. Building the
+    # "second" room onto a world that already has two would mint a
+    # third and call it the branch's shop.
+    if len(state.shops) != 1:
+        raise ValueError(
+            f"the deal builds the SECOND room; this world already "
+            f"keeps {len(state.shops)} addresses")
+    return snap.payoff_day
 
 
-def accept_deal(state: State, district: str, payoff_day: int) -> Shop:
+class _Undo:
+    """Everything the commit below touches, remembered — so a
+    postcondition failure is not a half-built branch.
+
+    Preflight alone does not make a transaction atomic (review): the
+    world-level validators run AFTER the records exist, and an
+    exception there would otherwise leave an address standing on a
+    state that has already spent Carmine's money and started his
+    clock. Either the deal commits AND validates, or nothing moved."""
+
+    def __init__(self, state: State) -> None:
+        self.shops = len(state.shops)
+        self.wagons = len(state.wagons)
+        self.clean = state.clean
+        self.branch = state.branch
+        self.branch_state = state.branch_state
+        self.act = state.act
+        # Every relation, not only the owner's: cheap, exact, and it
+        # cannot be wrong about which rival the delta reached.
+        self.relations = {k: r.relation for k, r in state.rivals.items()}
+
+    def restore(self, state: State) -> None:
+        del state.shops[self.shops:]
+        del state.wagons[self.wagons:]
+        state.clean = self.clean
+        state.branch = self.branch
+        state.branch_state = self.branch_state
+        state.act = self.act
+        for key, relation in self.relations.items():
+            state.rivals[key].relation = relation
+
+
+def accept_deal(state: State, district: str) -> Shop:
     """THE atomic capital transaction (§2.4.2): the address, its
     wagon, the committed capital and the points clock, in one act.
 
@@ -119,13 +182,14 @@ def accept_deal(state: State, district: str, payoff_day: int) -> Shop:
     second caller would be handed the same key and would overwrite
     the first record. Both records are built LOCALLY, the whole
     transaction is preflighted, and only then does anything reach
-    the state.
+    the state — and if the world-level validators refuse what was
+    built, every field goes back.
 
     The $13,000 never passes through the player's cash: it is
     committed to Carmine's contractor, which is what makes the
     capital equity rather than a deposit that might be spent on
     something else. Only the float and the reserve arrive."""
-    _preflight(state, district)
+    payoff_day = _preflight(state, district)
     # Minted once, together — an address and its wagon arrive in the
     # same transaction (§2.4.2), and `validate_addresses` refuses an
     # address that keeps no wagon.
@@ -148,25 +212,28 @@ def accept_deal(state: State, district: str, payoff_day: int) -> Shop:
         points_due_day=first_points_due(shop, payoff_day))
     models.validate_branch_state("partner", branch_state)
 
-    # ── commit, once ──────────────────────────────────────────────
-    state.shops.append(shop)
-    state.wagons.append(wagon)
-    state.clean += TO_CLEAN
-    state.branch_state = branch_state
-    state.branch = "partner"
-    state.act = 2
-    # A commercial declaration, priced through the existing relation
-    # authority at one recorded number — and never against a rival
-    # who is already dead, because a corpse mounts no counterplay.
-    owner = data.DISTRICTS[district]["rival"]
-    if owner and state.rivals[owner].alive:
-        models.adjust_relation(state, owner, TURF_RELATION_DELTA)
-    # The postcondition of the whole act: what was just built is a
-    # world the persistence boundary would accept. It cannot fail
-    # here — every refusal is in the preflight — and if it ever does,
-    # it is a bug that stops the run rather than a save nobody can
-    # load later.
-    models.validate_cross_state(state)
+    # ── commit, once, and undo entirely if the world refuses it ───
+    undo = _Undo(state)
+    try:
+        state.shops.append(shop)
+        state.wagons.append(wagon)
+        state.clean += TO_CLEAN
+        state.branch_state = branch_state
+        state.branch = "partner"
+        state.act = 2
+        # A commercial declaration, priced through the existing
+        # relation authority at one recorded number — and never
+        # against a rival who is already dead, because a corpse
+        # mounts no counterplay.
+        owner = data.DISTRICTS[district]["rival"]
+        if owner and state.rivals[owner].alive:
+            models.adjust_relation(state, owner, TURF_RELATION_DELTA)
+        # The postcondition of the whole act: what was just built is
+        # a world the persistence boundary would accept.
+        models.validate_cross_state(state)
+    except Exception:
+        undo.restore(state)
+        raise
     return shop
 
 

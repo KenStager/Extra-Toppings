@@ -356,9 +356,10 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
             # ablation name their district by identity, never by index,
             # so this order decides what a player reads and nothing a
             # study measures. Reconsider is first, so the last option
-            # is a real site and the deterministic bot always seats a
-            # deal — on Vinnie's floor, which is a night the studies
-            # should have.
+            # is a real site and the deterministic last-option bot
+            # always seats a deal — landing on Vinnie's floor, which
+            # is CHAOS COVERAGE of territorial retaliation and not
+            # anybody's study policy.
             site_options = ["Reconsider"] + [
                 partner.site_label(d) for d in partner.SITE_DISTRICTS]
             picked = con.scene_menu(
@@ -378,8 +379,7 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
             # and the points clock. Nothing is assigned before it —
             # the branch fields are set inside the transaction, so a
             # refusal leaves the table exactly as it was.
-            shop = partner.accept_deal(state, district,
-                                       payoff_day=snap.payoff_day)
+            shop = partner.accept_deal(state, district)
             partner.entry_scene(state, shop, con)
             return
         if chair == "war":
