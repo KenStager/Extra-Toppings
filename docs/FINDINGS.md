@@ -2269,8 +2269,17 @@ gates:
    closed with them by one `canonical_shop` reference authority.
 9. The construction order-book check used `!= 0`, so `False` and
    `0.0` satisfied three integer counts.
+10. …and the reference seam was not only the cash boundaries: the
+    market board could DISPLAY a detached room, kitchen policy could
+    swallow the player's decisions into a copy, and `_storage` could
+    read what to move off a copy while moving it canonically by key.
+    On the review's ruling `canonical_shop` binds at all six generic
+    address-specific phase surfaces — board, policy, ingredients,
+    supplier, improvements, storage — and deliberately at no domain
+    internal, which derives its address from state or carries its own
+    contract.
 
-**Verification at the review head.** 864 tests green on 3.11, 3.12
+**Verification at the review head.** 867 tests green on 3.11, 3.12
 AND 3.13; ruff 0.15 and mypy clean. Both identity gates **300/300 on
 all three**, stand-pat holding **79/79** (schema v1). Golden
 **unchanged at `7a62b2af`** — not regenerated, and nothing in this
@@ -2279,10 +2288,16 @@ main at BOTH depths**, compared against a fresh `origin/main`
 worktree run rather than a recorded number: 150 seeds `c6912b04…`,
 500 seeds `b74cc15f…`. Regression proof by `git stash push
 extra_toppings/`: 14 of the first round's 20 new/changed pins fail
-pre-fix, and 9 of the second round's 10; the pins that pass both ways
-— the open-address directions, and the `True`/`0.5` cases the old
-comparison already refused — are reported here as **added coverage,
-not as proof**.
+pre-fix, 9 of the second round's 10, and 9 subtests of the third
+round's six-entry matrix — exactly the three newly guarded surfaces.
+The pins that pass both ways — the open-address directions, the
+`True`/`0.5` cases the old comparison already refused, and the three
+surfaces guarded a round earlier — are reported here as **added
+coverage, not as proof**. One matrix pin was tightened after it
+passed for the wrong reason: `_storage` satisfied a bare
+`assertRaises(ValueError)` on the pre-guard engine by refusing the
+test's oversized stash on SPACE grounds, so the pin now asserts the
+identity refusal itself.
 
 ## Still open (carried to the next design pass)
 
