@@ -1249,3 +1249,31 @@ at the board - NOT promoted. Next on the board's word: the crates
 prop and the Meadows block staging-v3 instance on the
 Moretti's-proven chain. Session C spend 92, ledger-verified (4 drift + 62 vehicles +
 22 Moretti's + 4 Vinnie's); expected balance ~4,135.
+
+## Vinnie's loop: neglect made lawful (2026-08-11 session C cont.;
+## board: "Reflect, refine, and rerender. Start a loop. Critically
+## analyze against our vision and overall theme"; 5 gens, r3-r4)
+
+The critical analysis convicted v1 on theme: the wall read as clean
+PANELING when the brief's whole story is the cheap paint job with
+the truth ghosting through; the openings floated (no reveals, no
+sills); the shutter was too clean and too bright for a building
+nobody maintains; the values sat too high for the ink-forward
+Meadows; and every brand element was crisp where neglect should
+show. r3 rebuilt the scaffold as a painted wall with brick FLAKE
+REVEALS - and the register made the theme literal: raw brick under
+the forced strip can only land in the warm GLASS tiers, so OLD
+WARMTH LEAKS THROUGH THE COLD PAINT. Values sank on positive-dark
+language ("dim ink toned" - tonal negatives stay banned). r4 paid
+for the flake edges (content-preserved keeps rectangle edges;
+jagged deterministic insets fixed it) and pre-darkened the donor
+shutter 45%. s16879 is the body pick.
+
+NEGLECT AS DETERMINISTIC RULES (the loop's law): wear on brand
+geometry stays code - the slats and the club-violet marquee edge
+draw through the street's recorded worn-edge rule; the oversized
+letters flake by a pixel-drop hash; a padlock sits at the shutter
+base. Nothing is hand-random; everything reproduces.
+`vinnies_branded_v2.png` supersedes v1 at the board (A/B
+presented). Session C spend 97, ledger-verified (4 drift + 62
+vehicles + 22 Moretti's + 9 Vinnie's); expected balance ~4,130.
