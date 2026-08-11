@@ -1216,3 +1216,36 @@ LS road register shows the A2 lattice more strongly than OH's
 darker asphalt - one cheap data revision (tighten the LS road
 tiers) if the board wants it calmer. The block's own Godot proof
 rides with its promotion, when ruled.
+
+## Vinnie's Pies opened: the front that says it quietly
+## (2026-08-11 session C cont.; board: "The v1 is clean enough to
+## proceed"; 4 gens, 2 rounds)
+
+Moretti's block v1 ACCEPTED as clean enough - the LS road lattice
+stands as rendered (its data-revision option stays available), and
+queue #3 opened on the proven chain. Vinnie's donor is
+tileC_town3 - the industrial sheet, first use: the corrugated
+shutter (16,6)-(58,31) measures 42 native wide = EXACTLY the
+brief's third-of-frontage on the 128 slot; tan storefront band
+donates wall, service door and (r1's lesson) nothing else.
+
+Round 1 proved the chain transfers (register repaint into Meadows'
+violet-grays landed first try) and paid for three scaffold
+defects: my brick courses were drawn double-scale and read as
+blocks; the donor-cyan window got negated into pale wall - the
+content-preserved law cuts BOTH ways, so a window that must stay
+dark is DRAWN dark in the scaffold; and the donor wall slice
+carried hanging pilaster caps. Round 2 fixed all three: s16874 is
+the body pick (kept worn slat texture), 0 off-strip, backfilled
+from the Meadows-mapped scaffold.
+
+Brand layers, all code: the roll-door slats crisped (slats are
+code, per the brief); VINNIE'S PIES at scale 3 spanning 216 of the
+256 fascia - bulk over craft, whitewash over painted brick; and
+the club-violet accent's ONLY appearance, a 2px marquee edge under
+the fascia (drawn first, letters over it - a layer-order catch).
+`candidates/vinnies/vinnies_branded_v1.png` is the study candidate
+at the board - NOT promoted. Next on the board's word: the crates
+prop and the Meadows block staging-v3 instance on the
+Moretti's-proven chain. Session C spend 92, ledger-verified (4 drift + 62 vehicles +
+22 Moretti's + 4 Vinnie's); expected balance ~4,135.
