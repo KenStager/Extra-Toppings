@@ -1300,6 +1300,54 @@ def remediation_disposition(record, state: "State | None" = None) -> str:
     return "immune"
 
 
+# ── identity minting (rev. 31 item 1) ────────────────────────────
+# The founding pair is NAMED where the world is built; every later
+# address and vehicle has its identity MINTED here, and the numbering
+# starts at 2 because 1 is the founding suffix those constants carry.
+_FIRST_MINTED_SUFFIX = 2
+
+
+def _lowest_unused_key(taken, prefix: str) -> str:
+    """THE suffix arithmetic, spelled once: the lowest unused
+    `{prefix}{n}` from 2 upward.
+
+    LIST ORDER IS NEVER READ (rev. 31 item 1). Counting records, or
+    taking "the last key plus one", makes the answer depend on how
+    many rows exist and in what order — so a sparse set (`shop1`,
+    `shop3`, shop 2 having never existed or been removed by some
+    future editor) would mint a key that is already taken, and
+    reversing the list would change what a save is called. Membership
+    in the set of existing keys is the only question asked.
+
+    It deliberately does not know what a shop or a wagon IS: two
+    copies of "find the free number" is the respelling this project
+    refuses, so the domain wrappers below are three lines each."""
+    used = set(taken)
+    n = _FIRST_MINTED_SUFFIX
+    while f"{prefix}{n}" in used:
+        n += 1
+    return f"{prefix}{n}"
+
+
+def mint_shop_key(state: "State") -> str:
+    """The identity a NEW address will carry.
+
+    MINTING RESERVES NOTHING — this is a calculation, not a claim, so
+    two calls before a commit return the SAME key and the second
+    record would silently overwrite the first. The atomic deal
+    transaction is therefore the sole production caller (rev. 31
+    item 1): mint once, build both records locally, preflight the
+    whole transaction, commit once. A test guards that scope."""
+    return _lowest_unused_key((s.key for s in state.shops), "shop")
+
+
+def mint_wagon_key(state: "State") -> str:
+    """The identity a NEW wagon will carry. Same authority, same
+    reservation-free warning: an address and its wagon are created by
+    ONE transaction, so both keys are minted inside it."""
+    return _lowest_unused_key((w.key for w in state.wagons), "wagon")
+
+
 def _only_with_key(items: list, key: str, kind: str):
     """THE keyed lookup behind every by-key accessor. Refuses BOTH
     failure modes: nothing with that key, and — the subtle one — more

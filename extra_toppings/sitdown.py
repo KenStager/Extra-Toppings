@@ -23,11 +23,11 @@ with a schema version bump there.
 
 from dataclasses import dataclass
 
-from . import data, models, straight
+from . import data, models, partner, straight
 from .config import GameConfig
 from .models import (BRANCH_ORDER, BranchState, SitdownSnapshot, State,
                      case_prefix, fold_case, validate_branch_state)
-from .ui import Console
+from .ui import Console, money
 
 NAMESPACE = "sitdown"
 
@@ -345,6 +345,42 @@ def run_scene(state: State, con: Console, config: GameConfig) -> None:
             con.say("  A handshake, no papers yet. Today is diligence day "
                     "one of four; closing is the morning after day four, "
                     "and the register had better be boring all week.")
+            return
+        if chair == "partner":
+            con.say("  Carmine puts a folded napkin on the table with a "
+                    "number on it. 'Twenty. Not a loan — I don't lend to "
+                    "family twice. A second room, my contractor, my "
+                    "schedule. You run it, I take points.'")
+            # The cards read safe to dangerous, and that order is the
+            # STORY's (rev. 31 item 2): the Partner bot and every
+            # ablation name their district by identity, never by index,
+            # so this order decides what a player reads and nothing a
+            # study measures. Reconsider is first, so the last option
+            # is a real site and the deterministic bot always seats a
+            # deal — on Vinnie's floor, which is a night the studies
+            # should have.
+            site_options = ["Reconsider"] + [
+                partner.site_label(d) for d in partner.SITE_DISTRICTS]
+            picked = con.scene_menu(
+                NAMESPACE, "Where does the second room go?", site_options)
+            if picked == 0:
+                continue
+            district = partner.SITE_DISTRICTS[picked - 1]
+            confirmed = con.scene_menu(
+                NAMESPACE,
+                f"Open on {data.DISTRICTS[district]['label']}? "
+                f"{money(partner.COMMITTED)} commits this morning and "
+                f"the points clock starts.",
+                ["Reconsider", "Shake on it — his contractor starts today"])
+            if confirmed == 0:
+                continue
+            # ONE act: the address, its wagon, the committed capital
+            # and the points clock. Nothing is assigned before it —
+            # the branch fields are set inside the transaction, so a
+            # refusal leaves the table exactly as it was.
+            shop = partner.accept_deal(state, district,
+                                       payoff_day=snap.payoff_day)
+            partner.entry_scene(state, shop, con)
             return
         if chair == "war":
             live_rivals = [k for k, r in state.rivals.items() if r.alive]

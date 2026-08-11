@@ -359,14 +359,38 @@ class TestSitdownScene(unittest.TestCase):
         self.assertIsNotNone(con.find("idle across the street"))
         self.assertEqual(state.branch, "stand_pat")
 
-    def test_an_enabled_branch_without_a_commit_path_fails_loudly(self):
-        # P2 gave `straight` its commit path; `partner` is now the
-        # probe — the invariant is the loud failure, not the branch.
-        state = scene_state()
-        cfg = GameConfig(fork_enabled=True,
-                         enabled_branches=frozenset({"partner"}))
-        with self.assertRaises(NotImplementedError):
-            sitdown.run_scene(state, CaptureConsole([1]), cfg)
+    # The chair scripts, by identity — never by index (rev. 31
+    # item 2): the site and target menus put "Reconsider" first, so
+    # every selection below names what it wants and a menu reorder
+    # cannot quietly change which world these tests build.
+    CHAIR_SCRIPTS = {
+        "straight": [0, 1],            # chair, burn the book
+        "partner": [1, 1, 1],          # chair, Little Sicily, shake
+        "war": [2, 1, 1],              # chair, name the first rival, declare
+        "quiet_sale": [3, 1],          # chair, shake on it
+    }
+
+    def test_every_canonical_chair_has_a_commit_path(self):
+        # P4b.1b seated the last chair, so no branch id is left to
+        # probe the loud failure WITH. The invariant is now pinned
+        # from the other side and over the canonical list itself:
+        # every chair in BRANCH_ORDER seats when it is enabled and
+        # chosen. Add a fifth chair without a commit path and this
+        # fails the day it is added — at test time rather than under
+        # a player — while the `NotImplementedError` in `run_scene`
+        # stays as the runtime backstop, because without it an
+        # unhandled chair falls through to an endless re-prompt,
+        # which is worse than a raise.
+        for chair in models.BRANCH_ORDER:
+            with self.subTest(chair):
+                state = scene_state()
+                cfg = GameConfig(fork_enabled=True,
+                                 enabled_branches=frozenset({chair}))
+                sitdown.run_scene(
+                    state, CaptureConsole(list(self.CHAIR_SCRIPTS[chair])),
+                    cfg)
+                self.assertEqual(state.branch, chair)
+                self.assertEqual(state.act, 2)
 
 
 # ══ The canonical view: frozen ledger vs live morning file ════════
