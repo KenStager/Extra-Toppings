@@ -2185,7 +2185,7 @@ merged without a round of its own and the record should not stay
 missing. **The P4a half below is a RETROSPECTIVE STRUCTURAL RECORD,
 not a newly run balance study**: no bar was re-measured for it, and
 nothing here is offered as a fresh measurement. The P4b.1a half is
-current work, PR not yet opened.
+current work: **PR #23, open, awaiting merge approval**.
 
 ### P4a (merged: PRs #18, #19, #20) — retrospective structural record
 
@@ -2241,7 +2241,7 @@ so the released game gains no prompt and no transcript moves.
 runs through, so a moved transcript, RNG digit, ending or study digit
 would be a defect to fix, not a result to record. None moved.
 
-**What review found, recorded as found.** Nine defects across two
+**What review found, recorded as found.** Eleven defects across four
 rounds, every one invisible to a one-shop run and to both green
 gates:
 
@@ -2278,8 +2278,15 @@ gates:
     supplier, improvements, storage — and deliberately at no domain
     internal, which derives its address from state or carries its own
     contract.
+11. `_kitchen_policy` declared `plans: dict | None = None` and read
+    `routes_planned(state, plans or {})`, which the route contract
+    refuses — an optional parameter that was mandatory in fact, and
+    a default that could not work if taken. Unreachable in play (all
+    three callers pass a real plan set) and corrected here rather
+    than deferred, because this is the PR that defines the six
+    surface contracts.
 
-**Verification at the review head.** 867 tests green on 3.11, 3.12
+**Verification at the review head.** 868 tests green on 3.11, 3.12
 AND 3.13; ruff 0.15 and mypy clean. Both identity gates **300/300 on
 all three**, stand-pat holding **79/79** (schema v1). Golden
 **unchanged at `7a62b2af`** — not regenerated, and nothing in this
@@ -2288,8 +2295,11 @@ main at BOTH depths**, compared against a fresh `origin/main`
 worktree run rather than a recorded number: 150 seeds `c6912b04…`,
 500 seeds `b74cc15f…`. Regression proof by `git stash push
 extra_toppings/`: 14 of the first round's 20 new/changed pins fail
-pre-fix, 9 of the second round's 10, and 9 subtests of the third
-round's six-entry matrix — exactly the three newly guarded surfaces.
+pre-fix, 9 of the second round's 10, 9 subtests of the third round's
+six-entry matrix — exactly the three newly guarded surfaces — and the
+fourth round's single pin, which ERRORS rather than fails because the
+old default really did fire and really did raise the route contract's
+refusal, the defect stated as a measurement.
 The pins that pass both ways — the open-address directions, the
 `True`/`0.5` cases the old comparison already refused, and the three
 surfaces guarded a round earlier — are reported here as **added
@@ -2329,9 +2339,10 @@ identity refusal itself.
   plus `CLAUDE.md` (PR #22). **P4a is merged** in its three sequential
   PRs (#18, #19, #20) — the retrospective record is round 12 above.
 - **The current position, exactly.** **P4b.1a (the address lifecycle
-  and the operational surfaces) is complete and AWAITING MERGE** —
-  the two review rounds recorded in round 12 are answered, both gates
-  and both battery depths are clean, and the golden is untouched.
+  and the operational surfaces) is PR #23, OPEN and awaiting merge
+  approval** — the four review rounds recorded in round 12 are
+  answered, both gates and both battery depths are clean, and the
+  golden is untouched.
   Then, in this order and not stacked: the **seizure correction** —
   in `resolve_route`'s arrest arm `cargo` is reported seized but
   never cleared, so the shared return loop puts the seized units back
