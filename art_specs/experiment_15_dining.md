@@ -103,3 +103,16 @@ Lesson added: proportion claims are MEASURED against the figure
 (percent of figure height, decomposed into planes) before any
 refinement is attempted — the number found the defect (legs) that
 the impression ("too tall") could not localize.
+
+## Booth-table height (2026-08-11, user board question; 0 gens)
+
+"Should the booth table be slightly taller? We can see the
+characters' knees." Measured answer: the SPRITE was never short — the
+STAGING was low. A three-way test (table at bench-offset +32 / +26 /
++22) showed +32 exposes the knee band, +22 buries torsos and crowds
+arms, and **+26 covers the lap exactly as a booth reads from this
+camera**. The fix is a recorded composition parameter — the bay unit
+now ships as data (`booth_bay_staging.json`: front bench +0, seated
+row +6, table +26, rear bench +60), zero generations. Lesson
+reinforced from the peel probe's canvas question: apparent asset
+defects can be staging defects; test the free parameter first.
