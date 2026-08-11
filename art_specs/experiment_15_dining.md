@@ -185,3 +185,20 @@ four chairs, one sprite) reads instantly as the pizzeria dining
 room. Honest note for the board: the east/west chairs use the same
 frontal sprite (RPG convention); strict perspective wants profile
 variants eventually — flagged as optional refinement, not a blocker.
+
+## Chairs round 2 — the faced set (2026-08-11, user ruling; 4 gens)
+
+The board rejected the symmetric-sprite economy: "the chairs are not
+faced correctly. Side facing and south sides are critical." Ruled and
+built: a four-facing chair set — N position = front view (s15201),
+S position = back view (s15212 picked: straight verticals, pad
+sliver through the rails; s15211's legs splayed), E/W = one profile
+generated (s15221, cleanest silhouette) with its all-dark pad
+CURATED to ox (44px, cross-facing pad consistency) and its mirror
+DERIVED for the opposite wing (no marks; mirror legal). The faced
+four-top mock seats the table correctly on all sides — every
+backrest points away from the cloth.
+
+Candidates: chair_south_s15201 (front view), chair_north_s15212
+(back view), chair_west_final, chair_east_final. AWAITING the
+board's chair ruling.
