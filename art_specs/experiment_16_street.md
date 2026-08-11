@@ -472,3 +472,27 @@ was code and derivation. Session spend stands 80; expected balance
 AWAITING THE BOARD: v9b (the redistributed block), the band law,
 the no-door clause, the upper-story code band, the oxblood parked
 car — plus the standing seed picks and decisions 2–5.
+
+## Parking-lane differentiation (2026-08-11, board question; 0 gens)
+
+"How can we better work to differentiate the parking lane?" Four
+period-true mechanisms, all code, all deterministic, layered in v10
+so the board judges a read, not prose:
+
+1. **Concrete gutter pan** (material change, standard construction
+   of the era): 8px pale-concrete band with 64px joints along the
+   curb base — the parking lane starts where the pan ends.
+2. **Worn solid edge line** between parking and travel lanes:
+   2px pale-ochre with a deterministic wear rule — solid line
+   against the center's dashes gives each boundary its own voice.
+3. **Oil-drip stains** at the four stall centers: parked cars mark
+   their own lane; the stains read as use even where no car sits.
+4. **Yellow no-parking curb** at the hydrant (x322–392): period
+   regulation paint, and a narrative surface (illegal parking is a
+   thing the fiction can now say).
+
+Considered and REJECTED: painted stall tick-marks — they read as a
+modern parking lot, not a period street. Parameters recorded in
+`street_block_staging.json` under `parking_lane_differentiation`.
+`review/hybrid_dinapoli_block_board_v10.png` at the board. Round
+cost zero generations; session spend stands 80; balance 4,247.
