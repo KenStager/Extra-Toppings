@@ -432,3 +432,43 @@ come up; the DINER glass band still awaits the rival passes.
 
 Session spend 80; expected balance 4,247. AWAITING THE BOARD:
 v8b + the staging data + the de-tufted native trees.
+
+## The redistribution round (2026-08-11, board: bags off the door;
+## "this is as wide as a 5 lane road"; sequential directive; 0 gens)
+
+The measurement convicted v8b before any opinion could: road band
+184px at ~40–56px per visual lane = 4–5 lanes, the frame's largest
+band spent on its emptiest surface, while the top of frame cropped
+the city at the sign line. The board's three mechanisms COMPOSE
+rather than compete, and v9 uses all three:
+
+NEW BAND LAW (street_block_staging.json v2): 360 rows =
+**56 upper stories / 96 storefronts / 56 walk / 16 curb / 120 road
+(40 parking + 40 + 40 travel) / 4 far curb line / 12 far walk.**
+
+- **Upper stories: CODE** (brick courses and window rhythms are
+  regular patterns): 640×56 band — coursed brick, twelve windows
+  with frames, sky-catch panes and sills, cornice with highlight
+  line. The block became a CITY for zero generations.
+- **Parking lane**: the slate sedan parallel-parks; a second Omega
+  sedan derived in OXBLOOD (two-rule recolor — the first pass left
+  its RPG-blue glass untouched and the zoom caught it; glass now
+  slate). Parked cars make the lane read as a pattern and visually
+  narrow the road for free.
+- **Far curb line + walk sliver**: the far curb faces away, so it
+  is a 4px pale top edge, not the full strip; 12px of far walk
+  closes the frame and implies the city continuing toward camera.
+- **Wall-line clause added**: props NEVER block doorways (doors are
+  gameplay surfaces). The bags moved to the masonry pier between
+  SHOP and DiNapoli's.
+- Wagon drives the south (eastbound) travel lane — right-hand
+  traffic reads correctly; manhole in the north lane.
+
+`review/hybrid_dinapoli_block_board_v9b.png` is the composition
+candidate. Round cost: ZERO generations — the entire redistribution
+was code and derivation. Session spend stands 80; expected balance
+4,247.
+
+AWAITING THE BOARD: v9b (the redistributed block), the band law,
+the no-door clause, the upper-story code band, the oxblood parked
+car — plus the standing seed picks and decisions 2–5.
