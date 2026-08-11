@@ -346,3 +346,13 @@ Final face: no pink, no black, cream sclera, her own skin. Gate
 lesson recorded: color-family filters are verified against a CENSUS
 of what they match before running — both failing gates would have
 been caught by printing their matches first.
+
+## THE CLASS IS CLOSED (2026-08-11, user board: "Approve the portrait class now")
+
+All eleven portraits APPROVED into `approved/`: the eight roster
+picks (marcus's neat drift, sammy's hoodie, priya's age read, and
+vinnie's hair drift accepted with the class; angelo in his
+eye-curated form) and the two curation swaps (bee v8, carmine iris).
+Every DiNapoli's dialogue surface now has its face. Total portrait-
+class cost: 125 gens learning the promptless surface's limits, 21
+on the ratified recipe (11 keepers + re-rolls), 0 for every curation.
