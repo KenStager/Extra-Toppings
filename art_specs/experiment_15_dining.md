@@ -288,3 +288,14 @@ Lesson, at full price (4 gens + three wrong seals): when a placement
 refinement fails twice on the same complaint, stop moving the sprite
 and MEASURE THE SPRITE — the defect class "asset geometry
 contradicts the furniture" cannot be fixed by any offset.
+
+## East-seat correction (2026-08-11, user board; 0 gens)
+
+The board caught the east sitter 5px too far back. Cause, owned
+precisely: the east composite line was a SELF-CANCELING expression
+((31-24)-(31-24)=0) — a placeholder that never mirrored anything.
+The true mirror computes: mirrored butt col 24 onto mirrored
+pad-back col 19 = offset −5, the exact mirror of the west's +5.
+Offsets now explicit in the staging data (west +5, east −5), and the
+mirror clause joins the recipe book: NEVER assume a mirrored sprite
+needs no offset — mirror the COORDINATES.
