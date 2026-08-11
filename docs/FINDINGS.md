@@ -2487,11 +2487,16 @@ folded into a pass count.
   before anything changed, so the golden was not regenerated).
   **P4b.1b is complete and awaiting review**, with design revision
   31 as its paper (round 14). Next: **P4b.2 — the points ledger**,
-  then P4b.3–P4b.5, with activation as a separate seventh act. Two
-  items are owed before P4b.2 can be built: the **points schema
-  ruling** (rev. 29 item 4's judgment call — the typed append-only
-  `PointsCycleRecord` history and its derived view) and the P4
-  full-battery item (the pairwise eight-component vectors, per §7).
+  then P4b.3–P4b.5, with activation as a separate seventh act.
+  **Exactly ONE item precedes P4b.2: the points-schema ruling**
+  (rev. 29 item 4's judgment call — the typed append-only
+  `PointsCycleRecord` history and its derived view, retiring
+  `points_missed` and `vig_owed`). The **P4 full-battery item** (the
+  pairwise eight-component vectors) is **P4b.5's**, exactly as §7
+  assigns it — paper, execution and results alike — and is listed
+  here only as still owed at the end of the phase. An earlier
+  wording of this line made it a P4b.2 prerequisite; that was wrong
+  and contradicted §7, which governs.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds

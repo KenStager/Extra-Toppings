@@ -732,13 +732,46 @@ class TestSaveRoundTrips(unittest.TestCase):
             ("evidence_count_at_lockup", -1),
             ("evidence_count_at_lockup", 99),   # beyond the ledger
             ("case_at_lockup", "65"),
+            ("case_at_lockup", True),
             ("case_at_lockup", -1.0),
+            # THE Case domain (P4b.1b review). Type plus `< 0` let
+            # all three of these through: 101 is not a Case the fold
+            # could produce, infinity is not a number of evidence
+            # points, and NaN defeats a two-inequality bounds check
+            # outright, because every comparison against it is False.
+            ("case_at_lockup", 100.1),
+            ("case_at_lockup", 101.0),
+            ("case_at_lockup", float("nan")),
+            ("case_at_lockup", float("inf")),
+            ("case_at_lockup", float("-inf")),
         ):
             with self.subTest(f"{field}={bad!r}"):
                 payload = save.state_to_dict(good)
                 payload["sitdown_snapshot"][field] = bad
                 with self.assertRaises(ValueError):
                     save.state_from_dict(payload)
+
+    def test_the_case_domain_is_the_folds_own_and_its_ends_are_valid(self):
+        # One home, shared with the fold: the persisted bound IS the
+        # interval gameplay clamps into, so the endpoints must load.
+        self.assertEqual((models.CASE_MIN, models.CASE_MAX), (0.0, 100.0))
+        for value in (0, 0.0, 100, 100.0, 50.5):
+            with self.subTest(value=value):
+                state = scene_state(payoff_day=12, case=value)
+                loaded = save.state_from_dict(save.state_to_dict(state))
+                self.assertEqual(loaded.sitdown_snapshot.case_at_lockup,
+                                 value)
+
+    def test_the_domain_predicate_and_the_fold_agree(self):
+        # The fold cannot produce a value the predicate refuses —
+        # asserted over the fold's own output rather than by reading
+        # its source, so the two cannot drift.
+        for magnitude in (0.0, 1.0, 99.0, 100.0, 250.0):
+            with self.subTest(magnitude=magnitude):
+                folded = models.fold_case(
+                    [Evidence(day=1, magnitude=magnitude, kind="physical",
+                              why="x")])
+                self.assertTrue(models.case_in_domain(folded), folded)
 
     def test_a_snapshot_reconciles_with_the_payoff_it_records(self):
         # Two answers to "when was Carmine paid" would silently

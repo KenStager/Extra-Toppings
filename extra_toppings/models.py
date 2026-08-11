@@ -1,5 +1,6 @@
 """Mutable game state: people, places, money, evidence."""
 
+import math
 from dataclasses import dataclass, field, fields
 
 from . import data
@@ -138,6 +139,27 @@ DORMANT_MORALE = 5
 CASE_FLOOR = 10.0
 REMEDIATION_CAP = 25.0
 
+# THE Case domain, in one home (P4b.1b review). Gameplay clamps every
+# fold into this range, so persistence must enforce the same finite
+# interval: a stored Case of 101, of infinity or of NaN is not a
+# number the game could ever have produced, and NaN in particular
+# passes `< 0` and `> 100` alike — every comparison against it is
+# False, so a bounds check written as two inequalities lets it
+# straight through. `case_in_domain` is the one predicate; the fold
+# below clamps to the same two constants rather than repeating them.
+CASE_MIN = 0.0
+CASE_MAX = 100.0
+
+
+def case_in_domain(value: object) -> bool:
+    """Whether a value is a Case the engine could have produced: a
+    real number (never a bool), FINITE, inside [CASE_MIN, CASE_MAX].
+    Finiteness is checked first and explicitly, because NaN defeats
+    range tests by making every comparison False."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    return math.isfinite(value) and CASE_MIN <= value <= CASE_MAX
+
 EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
                   "suspicion")
 
@@ -268,7 +290,7 @@ def fold_case(evidence: list, dormant_sources: frozenset = frozenset()) \
             if halvable >= allowance:
                 return CASE_FLOOR           # floor-bound: canonical
             total -= halvable
-    return max(0.0, min(100.0, total))
+    return max(CASE_MIN, min(CASE_MAX, total))
 
 
 @dataclass
@@ -1770,19 +1792,20 @@ def validate_sitdown_snapshot(state: "State") -> None:
             f"the sit-down snapshot's evidence count is a whole "
             f"number of records, got "
             f"{snap.evidence_count_at_lockup!r}")
-    if type(snap.case_at_lockup) not in (int, float):
+    # THE Case domain, from its one home — the same interval the fold
+    # clamps every gameplay total into. Type and `< 0` were not
+    # enough: 101.0 is not a Case the engine could produce, infinity
+    # is not a number of evidence points, and NaN passes BOTH `< 0`
+    # and `> 100` because every comparison against it is False.
+    if not case_in_domain(snap.case_at_lockup):
         raise ValueError(
-            f"the sit-down snapshot's Case is a number, got "
-            f"{snap.case_at_lockup!r}")
+            f"the sit-down snapshot's Case must be a finite number in "
+            f"[{CASE_MIN:g}, {CASE_MAX:g}], got {snap.case_at_lockup!r}")
     if not 1 <= snap.payoff_day <= state.day:
         raise ValueError(
             f"the sit-down snapshot's payoff day {snap.payoff_day} is "
             f"outside the calendar the run has reached (day "
             f"{state.day})")
-    if snap.case_at_lockup < 0:
-        raise ValueError(
-            f"the sit-down snapshot's Case is negative "
-            f"({snap.case_at_lockup})")
     # The ledger only grows, so the lock-up count is a prefix of it.
     # A count beyond the ledger would make `evidence[:count]` silently
     # short and the gate-crossing record wrong.
