@@ -142,3 +142,17 @@ Head-peek staging ships in the bay data: a far-side customer drawn
 before the rear bench shows a hair-top above the vinyl rim — the
 detail that sells someone sitting there. `booth_bench_rear_final`
 supersedes the v1 derivation; bay staging updated (rear at +52).
+
+## The gap ruling (2026-08-11, user board; 0 gens)
+
+"Should the table extend further south to close that gap?" The
+perspective answers what the gap IS first: the band between table hem
+and backrest rim is the far bench's hidden seat — floor may never
+show there. The free-parameter law then closed it without touching
+the sprite: a 3-way offset test (+52/+49/+47) showed +49 seals hem
+to rim with the scallops intact and turns the far-side customer into
+an eyes-over-the-table peek; +52 leaked floor; +47 buried the hem.
+`booth_bay_staging.json` updated. The dining set's sprites are
+unchanged — three consecutive board questions (proportion, far side,
+gap) have now been answered for a total of 2 generations, everything
+else measurement, code, derivation, and staging data.
