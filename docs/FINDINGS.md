@@ -2178,6 +2178,112 @@ closest to their thresholds — reachability at 56% against 55%, and
 the natural paired bar at 62% against 60% — are named here so that a
 later drift is read against a known position rather than discovered.
 
+## Round 12 — P4a and P4b.1a: the address becomes a place, not an index
+
+Two passes recorded together on the reviewer's ruling, because P4a
+merged without a round of its own and the record should not stay
+missing. **The P4a half below is a RETROSPECTIVE STRUCTURAL RECORD,
+not a newly run balance study**: no bar was re-measured for it, and
+nothing here is offered as a fresh measurement. The P4b.1a half is
+current work, PR not yet opened.
+
+### P4a (merged: PRs #18, #19, #20) — retrospective structural record
+
+Three sequential PRs, each based on the previously merged one, all
+**behaviour-neutral while one shop exists** — the design's own
+condition (rev. 27 item 1), not a hope.
+
+- **P4a.1 — identity.** Shops and wagons gained stable keys;
+  `Wagon` became a dataclass; three lookup authorities
+  (`shop_by_key`, `wagon_by_key`, `wagons_at`) fail closed on an
+  unknown key instead of handing back the home shop. The five
+  one-shop aliases route through ONE `exactly_one_shop` authority
+  that refuses both ends, so every remaining shortcut fails loudly
+  the day a second address exists rather than banking the second
+  shop's takings in the first shop's till. `validate_addresses`
+  joined `validate_cross_state`.
+- **P4a.2 — the restaurant economy.** `shop.py` stopped naming
+  `state.shop` and `HOME_DISTRICT` entirely: every function takes
+  the address it acts on, demand reads that address's district, the
+  till and the pantry belong to that kitchen, heat lands on that
+  district. Storage names its address (the bare "shop" token is
+  gone); direct address-to-address transfer is refused — goods
+  travel by wagon or not at all. Staff carry assignments; rent is
+  per open address; the laundering ceiling sums each address's own.
+- **P4a.3 — the night.** Typed raid warnings naming their target,
+  one address-target authority, consequences landing where they were
+  aimed, addressed haul placement, route origins with (day, origin)
+  chronology, a wagon fleet answered per address, and zero
+  production alias reads.
+
+**The identity guarantee P4a actually bought:** no canonical type
+infers an address, the one-address save migration is the only place
+inference is permitted, and it is licensed by field ABSENCE rather
+than falsiness. Golden untouched at `7a62b2af` across all three PRs;
+batteries byte-identical at 150 and 500 seeds; both gates 300/300 on
+3.11/3.12/3.13 with stand-pat at 79/79.
+
+### P4b.1a — the lifecycle, and the surfaces that must obey it
+
+The address gains its three recorded phases (§2.4.2; design rev. 29
+items 3–4): `acceptance_day`/`opening_day` persisted, `shop_is_open`
+derived from them, `address_allows` + `ADDRESS_CAPABILITIES` as THE
+capability vocabulary, and `addresses_allowing` as THE filter every
+consumer uses — the picker, demand, service, rent, the laundering
+ceiling, law and rival targeting. Routes are keyed by the address
+they leave from (two simultaneous addressed routes), every plan
+names its exact wagon, and `WagonNight.claim_plan` is one atomic
+check-and-claim. `choose_address` is silent at one ELIGIBLE address,
+so the released game gains no prompt and no transcript moves.
+
+**Gate character: behaviour-equivalence PROOF, not containment**
+(rev. 30 item 1). These are shared surfaces every released branch
+runs through, so a moved transcript, RNG digit, ending or study digit
+would be a defect to fix, not a result to record. None moved.
+
+**What review found, recorded as found.** Nine defects across two
+rounds, every one invisible to a one-shop run and to both green
+gates:
+
+1. The supplier picker asked `pantry_supply` while the purchase
+   wrote into the STASH, so a building site could be made a
+   contraband stockroom — the one hole that broke the fiction as
+   well as the rule.
+2. "No order book" was an omission, not an invariant: injected
+   demand 49 / deliveries 17 / revenue $123 survived the morning and
+   a save/load round trip at an address that serves nobody.
+3. `address_channel` never consulted the state it was given —
+   `critic@ghost` conjured an address's dice out of a typo.
+4. …and it keyed the legacy channel to the SPELLING `shop1` rather
+   than to the founding address, so a world keyed otherwise silently
+   lost the generator every study and both gates were measured on.
+5. Service's compatibility report was positional (`if not report`):
+   a second address keyed `aaa` would have handed every existing
+   consumer a different restaurant's day.
+6. `choose_address`'s docstring claimed silence at one OPEN address
+   when the rule is one ELIGIBLE address.
+7. `_buy_supplier` mixed two identities in one transaction — checked
+   the `Shop` handed in, priced against the canonical one, spent
+   real cash, mutated the copy.
+8. …and the same seam sat at `_buy_ingredients` and `_improvements`,
+   closed with them by one `canonical_shop` reference authority.
+9. The construction order-book check used `!= 0`, so `False` and
+   `0.0` satisfied three integer counts.
+
+**Verification at the review head.** 864 tests green on 3.11, 3.12
+AND 3.13; ruff 0.15 and mypy clean. Both identity gates **300/300 on
+all three**, stand-pat holding **79/79** (schema v1). Golden
+**unchanged at `7a62b2af`** — not regenerated, and nothing in this
+pass earns a regeneration. Fork battery **byte-identical to merged
+main at BOTH depths**, compared against a fresh `origin/main`
+worktree run rather than a recorded number: 150 seeds `c6912b04…`,
+500 seeds `b74cc15f…`. Regression proof by `git stash push
+extra_toppings/`: 14 of the first round's 20 new/changed pins fail
+pre-fix, and 9 of the second round's 10; the pins that pass both ways
+— the open-address directions, and the `True`/`0.5` cases the old
+comparison already refused — are reported here as **added coverage,
+not as proof**.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2202,13 +2308,25 @@ later drift is read against a known position rather than discovered.
   domain-bound, history-reconciled execution ledgers; storage and
   the wagon share one validated space authority; the golden
   baseline is contract-asserted with true provenance. What remains
-  of the arc is P4 — Carmine's Partner, the last unbuilt chair —
-  and the P4 full-battery item (the pairwise eight-component
-  vectors, per §7).
-- **P3.5 (the wagon correction) is complete and awaiting review**;
-  the P4 paper (design revisions 21–26) is merged, and P4a — the
-  address-bound foundation — has NOT begun. It waits on P3.5's own
-  review, per the recorded sequencing.
+  of the arc is P4 — Carmine's Partner, the last unbuilt chair.
+- **P3.5 (the wagon correction) is merged** (PR #17), and so is the
+  whole P4 paper: design revisions 21–26 (PR #16) and 28–30 (PR #21),
+  plus `CLAUDE.md` (PR #22). **P4a is merged** in its three sequential
+  PRs (#18, #19, #20) — the retrospective record is round 12 above.
+- **The current position, exactly.** **P4b.1a (the address lifecycle
+  and the operational surfaces) is complete and AWAITING MERGE** —
+  the two review rounds recorded in round 12 are answered, both gates
+  and both battery depths are clean, and the golden is untouched.
+  Then, in this order and not stacked: the **seizure correction** —
+  in `resolve_route`'s arrest arm `cargo` is reported seized but
+  never cleared, so the shared return loop puts the seized units back
+  in the origin's stash (reproduced deterministically at ONE address:
+  2 units "seized", stash 2 → 4, reachable in the RELEASED game),
+  ruled as its own correctness PR with golden reachability measured
+  BEFORE anything changes — and then **P4b.1b** and the rest of
+  P4b's six PRs, with activation as a separate seventh act. The P4
+  full-battery item (the pairwise eight-component vectors, per §7)
+  remains owed.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds
