@@ -488,3 +488,43 @@ reason — the game composites its own chairs, and there are none).
 Rivals Sal and Vinnie are absent from the family's floor by
 composition choice. Screenshots: `out/ensemble_scene.png` (640×360)
 and `out/ensemble_scene_3x.png` (1920×1080 NN).
+
+## Doctrine: surfaces classified by prompt authority (2026-08-10 session 2)
+
+A day of measurements across four surfaces produced a pattern worth
+naming. Every generation surface belongs to one of three classes, and
+the class — not the model quality — predicts the failure mode:
+
+1. **Full-authority surfaces** (pixflux/bitforge REST: prompt +
+   negatives + palette strip + init image). Every counter-tool
+   exists. The recipes that work here (character recipe, portrait
+   recipe, prop recipe with subtractive strips) all reduce to the
+   same law: CLAIM EVERYTHING — every color by an anchor mass, every
+   ambiguity by a prompt word, every known failure mode by a
+   negative. Init@70 is the measured knob for "refine this structure"
+   (portraits round 4; peel round 2 — it transferred unchanged);
+   init@120-150 is "preserve this anchor's authority".
+2. **Description-only surfaces** (create_8_direction_object, v3
+   action_description): a prompt with no negatives. Vendor-documented
+   contracts constrain what the description may say (v3: movement
+   only, no objects — the peel probe's confounded lesson). Counter-
+   tools are the reference/init image and obeying the documented
+   contract; violations produce garbage the vendor predicted.
+3. **Promptless surfaces** (create_portrait_character): image and
+   seed only. The model's priors fill every information vacuum in
+   the input (E11: 4 identity failures in 5 calls — invented visor,
+   earrings, eyepatch, metal collar; deep skin mapped to the ink
+   register). Viable ONLY when the input carries dense identity
+   information (Sal). Never the default path.
+
+Standing consequences: prefer the lowest-numbered class available for
+any new asset type; when forced up-class, anchor with approved pixels
+(custom_start_frame, reference_image) and treat the first generation
+as a probe, not a candidate. Measured cost asymmetry reinforces this:
+the promptless portrait surface costs 25 gens/call against pixflux's
+1, and E11 converged in 8 gens on class 1 after 125 on class 3.
+
+(Docs-research addendum pending: vendor documentation findings on
+keyframe pixel preservation, skeleton animation, inpaint contracts,
+and billing semantics will be recorded here when the research pass
+returns.)
