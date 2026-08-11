@@ -496,3 +496,43 @@ modern parking lot, not a period street. Parameters recorded in
 `street_block_staging.json` under `parking_lane_differentiation`.
 `review/hybrid_dinapoli_block_board_v10.png` at the board. Round
 cost zero generations; session spend stands 80; balance 4,247.
+
+## v11 — three board catches (2026-08-11; 0 gens)
+
+1. The bags read as layered IN FRONT of the left tree — the pier
+   slot belongs to the tree, so the bag pair SPLIT: two singles
+   stacked against the SHOP's left wall, clear of the door (the
+   no-door clause holds) and clear of the crown. Placement lesson:
+   a wall-line prop and a curb-line prop cannot share an x-slot —
+   the crown will always swallow the wall prop.
+2. The bench's left end abutted DiNapoli's right border and read as
+   HALF A BENCH emerging from the facade — moved to the DINER's
+   wall section (x470), fully framed by blank wall.
+3. The yellow curb re-centered on the hydrant's content center
+   (zone x334–402, centered ≈368).
+
+`review/hybrid_dinapoli_block_board_v11.png` is the composition
+candidate, superseding v10. Spend unchanged: 80; balance 4,247.
+
+## v12 — the bench reapproached (2026-08-11, board: "These benches
+## arguably look worse"; 2 gens + recorded curation)
+
+The board rejected the Omega bench outright, and the zoom agrees:
+a doubled tan slab reading as a crate against the wall — donor
+furniture whose 96px doubled width also never had a clean slot
+(hence the half-bench and tree-trunk collisions). Reapproached as
+NATIVE street furniture in the block's own language: cast-iron
+ends in the lamppost's metals + wood slats in the register browns.
+Slats are regular → CODE ANCHOR (three back slats, seat slab, iron
+ends with feet), pixflux wear @150, subtractive 6-tone strip, 2
+seeds. **s16502 picked** (clean rhythm, ends and feet read;
+s16501's grain heavier). Recorded curation: the seat band rendered
+as just another slat, so its 156 wood-family pixels lifted to the
+top-plane tone — the foreshortened seat read. At 64px native the
+bench fits BETWEEN the facade edge and the tree well (x408) — the
+slot the donor never fit.
+
+The Omega bench derivation is retired from the block (stays in
+derived_props as a measurement reference).
+`review/hybrid_dinapoli_block_board_v12.png` supersedes v11.
+Session spend 82; expected balance 4,245.
