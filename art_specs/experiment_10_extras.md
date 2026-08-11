@@ -126,3 +126,11 @@ by a composable builder (`wardrobe_variant`: base × skin × hair ×
 top × bottom, ordering fixed skin-first so garment swaps into
 warm tones never collide with the skin shift), with the
 reserved-identity test still standing over every composition.
+
+## Rulings (2026-08-10, user board)
+
+1. **Case blue on the cop: APPROVED.** Codified as sworn-institution-
+   only: `#3854DA` joined RESERVED_TARGETS, so no recolor mapping can
+   ever put it on a civilian; the cop wears it by generation.
+2. **All five type-class picks APPROVED** into `approved/` (cop
+   s10102, student s10111, docker s10122, seated s10132/s10141).

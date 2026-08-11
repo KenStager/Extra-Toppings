@@ -113,3 +113,48 @@ class RectangularBboxMinimum(unittest.TestCase):
             squat, palette, expected_size=(32, 32), min_bbox=(8, 18)
         )
         self.assertFalse(result.checks["bounding_box"])
+
+
+class AnimationFrameContract(unittest.TestCase):
+    """User ruling 2026-08-10: frames may shed limbs, never specks."""
+
+    PAL = [(168, 16, 49, 255)]
+
+    def _frame(self, extra_components=()):
+        im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        for y in range(6, 26):
+            for x in range(12, 20):
+                im.putpixel((x, y), self.PAL[0])
+        for (x0, y0, size) in extra_components:
+            for dy in range(size):
+                im.putpixel((x0, y0 + dy), self.PAL[0])
+        return im
+
+    def test_limb_separation_passes(self):
+        from tools.art_pipeline.validation import validate_animation_frame
+        frame = self._frame([(4, 27, 4), (26, 27, 5)])  # two limbs >= 4px
+        r = validate_animation_frame(frame, self.PAL, (32, 32))
+        self.assertTrue(r.passed, r.notes)
+
+    def test_speck_refused(self):
+        from tools.art_pipeline.validation import validate_animation_frame
+        frame = self._frame([(4, 27, 1)])  # 1px speck
+        r = validate_animation_frame(frame, self.PAL, (32, 32))
+        self.assertFalse(r.checks["component_discipline"])
+
+    def test_too_many_components_refused(self):
+        from tools.art_pipeline.validation import validate_animation_frame
+        frame = self._frame([(2, 20, 4), (26, 20, 4), (2, 27, 4)])  # 4 comps
+        r = validate_animation_frame(frame, self.PAL, (32, 32))
+        self.assertFalse(r.checks["component_discipline"])
+
+    def test_cycle_frame0_identity_anchor(self):
+        from tools.art_pipeline.validation import validate_walk_cycle
+        rot = self._frame()
+        good = validate_walk_cycle([rot.copy(), self._frame([(4, 27, 4)])],
+                                   rot, self.PAL, (32, 32))
+        self.assertTrue(good.checks["frame0_is_rotation"])
+        drifted = rot.copy()
+        drifted.putpixel((0, 0), self.PAL[0])
+        bad = validate_walk_cycle([drifted, self._frame()], rot, self.PAL, (32, 32))
+        self.assertFalse(bad.checks["frame0_is_rotation"])

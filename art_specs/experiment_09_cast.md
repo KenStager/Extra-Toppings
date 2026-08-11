@@ -306,3 +306,20 @@ resubmitted, 20/20 clean). OPERATIONAL GAP recorded: MCP-side
 generations do NOT flow through the REST spend ledger; the vendor
 balance is the only authority for them. Local curated PNGs are
 canon; character ids remain derived caches.
+
+## Animation contract ratified (2026-08-10, user ruling)
+
+The user adopted the animation-frame contract verbatim: same
+size/alpha/palette rules as props; garbage specks (<4 px) refused;
+up to two extra components allowed if each is ≥4 px (a limb, not a
+speck); and the cycle-level identity anchor — frame 0 must
+byte-equal the character's rotation sprite. Implemented as
+`validate_animation_frame` + `validate_walk_cycle` (4 tests; suite
+85). Results under the ratified contract: Sammy's speck frames took
+recorded curation (3+1 orphan pixels removed, provenanced); his west
+cycle exceeded the component limit and was re-rolled ONCE rather
+than bending a day-old rule (the vendor deduplicates identical
+action descriptions — a distinct description forces a fresh render;
+operational note recorded). FINAL: 44/44 walk cycles pass, and
+44/44 frame-0 identity anchors hold BYTE-EXACT across the cast —
+keep_first_frame is now a verified contract, not a vendor promise.

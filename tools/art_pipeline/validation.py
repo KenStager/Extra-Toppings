@@ -260,3 +260,115 @@ def validate_decal(
         f"long opaque runs on canvas edge: {runs}",
     )
     return result
+
+
+def validate_animation_frame(
+    image: Image.Image,
+    palette: list[RGBA],
+    expected_size: tuple[int, int],
+    max_components: int = 3,
+    min_secondary_component: int = 4,
+    max_edge_run: int = 12,
+) -> ValidationResult:
+    """Validate one animation frame (user ruling, 2026-08-10).
+
+    The decal precedent applied to motion: an animation frame is a
+    different KIND of asset from a prop. Same size/alpha/palette rules;
+    garbage specks are still refused; but a striding figure may shed up
+    to two extra components IF each is at least `min_secondary_component`
+    px — a limb mid-step, not a speck. The prop's single_silhouette rule
+    deliberately does not apply. The cycle-level identity check (frame 0
+    byte-equals the rotation sprite) lives in validate_walk_cycle.
+    """
+    result = ValidationResult()
+    rgba = image.convert("RGBA")
+
+    result.record(
+        "dimensions",
+        (rgba.width, rgba.height) == expected_size,
+        f"got {rgba.width}x{rgba.height}, expected {expected_size[0]}x{expected_size[1]}",
+    )
+    result.record(
+        "transparency_support",
+        image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info,
+        f"mode {image.mode} has no alpha",
+    )
+
+    colors = rgba.getcolors(maxcolors=rgba.width * rgba.height)
+    assert colors is not None
+    alpha_values = {c[1][3] for c in colors}
+    result.record(
+        "hard_alpha",
+        alpha_values <= {0, 255},
+        f"soft alpha values present: {sorted(alpha_values - {0, 255})[:8]}",
+    )
+
+    allowed = {c[:3] for c in palette}
+    off_palette = sorted(
+        {c[1][:3] for c in colors if c[1][3] == 255 and c[1][:3] not in allowed}
+    )
+    result.record(
+        "palette_adherence",
+        not off_palette,
+        f"{len(off_palette)} off-palette colors: "
+        + ", ".join(to_hex((r, g, b, 255)) for r, g, b in off_palette[:8]),
+    )
+
+    mask = _opaque_mask(rgba)
+    areas = _components(mask)
+    if not areas:
+        result.record("component_discipline", False, "no opaque pixels")
+        result.record("no_clipping", False, "no opaque pixels")
+        return result
+    specks = [a for a in areas[1:] if a < min_secondary_component]
+    too_many = len(areas) > max_components
+    result.record(
+        "component_discipline",
+        not specks and not too_many,
+        f"components {areas[:6]}: "
+        + (f"{len(specks)} specks under {min_secondary_component}px; " if specks else "")
+        + (f"more than {max_components} components" if too_many else ""),
+    )
+
+    edges = {
+        "top": sum(mask[0]),
+        "bottom": sum(mask[-1]),
+        "left": sum(row[0] for row in mask),
+        "right": sum(row[-1] for row in mask),
+    }
+    runs = {k: v for k, v in edges.items() if v > max_edge_run}
+    result.record(
+        "no_clipping",
+        not runs,
+        f"long opaque runs on canvas edge: {runs}",
+    )
+    return result
+
+
+def validate_walk_cycle(
+    frames: list[Image.Image],
+    rotation_image: Image.Image,
+    palette: list[RGBA],
+    expected_size: tuple[int, int],
+) -> ValidationResult:
+    """Cycle-level checks: frame 0 is the identity anchor.
+
+    Frame 0 must byte-equal the character's rotation sprite for this
+    direction (the keep_first_frame contract made verifiable); every
+    frame must pass the animation-frame contract.
+    """
+    result = ValidationResult()
+    if not frames:
+        result.record("has_frames", False, "empty cycle")
+        return result
+    result.record("has_frames", True)
+    f0, rot = frames[0].convert("RGBA"), rotation_image.convert("RGBA")
+    result.record(
+        "frame0_is_rotation",
+        list(f0.getdata()) == list(rot.getdata()),
+        "frame 0 differs from the rotation sprite (identity anchor broken)",
+    )
+    for i, frame in enumerate(frames):
+        sub = validate_animation_frame(frame, palette, expected_size)
+        result.record(f"frame_{i}", sub.passed, "; ".join(sub.notes))
+    return result

@@ -121,10 +121,15 @@ def apply_skin_shift(base_image: Image.Image, base_name: str) -> Image.Image:
 
 # ------------------------------------------------- reserved identity rule
 # The named cast's identity features (experiment_10_extras.md taxonomy
-# v2): extras may never wear them. Enforced by test over roster data.
-RESERVED_TARGETS: frozenset[RGBA] = frozenset(
-    {from_hex("#FF8628"), from_hex("#FFE976")}  # Lena's heat hair; gold (Tony/Carmine)
-)
+# v2): extras may never wear them. Case blue joined by user ruling
+# (2026-08-10): it belongs to sworn institutions only — the cop base
+# wears it BY GENERATION; no recolor mapping may ever produce it, so a
+# civilian can never drift blue. Enforced by test over roster data.
+RESERVED_TARGETS: frozenset[RGBA] = frozenset({
+    from_hex("#FF8628"),  # Lena's heat hair
+    from_hex("#FFE976"),  # gold (Tony's chain, Carmine's tiepin)
+    from_hex("#3854DA"),  # case blue — sworn institutions only
+})
 
 
 def roster_respects_reservations() -> list[str]:
