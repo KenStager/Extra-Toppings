@@ -2559,7 +2559,7 @@ a day the run had never reached (the RULER class, which review taught
 in P4b.1b and which recurs the moment a new dated record appears);
 and two assertions were loose enough to pass on the wrong outcome.
 
-**Verification.** 988 tests green on 3.11, 3.12 AND 3.13; ruff and
+**Verification.** 999 tests green on 3.11, 3.12 AND 3.13; ruff and
 mypy clean. Both identity gates **300/300 on all three**, stand-pat
 **79/79** (schema v1) — containment. Golden **unchanged at
 `7a62b2af`**. Fork battery **byte-identical to merged main at BOTH
@@ -2674,11 +2674,10 @@ boundary is.
   approved at 2df2ae6; round 12) and so is the **seizure correction**
   (PR #24, approved at d444389; round 13 — reachability measured
   before anything changed, so the golden was not regenerated).
-  **P4b.1b is complete and awaiting review**, with design revision
-  31 as its paper (round 14). Next: **P4b.2 — the points ledger**,
-  then P4b.3–P4b.5, with activation as a separate seventh act.
-  **P4b.2 is complete and awaiting review** (round 15). Nothing
-  preceded it: the points schema was already ruled by revision 29
+  **P4b.1b is MERGED** (PR #25, approved at 416fa36 → merge b2a31ac;
+  round 14), with design revision 31 as its paper. **P4b.2 is
+  complete and awaiting review** (round 15) on PR #27, after the
+  incident recorded in the round-15 coda. Nothing preceded it: the points schema was already ruled by revision 29
   item 1, and round 14's claim that a ruling was owed misread
   revision 28's superseded judgment call. Next: **P4b.3 — the
   manager, the vacancy and the two-front pressure**, which owes TWO

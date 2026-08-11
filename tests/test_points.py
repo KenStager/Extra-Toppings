@@ -263,23 +263,36 @@ class TestTheTransitionTable(unittest.TestCase):
         self.assertEqual(state.branch_state.points_due_day,
                          first + 2 * CYCLE)
 
-    def test_evidence_after_the_points_tick_replaces_foreclosure(self):
-        # THE production order: `night_points` runs before the rival
-        # and law phases, so foreclosure is written FIRST and the
-        # night's own evidence can still latch over it. §2.5 gives
-        # arrest precedence over every simultaneous outcome, and this
-        # is the order in which that actually happens.
+    def test_the_real_night_runs_points_before_the_world_s_dice(self):
+        # THE ordering, bound through `phases.night` itself rather
+        # than by calling the two authorities in the order the test
+        # believes. Evidence is injected where the RIVAL PHASE runs —
+        # after the branch tick — so the discriminator is what the
+        # ledger holds afterwards:
+        #
+        #   points first (production): the second cycle is RECORDED,
+        #     foreclosure is written, and the injected file then
+        #     latches over it -> arrested, TWO cycles.
+        #   points last (a regression): the arrest lands first, the
+        #     branch tick is skipped on a dead run -> arrested, ONE.
+        #
+        # A test that called the authorities itself would stay green
+        # through exactly that regression.
         state = seated(clean=0)
         due = state.branch_state.points_due_day
         advance_to(state, due + 1)                  # strike one
-        state.day = due + CYCLE
-        partner.night_obligation(state, Listening())
-        self.assertEqual(state.game_over, models.FORECLOSURE_ENDING)
-        # …and then the same night's file closes.
-        state.add_case(100.0, "the file closes", kind="physical")
-        self.assertEqual(state.game_over, "arrested")
-        # The ledger still reads two strikes, and that pair is a
-        # payload the boundary accepts under the arrest ending.
+        self.assertIsNone(state.game_over)
+
+        def close_the_file(st, con, rng):
+            st.add_case(100.0, "the file closes", kind="physical")
+
+        advance_to(state, due + CYCLE)           # up to the second bill
+        with mock.patch.object(phases.rivals, "rival_phase",
+                               side_effect=close_the_file):
+            run_night(state)                     # the night both land
+
+        self.assertEqual(state.game_over, "arrested")   # §2.5 precedence
+        self.assertEqual(len(state.branch_state.points_cycles), 2)
         self.assertEqual(partner.ledger(state).strikes, 2)
         save.state_from_dict(save.state_to_dict(state))
 
@@ -535,16 +548,43 @@ class TestTheLedgerReconciles(unittest.TestCase):
         self.assertEqual(loaded.branch_state.points_cycles, [])
         self.assertEqual(loaded.branch_state.points_due_day, 19)
 
-    def test_a_terminal_may_lag_the_bill_by_exactly_one_night(self):
-        # The bounded exception: arrest latches on the very night a
-        # bill was due, the points tick never runs, and the phase
-        # still advances the day once. That is the only legitimate
-        # lag there is.
+    def _lagging(self):
+        """A run standing one day past an unrecorded bill — the shape
+        the arrest-before-points transition really leaves behind."""
         state = table_state(payoff_day=13)
         seat_partner(state)
         state.day = state.branch_state.points_due_day + 1  # day 20
-        state.game_over = "arrested"
+        return state
+
+    def test_a_genuine_arrest_latch_may_lag_the_bill_one_night(self):
+        # The bounded exception: the file closed on the very night a
+        # bill was due, so the points tick never ran and the phase
+        # advanced the day once. That is the only legitimate lag.
+        state = self._lagging()
+        state.add_case(100.0, "the file closes", kind="physical")
+        self.assertEqual(state.game_over, "arrested")
         save.state_from_dict(save.state_to_dict(state))
+
+    def test_an_unrelated_terminal_cannot_borrow_that_exception(self):
+        # `game_over` is not a licence to omit a bill: only the arrest
+        # transition is being excused, not "the run ended somehow".
+        for ending in ("sold", "broke", models.FORECLOSURE_ENDING,
+                       "survived"):
+            with self.subTest(ending=ending):
+                state = self._lagging()
+                state.game_over = ending
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(save.state_to_dict(state))
+
+    def test_a_false_arrest_cannot_borrow_it_either(self):
+        # An `arrested` payload that never latched: the ending is
+        # written, the Case that arrests is not.
+        state = self._lagging()
+        state.game_over = "arrested"
+        self.assertLess(state.case, 100)
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(save.state_to_dict(state))
+        self.assertIn("cannot skip a bill", str(caught.exception))
 
     def test_a_finished_run_cannot_omit_days_of_history(self):
         # And the exception is BOUNDED: `game_over` is not a licence

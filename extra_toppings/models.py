@@ -2194,13 +2194,23 @@ def validate_points_schedule(state: "State") -> None:
     # once. A run standing six days past an unrecorded bill has not
     # transitioned; it has skipped, and `game_over` is not a licence
     # to omit history.
+    # The one-night lag is licensed by a GENUINE ARREST LATCH, not by
+    # the mere presence of an ending (P4b.2 review). `game_over` alone
+    # let a save claim `sold` or `broke` and omit a bill, and let an
+    # `arrested` payload omit one without carrying the Case that
+    # arrests. The transition being excused is specific: the file
+    # closed on the night a bill was due, so the points tick never
+    # ran. Both halves of that are checked.
+    latched = (state.game_over == "arrested"
+               and fold_case(state.evidence) >= CASE_MAX)
     lag = state.day - cursor
-    allowed = 1 if state.game_over is not None else 0
+    allowed = 1 if latched else 0
     if lag > allowed:
         raise ValueError(
             f"partner: day {cursor} fell due and the ledger records "
             f"no cycle for it — a run cannot skip a bill (day "
-            f"{state.day}, ended {state.game_over!r})")
+            f"{state.day}, ended {state.game_over!r}; only an arrest "
+            f"latching that night excuses the one-night lag)")
 
 
 def validate_sitdown_snapshot(state: "State") -> None:
