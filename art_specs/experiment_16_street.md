@@ -1096,3 +1096,44 @@ Three measured rounds, recorded honestly:
 
 Session C spend: 74 (4 drift + 62 vehicles + 8 Moretti's); expected
 balance ~4,153; ledger consistent. Recipes r1-r3 preserved.
+
+## Moretti's: the display mechanism found, the front branded
+## (2026-08-11 session C cont.; board: "Perfect. How do we proceed?"
+## -> the loop continued; 14 gens, rounds 4-8)
+
+The study's paid-for laws, in the order they were bought:
+
+- **r4-r5**: the display-glass donor composed correctly (mirrored
+  bays; the doorway CENSUSED to (14,17)-(34,40) after an eyeballed
+  crop caught shelving - measure before pixels, again), and a new
+  protocol point: THE SCAFFOLD IS JUDGED WITH EYES BEFORE ANY SPEND.
+  Register guard applied in composition: donor cyan glass (reserved
+  institutional signal) never reaches the model unmapped... yet both
+  rounds still returned grain-only (7-14%).
+- **r6 - THE RAW-IN LAW** (the study's key): a scaffold PRE-MAPPED to
+  the final register reads as tonally done, and the model politely
+  grains it. Fed RAW donor color under the forced LS strip, it
+  repainted 76.5% into the register. E02's facades always worked this
+  way; the pre-map was my own invention and it was the blocker.
+  Corollary: alpha backfill uses the register-mapped scaffold, never
+  the raw one.
+- **r7 - CONTENT-PRESERVED**: donor bay content that is pictures and
+  hanging signs stays pictures and hanging signs, display language
+  notwithstanding. Generation refines what shapes suggest; it does
+  not transmute categories.
+- **r8 - LANDED**: crude code-drawn goods (bottle silhouettes on
+  shelf lines, loaf ellipses) in raw color refined into lit
+  wine-bottle shelves in both seeds. **s16862 is the body pick.**
+- **Brand layer (code, 0 gens)**: fascia field + MORETTI'S (scale-2
+  cream, shadowed) + oxblood scalloped awning (striped OX tiers,
+  scallop pitch 19) + TRATTORIA subline.
+  `candidates/morettis/morettis_branded_v1.png` is the study
+  candidate at the board - NOT promoted.
+
+Flagged residuals for the next pass: awning drop shadow onto the
+glass (the grounding law says nothing floats), the door-top notch
+(source cleanup, not output patch), the menu stand (wall-line prop,
+his signature), and the staging-v3 scene instance - the second
+compact exterior and the template's first real test. Provenance:
+e16_morettis_facade_study.json. Session C spend 88 (4 drift + 62
+vehicles + 22 Moretti's); expected balance ~4,139, ledger-verified.
