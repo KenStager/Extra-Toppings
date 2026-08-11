@@ -909,3 +909,37 @@ anchor base_y = lane_bottom - 14 (lane 1 -> 290, lane 2 -> 330),
 centering the footprint; parked vehicles keep the v14 precedent
 (base 260). All recorded in actors_presentation; the builder
 rebuilt v20 from data; the Godot proof stands untouched.
+
+## v20 called PERFECT; the standing state and the queue
+## (2026-08-11, board: "Perfect. Make sure these thoughts and
+## adjustments are all durable. What's next?")
+
+STANDING: v20 is the block. On the board's word the Anchor Diner
+facade (s16618 curated) entered approved/ with the flank names
+(ROSSI'S GROCERY / ANCHOR DINER) as slot data and the diner doorway
+[501,525] recorded — all three doorways of the block are now data.
+DURABLE-STATE INVENTORY, verified: staging v3 carries bands, slots,
+doorways, prop spans, tree centering, actors_presentation with the
+vehicle scale conventions, the amended lane law, and the driving
+depth law; the preserved builder rebuilds reference + Godot scene +
+presentation board from that data alone (proof: 0/230,400 each
+run); recipes and the wagon scale strip live beside the provenance;
+laws/registers/validator/tests/spec are in git. The only
+non-durable copy in the system remains .private_art itself
+(single-copy, user's call).
+
+THE QUEUE, in recommended order:
+1. NATIVE VEHICLE CLASS (next): bespoke sedans at the recorded
+   70x38 read and the wagon re-drawn to its recorded 81x47 target -
+   retires NN scaling entirely. Small, well-specified, closes the
+   only interim riding on the standing board.
+2. MORETTI'S TRATTORIA: brief stands, Little Sicily register
+   stands, scene-unit template stands - an E02-scale facade study
+   plus a staging-v3 instance (the second exterior scene).
+3. VINNIE'S PIES (Meadows register) - same shape, after Moretti's.
+4. Bags/booth native replacements (the approved/interim debt),
+   curb corners + crosswalk, grime/crack decal class.
+5. Animation: wagon drive-bob, extras walk cycles (street crowds
+   need them), cast N/E/W idles, Tier 2 keyframe probe.
+6. Flagged one-liner awaiting word: yellow-curb re-centering on
+   the hydrant.
