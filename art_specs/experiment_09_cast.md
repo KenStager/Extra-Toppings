@@ -202,3 +202,53 @@ the CHARACTER RECIPE, superseding the round-1 body-only anchors at
 init@120. v2 provisional picks in candidates/*_provisional_v2.png:
 rosa 9501, tony 9511, bee 9521, marcus 9532, lena 9541, sammy 9552,
 angelo 9561, priya 9571, sal 9581, vinnie 9591, carmine 9601.
+
+## Round 3 — the reflect/refine/re-render loop (user directive, 10 gens)
+
+The board found residual figures reading "ghostly," and widened the
+brief: memorability is the WHOLE figure, not the face. Three loop
+rounds ran, each opening with a written reflection on the actual
+pixels (zoom boards + head-region pale-pixel census in the session
+record):
+
+**Round A** (4 gens — lena/marcus/sammy/carmine): diagnosis was the
+strip-spending law: at 32px the model spends every strip color
+somewhere, and light neutrals (pale/cream/gray) land on FACES unless
+the costume claims them in a large anchor mass. Fix: subtract light
+neutrals from strips where the costume doesn't need them, block faces
+fully in skin ramp, ground each figure with a midtone garment.
+Results: Carmine fixed (warm gaunt, silver sweep — the vampire read
+died; he keeps his dignity), Sammy fixed, Marcus de-ghosted but
+GENERIC, Lena traded ghost for gold hands — the strip law struck the
+accent color instead.
+
+**Round B** (4 gens — lena/marcus/bee/rosa, whole-figure round):
+Marcus SOLVED (big messy hair, open asymmetric jacket over gray tee,
+oxblood sneakers — the dropout finally reads). Bee's LEDGER survives
+and reads under her arm — blocked props at prop scale DO transfer;
+her wire glasses failed generation for the third time and are now
+provably a curation-class detail. Lena's cream blouse re-fed her
+face. Rosa's strap exploded into oxblood patches — the law
+generalized: ANY strip color beyond the figure's dominant masses gets
+spent visibly; small accents need their exact mass claimed and every
+competing color subtracted.
+
+**Round C** (2 gens): Lena's blouse switched to oxblood so cream left
+her strip entirely — clean, warm, red-haired, memorable. Rosa's strip
+lost oxblood; the strap/satchel came back at intended scale — the
+kitted veteran driver. Her eye area reads as driving glasses
+(optional 2 px curation, arguably in character).
+
+**LOOP CONVERGED.** Final picks: rosa v5_s9505, tony v2_s9511,
+bee v4_s9524, marcus v4_s9534, lena v5_s9545, sammy v3_s9553,
+angelo v2_s9561, priya v2_s9571, sal v2_s9581, vinnie v2_s9591,
+carmine v3_s9603 (candidates/*_final.png; lineup
+review/cast_lineup_final.png). Standing curation list (deterministic,
+post-approval): Bee wire glasses, Rosa eye lighten (optional), Sammy
+ankles (optional).
+
+**Recipe addendum (standing):** strips are SUBTRACTIVE instruments —
+start from the figure's dominant masses and add nothing that isn't
+claimed by an anchor mass of the intended size. Light neutrals near
+faces and loose accent colors are the two measured failure modes;
+props survive when blocked at their real scale.
