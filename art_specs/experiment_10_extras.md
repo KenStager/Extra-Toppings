@@ -102,3 +102,27 @@ excluded by measured region; RESERVED_TARGETS test keeps heat hair
 and gold off every extras mapping — suite 77). Crowd demo:
 `review/crowd_demo.png`, 16 distinct passers-by from the 4 civilian
 bases at zero generations.
+
+## Crowd wardrobe law (2026-08-10, user board finding)
+
+The user judged the crowd demo's clothes too similar — and the
+reflection found a thematic bug underneath: 14 of 16 figures wore
+slate, so the crowd read COLD. Slate/ink is the pressure register;
+the demo accidentally dressed the neighborhood in carbon-paper
+colors. Root cause: generation-time strip subtraction (correct, it
+protects faces) starved the BASES of wardrobe variety, and the
+roster's swap targets never widened to compensate — even though
+recolors are exact-color operations with ZERO ghost risk and may
+map into any legal color.
+
+LAW ADOPTED: the warm↔cold axis applies to CROWDS. Default civilian
+wardrobe skews warm (cream, pale, tan, rust, burgundy, oxblood);
+slate/ink are the minority; case blue never appears on a civilian.
+District wardrobe registers ship as DATA (`DISTRICT_WARDROBES`):
+Old Harbor work-warms, Little Sicily Sunday cream/oxblood,
+University slate/gray (the one place cold-leaning is correct),
+Meadows after-dark inks. The enumerated variant roster is superseded
+by a composable builder (`wardrobe_variant`: base × skin × hair ×
+top × bottom, ordering fixed skin-first so garment swaps into
+warm tones never collide with the skin shift), with the
+reserved-identity test still standing over every composition.
