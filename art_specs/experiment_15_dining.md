@@ -257,3 +257,34 @@ sprite's measured sitting line to the pad's measured top row. The
 flanking test confirmed the computed row (-3) over ±1 neighbors.
 Contact stands from the prior round (+2 toward the backrest). The
 four-top staging is final.
+
+## The dangle loop (2026-08-11, user board, "loop until correct"; 4 gens)
+
+The board rejected two placement-only fixes and was right both
+times: the pose itself was wrong. Loop record, honestly:
+
+1. The session first read the correction as horizontal (contact
+   shift) — wrong axis. The board named it: VERTICAL.
+2. The sitting-line alignment (thigh row onto pad top) was computed
+   and sealed — still wrong, because the SPRITE had no dangle: its
+   shin dropped in the middle of the seat span, so every alignment
+   embedded the figure IN the frame. A v2 regeneration with longer
+   legs kept the same defect. No placement fixes an asset whose
+   geometry contradicts the furniture.
+3. The board supplied the reference read: **butt ON the seat at the
+   back, knee clearing the FRONT EDGE, shin dangling IN FRONT of the
+   chair.** The v3 anchor baked that geometry (measured against the
+   chair: pad back col 12, front edge col 24), init@160 to hold the
+   limb layout. Both seeds landed; s10232 picked (zones intact,
+   30/31 top/bottom — no repair needed), west mirror derived.
+
+Placement law upgraded: E/W sitters use CHAIR-COORDINATE alignment
+(sprite butt col -> pad-back col, sitting-line row -> pad-top row),
+not content-centering. At the table the dangling shins tuck under
+the cloth edge — the physically-correct composition falls out free.
+`fourtop_staging.json` sealed with the full recipe.
+
+Lesson, at full price (4 gens + three wrong seals): when a placement
+refinement fails twice on the same complaint, stop moving the sprite
+and MEASURE THE SPRITE — the defect class "asset geometry
+contradicts the furniture" cannot be fixed by any offset.
