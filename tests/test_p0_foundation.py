@@ -9,8 +9,7 @@ import random
 import unittest
 
 from extra_toppings import data, market, save
-from extra_toppings.models import (BranchState, PointsCycleRecord,
-                                   new_state)
+from extra_toppings.models import BranchState, new_state
 from extra_toppings.rng import Streams
 
 
@@ -245,18 +244,18 @@ class TestBranchStatePersistence(unittest.TestCase):
         self.assertIn("branch_state", d)
         self.assertIsNone(d["branch_state"])
         state.act = 2
-        state.branch = "partner"
-        state.day = max(state.day, 19)
-        # A paid first cycle: the run stands on the day it was paid,
-        # and the cursor has advanced past it — what the calendar
-        # check and the ledger reconciliation each require.
-        state.branch_state = BranchState(
-            points_due_day=24,
-            points_cycles=[PointsCycleRecord(
-                due_day=19, bill=2500, vig=0, paid=True, paid_day=19)])
+        state.branch = "straight"
+        # A populated BranchState, from a branch whose coherence does
+        # not require a whole deal behind it. Partner's populated
+        # state now anchors to the address the deal built and the
+        # payoff the table recorded (P4b.2), so building one here
+        # would mean building that world too — which is
+        # tests/test_points.py's business, not this file's.
+        state.branch_state = BranchState(disposal_runs_left=3,
+                                         last_crime_day=6)
         restored = save.state_from_dict(save.state_to_dict(state))
         self.assertEqual(restored.act, 2)
-        self.assertEqual(restored.branch, "partner")
+        self.assertEqual(restored.branch, "straight")
         self.assertEqual(restored.branch_state,
                          state.branch_state)
 

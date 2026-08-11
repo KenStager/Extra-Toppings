@@ -220,6 +220,26 @@ POINTS_PER_CYCLE = 2_500
 POINTS_VIG = 500
 POINTS_CYCLE_DAYS = 5
 POINTS_STRIKES_TO_FORECLOSE = 2
+# The early-payoff compliment: paying the debt by this day defers the
+# FIRST cycle by one whole cycle (§2.4.2, rev. 31 item 3).
+EARLY_PAYOFF_DAY = 10
+# THE terminal the second strike reaches. Canon's id, spelled once
+# (§2.5): `foreclosure`, not a paraphrase of it.
+FORECLOSURE_ENDING = "foreclosure"
+
+
+def first_points_due(acceptance_day: int, payoff_day: int) -> int:
+    """THE first due day (rev. 31 item 3), from the address's
+    PERSISTED acceptance day: `acceptance_day + (10 if payoff_day <=
+    10 else 5)`.
+
+    It lives here rather than in the branch module because the
+    persistence validator prices the schedule from it too, and a
+    second spelling of the anchor is how a cursor and a ledger come
+    to disagree about the same deal."""
+    grace = (2 * POINTS_CYCLE_DAYS if payoff_day <= EARLY_PAYOFF_DAY
+             else POINTS_CYCLE_DAYS)
+    return acceptance_day + grace
 
 
 def insolvency_tick(state: "State", payroll_short: bool) -> str | None:
@@ -482,7 +502,7 @@ class WarCampaignState:
     captured_pre_latch: bool = False   # capture completed on a live run
 
 
-@dataclass
+@dataclass(frozen=True)
 class PointsCycleRecord:
     """ONE points cycle, appended once and frozen thereafter (§2.4.2,
     rev. 29 item 1).
@@ -567,7 +587,13 @@ def pay_dirty_first(state: "State", amount: int) -> bool:
     if type(amount) is not int:
         raise ValueError(f"a bill is a whole number of dollars, got "
                          f"{amount!r}")
-    if amount <= 0:
+    # A negative bill is money moving the WRONG WAY through a
+    # payment authority — it would credit both tills and report
+    # success. Nothing computes one; reaching here with one is a
+    # caller bug.
+    if amount < 0:
+        raise ValueError(f"a bill cannot be negative, got {amount}")
+    if amount == 0:
         return True
     if state.dirty + state.clean < amount:
         return False
@@ -1189,6 +1215,10 @@ def _validate_partner(bs: "BranchState", game_over: str | None) -> None:
                     f"partner: points_cycles[{i}] is unpaid and "
                     f"cannot record a payment day ({c.paid_day})")
             running_arrears = c.bill
+    if type(bs.points_due_day) is not int:
+        raise ValueError(
+            f"partner: the points cursor is a whole calendar day, got "
+            f"{bs.points_due_day!r}")
     view = partner_ledger(bs)
     # The cursor is a CACHED SUMMARY, and a cached summary reconciles
     # exactly against the ledger or it is not a summary.
@@ -1196,13 +1226,34 @@ def _validate_partner(bs: "BranchState", game_over: str | None) -> None:
         raise ValueError(
             f"partner: the points cursor says day {bs.points_due_day} "
             f"and the ledger says {view.next_due_day}")
-    # The second strike forecloses THAT NIGHT, so a live run cannot
-    # be carrying two: a payload that does is a run that should have
-    # ended and did not.
-    if view.foreclosed and game_over is None:
+    # THE TERMINAL CONTRACT, BOTH WAYS (P4b.2 review). Checking only
+    # "two strikes on a live run" left the other three corners open:
+    # a foreclosure ending with no strikes behind it, and two strikes
+    # under an unrelated ending, both loaded happily. The complete
+    # relationship is: two strikes END the run, and they end it as
+    # foreclosure unless the arrest latch took precedence that same
+    # night (§2.5); and the foreclosure ending exists only where two
+    # strikes put it.
+    if view.foreclosed:
+        if game_over is None:
+            raise ValueError(
+                f"partner: {view.strikes} strikes forecloses — a run "
+                f"carrying them is over")
+        if game_over not in (FORECLOSURE_ENDING, "arrested"):
+            raise ValueError(
+                f"partner: {view.strikes} strikes ends the run as "
+                f"{FORECLOSURE_ENDING!r} (or {'arrested'!r}, which "
+                f"outranks it); this run ended {game_over!r}")
+    elif game_over == FORECLOSURE_ENDING:
         raise ValueError(
-            f"partner: {view.strikes} strikes forecloses — a run "
-            f"carrying them is over")
+            f"partner: a run ends in {FORECLOSURE_ENDING!r} on the "
+            f"second strike; this ledger carries {view.strikes}")
+    # Partner unlocks the same counterplay verbs as every other
+    # remediation branch (rev. 29 item 7), so its remediation state
+    # is bound by the same validator — retained counsel, days served,
+    # the paid-points cap and the settled list. Unlocking the menus
+    # without validating what they write was half a join.
+    _validate_remediation_fields("partner", bs)
     _validate_insolvency("partner", bs, game_over)
 
 
@@ -1990,7 +2041,7 @@ def validate_cross_state(state: "State") -> None:
                 f"{label} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
     validate_execution_history(state)
-    validate_points_calendar(state)
+    validate_points_schedule(state)
     validate_sitdown_snapshot(state)
     _validate_witnesses_and_campaigns(state)
 
@@ -2023,26 +2074,84 @@ def validate_calendar(state: "State") -> None:
                 f"{state.day})")
 
 
-def validate_points_calendar(state: "State") -> None:
-    """The points history against the CALENDAR (the ruler class this
-    project keeps finding): `validate_branch_state` judges the
-    ledger's internal arithmetic without a day to measure against,
-    so a cycle billed for a Tuesday the run has never reached, or
-    paid on one, is only visible here."""
+def validate_points_schedule(state: "State") -> None:
+    """THE points schedule against the DEAL that started it (P4b.2
+    review) — one cross-state authority, because every part of this
+    needs facts `validate_branch_state` cannot see.
+
+    That validator judges the ledger's internal arithmetic: bills
+    reconciling, cycles five days apart, the cursor agreeing with the
+    history. All of that can be perfect and still describe the wrong
+    deal. The FIRST due day is not free — it is
+    `acceptance_day + (10 if payoff_day <= 10 else 5)` from the
+    address the deal built and the payoff the table recorded — so an
+    empty ledger with a cursor on day 20, or a whole history shifted
+    one day, passed every internal check while contradicting canon.
+
+    It binds, in one place: the first due day; every later cycle
+    against it; that no live cycle was SKIPPED (a due day the run has
+    passed with no record for it); that no record is dated in a
+    future the run has not reached; and that a payment is recorded on
+    the cycle's own due day — gameplay pays on the day the bill falls
+    due, and a bill met later is a MISS carried into a later
+    record's arrears, never a late payment written back."""
     bs = state.branch_state
     if state.branch != "partner" or bs is None:
         return
+    snap = state.sitdown_snapshot
+    if snap is None:
+        raise ValueError(
+            "partner: the deal is struck at the table, and no "
+            "sit-down snapshot records it")
+    # The address the deal built: the one that is not the founding
+    # shop. P4b keeps exactly two, and a world with more has no
+    # single Partner address to anchor a schedule to.
+    founding = founding_shop(state)
+    built = [s for s in state.shops if s.key != founding.key]
+    if len(built) != 1:
+        raise ValueError(
+            f"partner: the deal builds one second address; this world "
+            f"keeps {len(built)}")
+    site = built[0]
+    if site.acceptance_day is None:
+        raise ValueError(
+            "partner: the second address records no acceptance day, "
+            "and the points schedule starts from it")
+    first_due = first_points_due(site.acceptance_day, snap.payoff_day)
     for i, c in enumerate(bs.points_cycles):
+        expected = first_due + i * POINTS_CYCLE_DAYS
+        if c.due_day != expected:
+            raise ValueError(
+                f"partner: points_cycles[{i}] falls due on day "
+                f"{c.due_day}; the deal puts it on {expected}")
         if c.due_day > state.day:
             raise ValueError(
                 f"partner: points_cycles[{i}] falls due on day "
                 f"{c.due_day}, which the run has not reached (day "
                 f"{state.day})")
-        if c.paid_day is not None and c.paid_day > state.day:
+        # Payment lands on the cycle's OWN due day. A bill met later
+        # is a miss that carried, and it is recorded as the later
+        # cycle's arrears — never written back onto the one it
+        # missed, which would erase a strike that happened.
+        if c.paid and c.paid_day != c.due_day:
             raise ValueError(
-                f"partner: points_cycles[{i}] was paid on day "
-                f"{c.paid_day}, which the run has not reached (day "
-                f"{state.day})")
+                f"partner: points_cycles[{i}] is due on day "
+                f"{c.due_day} and records payment on {c.paid_day} — "
+                f"a bill met later is a miss carried forward, not a "
+                f"late payment")
+    cursor = first_due + len(bs.points_cycles) * POINTS_CYCLE_DAYS
+    if bs.points_due_day != cursor:
+        raise ValueError(
+            f"partner: the points cursor says day {bs.points_due_day}; "
+            f"the deal and {len(bs.points_cycles)} recorded cycle(s) "
+            f"put it on {cursor}")
+    # A cycle the run has LIVED THROUGH has a record. Without this a
+    # save could simply omit an inconvenient miss and present a
+    # shorter, cleaner history that every other check accepts.
+    if state.game_over is None and cursor <= state.day:
+        raise ValueError(
+            f"partner: day {cursor} fell due and the ledger records "
+            f"no cycle for it — a live run cannot skip a bill")
 
 
 def validate_sitdown_snapshot(state: "State") -> None:

@@ -1554,7 +1554,7 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
         war.night_obligation(state, con, payroll_short)
         war.night_insolvency(state, con, payroll_short)
     elif state.branch == "partner" and not state.game_over:
-        partner.night_points(state, con)
+        partner.night_obligation(state, con)
         if not state.game_over:
             partner.night_insolvency(state, con, payroll_short)
     elif state.branch == "quiet_sale" and not state.game_over:

@@ -2523,7 +2523,34 @@ the dirty-first authority hoisted out of `war.night_obligation`,
 where it lived inline, so points and war pay draw money the same way
 rather than twice.
 
-**Three findings from self-audit, closed before submission** — the
+**Five root contracts from review, and the shape they share.** Every
+one was a boundary that held in the direction it was tested and not
+in the other: Partner unlocked the remediation MENUS while its night
+never ran counsel and its validator never checked what those menus
+write; the schedule enforced five-day spacing between cycles but
+never anchored the FIRST one to the deal, so an empty ledger with the
+wrong cursor passed; `PointsCycleRecord` was documented "frozen" and
+implemented mutable, with the tests mutating it; the terminal
+contract refused two strikes on a live run but accepted a foreclosure
+ending with no strikes behind it and two strikes under an unrelated
+ending; and the engine wrote `foreclosed` where canon says
+`foreclosure`. Also: `pay_dirty_first(state, -1)` reported success
+while crediting both tills, and the epilogue said "Not consecutive"
+of histories that were.
+
+Two of those repay the reading. The schedule authority is now ONE
+cross-state check binding the first due day, the cursor's type and
+value, every later cycle, the payment day, and the ABSENCE OF SKIPPED
+CYCLES — because without the last of those a save could simply omit
+an inconvenient miss and present a shorter, cleaner history that
+every internal rule accepts. And the sharpened precedence pin found a
+real gap while being written: the "live games only" guard lived in
+the phase loop, not in the points authority, so a direct call on a
+latched night would have appended a bill nobody was alive to owe.
+`counsel_nightly` checks `game_over` itself for exactly this reason;
+the points clock does now too.
+
+**Three earlier findings from self-audit, closed before submission** — the
 first time this phase's defects were caught on this side of the
 relay rather than by review: the payment authority accepted a bill
 that was not whole dollars (a float or NaN slipping past the
@@ -2532,7 +2559,7 @@ a day the run had never reached (the RULER class, which review taught
 in P4b.1b and which recurs the moment a new dated record appears);
 and two assertions were loose enough to pass on the wrong outcome.
 
-**Verification.** 974 tests green on 3.11, 3.12 AND 3.13; ruff and
+**Verification.** 988 tests green on 3.11, 3.12 AND 3.13; ruff and
 mypy clean. Both identity gates **300/300 on all three**, stand-pat
 **79/79** (schema v1) — containment. Golden **unchanged at
 `7a62b2af`**. Fork battery **byte-identical to merged main at BOTH

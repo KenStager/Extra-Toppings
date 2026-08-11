@@ -14,7 +14,7 @@ the reconciliation is driven through the REAL save boundary.
 
 import unittest
 
-from extra_toppings import models, partner, phases, save
+from extra_toppings import evidence, models, partner, phases, save
 from extra_toppings.models import (BranchState, PointsCycleRecord,
                                    new_state, partner_ledger)
 from extra_toppings.rng import Streams
@@ -233,7 +233,7 @@ class TestTheTransitionTable(unittest.TestCase):
         advance_to(state, due + 1, con)
         self.assertIsNone(state.game_over)      # one strike stands
         advance_to(state, due + CYCLE + 1, con)
-        self.assertEqual(state.game_over, "foreclosed")
+        self.assertEqual(state.game_over, models.FORECLOSURE_ENDING)
         self.assertEqual(partner.ledger(state).strikes, 2)
         self.assertTrue(con.said("Two misses"), con.lines)
 
@@ -251,17 +251,33 @@ class TestTheTransitionTable(unittest.TestCase):
         self.assertEqual(state.branch_state.points_due_day,
                          first + 2 * CYCLE)
 
-    def test_the_arrest_latch_outranks_foreclosure(self):
-        # §2.5: accrual sets game_over first, and the branch night
-        # ticks only run on live games — so a run that latches on the
-        # same night is arrested, not foreclosed.
+    def test_the_arrest_latch_outranks_foreclosure_the_same_night(self):
+        # §2.5, at the boundary where the two terminals actually
+        # COMPETE: the file closes on the very night the second bill
+        # falls due. The old pin arrested a night early and so never
+        # exercised the collision at all.
         state = seated(clean=0)
         due = state.branch_state.points_due_day
-        advance_to(state, due + 1)              # one strike
+        advance_to(state, due + 1)              # one strike, run live
+        self.assertIsNone(state.game_over)
+        state.day = due + CYCLE                 # the second bill's night
         state.add_case(100.0, "the file closes", kind="physical")
         self.assertEqual(state.game_over, "arrested")
-        advance_to(state, due + CYCLE + 1)
+        # The branch tick runs only on live games, so the second
+        # cycle is never even recorded — arrest took the night.
+        partner.night_obligation(state, Listening())
         self.assertEqual(state.game_over, "arrested")
+        self.assertEqual(len(state.branch_state.points_cycles), 1)
+
+    def test_foreclosure_takes_the_night_when_nothing_outranks_it(self):
+        # The control for the case above: same night, no latch.
+        state = seated(clean=0)
+        due = state.branch_state.points_due_day
+        advance_to(state, due + 1)
+        state.day = due + CYCLE
+        partner.night_obligation(state, Listening())
+        self.assertEqual(state.game_over, models.FORECLOSURE_ENDING)
+        self.assertEqual(len(state.branch_state.points_cycles), 2)
 
 
 # ══ ledger reconciliation at the persistence boundary ═════════════
@@ -350,15 +366,28 @@ class TestTheLedgerReconciles(unittest.TestCase):
             save.state_from_dict(save.state_to_dict(state))
 
     def test_inexact_numbers_are_refused(self):
+        # Doctored in the PAYLOAD, not in the object: the record is
+        # frozen — appended once and frozen thereafter, as §2.4.2
+        # says — so a test that mutated one would be testing
+        # something the engine cannot produce.
+        state = self._state([
+            PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
+                              paid=True, paid_day=19)], 24)
+        save.state_from_dict(save.state_to_dict(state))       # baseline
         for field, bad in (("due_day", 19.0), ("bill", float(POINTS)),
-                           ("vig", True), ("paid", 1)):
+                           ("vig", True), ("paid", 1),
+                           ("paid_day", 19.0)):
             with self.subTest(f"{field}={bad!r}"):
-                record = PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
-                                           paid=True, paid_day=19)
-                setattr(record, field, bad)
-                state = self._state([record], 24)
+                payload = save.state_to_dict(state)
+                payload["branch_state"]["points_cycles"][0][field] = bad
                 with self.assertRaises(ValueError):
-                    save.state_from_dict(save.state_to_dict(state))
+                    save.state_from_dict(payload)
+
+    def test_the_record_is_frozen(self):
+        record = PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
+                                   paid=True, paid_day=19)
+        with self.assertRaises(Exception):
+            record.bill = 1            # type: ignore[misc]
 
     def test_a_cycle_the_run_has_not_reached_is_refused(self):
         # The RULER class: the ledger's internal arithmetic can be
@@ -371,14 +400,26 @@ class TestTheLedgerReconciles(unittest.TestCase):
             save.state_from_dict(save.state_to_dict(state))
         self.assertIn("has not reached", str(caught.exception))
 
-    def test_a_payment_the_run_has_not_reached_is_refused(self):
-        state = self._state([
-            PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
-                              paid=True, paid_day=25)], 24)
-        state.day = 20
-        with self.assertRaises(ValueError) as caught:
-            save.state_from_dict(save.state_to_dict(state))
-        self.assertIn("has not reached", str(caught.exception))
+    def test_a_payment_off_its_own_due_day_is_refused(self):
+        # Gameplay pays on the day the bill falls due. A bill met
+        # LATER is a miss that carried, recorded as the next cycle's
+        # arrears — writing it back onto the cycle it missed would
+        # erase a strike that happened.
+        # Before it was due is refused by the branch validator (a
+        # payment that predates its own bill); after it was due by the
+        # schedule authority. Both are stated, so neither refusal is
+        # assumed to cover the other.
+        for paid_day, fragment in ((18, "before it was due"),
+                                   (20, "not a late payment"),
+                                   (25, "not a late payment")):
+            with self.subTest(paid_day=paid_day):
+                state = self._state([
+                    PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
+                                      paid=True, paid_day=paid_day)], 24)
+                state.day = 26
+                with self.assertRaises(ValueError) as caught:
+                    save.state_from_dict(save.state_to_dict(state))
+                self.assertIn(fragment, str(caught.exception))
 
     def test_a_bill_that_is_not_whole_dollars_never_moves_money(self):
         # The payment authority is a mutation boundary: a float or a
@@ -392,6 +433,65 @@ class TestTheLedgerReconciles(unittest.TestCase):
                     models.pay_dirty_first(state, bad)
                 self.assertEqual((state.dirty, state.clean), (500, 500))
 
+    def test_the_first_cycle_is_anchored_to_the_deal(self):
+        # The internal arithmetic can be perfect and still describe
+        # the wrong deal: payoff 13, acceptance 14, so canon puts the
+        # first bill on day 19. An empty ledger with a cursor on 20
+        # passed every check the branch validator makes.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        self.assertEqual(state.shops[-1].acceptance_day, 14)
+        self.assertEqual(state.branch_state.points_due_day, 19)
+        for wrong in (18, 20, 24):
+            with self.subTest(cursor=wrong):
+                payload = save.state_to_dict(state)
+                payload["branch_state"]["points_due_day"] = wrong
+                with self.assertRaises(ValueError) as caught:
+                    save.state_from_dict(payload)
+                self.assertIn("the deal", str(caught.exception))
+
+    def test_a_float_cursor_is_refused(self):
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        payload = save.state_to_dict(state)
+        payload["branch_state"]["points_due_day"] = 19.0
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("whole calendar day", str(caught.exception))
+
+    def test_a_history_shifted_wholesale_is_refused(self):
+        # Every internal rule holds — five-day spacing, bills
+        # reconciling, cursor agreeing — and the whole schedule is
+        # one day off the deal that started it.
+        state = self._state([
+            PointsCycleRecord(due_day=20, bill=POINTS, vig=0,
+                              paid=True, paid_day=20),
+            PointsCycleRecord(due_day=25, bill=POINTS, vig=0,
+                              paid=True, paid_day=25)], 30)
+        state.day = 30
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(save.state_to_dict(state))
+        self.assertIn("the deal puts it on", str(caught.exception))
+
+    def test_a_live_run_cannot_skip_a_cycle_it_lived_through(self):
+        # Without this a save could omit an inconvenient miss and
+        # present a shorter, cleaner history everything else accepts.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        state.day = 25                      # two cycles have fallen due
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(save.state_to_dict(state))
+        self.assertIn("cannot skip a bill", str(caught.exception))
+
+    def test_a_finished_run_may_stand_past_its_last_cycle(self):
+        # The same shape after the run ends is not a skipped bill —
+        # nothing falls due once it is over.
+        state = table_state(payoff_day=13)
+        seat_partner(state)
+        state.day = 25
+        state.game_over = "arrested"
+        save.state_from_dict(save.state_to_dict(state))
+
     def test_a_live_run_cannot_carry_two_strikes(self):
         # The second strike forecloses THAT NIGHT, so a payload
         # carrying two on a live run is a run that should have ended.
@@ -403,12 +503,44 @@ class TestTheLedgerReconciles(unittest.TestCase):
             save.state_from_dict(save.state_to_dict(state))
         self.assertIn("forecloses", str(caught.exception))
 
+    def test_the_terminal_contract_binds_both_ways(self):
+        # Checking only "two strikes on a live run" left three
+        # corners open. The complete relationship: two strikes end
+        # the run, and they end it as foreclosure unless the arrest
+        # latch outranked it that night; and the foreclosure ending
+        # exists only where two strikes put it.
+        two = [PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
+                                 paid=False),
+               PointsCycleRecord(due_day=24, bill=POINTS * 2 + VIG,
+                                 vig=VIG, paid=False)]
+        one = [PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
+                                 paid=False)]
+        cases = (
+            # (cycles, cursor, ending, accepted?)
+            (two, 29, models.FORECLOSURE_ENDING, True),
+            (two, 29, "arrested", True),        # outranks foreclosure
+            (two, 29, None, False),             # a run that should have ended
+            (two, 29, "broke", False),          # ended the wrong way
+            (two, 29, "survived", False),
+            (one, 24, models.FORECLOSURE_ENDING, False),   # no second strike
+            ([], 19, models.FORECLOSURE_ENDING, False),    # no strike at all
+        )
+        for cycles, cursor, ending, accepted in cases:
+            with self.subTest(strikes=len(cycles), ending=ending):
+                state = self._state(list(cycles), cursor)
+                state.game_over = ending
+                if accepted:
+                    save.state_from_dict(save.state_to_dict(state))
+                else:
+                    with self.assertRaises(ValueError):
+                        save.state_from_dict(save.state_to_dict(state))
+
     def test_the_same_two_strikes_load_on_a_finished_run(self):
         state = self._state([
             PointsCycleRecord(due_day=19, bill=POINTS, vig=0, paid=False),
             PointsCycleRecord(due_day=24, bill=POINTS * 2 + VIG, vig=VIG,
                               paid=False)], 29)
-        state.game_over = "foreclosed"
+        state.game_over = models.FORECLOSURE_ENDING
         loaded = save.state_from_dict(save.state_to_dict(state))
         self.assertTrue(partner_ledger(loaded.branch_state).foreclosed)
 
@@ -431,12 +563,64 @@ class TestTheLedgerReconciles(unittest.TestCase):
         view = partner_ledger(state.branch_state)
         self.assertEqual(view.paid_total, POINTS)
         self.assertEqual(view.strikes, 2)
-        self.assertEqual(state.game_over, "foreclosed")
+        self.assertEqual(state.game_over, models.FORECLOSURE_ENDING)
 
 
 # ══ the shared authorities Partner now joins ══════════════════════
 
 class TestPartnerJoinsTheSharedMachinery(unittest.TestCase):
+    def test_counsel_is_charged_and_works_on_a_real_partner_night(self):
+        # The half-join this closes (P4b.2 review): the menus were
+        # unlocked and the NIGHT never ran counsel, so a retainer
+        # could be signed and never invoiced, and the records it was
+        # hired to contest were never contested.
+        state = seated(clean=50_000)
+        state.branch_state.counsel_retained = True
+        state.add_case(20.0, "a flagged tape", kind="paper")
+        clean_before = state.clean
+        con = Listening()
+        run_night(state, con)
+        self.assertEqual(state.branch_state.counsel_days, 1)
+        self.assertLessEqual(state.clean,
+                             clean_before - evidence.COUNSEL_FEE)
+        self.assertTrue(con.said("Counsel retained, day 1"), con.lines)
+
+    def test_counsel_contests_on_its_third_night(self):
+        # Every third retained day contests the next record — the
+        # shared machinery, reached through Partner's own night.
+        state = seated(clean=50_000)
+        state.branch_state.counsel_retained = True
+        state.add_case(20.0, "a flagged tape", kind="paper")
+        for _ in range(evidence.COUNSEL_CONTEST_EVERY):
+            run_night(state)
+        self.assertEqual(state.branch_state.counsel_days,
+                         evidence.COUNSEL_CONTEST_EVERY)
+        self.assertTrue(any(r.contested for r in state.evidence),
+                        [(r.kind, r.contested) for r in state.evidence])
+
+    def test_a_bounced_retainer_ends_the_engagement_here_too(self):
+        state = seated(clean=0)
+        state.branch_state.counsel_retained = True
+        con = Listening()
+        run_night(state, con)
+        self.assertFalse(state.branch_state.counsel_retained)
+        self.assertTrue(con.said("retainer bounced"), con.lines)
+
+    def test_malformed_remediation_state_is_refused_at_load(self):
+        # The other half: Partner's remediation fields are bound by
+        # the same validator every remediation branch uses.
+        state = seated()
+        save.state_from_dict(save.state_to_dict(state))       # baseline
+        for field, bad in (("counsel_days", -1),
+                           ("remediation_used", -1.0),
+                           ("remediation_used", 999.0),
+                           ("settled_witnesses", ["nobody_at_all"])):
+            with self.subTest(f"{field}={bad!r}"):
+                payload = save.state_to_dict(state)
+                payload["branch_state"][field] = bad
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(payload)
+
     def test_the_remediation_verbs_are_unlocked(self):
         # rev. 29 item 7: two registers give the Case a new paper
         # source, and counsel is affordable here and busy.
@@ -470,6 +654,22 @@ class TestPartnerJoinsTheSharedMachinery(unittest.TestCase):
         state.dirty, state.clean = 300, 1_000
         self.assertTrue(models.pay_dirty_first(state, 800))
         self.assertEqual((state.dirty, state.clean), (0, 500))
+
+    def test_negative_money_is_refused_not_reported_as_paid(self):
+        # It reported SUCCESS and credited both tills — money moving
+        # the wrong way through a payment authority.
+        state = new_state()
+        state.dirty, state.clean = 300, 100
+        with self.assertRaises(ValueError) as caught:
+            models.pay_dirty_first(state, -1)
+        self.assertIn("cannot be negative", str(caught.exception))
+        self.assertEqual((state.dirty, state.clean), (300, 100))
+
+    def test_a_bill_of_nothing_is_a_no_op(self):
+        state = new_state()
+        state.dirty, state.clean = 300, 100
+        self.assertTrue(models.pay_dirty_first(state, 0))
+        self.assertEqual((state.dirty, state.clean), (300, 100))
 
     def test_an_unaffordable_bill_moves_neither_till(self):
         state = new_state()

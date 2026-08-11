@@ -13,7 +13,7 @@ the points schedule it starts. The lifecycle it hands the world to
 pressure, grade and endings are later PRs'.
 """
 
-from . import data, models
+from . import data, evidence, models
 from .models import BranchState, Shop, State, Wagon
 from .ui import Console, money
 
@@ -322,6 +322,21 @@ def ledger(state: State) -> models.PartnerLedgerView:
     return models.partner_ledger(bs)
 
 
+def night_obligation(state: State, con: Console) -> None:
+    """Partner's night work: counsel first, then the points clock —
+    the same order and the same machinery the war uses.
+
+    Counsel runs BEFORE the early returns below, because it is
+    nightly work and the points cycle is a five-day event: retaining
+    counsel and then being charged nothing on the four nights between
+    bills is precisely the half-join this fixes (P4b.2 review).
+    Partner unlocks the counterplay verbs (rev. 29 item 7), and a
+    branch that unlocks the menus without running their nightly cost
+    has bought the player a lawyer who never sends an invoice."""
+    evidence.counsel_nightly(state, con)
+    night_points(state, con)
+
+
 def night_points(state: State, con: Console) -> None:
     """The cycle that falls due tonight, if one does.
 
@@ -336,6 +351,15 @@ def night_points(state: State, con: Console) -> None:
     arrears or strike counter, because both are derived."""
     bs = state.branch_state
     if bs is None or bs.points_due_day is None:
+        return
+    # NOTHING FALLS DUE ON A FINISHED RUN. The phase loop already
+    # skips branch ticks once `game_over` is set, but the precedence
+    # §2.5 describes belongs to this authority too — `counsel_nightly`
+    # checks the same thing for the same reason. Without it, calling
+    # this on a latched night would append a cycle to a run the
+    # arrest had already ended, and the ledger would record a bill
+    # nobody was alive to owe.
+    if state.game_over:
         return
     if state.day < bs.points_due_day:
         return
@@ -369,7 +393,7 @@ def night_points(state: State, con: Console) -> None:
         # game_over first, and the branch night ticks only run on
         # live games.
         if state.game_over is None:
-            state.game_over = "foreclosed"
+            state.game_over = models.FORECLOSURE_ENDING
         con.bullet(f"The bill was {money(bill)} and it did not get "
                    f"paid. Two misses. Carmine does not raise his "
                    f"voice; a man you have never met is behind the "
