@@ -67,17 +67,17 @@ def _m(pairs: dict[str, str]) -> dict[RGBA, RGBA]:
 # recorded in the E10 spec), so his hair swaps are region-scoped to the
 # head rows; everyone else's mappings are global.
 HEAD_REGION: Box = (0, 0, 31, 16)
+MAN_HAIR_REGION: Box = (0, 0, 31, 6)  # face starts row 7; his hair is 2-tier
 EXTRAS_VARIANTS: dict[str, tuple[str, dict[RGBA, RGBA], Box | None]] = {
-    # man, elder: hair color measured zone-unique on the approved base —
-    # global swaps are safe, combined hair+top variants allowed.
-    "man_ink_gray": ("extra_man", _m({"#680828": "#303B5A", "#4E6472": "#9D9C9C"}), None),
-    "man_sandy_burgundy": ("extra_man", _m({"#680828": "#C68239", "#4E6472": "#680828"}), None),
+    # Hair swaps are region-scoped everywhere it's measured necessary; the
+    # man's hair is a 2-tier ramp (#680828 + #B1552E highlight), so his
+    # swaps shift both tiers — ramps shift, never collapse.
+    "man_ink_hair": ("extra_man", _m({"#680828": "#303B5A", "#B1552E": "#4E6472"}), MAN_HAIR_REGION),
+    "man_sandy_hair": ("extra_man", _m({"#680828": "#C68239", "#B1552E": "#D4A068"}), MAN_HAIR_REGION),
     "man_ink_top": ("extra_man", _m({"#4E6472": "#303B5A"}), None),
     "elder_ink_hair": ("extra_elder", _m({"#9D9C9C": "#303B5A"}), None),
     "elder_burgundy_top": ("extra_elder", _m({"#4E6472": "#680828"}), None),
     "elder_ink_top": ("extra_elder", _m({"#4E6472": "#303B5A"}), None),
-    # woman, kid: hair color measured NOT zone-unique (hem pixels / shading)
-    # — hair swaps are head-scoped, top swaps stay global and separate.
     "woman_ink_hair": ("extra_woman", _m({"#680828": "#303B5A"}), HEAD_REGION),
     "woman_sandy_hair": ("extra_woman", _m({"#680828": "#C68239"}), HEAD_REGION),
     "woman_ink_top": ("extra_woman", _m({"#4E6472": "#303B5A"}), None),
