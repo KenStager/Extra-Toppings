@@ -684,7 +684,7 @@ class TestBranchStateValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_branch_state("straight",
                                   BranchState(disposal_runs_left=3,
-                                              points_missed=1))
+                                              points_due_day=19))
 
     def test_unknown_branches_are_rejected(self):
         with self.assertRaises(ValueError):

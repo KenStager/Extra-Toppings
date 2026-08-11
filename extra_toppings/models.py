@@ -193,7 +193,10 @@ EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
 # counsel availability, the laundering ceiling, settlements, retention
 # protection, hiring refusals, cross-state validation and the docket
 # all consume this one pair; never a scattered branch check.
-REMEDIATION_BRANCHES = frozenset({"straight", "war"})
+# Partner joined by rev. 29 item 7, with the capability policy
+# unchanged: two registers give the Case a new paper source, and
+# counsel is affordable on Carmine's money and busy.
+REMEDIATION_BRANCHES = frozenset({"straight", "war", "partner"})
 
 
 def remediation_unlocked(state: "State") -> bool:
@@ -207,6 +210,16 @@ def remediation_unlocked(state: "State") -> bool:
 # hidden anywhere end the run. One transition, one nightly rule; the
 # branches narrate it in their own voices.
 INSOLVENT_NIGHTS = 2
+
+# THE points cadence and prices (§2.4.2), in one home because both
+# the branch module and the persistence validator price bills from
+# them: $2,500 every 5 days forever, a $500 vig riding the next bill
+# after a miss, and the SECOND strike — at any later cycle,
+# consecutive or not — forecloses.
+POINTS_PER_CYCLE = 2_500
+POINTS_VIG = 500
+POINTS_CYCLE_DAYS = 5
+POINTS_STRIKES_TO_FORECLOSE = 2
 
 
 def insolvency_tick(state: "State", payroll_short: bool) -> str | None:
@@ -470,6 +483,101 @@ class WarCampaignState:
 
 
 @dataclass
+class PointsCycleRecord:
+    """ONE points cycle, appended once and frozen thereafter (§2.4.2,
+    rev. 29 item 1).
+
+    The canonical state is this history; arrears, strikes and the
+    running total are DERIVED from it by `partner_ledger`. Fields
+    that could be mutated beside the history — an arrears balance, a
+    strike counter — are exactly the defect the typed evidence
+    ledger and the war's campaign records each had to remove: two
+    writable sources for one fact, free to disagree after any partial
+    update.
+
+    `bill` is the COMPLETE amount presented that cycle — prior
+    arrears plus the cycle's points plus the vig — because there is
+    no partial payment: the bill clears the cycle or the cycle
+    records a miss. `vig` is the term inside that bill, recorded so
+    the arithmetic can be re-derived rather than trusted."""
+    due_day: int
+    bill: int
+    vig: int
+    paid: bool
+    paid_day: int | None = None
+
+
+@dataclass(frozen=True)
+class PartnerLedgerView:
+    """THE derived points view (§2.4.2, rev. 29 item 1): every
+    consumer — the status card, the night, validation, the day-30
+    grade, the epilogue and the studies — reads these numbers from
+    one place, so a tier can never mean one thing on screen and
+    another in FINDINGS."""
+    arrears: int            # owed RIGHT NOW
+    strikes: int            # misses that happened and never unhappen
+    paid_total: int         # cumulative points actually paid
+    next_bill: int          # what the next cycle will present
+    next_vig: int           # the vig term inside it
+    next_due_day: int | None
+    cycles: int             # records in the history
+
+    @property
+    def foreclosed(self) -> bool:
+        """The second strike forecloses — at any later cycle,
+        consecutive or not (§2.4.2)."""
+        return self.strikes >= POINTS_STRIKES_TO_FORECLOSE
+
+
+def partner_ledger(branch_state: "BranchState") -> PartnerLedgerView:
+    """Derive both books from the one history.
+
+    ARREARS is the last record's bill if that record went unpaid,
+    and zero otherwise — never a sum over misses, because each
+    cycle's bill already carries the prior arrears forward. STRIKES
+    counts every miss ever: paying a later bill clears what is owed
+    and leaves the strike standing, which is the whole point of
+    keeping two books."""
+    cycles = branch_state.points_cycles
+    arrears = cycles[-1].bill if cycles and not cycles[-1].paid else 0
+    strikes = sum(1 for c in cycles if not c.paid)
+    paid_total = sum(c.bill for c in cycles if c.paid)
+    vig = POINTS_VIG if arrears else 0
+    next_due = (cycles[-1].due_day + POINTS_CYCLE_DAYS if cycles
+                else branch_state.points_due_day)
+    return PartnerLedgerView(
+        arrears=arrears, strikes=strikes, paid_total=paid_total,
+        next_bill=arrears + POINTS_PER_CYCLE + vig, next_vig=vig,
+        next_due_day=next_due, cycles=len(cycles))
+
+
+def pay_dirty_first(state: "State", amount: int) -> bool:
+    """THE dirty-first payment authority (rev. 29 item 7), hoisted out
+    of `war.night_obligation` so points and war pay draw money the
+    same way rather than twice.
+
+    Street money goes first because it is the harder money to spend;
+    affordability is checked BEFORE any mutation, so a bill that
+    cannot be met leaves both tills exactly as they were rather than
+    draining one and failing on the other. Returns whether it was
+    paid."""
+    # An exact whole amount: this moves money, and a float or a NaN
+    # would slip past the comparison below and then subtract
+    # something that is not a number of dollars.
+    if type(amount) is not int:
+        raise ValueError(f"a bill is a whole number of dollars, got "
+                         f"{amount!r}")
+    if amount <= 0:
+        return True
+    if state.dirty + state.clean < amount:
+        return False
+    from_dirty = min(state.dirty, amount)
+    state.dirty -= from_dirty
+    state.clean -= amount - from_dirty
+    return True
+
+
+@dataclass
 class BranchState:
     """Act II branch-specific state — None until the sit-down seats a
     chair. One sparse dataclass rather than a union: State.branch names
@@ -486,10 +594,14 @@ class BranchState:
     settled_witnesses: list = field(default_factory=list)  # Employee.key
     ad_days_left: int = 0                # advertising campaign days
     insolvent_days: int = 0              # consecutive clean-insolvent nights
-    # Carmine's Partner
+    # Carmine's Partner. The scheduler's cursor plus the append-only
+    # cycle history; `points_missed` and `vig_owed` are RETIRED
+    # (rev. 29 item 1) — both books derive from the history through
+    # `partner_ledger`, and a counter beside it could disagree with
+    # it after any partial update. Partner has never been released,
+    # so this is a schema correction and not a migration.
     points_due_day: int | None = None
-    points_missed: int = 0
-    vig_owed: int = 0
+    points_cycles: list = field(default_factory=list)  # PointsCycleRecord
     # The Harbor War (rev. 14: campaigns per rival — flat one-war
     # fields could not represent a second declaration without
     # overwriting history). Only genuinely branch-wide facts live
@@ -928,7 +1040,12 @@ _BRANCH_FIELDS = {
     "straight": {"disposal_runs_left", "last_crime_day", "counsel_retained",
                  "counsel_days", "remediation_used", "settled_witnesses",
                  "ad_days_left", "insolvent_days"},
-    "partner": {"points_due_day", "points_missed", "vig_owed"},
+    "partner": {"points_due_day", "points_cycles",
+                # The shared remediation verbs (rev. 29 item 7) and
+                # the shared insolvency counter, through the same
+                # machinery every other active branch uses.
+                "counsel_retained", "counsel_days", "remediation_used",
+                "settled_witnesses", "insolvent_days"},
     "war": {"campaigns", "war_pay_paid", "war_pay_short_nights",
             "insurance_paid_until",
             # The shared remediation fields (rev. 14 item 8): the war
@@ -1002,6 +1119,91 @@ def validate_branch_state(branch: str | None,
         _validate_straight(branch_state, game_over)
     elif branch == "war":
         _validate_war(branch_state, game_over)
+    elif branch == "partner":
+        _validate_partner(branch_state, game_over)
+
+
+def _validate_partner(bs: "BranchState", game_over: str | None) -> None:
+    """The points history must BE the history it claims (§2.4.2,
+    rev. 29 item 1) — the war's reconciliation oracle applied to
+    Carmine's book.
+
+    Every derived number is re-derived here from the records and
+    checked against what the records say, so a hand-edited bill, a
+    cycle inserted out of order, or a cursor pointing somewhere the
+    ledger does not agree with is refused rather than quietly
+    repricing the day-30 grade."""
+    cycles = bs.points_cycles
+    if type(cycles) is not list:
+        raise ValueError(f"partner: the points history is a list, got "
+                         f"{cycles!r}")
+    running_arrears = 0
+    previous_due: int | None = None
+    for i, c in enumerate(cycles):
+        if not isinstance(c, PointsCycleRecord):
+            raise ValueError(
+                f"partner: points_cycles[{i}] is not a cycle record, "
+                f"got {c!r}")
+        for name in ("due_day", "bill", "vig"):
+            if type(getattr(c, name)) is not int:
+                raise ValueError(
+                    f"partner: points_cycles[{i}].{name} is a whole "
+                    f"number, got {getattr(c, name)!r}")
+        if type(c.paid) is not bool:
+            raise ValueError(
+                f"partner: points_cycles[{i}].paid is a boolean, got "
+                f"{c.paid!r}")
+        # The cadence is fixed and the history is ordered: cycles
+        # advance from the PRIOR DUE DATE by exactly five days
+        # (rev. 31 item 3), never from whenever a payment happened.
+        if previous_due is not None \
+                and c.due_day != previous_due + POINTS_CYCLE_DAYS:
+            raise ValueError(
+                f"partner: points_cycles[{i}] is due on day "
+                f"{c.due_day}; the cadence puts it on "
+                f"{previous_due + POINTS_CYCLE_DAYS}")
+        previous_due = c.due_day
+        # THE bill reconciles exactly: prior arrears + the cycle's
+        # points + a vig that rides if and only if something was
+        # carried forward.
+        expected_vig = POINTS_VIG if running_arrears else 0
+        expected_bill = running_arrears + POINTS_PER_CYCLE + expected_vig
+        if (c.vig, c.bill) != (expected_vig, expected_bill):
+            raise ValueError(
+                f"partner: points_cycles[{i}] bills {c.bill} with vig "
+                f"{c.vig}; the ledger owes "
+                f"{expected_bill} with vig {expected_vig}")
+        if c.paid:
+            if type(c.paid_day) is not int:
+                raise ValueError(
+                    f"partner: points_cycles[{i}] is paid and must "
+                    f"record the day, got {c.paid_day!r}")
+            if c.paid_day < c.due_day:
+                raise ValueError(
+                    f"partner: points_cycles[{i}] was paid on day "
+                    f"{c.paid_day}, before it was due ({c.due_day})")
+            running_arrears = 0
+        else:
+            if c.paid_day is not None:
+                raise ValueError(
+                    f"partner: points_cycles[{i}] is unpaid and "
+                    f"cannot record a payment day ({c.paid_day})")
+            running_arrears = c.bill
+    view = partner_ledger(bs)
+    # The cursor is a CACHED SUMMARY, and a cached summary reconciles
+    # exactly against the ledger or it is not a summary.
+    if view.next_due_day != bs.points_due_day:
+        raise ValueError(
+            f"partner: the points cursor says day {bs.points_due_day} "
+            f"and the ledger says {view.next_due_day}")
+    # The second strike forecloses THAT NIGHT, so a live run cannot
+    # be carrying two: a payload that does is a run that should have
+    # ended and did not.
+    if view.foreclosed and game_over is None:
+        raise ValueError(
+            f"partner: {view.strikes} strikes forecloses — a run "
+            f"carrying them is over")
+    _validate_insolvency("partner", bs, game_over)
 
 
 def _validate_remediation_fields(branch: str, bs: "BranchState") -> None:
@@ -1788,6 +1990,7 @@ def validate_cross_state(state: "State") -> None:
                 f"{label} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
     validate_execution_history(state)
+    validate_points_calendar(state)
     validate_sitdown_snapshot(state)
     _validate_witnesses_and_campaigns(state)
 
@@ -1817,6 +2020,28 @@ def validate_calendar(state: "State") -> None:
             raise ValueError(
                 f"the debt was paid on day {state.debt_paid_day}, "
                 f"outside the calendar the run has reached (day "
+                f"{state.day})")
+
+
+def validate_points_calendar(state: "State") -> None:
+    """The points history against the CALENDAR (the ruler class this
+    project keeps finding): `validate_branch_state` judges the
+    ledger's internal arithmetic without a day to measure against,
+    so a cycle billed for a Tuesday the run has never reached, or
+    paid on one, is only visible here."""
+    bs = state.branch_state
+    if state.branch != "partner" or bs is None:
+        return
+    for i, c in enumerate(bs.points_cycles):
+        if c.due_day > state.day:
+            raise ValueError(
+                f"partner: points_cycles[{i}] falls due on day "
+                f"{c.due_day}, which the run has not reached (day "
+                f"{state.day})")
+        if c.paid_day is not None and c.paid_day > state.day:
+            raise ValueError(
+                f"partner: points_cycles[{i}] was paid on day "
+                f"{c.paid_day}, which the run has not reached (day "
                 f"{state.day})")
 
 
