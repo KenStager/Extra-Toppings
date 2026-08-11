@@ -79,10 +79,22 @@ at wagon scale, measured, not assumed to fit.
   surface**, and E11 proved what description-only surfaces do with a
   vacuum. Counter: the approved side-view study as
   `reference_image_base64` plus a description carrying era words.
-  ALSO surfaced by the docs pass: parallel cheaper v3 REST endpoints
-  exist (`create-8-rotations-v3`) alongside the Pro object path —
-  their cost and contract should be compared (one schema fetch, free)
-  before this decision is ruled.
+  ALSO surfaced by the docs pass and now MEASURED from the vendor's
+  own pricing page: the parallel **REST `/generate-8-rotations-v3`**
+  endpoint ("rotate a south facing character in 8 directions",
+  params: first_frame, description, no_background, seed; max
+  256×256) costs **$0.0345 at 128×128 against the Pro object path's
+  $0.125 at ≤113px** — roughly 4 generations against 25. It is the
+  same v3 lineage the entire approved cast's rotations already came
+  from, and `first_frame` is an identity anchor. Contract note: the
+  input is the SOUTH-facing view, so the class-1 study should
+  converge the wagon's SOUTH view (not the side view) before the
+  rotation call; livery still applies to the east/west outputs
+  afterward, deterministic and unmirrored. This path does not create
+  a vendor registry object at all, which also moots the leak-test
+  precondition until a registry object is ever actually wanted.
+  **Session recommendation updated: study → /generate-8-rotations-v3,
+  with (a) as the fallback if v3 rotation quality disappoints.**
 - **(b) pixflux per direction** (proven surface, full negatives,
   ~1 gen/attempt): 4 hand-blocked anchors (side L/R can mirror-flip
   only if the livery layer is applied AFTER mirroring — lettering
