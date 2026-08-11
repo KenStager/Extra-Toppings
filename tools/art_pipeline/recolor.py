@@ -134,3 +134,80 @@ def roster_respects_reservations() -> list[str]:
         if any(target in RESERVED_TARGETS for target in mapping.values()):
             violations.append(name)
     return violations
+
+
+# ------------------------------------------------ composable wardrobe
+# Crowd wardrobe law (experiment_10_extras.md): the warm-cold axis
+# governs crowds. Civilians skew warm; slate/ink are the minority;
+# case blue never appears on a civilian. Recolors are exact-color
+# operations with no generation involved, so garment swaps may target
+# any legal color without ghost risk.
+BASE_TOP = from_hex("#4E6472")     # every base's top zone color
+BASE_BOTTOM = from_hex("#303B5A")  # every base's bottom zone color
+TOP_TARGETS: dict[str, RGBA] = {
+    "slate": from_hex("#4E6472"), "ink": from_hex("#303B5A"),
+    "gray": from_hex("#9D9C9C"), "pale": from_hex("#CBD7CC"),
+    "cream": from_hex("#FBFBE8"), "burgundy": from_hex("#680828"),
+    "oxblood": from_hex("#A81031"),
+}
+BOTTOM_TARGETS: dict[str, RGBA] = {
+    "ink": from_hex("#303B5A"), "slate": from_hex("#4E6472"),
+    "burgundy": from_hex("#680828"), "gray": from_hex("#9D9C9C"),
+}
+HAIR_TARGETS: dict[str, RGBA] = {
+    "brown": from_hex("#680828"), "ink": from_hex("#303B5A"),
+    "sandy": from_hex("#C68239"), "gray": from_hex("#9D9C9C"),
+    "black": from_hex("#000000"),
+}
+# District wardrobe registers: which top colors a district's crowd
+# draws from (data, not doctrine — scenes may override deliberately).
+DISTRICT_WARDROBES: dict[str, list[str]] = {
+    "old_harbor": ["cream", "burgundy", "gray", "pale", "slate"],
+    "little_sicily": ["cream", "oxblood", "pale", "burgundy"],
+    "university": ["slate", "gray", "ink", "pale"],
+    "meadows": ["ink", "burgundy", "slate", "oxblood"],
+}
+
+
+def wardrobe_variant(
+    base_image: Image.Image,
+    base_name: str,
+    top: str | None = None,
+    bottom: str | None = None,
+    hair: str | None = None,
+    skin_shift: bool = False,
+) -> Image.Image:
+    """Compose a crowd figure: skin first, then hair, then garments.
+
+    Skin-first ordering means a warm garment target can never be
+    caught by the skin shift. Hair swaps use the measured per-base
+    scoping; the reserved-identity rule applies to every axis.
+    """
+    for axis, choice in (("top", top), ("bottom", bottom), ("hair", hair)):
+        targets = {"top": TOP_TARGETS, "bottom": BOTTOM_TARGETS, "hair": HAIR_TARGETS}[axis]
+        if choice is not None and targets[choice] in RESERVED_TARGETS:
+            raise ValueError(f"{axis}={choice} is a reserved cast identity color")
+    out = base_image.convert("RGBA")
+    if skin_shift:
+        out = apply_skin_shift(out, base_name)
+    if hair is not None:
+        hair_src = from_hex("#9D9C9C") if base_name == "extra_elder" else from_hex("#680828")
+        region = MAN_HAIR_REGION if base_name == "extra_man" else HEAD_REGION
+        if HAIR_TARGETS[hair] != hair_src:
+            mapping = {hair_src: HAIR_TARGETS[hair]}
+            if base_name == "extra_man":
+                mapping[from_hex("#B1552E")] = HAIR_TARGETS[hair]  # collapse OK? no —
+                # the man's 2-tier hair maps dark tier to the target and
+                # highlight tier one step lighter when one exists.
+                lighter = {"ink": "slate", "brown": "sandy", "black": "ink",
+                           "sandy": "gray", "gray": "pale"}
+                mapping[from_hex("#B1552E")] = (
+                    TOP_TARGETS.get(lighter[hair]) or HAIR_TARGETS.get(lighter[hair])
+                    or from_hex("#9D9C9C")
+                )
+            out = apply_mapping(out, mapping, region=region)
+    if top is not None and TOP_TARGETS[top] != BASE_TOP:
+        out = apply_mapping(out, {BASE_TOP: TOP_TARGETS[top]})
+    if bottom is not None and BOTTOM_TARGETS[bottom] != BASE_BOTTOM:
+        out = apply_mapping(out, {BASE_BOTTOM: BOTTOM_TARGETS[bottom]})
+    return out

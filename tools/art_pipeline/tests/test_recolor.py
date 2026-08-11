@@ -95,3 +95,35 @@ class SkinAxisAndReservations(unittest.TestCase):
     def test_roster_respects_reserved_identity(self):
         from tools.art_pipeline.recolor import roster_respects_reservations
         self.assertEqual(roster_respects_reservations(), [])
+
+
+class WardrobeComposition(unittest.TestCase):
+    def test_district_registers_name_valid_targets(self):
+        from tools.art_pipeline.recolor import DISTRICT_WARDROBES, TOP_TARGETS
+        for district, tops in DISTRICT_WARDROBES.items():
+            for t in tops:
+                self.assertIn(t, TOP_TARGETS, f"{district}:{t}")
+
+    def test_no_wardrobe_target_is_reserved(self):
+        from tools.art_pipeline.recolor import (
+            BOTTOM_TARGETS, HAIR_TARGETS, RESERVED_TARGETS, TOP_TARGETS,
+        )
+        for targets in (TOP_TARGETS, BOTTOM_TARGETS, HAIR_TARGETS):
+            for name, color in targets.items():
+                self.assertNotIn(color, RESERVED_TARGETS, name)
+
+    def test_wardrobe_variant_composes_deterministically(self):
+        from tools.art_pipeline.recolor import BASE_TOP, wardrobe_variant
+        im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        im.putpixel((5, 20), BASE_TOP)
+        a = wardrobe_variant(im, "extra_woman", top="cream")
+        b = wardrobe_variant(im, "extra_woman", top="cream")
+        self.assertEqual(list(a.getdata()), list(b.getdata()))
+        self.assertEqual(a.getpixel((5, 20)), from_hex("#FBFBE8"))
+
+    def test_crowd_law_warm_dominance_in_civilian_registers(self):
+        from tools.art_pipeline.recolor import DISTRICT_WARDROBES
+        warm = {"cream", "pale", "burgundy", "oxblood"}
+        for district in ("old_harbor", "little_sicily"):
+            tops = DISTRICT_WARDROBES[district]
+            self.assertGreater(sum(t in warm for t in tops), len(tops) / 2, district)
