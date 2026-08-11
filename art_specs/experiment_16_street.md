@@ -817,3 +817,23 @@ oxblood sedan - the artifact died with the old compose, the recorded
 rule rebuilt it - wagon, three extras). Flagged, not changed: the
 recorded yellow-curb zone [322,392] sits mostly left of the hydrant
 span [360,375]; re-centering it is the board's call.
+
+## v17 — the parking band vindicated, the cars resized by
+## measurement (2026-08-11, board notes on v16; 0 gens)
+
+The board read the parking area as rendering incorrectly and the
+cars as too small. Row census against v14: the band structure NEVER
+regressed - rows 224-230 measure identical (109.6 vs 109.5); my own
+side-by-side reading claimed the gutter pan missing and the numbers
+refuted my eyes for the third time today. What HAD regressed: (1)
+the cars - v14's parked sedans measure 66x34, which is exactly 1.5x
+nearest-neighbor of the 44x22 cars.png frame; the dead compose
+scaled its mock actors 1.5x and v16 placed them native, breaking
+the scale read of the whole band. v17 restores the 1.5x mock
+convention (NN scaling stays MOCK-ONLY law; the native vehicle
+class stays queued). (2) The oil stains - v14's measure ~29x13 at
+composite luminance ~37; v16's were fainter and smaller. Stain law
+v2 in the builder, matched by measurement: 30x13 + offset lobe,
+alpha 130/150. Godot proof re-run: 0 / 230,400. v17
+(`review/hybrid_dinapoli_block_board_v17.png`) is the standing
+candidate.
