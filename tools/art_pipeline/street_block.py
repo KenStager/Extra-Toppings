@@ -4,9 +4,10 @@ Experiment 16 (art_specs/experiment_16_street.md): the hybrid ruling
 — Godot builds maps, Omega donates composition and artwork, PixelLab
 renders bespoke native-32 pieces. This module carries the LAWS that
 loop earned, as pure functions; the composition itself ships as data
-(`street_block_staging.json` beside the private assets). Ramps here
-are the recorded INTERIM picks under the union rule — decision 2
-(district palette registers) ratifies or re-maps them.
+(`street_block_staging.json` beside the private assets). The ramps
+here entered as INTERIM picks under the union rule; decision 2
+(ratified 2026-08-11) made them Old Harbor's register verbatim and
+derived the other districts from them — see DISTRICT_REGISTERS.
 
 Laws carried, with the round that paid for each:
 - A2 blob autotiles hide their seamless fill in the inner 8x8
@@ -243,3 +244,85 @@ def place_on_base(
     return place_with_contact_shadow(
         canvas, sprite, x, base_y - bottom, shadow_halfwidth
     )
+
+
+# ------------------------------------------------- district registers
+# Decision 2, ratified 2026-08-11: the crowd wardrobe law extended to
+# ground and walls. Old Harbor (HOME_DISTRICT — the shop sits at its
+# edge) inherits the block-proven ramps BY REFERENCE, plus a dock-gray
+# accent; the other three derive tier-to-tier. Laws the values obey,
+# enforced by test:
+# - Tier counts are fixed (road 4 / walk 4 / storefront 5 / accent 4),
+#   so every cross-district surface mapping is a bijection and
+#   `recolor.apply_mapping` can never refuse it as a collapse.
+# - The FLAT-ROAD law is citywide: adjacent road tiers stay within ~6
+#   luminance in every district (the A2 lattice-kill is geometry, not
+#   an Old Harbor mood).
+# - Exact-color disjointness: within a register all 17 values are
+#   pairwise distinct, and no register value equals a reserved cast
+#   identity color, a wardrobe target, a skin-ramp tone, a well metal,
+#   or a sedan body tone — decision 5's night maps will be recorded
+#   exact-color passes over COMPOSED scenes, and a shared value would
+#   let a road shift catch a bystander's shirt or a parked car.
+#   KNOWN EXCEPTION, flagged not fixed: GLASS_RAMP[0] == ASPHALT_RAMP[1]
+#   (46, 42, 38) — recorded before this law; re-tiering glass would
+#   alter the CLEAN v14 read, so it stays a board call.
+# - Curb concrete, lane paint, and hydrant curb-yellow are CITYWIDE
+#   infrastructure, not register surfaces (flagged judgment: streets
+#   change register, road furniture does not).
+# Accents carry the district's name-color: Old Harbor dock gray,
+# Little Sicily oxblood (the recorded OXBLOOD_RAMP, by reference),
+# University slate-teal (NOT the sedan's SLATE_RAMP), the Meadows
+# club violet — warm neon stays reserved for the cast.
+DOCK_GRAY_RAMP: list[RGB] = [(70, 72, 72), (104, 106, 105), (138, 140, 138), (176, 178, 175)]
+DISTRICT_REGISTERS: dict[str, dict[str, list[RGB]]] = {
+    "old_harbor": {
+        "road": ASPHALT_RAMP,
+        "walk": WALK_RAMP,
+        "storefront": FLANK_RAMP,
+        "accent": DOCK_GRAY_RAMP,
+    },
+    "little_sicily": {
+        "road": [(43, 39, 33), (48, 43, 37), (52, 47, 40), (56, 51, 43)],
+        "walk": [(104, 94, 76), (152, 140, 116), (182, 168, 140), (206, 192, 162)],
+        "storefront": [
+            (56, 46, 36), (102, 86, 66), (158, 138, 108), (206, 188, 152), (236, 222, 192),
+        ],
+        "accent": OXBLOOD_RAMP,
+    },
+    "university": {
+        "road": [(36, 37, 42), (41, 42, 47), (45, 46, 52), (49, 50, 57)],
+        "walk": [(88, 90, 96), (130, 134, 142), (158, 162, 170), (180, 184, 192)],
+        "storefront": [
+            (46, 48, 56), (86, 90, 100), (132, 138, 150), (178, 184, 196), (212, 218, 228),
+        ],
+        "accent": [(56, 72, 84), (90, 110, 124), (124, 144, 158), (168, 186, 198)],
+    },
+    "meadows": {
+        "road": [(33, 34, 44), (38, 39, 50), (42, 43, 55), (46, 47, 60)],
+        "walk": [(84, 82, 96), (120, 118, 136), (146, 144, 162), (168, 166, 184)],
+        "storefront": [
+            (42, 40, 56), (76, 74, 96), (116, 114, 138), (160, 158, 184), (200, 198, 220),
+        ],
+        "accent": [(96, 40, 88), (134, 58, 120), (172, 80, 152), (206, 120, 184)],
+    },
+}
+# Decision 5 stands DEFERRED: night is a register-level recorded
+# recolor over these values (the disjointness law exists for it), the
+# Meadows first in line. The slot documents intent; None means no
+# ruling has happened.
+AFTER_DARK_VARIANTS: dict[str, None] = {name: None for name in DISTRICT_REGISTERS}
+
+
+def register_mapping(
+    surface: str, to_district: str, from_district: str = "old_harbor"
+) -> dict[tuple[int, int, int, int], tuple[int, int, int, int]]:
+    """Exact-color mapping that moves one surface between registers.
+
+    Tier-to-tier by construction (`strict` refuses tier-count drift);
+    feed the result to `recolor.apply_mapping`, whose collapse refusal
+    backstops the distinctness law.
+    """
+    src = DISTRICT_REGISTERS[from_district][surface]
+    dst = DISTRICT_REGISTERS[to_district][surface]
+    return {(*s, 255): (*d, 255) for s, d in zip(src, dst, strict=True)}

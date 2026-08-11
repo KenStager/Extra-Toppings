@@ -34,7 +34,8 @@ Two candidate paths, honestly unresolved without measurement:
 - **Proposed sequence**: fetch the tool schema (free), then ONE probe
   call, then rule (a) vs (b) on the measured result.
 
-## Decision 2 — district palette registers (ruling needed)
+## Decision 2 — district palette registers (RATIFIED 2026-08-11 —
+## see "Decision 2 ratified" record near the end of this file)
 
 Extending the crowd wardrobe law to ground and walls: Old Harbor
 work-warms + dock grays; Little Sicily cream/oxblood (the family's
@@ -600,3 +601,64 @@ rivals (Sal's, Vinnie's) get their briefs before their facades
 (decision 4).
 
 Session spend 84; expected balance 4,243.
+
+## The slate promoted; decision 2 ratified — district registers
+## (2026-08-11, board: "Promote the slate and proceed")
+
+THE SLATE: the full v14 slate entered `approved/` (copies — raws
+stay in `candidates/`): curb s16102 + code anchor, native trees
+s16401/s16402 de-tufted, lamppost s16311, hydrant s16302 (SIZE FLAG
+STANDS — resize-by-regen queued, never rescale), manhole s16322,
+bench s16502 curated, neighbor facade s16601 (GROCER lettering
+still PLACEHOLDER pending decision-4 naming), the staging JSON, the
+code-asset renders, and booth/bags as flagged INTERIM placeholders
+(`approved/interim/`). Recorded in
+`provenance/e16_promotion_2026-08-11.json`.
+
+DECISION 2 RATIFIED (worked through sequential reflection, 9 steps,
+0 gens). The register system lives in ONE home —
+`tools/art_pipeline/street_block.py` `DISTRICT_REGISTERS` — values
+are not respelled here; the laws are:
+
+- Old Harbor (HOME_DISTRICT) ratifies the block-proven interim
+  ramps BY REFERENCE (road = the flattened asphalt, walk, flank
+  storefront), plus a new neutral DOCK-GRAY accent. Fourteen board
+  rounds are its provenance.
+- Little Sicily derives warmest (cream walk/stucco, well-kept:
+  lowest underground, lowest patrol); its accent is the recorded
+  OXBLOOD_RAMP by reference. University Hill is the one correctly-
+  cold register (b >= r in every tier, institutional, never case
+  blue). The Meadows is darkest, ink-violet with a CLUB VIOLET
+  accent — warm neon stays reserved for the cast (heat orange is
+  Lena's, gold is the family's).
+- Tier counts are FIXED (road 4 / walk 4 / storefront 5 / accent
+  4): every cross-district surface mapping is a bijection;
+  `register_mapping()` zips tiers strictly and `apply_mapping`'s
+  collapse refusal backstops it.
+- The FLAT-ROAD law is citywide geometry (adjacent road tiers
+  within ~6 luminance in all four districts).
+- EXACT-COLOR DISJOINTNESS, the decision-5 forward law: all 17
+  values in a register are pairwise distinct AND disjoint from
+  reserved cast identity colors, wardrobe targets, the skin ramp,
+  well metals, and the sedan body ramp — night maps will be
+  recorded exact-color passes over COMPOSED scenes, and a shared
+  value would let a road shift catch a bystander's shirt.
+- KNOWN EXCEPTION, flagged not fixed: GLASS_RAMP[0] ==
+  ASPHALT_RAMP[1] (46,42,38), recorded before this law. Re-tiering
+  glass would alter the CLEAN v14 read — a future night map either
+  co-shifts that tier or the board rules a glass re-tier.
+- FLAGGED JUDGMENT (board may overrule): curb concrete, lane paint,
+  and hydrant curb-yellow stay CITYWIDE — infrastructure reads
+  constant; districts change register, road furniture does not.
+- Decision 5 stands DEFERRED: `AFTER_DARK_VARIANTS` holds a None
+  slot per district (the Meadows first in line) — schema documents
+  intent, no values without a ruling.
+
+Enforcement: 7 new tests in `test_street_block.py` (tier counts,
+ratification pins, distinctness, forbidden-set disjointness, flat-
+road law, mapping bijectivity, after-dark slots unruled) — suite
+99 -> 106, ruff clean. Board artifact:
+`review/district_registers_board_v1.png` (0 gens). Honest note on
+its face: the Meadows reads violet-forward rather than navy-ink —
+presented as the club register's intent; one cheap data-revision
+round if the board wants it bluer.

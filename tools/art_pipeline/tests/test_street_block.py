@@ -7,9 +7,14 @@ import unittest
 from PIL import Image
 
 from tools.art_pipeline.street_block import (
+    AFTER_DARK_VARIANTS,
+    ASPHALT_RAMP,
+    DISTRICT_REGISTERS,
     FLANK_RAMP,
     GLASS_RAMP,
+    SLATE_RAMP,
     WALK_RAMP,
+    WELL_METALS,
     a2_blob_fill,
     column_stamp,
     desaturate_warm,
@@ -156,6 +161,92 @@ class DesaturateTests(unittest.TestCase):
         self.assertEqual(a, 200)
         self.assertLess(r - min(g, b), 255)                          # pulled toward gray
         self.assertGreater(g, 0)
+
+
+class DistrictRegisterTests(unittest.TestCase):
+    """Decision 2 laws (ratified 2026-08-11) over DISTRICT_REGISTERS."""
+
+    DISTRICTS = ("old_harbor", "little_sicily", "university", "meadows")
+    TIER_COUNTS = {"road": 4, "walk": 4, "storefront": 5, "accent": 4}
+
+    def test_every_district_has_fixed_tier_counts(self) -> None:
+        self.assertEqual(tuple(DISTRICT_REGISTERS), self.DISTRICTS)
+        for name, register in DISTRICT_REGISTERS.items():
+            self.assertEqual(
+                {s: len(r) for s, r in register.items()}, self.TIER_COUNTS, name
+            )
+
+    def test_old_harbor_ratifies_the_block_proven_ramps_by_reference(self) -> None:
+        oh = DISTRICT_REGISTERS["old_harbor"]
+        self.assertIs(oh["road"], ASPHALT_RAMP)
+        self.assertIs(oh["walk"], WALK_RAMP)
+        self.assertIs(oh["storefront"], FLANK_RAMP)
+        # The ratified values themselves, pinned verbatim (the interim
+        # picks recorded in e16_recolor_derivations.json).
+        self.assertEqual(
+            oh["road"], [(41, 38, 34), (46, 42, 38), (50, 46, 41), (54, 49, 44)]
+        )
+        self.assertEqual(
+            oh["walk"],
+            [(94, 86, 74), (140, 129, 112), (166, 154, 134), (186, 174, 152)],
+        )
+
+    def test_register_values_pairwise_distinct_within_a_district(self) -> None:
+        for name, register in DISTRICT_REGISTERS.items():
+            values = [tone for ramp in register.values() for tone in ramp]
+            self.assertEqual(len(values), 17, name)
+            self.assertEqual(len(set(values)), 17, name)
+
+    def test_no_register_value_is_a_cast_wardrobe_vehicle_or_well_tone(self) -> None:
+        # Night maps (decision 5) are exact-color passes over composed
+        # scenes: a shared value would let a surface shift catch a
+        # bystander, a parked sedan, or a tree-well grate.
+        from tools.art_pipeline.recolor import (
+            BOTTOM_TARGETS,
+            HAIR_TARGETS,
+            RESERVED_TARGETS,
+            SKIN_SHIFT,
+            TOP_TARGETS,
+        )
+
+        forbidden: set[tuple[int, int, int]] = set()
+        for rgba in RESERVED_TARGETS:
+            forbidden.add(rgba[:3])
+        for targets in (TOP_TARGETS, BOTTOM_TARGETS, HAIR_TARGETS):
+            forbidden.update(rgba[:3] for rgba in targets.values())
+        for src, dst in SKIN_SHIFT.items():
+            forbidden.update((src[:3], dst[:3]))
+        forbidden.update(SLATE_RAMP)
+        forbidden.update(WELL_METALS)
+        for name, register in DISTRICT_REGISTERS.items():
+            for surface, ramp in register.items():
+                hits = [tone for tone in ramp if tone in forbidden]
+                self.assertEqual(hits, [], f"{name}/{surface}")
+
+    def test_flat_road_law_holds_citywide(self) -> None:
+        for name, register in DISTRICT_REGISTERS.items():
+            road = register["road"]
+            lums = [0.3 * r + 0.59 * g + 0.11 * b for r, g, b in road]
+            self.assertEqual(lums, sorted(lums), name)
+            for lo, hi in zip(lums, lums[1:]):
+                self.assertLessEqual(hi - lo, 6.0, name)
+
+    def test_register_mapping_is_bijective_and_apply_safe(self) -> None:
+        from tools.art_pipeline.recolor import apply_mapping
+        from tools.art_pipeline.street_block import register_mapping
+
+        for to_district in self.DISTRICTS:
+            for surface in self.TIER_COUNTS:
+                mapping = register_mapping(surface, to_district)
+                self.assertEqual(len(mapping), self.TIER_COUNTS[surface])
+                # apply_mapping's collapse refusal must accept every
+                # register move; a 1x1 canvas keeps the check cheap.
+                out = apply_mapping(_flat(1, 1, (*ASPHALT_RAMP[0], 255)), mapping)
+                self.assertEqual(out.size, (1, 1))
+
+    def test_after_dark_slots_exist_and_are_unruled(self) -> None:
+        self.assertEqual(set(AFTER_DARK_VARIANTS), set(DISTRICT_REGISTERS))
+        self.assertTrue(all(v is None for v in AFTER_DARK_VARIANTS.values()))
 
 
 if __name__ == "__main__":
