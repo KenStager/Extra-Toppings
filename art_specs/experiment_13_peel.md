@@ -41,3 +41,25 @@ question folded into the study: 32 vs 48, two seeds each.
    and the overhang reported before any approval of the composite.
 3. Tier 2 (keyframe probe) stays gated: it needs this approval plus
    the frame-0 anchor-law amendment ruled first.
+
+## Round 3 — the pizza-on-peel measurement (0 gens)
+
+The promised measurement caught a semantic bug numbers alone would
+not: the canon pizza includes its STEEL PAN, so the first composite
+read "pan on a stick" — the blade vanished behind the pan ring. A
+peel carries a bare pie.
+
+Fix, deterministic from canon: the pan's four colors (#4E6472,
+#CBD7CC, #9D9C9C, #303B5A) appear nowhere inside the pie (measured
+radially) — color-keyed deletion removed 198 pan pixels, then a 1px
+#303B5A outline was drawn around the remaining silhouette (62px).
+`pizza_bare_32_derived.png` PASSES the prop contract; provenance
+chains to canon by recipe and hash. Zero generations; the canon pizza
+remains the single authority, the bare pie a recorded derivation.
+
+Recomposited on 48 s13004 (offset recorded): the pie reads correctly.
+Honest note for the board: the pie (26px) overhangs the blade (19px
+widest) — REAL peels are wider than the pie, so the proportion is
+backwards from reality; at 1× it reads fine. Accept, or prefer the
+wider-bladed 32 s13002, or queue a wider-blade re-roll — the board's
+call alongside the pick.
