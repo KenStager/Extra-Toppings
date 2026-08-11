@@ -24,14 +24,19 @@ def choose_address(state: "State", con: Console, prompt: str,
                    capability: str) -> "Shop | None":
     """THE address picker for an address-specific action (P4b.1a).
 
-    SILENT while one address is open — it returns that shop without a
-    prompt, so the released game gains no menu and no transcript
-    moves. It speaks only when the player actually owns a choice.
+    SILENT while exactly one address is ELIGIBLE — it returns that
+    shop without a prompt, so the released game gains no menu and no
+    transcript moves. Eligibility, not openness, is the test (P4b.1a
+    review corrected this docstring): the answer is
+    `addresses_allowing(state, capability)`, so a building site is
+    absent from the routes picker and legitimately PRESENT in the
+    pantry one — §2.4.2 allows supplying a site for its opening. A
+    silent picker therefore means one address may do this thing today,
+    which is not the same claim as one address being open.
 
-    Addresses are offered in stable KEY order (`open_shops`), labelled
-    by DISTRICT: a raw key is an internal identity and never reaches
-    the player (rev. 27 item 3). A construction site is not offered at
-    all — it cannot do any of the things this picker leads to."""
+    Addresses are offered in stable KEY order, labelled by DISTRICT: a
+    raw key is an internal identity and never reaches the player
+    (rev. 27 item 3)."""
     able = models.addresses_allowing(state, capability)
     if not able:
         raise ValueError(f"no address may {capability!r}")
@@ -495,8 +500,14 @@ def morning(state: State, con: Console, streams: Streams) -> dict:
             if picked:
                 _buy_ingredients(state, picked, con)
         elif c == 3 and supplier:
+            # The supplier's crates are CONTRABAND and land in the
+            # stash, so the capability is `contraband_storage` — never
+            # `pantry_supply`, which is the flour-and-cans permission a
+            # building site legitimately has (P4b.1a review). Asking
+            # the wrong question offered the site, and the purchase
+            # then made it a criminal stockroom §2.4.2 says it is not.
             picked = choose_address(state, con, "Deliver where?",
-                                    "pantry_supply")
+                                    "contraband_storage")
             if picked:
                 supplier = _buy_supplier(state, picked, supplier, con)
         elif c == 4:
@@ -898,6 +909,19 @@ def _supplier_offer(state: State, rng: random.Random) -> dict | None:
 
 def _buy_supplier(state: State, shop_at: Shop, offer: dict,
                   con: Console) -> dict | None:
+    # THE capability, asked HERE — at the boundary that moves cash and
+    # contraband, and not only at the menu that led to it (P4b.1a
+    # review). A menu is one door; an authority only the menu consults
+    # is a suggestion, and this call is reachable from anywhere a
+    # future surface (the Partner's own morning, a scene, a study
+    # harness) decides to sell the player a van-load. Refused BEFORE a
+    # cent or a crate moves, because a refusal that has already spent
+    # the money is a repair.
+    if not models.address_allows(shop_at, state.day,
+                                 "contraband_storage"):
+        raise ValueError(
+            f"address {shop_at.key!r} may not hold contraband — the "
+            f"supplier's crates are stash, not pantry")
     # The storage authority prices the bound (rev. 18 item 2).
     fit = models.units_that_fit(state, shop_at.key, offer["good"])
     afford = (state.dirty + state.clean) // offer["price"]

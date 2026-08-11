@@ -1693,6 +1693,87 @@ class TestThePickerFailsClosed(unittest.TestCase):
             [(a.key, a.quality, a.price) for a in state.shops], before)
 
 
+class TestTheSupplierNeverStocksABuildingSite(unittest.TestCase):
+    """P4b.1a review, blocking item 1. The supplier's crates are
+    CONTRABAND and land in the stash, so the capability is
+    `contraband_storage`. The morning asked `pantry_supply` — the
+    flour-and-cans permission a site legitimately has — which offered
+    the building site and then made it the criminal stockroom §2.4.2
+    says it is not.
+
+    The seeds are chosen so an offer actually exists on the day: seed
+    3 has a supplier on day 6, seed 5 on day 7. A test that silently
+    ran a morning with no van would pass without testing anything.
+    """
+
+    def _morning(self, day, seed, script):
+        """One REAL morning, with the van's offer resolved the way the
+        morning itself resolves it and the founding room's opening
+        stock recorded, so a purchase can be counted as a delta."""
+        state = _with_site(day=day, acceptance=5)
+        market.roll_prices(state, random.Random(3))
+        offer = phases._supplier_offer(
+            state, Streams(seed).daily(day, "supplier"))
+        self.assertIsNotNone(offer, "no van on this seed/day")
+        before = dict(state.shop_by_key(HOME_SHOP_KEY).stash)
+        con = Listening(script)
+        phases.morning(state, con, Streams(seed))
+        return state, con, offer, before
+
+    def test_the_site_is_never_offered_the_van(self):
+        # The reviewer's exact repro, inverted: with the site under
+        # construction exactly one address may hold contraband, so the
+        # picker is SILENT and the crates can only go home.
+        state, con, offer, before = self._morning(6, 3, [3, 5])
+        site = state.shop_by_key("shop2")
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        self.assertEqual(con.offered("Deliver where?"), [])
+        self.assertEqual(site.stash, {})
+        # The five units were actually bought, and bought AT HOME —
+        # counted as a delta against the founding room's opening
+        # stock, so the pin cannot pass on a morning that bought
+        # nothing.
+        self.assertEqual(home.stash[offer["good"]]
+                         - before.get(offer["good"], 0), 5)
+
+    def test_both_open_addresses_are_offered_it(self):
+        # The other direction, so the fix is a capability correction
+        # and not a disabled menu: once the site OPENS it is a back
+        # room like any other and the player chooses.
+        state, con, offer, _before = self._morning(7, 5, [3, 1, 4])
+        self.assertEqual(con.offered("Deliver where?"),
+                         ["Old Harbor", "University Hill", "Back"])
+        self.assertEqual(
+            state.shop_by_key("shop2").stash.get(offer["good"]), 4)
+
+    def test_the_purchase_refuses_a_site_with_nothing_touched(self):
+        # The MUTATION BOUNDARY, called directly: a menu is one door,
+        # and an authority only the menu consults is a suggestion.
+        # Nothing moves — not the cash, not the crates, not the van's
+        # remaining stock.
+        state = _with_site(day=6, acceptance=5)
+        site = state.shop_by_key("shop2")
+        state.clean, state.dirty = 500, 500
+        offer = {"good": "mushrooms", "units": 10, "price": 10}
+        with self.assertRaises(ValueError) as caught:
+            phases._buy_supplier(state, site, offer, Listening([10]))
+        self.assertIn("contraband", str(caught.exception))
+        self.assertEqual((state.clean, state.dirty), (500, 500))
+        self.assertEqual(site.stash, {})
+        self.assertEqual(offer["units"], 10)
+
+    def test_the_purchase_still_serves_an_open_address(self):
+        # The refusal is the lifecycle's, not a new rule about
+        # suppliers: the same call at the same address succeeds the
+        # morning it opens.
+        state = _with_site(day=7, acceptance=5)
+        site = state.shop_by_key("shop2")
+        state.clean, state.dirty = 500, 500
+        offer = {"good": "mushrooms", "units": 10, "price": 10}
+        phases._buy_supplier(state, site, offer, Listening([4]))
+        self.assertEqual(site.stash, {"mushrooms": 4})
+
+
 class TestBothAddressesTradeAndRun(unittest.TestCase):
     """Conditions 5's operating terms, through the REAL service."""
 
