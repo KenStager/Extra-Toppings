@@ -635,12 +635,29 @@ def _handle_police_stop(state: State, plan: dict, con: Console,
     return _bust(state, plan, con, rng, report, resisted=False)
 
 
-def _bust(state: State, plan: dict, con: Console, rng: random.Random,
-          report: dict, resisted: bool) -> bool:
+def seize_cargo(plan: dict) -> int:
+    """THE seizure: count the units AND empty the manifest, in ONE
+    call, returning what was taken.
+
+    "Reported seized" and "actually gone" were two facts kept in two
+    places, and only one of the two bust arms made them agree. The
+    interactive stop counted and cleared; the delegated arrest counted
+    and did not, so the shared return loop at the end of that branch
+    handed every "seized" unit back to the origin's stash — the
+    player was told the load was in an evidence locker and found it
+    on the shelf in the morning. One call now decides both halves,
+    because a seizure that leaves the goods behind is not a seizure
+    and no caller should be able to spell only half of it."""
     cargo = plan["cargo"]
-    seized_units = sum(cargo.values())
+    seized = sum(cargo.values())
     for g in cargo:
         cargo[g] = 0
+    return seized
+
+
+def _bust(state: State, plan: dict, con: Console, rng: random.Random,
+          report: dict, resisted: bool) -> bool:
+    seized_units = seize_cargo(plan)
     fine = min(state.dirty + state.clean, 500)
     state.dirty -= min(state.dirty, fine)
     state.add_heat(plan["district"], 20)
@@ -676,7 +693,11 @@ def _auto_drops(state: State, home_shop, plan: dict, drops: int,
     if rng.random() < max(0.03, risk):
         # It goes wrong out of your sight.
         if rng.random() < 0.5:
-            seized = sum(cargo.values())
+            # THE seizure authority, the same one the traffic stop
+            # uses: counted and TAKEN. Counting alone left the units
+            # in the manifest, and the return loop below then carried
+            # them home — the defect this correction exists for.
+            seized = seize_cargo(plan)
             driver.arrested = True
             state.add_heat(dk, 18)
             evidence = 10 if driver.aware else 4
