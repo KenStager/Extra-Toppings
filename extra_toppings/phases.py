@@ -1012,6 +1012,68 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
 
 
 
+def _allocation_board(state: State, con: Console) -> None:
+    """Make the allocation LEGIBLE. The player must be able to see
+    that moving people changed the answer, and must never be asked to
+    reverse-engineer `max(nerve) + 4` from outcomes (rev. 34, item 8's
+    surface). Addresses in stable key order; districts, never keys."""
+    con.say("")
+    con.say("  Where they work, and how each room stands:")
+    for at in sorted(state.shops, key=lambda a: a.key):
+        view = models.shop_defense(state, at)
+        where = models.address_label(state, at.key)
+        names = ", ".join(e.name for e in view.defenders) or "nobody read in"
+        guard = " (night security +4)" if view.guard else ""
+        con.say(f"    {where:<18} defense {view.strength}{guard} — "
+                f"{len(view.defenders)} on the crew: {names}")
+        post = at.manager_post
+        if post is None:
+            continue
+        if post.manager_key is None:
+            con.say(f"      {where} has no manager"
+                    f"{' — the nephew has the keys' if post.penalised else ''}.")
+        else:
+            who = next(e for e in state.employees
+                       if e.key == post.manager_key)
+            con.say(f"      {where} is run by {who.name}.")
+
+
+def _reassign(state: State, con: Console) -> None:
+    """Move one person to another address. The DESTINATIONS are in
+    stable key order and spoken as districts; a site under
+    construction is a legitimate destination, because staffing is one
+    of the two things §2.4.2 allows it while it is being built.
+
+    A manager who is moved away LOSES THE POST FIRST — the vacancy
+    authority runs before the assignment changes, so the post is never
+    left for an instant pointing at somebody who has already gone."""
+    crew = state.hired()
+    if not crew:
+        con.say("  There is nobody on the payroll to move.")
+        return
+    names = [f"{e.name} — {models.address_label(state, e.shop_key)}"
+             for e in crew] + ["Back"]
+    pick = con.menu("Move whom?", names)
+    if pick == len(crew):
+        return
+    who = crew[pick]
+    houses = [a for a in models.addresses_allowing(state, "staffing")
+              if a.key != who.shop_key]
+    if not houses:
+        con.say(f"  There is nowhere else for {who.name} to go.")
+        return
+    labels = [models.address_label(state, a.key) for a in houses] + ["Back"]
+    dest = con.menu(f"Move {who.name} where?", labels)
+    if dest == len(houses):
+        return
+    to = houses[dest]
+    models.release_from_posts(state, who, "reassigned")
+    who.shop_key = to.key
+    who.familiarity = {}
+    con.say(f"  {who.name} works the {models.address_label(state, to.key)} "
+            f"room from tomorrow. The regulars there do not know them yet.")
+
+
 def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
     while True:
         con.say("")
@@ -1020,8 +1082,30 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
             con.say(f"    {e.name:<28} {e.tag():<24} "
                     f"F{e.food} D{e.driving} N{e.nerve} L{e.loyalty} "
                     f"morale {e.morale}  {money(e.wage)}/day  [{e.trait}]")
-        c = con.menu("Staff:", ["Hire", "Read someone in", "Give a raise (+morale/loyalty)",
-                                "Let someone go", "Back"])
+        # WHERE everyone works, and what each room is worth in a
+        # fight (rev. 34's item-8 surface). Only with two addresses:
+        # a one-address payroll reads exactly as it always has, and
+        # this project freezes released prose by hand rather than
+        # trusting the golden to notice.
+        if models.multi_address(state):
+            _allocation_board(state, con)
+        entries = ["Hire", "Read someone in", "Give a raise (+morale/loyalty)",
+                   "Let someone go"]
+        # THE allocation verb (rev. 33 item 8, approved with its
+        # surface by rev. 34). `Employee.shop_key` has been persisted
+        # since P4a and NOTHING has ever been able to change it, so
+        # "staff assigned to an address are that address's defense
+        # allocation" was a promise the game could not keep. Offered
+        # only while more than one address exists — never flag-off,
+        # never on a released branch, so no golden prompt moves.
+        if models.multi_address(state):
+            entries.append("Move somebody to another address")
+        c = con.menu("Staff:", entries + ["Back"])
+        if c == len(entries):
+            return
+        if models.multi_address(state) and c == len(entries) - 1:
+            _reassign(state, con)
+            continue
         if c == 0:
             pool = [e for e in state.employees if not e.hired and not e.arrested]
             if models.remediation_unlocked(state):
@@ -1103,8 +1187,6 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
                     con.say(f"  {e.name} leaves quietly. Too quietly. They know things.")
                 else:
                     con.say(f"  {e.name} is gone.")
-        else:
-            return
 
 
 def _improvements(state: State, shop_at: Shop, con: Console) -> None:
@@ -1160,12 +1242,78 @@ def _improvements(state: State, shop_at: Shop, con: Console) -> None:
 
 # ══ SERVICE ═══════════════════════════════════════════════════════
 
+def _management_boundary(state: State, con: Console) -> None:
+    """Offer every outstanding management opportunity, once, before
+    the doors open (§2.4.2, rev. 30 item 2, rev. 34 item 2).
+
+    Nothing here is optional to the player: the screen is SURFACED,
+    not gone looking for, because "the next available menu" read
+    literally would let a player never open it and never take the
+    penalty — which inverts the design. Appointing clears the
+    vacancy; declining and exhausting are two different ways of
+    spending the window, and both start the nephew.
+
+    Addresses in stable key order, so what the player is asked is
+    never decided by list position."""
+    for at in sorted(state.shops, key=lambda a: a.key):
+        post = at.manager_post
+        if post is None or post.opportunity != "pending":
+            continue
+        where = models.address_label(state, at.key)
+        candidates = models.appointable(state, at)
+        if not candidates:
+            # EXHAUSTED: offered, with nobody to give it to. A
+            # different fact from declining, and recorded as one.
+            at.manager_post = models.ManagerPost(
+                vacancy_day=post.vacancy_day, opportunity="exhausted")
+            con.say("")
+            con.bullet(f"There is nobody to put in charge of the "
+                       f"{where} room — nobody read in, on their feet "
+                       f"and working that address.")
+            con.bullet(f"Carmine's nephew takes the keys. The {where} "
+                       f"kitchen runs at half speed and its books "
+                       f"absorb half as much.")
+            continue
+        con.say("")
+        con.say(f"  The {where} room needs somebody to run it. Until "
+                f"it has one, Carmine's nephew holds the keys — half "
+                f"the kitchen, half the believable takings.")
+        options = [f"{e.name} ({e.role}, loyalty {e.loyalty}, "
+                   f"morale {e.morale})" for e in candidates]
+        # The safe fallback LAST: declining destroys nothing, and an
+        # exhausted script must never be able to hand somebody the
+        # keys by accident.
+        options.append("Leave the post empty for now")
+        pick = con.menu(f"Who runs the {where} room?", options)
+        if pick == len(candidates):
+            at.manager_post = models.ManagerPost(
+                vacancy_day=post.vacancy_day, opportunity="declined")
+            con.say(f"  You leave it. The nephew is already behind the "
+                    f"{where} counter, and he is not in a hurry.")
+            continue
+        chosen = candidates[pick]
+        models.appoint_manager(state, at, chosen)
+        con.say(f"  {chosen.name} takes the {where} keys.")
+
+
 def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     # No address is chosen here (P4b.1a): service is the OPERATION
     # opening its doors, and every open address opens them. Asking
     # the player which of their restaurants trades tonight would be
     # a decision the fiction never offers.
     con.header(f"DAY {state.day} — SERVICE")
+    # THE ONE management boundary (design rev. 34 item 2): every
+    # pending opportunity drains HERE, before a single shift trades
+    # and after every morning staff choice has been made. It cannot
+    # be "the next morning": firing or reassigning a manager happens
+    # DURING the morning, so that address would serve once — earning,
+    # laundering and taking its full kitchen capacity — before the
+    # promised window ever arrived. A pending opportunity must never
+    # reach an actual service unresolved. The same boundary delivers
+    # construction's initial opportunity and any vacancy created
+    # during last night, so there is one trigger rather than a
+    # family of them.
+    _management_boundary(state, con)
     # THE night's wagon assignments, opened HERE rather than at
     # nightfall: routes and pickups depart during service, so an
     # authority created afterwards could only ever be told what had
