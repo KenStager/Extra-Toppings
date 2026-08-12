@@ -186,6 +186,7 @@ def _poach(state: State, rival, spec: dict, con: Console, rng: random.Random) ->
         resist -= 3
     if resist + rng.uniform(0, 6) < 12:
         e.hired = False
+        models.release_from_posts(state, e, "poach")
         con.bullet(f"{e.name} took {spec['short']}'s offer and didn't finish the shift.")
         if e.aware:
             state.add_case(8, f"{e.name} left for a rival knowing everything",

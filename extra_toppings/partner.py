@@ -245,7 +245,19 @@ def accept_deal(state: State, district: str) -> Shop:
                 upgrades=set(), demand_today=0, delivery_pool=0,
                 legit_revenue_today=0,
                 acceptance_day=state.day,
-                opening_day=state.day + models.CONSTRUCTION_DAYS)
+                opening_day=state.day + models.CONSTRUCTION_DAYS,
+                # THE INITIAL VACANCY (rev. 30 item 2, rev. 34 item
+                # 2): the post is empty from the moment the deal is
+                # struck, and construction provides its one
+                # appointment opportunity. This is the address's
+                # STARTING STATE, not a transition out of a staffed
+                # post — nothing vacated here, so nothing calls
+                # `vacate_manager`. The player is offered the post
+                # while the site is being built; a shop that opens
+                # unmanaged runs under Carmine's nephew from its
+                # first service.
+                manager_post=models.ManagerPost(
+                    vacancy_day=state.day, opportunity="pending"))
     wagon = Wagon(key=wagon_key, shop_key=shop_key)
     branch_state = BranchState.partner(
         points_due_day=first_points_due(shop, payoff_day))

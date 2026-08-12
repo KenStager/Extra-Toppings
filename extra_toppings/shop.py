@@ -147,7 +147,13 @@ def believable_ceiling(state: State, shop, todays_legit: int) -> int:
     evidence. `books` is bought per address and helps only the address
     that has it."""
     factor = data.LAUNDER_FACTOR + (0.75 if "books" in shop.upgrades else 0.0)
-    return int(todays_legit * factor)
+    ceiling = int(todays_legit * factor)
+    # The nephew's books are thinner (§2.4.2's placeholder, ×0.50):
+    # integer floor division, applied to the finished ceiling, and
+    # inert unless this address's one management opportunity has been
+    # spent. The founding address never carries a post, so no
+    # flag-off arithmetic passes through here changed.
+    return ceiling // 2 if shop.unmanaged else ceiling
 
 
 def total_believable_ceiling(state: State) -> int:

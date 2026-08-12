@@ -986,6 +986,7 @@ def _staff_trouble(state: State, con: Console, rng: random.Random) -> None:
         elif e.resignation_pending:
             e.hired = False
             e.resignation_pending = False
+            models.release_from_posts(state, e, "resigned")
             con.bullet(f"{e.name} hangs up the apron mid-morning. 'I told you.' "
                        f"They're gone.")
             if e.aware:
@@ -1095,6 +1096,7 @@ def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
             if p < len(crew):
                 e = crew[p]
                 e.hired = False
+                models.release_from_posts(state, e, "fired")
                 if e.aware:
                     state.add_case(6, f"{e.name} was fired knowing everything",
                                    kind="witness", source=e.key)

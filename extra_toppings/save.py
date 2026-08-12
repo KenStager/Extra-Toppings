@@ -150,6 +150,44 @@ def _arrested_day(d: dict) -> int | None:
     return day
 
 
+def _manager_post(sd: dict) -> dict:
+    """THE management post's migration boundary (design rev. 34
+    item 1), on P4b.2's absence discipline: absence is the licence,
+    a present-but-malformed record refuses.
+
+    Two absences mean two different things, and telling them apart is
+    the whole job. At an address with **no lifecycle dates** — the
+    founding room — absence means NO POST, which is what every save
+    ever written means. At a **dated** address absence means the
+    INITIAL PENDING VACANCY, dated from that address's own persisted
+    acceptance day: the opportunity was canonically owed from the
+    moment the deal was struck, no engine that wrote this payload
+    could have consumed it, and withholding it would silently rob a
+    loaded run of a window §2.4.2 grants it. Restoring it invents
+    nothing — the date is read off the record, never guessed.
+
+    Serialization is the mirror: `asdict` writes the record when there
+    is one and `None` when there is not, so the round trip is stable
+    by construction."""
+    if "manager_post" not in sd:
+        acceptance = sd.get("acceptance_day")
+        if acceptance is None:
+            return sd                       # the founding room: no post
+        sd = dict(sd)
+        sd["manager_post"] = models.ManagerPost(
+            vacancy_day=acceptance, opportunity="pending")
+        return sd
+    post = sd["manager_post"]
+    if post is None or isinstance(post, models.ManagerPost):
+        return sd
+    if not isinstance(post, dict):
+        raise ValueError(f"a management post is a record or nothing, "
+                         f"got {post!r}")
+    sd = dict(sd)
+    sd["manager_post"] = models.ManagerPost(**post)
+    return sd
+
+
 def state_from_dict(d: dict) -> State:
     if d.get("version") == 2:
         d = _migrate_v2(d)
@@ -199,6 +237,7 @@ def state_from_dict(d: dict) -> State:
                     f"{len(d['shops'])} addresses and one carries no "
                     f"key — its identity cannot be inferred")
             sd["key"] = models.HOME_SHOP_KEY
+        sd = _manager_post(sd)
         shops.append(Shop(**sd))
     # Every later inference resolves to THE sole address, whatever it
     # is called — never to the home key by reflex, which would mint a

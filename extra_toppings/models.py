@@ -120,6 +120,96 @@ class TributeDemand:
                              f"{self.shop_key!r}")
 
 
+# THE closed vocabulary of what has become of an address's one
+# management opportunity (§2.4.2, rev. 30 item 2). `none` is a staffed
+# post with nothing outstanding; `pending` is a window the player
+# still holds; `declined` and `exhausted` are two ways of having spent
+# it, carrying the same penalty and different records — what the
+# player chose and what the player could not do are different facts.
+MANAGER_OPPORTUNITIES = ("none", "pending", "declined", "exhausted")
+MANAGER_SPENT = frozenset({"declined", "exhausted"})
+# THE complete inventory of routes that empty a post (rev. 34 item 2).
+# Initial vacancy is deliberately ABSENT: it is the starting state of
+# an address that has never been staffed, not a transition into
+# vacancy, and listing it beside the others was a category error.
+# Paid witness settlement is present because Partner joined
+# remediation in P4b.2 — settling a manager removes them from the
+# roster with no fired-knowing-everything record, and would otherwise
+# have left a ghost manager running a shop.
+MANAGER_LOSS_REASONS = ("arrest", "poach", "fired", "resigned",
+                        "reassigned", "settled")
+
+
+@dataclass(frozen=True)
+class ManagerPost:
+    """An address's management post, as ONE value (design rev. 34
+    item 1).
+
+    Three independently writable fields — a manager key, a vacancy
+    day and an opportunity — are the disagreement class `RaidWarning`
+    and `TributeDemand` exist to prevent: a post could record a
+    manager AND a vacancy day, or a vacancy with no day, and nothing
+    would notice until the penalty fired at an address the player
+    believed was staffed. So the shapes are enumerated and anything
+    else is refused at construction:
+
+      staffed         — a manager key, no vacancy day, `none`
+      vacant/pending  — no manager, an exact vacancy day, `pending`
+      vacant/declined — no manager, an exact vacancy day, `declined`
+      vacant/exhausted— no manager, an exact vacancy day, `exhausted`
+
+    The authorities replace the whole value; nothing mutates a part
+    of it."""
+
+    manager_key: str | None = None
+    vacancy_day: int | None = None
+    opportunity: str = "none"
+
+    def __post_init__(self) -> None:
+        if self.opportunity not in MANAGER_OPPORTUNITIES:
+            raise ValueError(
+                f"unknown management opportunity "
+                f"{self.opportunity!r}; the vocabulary is "
+                f"{MANAGER_OPPORTUNITIES}")
+        if self.manager_key is not None:
+            if not isinstance(self.manager_key, str) or not self.manager_key:
+                raise ValueError(
+                    f"a staffed post names somebody, got "
+                    f"{self.manager_key!r}")
+            if self.vacancy_day is not None:
+                raise ValueError(
+                    f"a post held by {self.manager_key!r} also records "
+                    f"a vacancy on day {self.vacancy_day!r} — it is "
+                    f"staffed or it is empty, never both")
+            if self.opportunity != "none":
+                raise ValueError(
+                    f"a staffed post carries no outstanding "
+                    f"opportunity, got {self.opportunity!r}")
+            return
+        # Vacant: the day it emptied is the fact the opportunity is
+        # anchored to, and rev. 30 item 2 forbids reconstructing it
+        # from the calendar — so it is REQUIRED and exact.
+        if self.opportunity == "none":
+            raise ValueError(
+                "an empty post is pending, declined or exhausted — "
+                "'none' is what a staffed post carries")
+        if type(self.vacancy_day) is not int or self.vacancy_day < 1:
+            raise ValueError(
+                f"an empty post records the whole calendar day it "
+                f"emptied, got {self.vacancy_day!r}")
+
+    @property
+    def vacant(self) -> bool:
+        return self.manager_key is None
+
+    @property
+    def penalised(self) -> bool:
+        """The nephew is running it: the window was offered and spent.
+        A `pending` vacancy is NOT penalised — the player still holds
+        a move against it."""
+        return self.opportunity in MANAGER_SPENT
+
+
 @dataclass
 class Rival:
     key: str
@@ -1861,6 +1951,94 @@ def shop_defense(state: "State", shop: "Shop | str") -> ShopDefenseView:
                            strength=strength, guard=guard)
 
 
+def address_needs_manager(state: "State", shop: "Shop") -> bool:
+    """Does this address carry a management post at all? The founding
+    address never does — it is the operator's own room, it is the one
+    address that exists flag-off, and keeping the machine off it is
+    what makes every released surface safe by CONSTRUCTION rather
+    than by care (§2.4.2, rev. 34 item 1)."""
+    return shop.key != founding_shop(state).key
+
+
+def valid_holder(state: "State", shop: "Shop", employee_key: str) -> bool:
+    """May this person still HOLD the post? Hired, aware, assigned
+    here, not arrested. **Injury is deliberately absent** (rev. 34
+    item 1): a manager with a broken arm is still the manager, and
+    injury is not one of canon's loss routes. This is the predicate
+    VALIDATION binds — `appointable` is the stricter one the
+    appointment screen offers from, and one predicate could not do
+    both jobs without either evicting the injured or letting them be
+    appointed from a hospital bed."""
+    for e in state.employees:
+        if e.key != employee_key:
+            continue
+        return bool(e.hired and e.aware and not e.arrested
+                    and e.shop_key == shop.key)
+    return False
+
+
+def appointable(state: "State", shop: "Shop") -> list:
+    """Who may be GIVEN the post today: a valid holder who is also
+    available — not injured, not in custody. In roster order, so the
+    screen is never ordered by anything positional."""
+    return [e for e in state.employees
+            if valid_holder(state, shop, e.key) and e.available]
+
+
+def appoint_manager(state: "State", shop: "Shop", employee) -> None:
+    """THE appointment half of the one transition authority. Replaces
+    the whole post value; the vacancy day and the outstanding
+    opportunity go with it, because a post that recorded an
+    appointment while keeping yesterday's vacancy day is exactly the
+    disagreement `ManagerPost` exists to make unrepresentable."""
+    at = canonical_shop(state, shop)
+    if not address_needs_manager(state, at):
+        raise ValueError(
+            f"{at.key!r} is the founding address and carries no "
+            f"management post")
+    if not valid_holder(state, at, employee.key) or not employee.available:
+        raise ValueError(
+            f"{employee.name} cannot take the post at {at.key!r} — "
+            f"the post is held by somebody hired, read in, assigned "
+            f"there, out of custody and on their feet")
+    at.manager_post = ManagerPost(manager_key=employee.key)
+
+
+def vacate_manager(state: "State", shop: "Shop", reason: str) -> None:
+    """THE vacating half. Every route out of the post calls this —
+    route arrest, poach, firing, resignation, reassignment and paid
+    witness settlement (rev. 34 item 2) — and it records the day the
+    post emptied together with the fresh window canon grants, because
+    "one management menu after an arrest, a poach, a resignation, a
+    firing or a reassignment" means EACH of them, not one per run.
+
+    Idempotent on an already-empty post: a route that fires twice
+    must not reset a window the player has already spent."""
+    if reason not in MANAGER_LOSS_REASONS:
+        raise ValueError(f"unknown vacancy reason {reason!r}")
+    at = canonical_shop(state, shop)
+    if at.manager_post is None or at.manager_post.vacant:
+        return
+    at.manager_post = ManagerPost(vacancy_day=state.day,
+                                  opportunity="pending")
+
+
+def release_from_posts(state: "State", employee, reason: str) -> None:
+    """The route-facing door: this person has stopped being available
+    to manage anything, so any post naming them empties. One call per
+    loss route, and the writing still happens in exactly one place.
+
+    The routes must not have to know whether the person they are
+    removing happened to manage an address — `evidence.settle_witness`
+    is the case that proves it, since Partner joined remediation and
+    settling a manager would otherwise have left a ghost behind
+    (rev. 34 item 2)."""
+    for at in state.shops:
+        post = at.manager_post
+        if post is not None and post.manager_key == employee.key:
+            vacate_manager(state, at, reason)
+
+
 def raid_target(state: "State", rival_key: str) -> str:
     """THE address-target authority (design rev. 22 item 5): which of
     the player's addresses a rival moves against. P4a supplied the
@@ -2177,6 +2355,61 @@ def validate_addresses(state: "State") -> None:
                 f"rival {key!r}: collecting on "
                 f"{rv.tribute.shop_key!r} and threatening "
                 f"{rv.warning.shop_key!r} — one man, two rooms")
+    validate_manager_posts(state)
+
+
+def validate_manager_posts(state: "State") -> None:
+    """THE post's validation, and the reason the one transition
+    authority cannot quietly become decorative (rev. 33 item 7,
+    rev. 34 item 1).
+
+    Six routes empty a post, and "six callers must remember" is
+    precisely how a single authority stops being one. So a recorded
+    manager who is not currently a VALID HOLDER is REFUSED here: a
+    route that forgets `release_from_posts` fails in a test with the
+    ghost named in the message, instead of running a shop through
+    somebody who was fired last Tuesday.
+
+    Both directions of the post's existence bind. The founding
+    address must carry NO post — that is what keeps the machine off
+    every released surface. A Partner non-founding address must carry
+    ONE, because a missing post where canon requires one is as wrong
+    as a post where canon forbids it, and an address with no post
+    silently escapes both the vacancy penalty and the opportunity.
+
+    The holder predicate, not the appointable one: injury does not
+    vacate a post, so a manager on crutches passes here and simply
+    could not be appointed today."""
+    founding = founding_shop(state).key
+    for at in state.shops:
+        post = at.manager_post
+        if at.key == founding:
+            if post is not None:
+                raise ValueError(
+                    f"the founding address {at.key!r} carries a "
+                    f"management post; that room is the operator's")
+            continue
+        if state.branch == "partner" and post is None:
+            raise ValueError(
+                f"address {at.key!r} carries no management post — a "
+                f"Partner address is managed, vacant or under the "
+                f"nephew, never unrecorded")
+        if post is None:
+            continue
+        if post.vacancy_day is not None \
+                and not 1 <= post.vacancy_day <= state.day:
+            raise ValueError(
+                f"address {at.key!r}: the post emptied on day "
+                f"{post.vacancy_day}, outside the calendar the run "
+                f"has reached (day {state.day})")
+        if post.manager_key is None:
+            continue
+        if not valid_holder(state, at, post.manager_key):
+            raise ValueError(
+                f"address {at.key!r} records a manager "
+                f"({post.manager_key!r}) who cannot hold the post — "
+                f"they must be hired, read in, assigned there and out "
+                f"of custody")
 
 
 def validate_cross_state(state: "State") -> None:
@@ -3171,10 +3404,26 @@ class Shop:
     # A PRESENT-but-malformed value is refused in validate_addresses.
     acceptance_day: int | None = None
     opening_day: int | None = None
+    # THE manager's post, as ONE typed value (rev. 34 item 1). None
+    # means this address has no post at all, which is the founding
+    # address always and every save written before P4b.3. Absence
+    # migrates; a present-but-malformed record refuses.
+    manager_post: "ManagerPost | None" = None
 
     @property
     def stash_cap(self) -> int:
         return data.SHOP_STASH_CAP * (2 if "walk_in" in self.upgrades else 1)
+
+    @property
+    def unmanaged(self) -> bool:
+        """Is this address running under Carmine's nephew TODAY? The
+        penalty binds only once the opportunity has been spent — a
+        pending window is a vacancy the player still has a move
+        against, and charging it before they have been offered the
+        move is the "avoidable by not looking" failure rev. 30 item 2
+        closed from the other side."""
+        return (self.manager_post is not None
+                and self.manager_post.penalised)
 
     @property
     def kitchen_cap(self) -> int:
@@ -3182,6 +3431,16 @@ class Shop:
         if "second_oven" in self.upgrades:
             base = int(base * 1.5)
         if self.damage_days:
+            base //= 2
+        # The nephew runs a slower kitchen (§2.4.2's placeholder,
+        # ×0.50). Applied AFTER the damage halving, and as integer
+        # floor division, because two successive halvings do not
+        # commute with the `int(base * 1.5)` above them and an
+        # unspecified order is a number nobody can reproduce
+        # (rev. 33 item 9). Inert unless the post is spent, and the
+        # founding address never carries a post at all — so flag-off
+        # arithmetic is untouched by construction, not by care.
+        if self.unmanaged:
             base //= 2
         return base
 
