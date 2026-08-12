@@ -1942,3 +1942,65 @@ approved/ without the word:
 - **PHASE E - deferred by existing rulings**: Orchid marquee chase
   (decision 5), night variants, cast direction poses (interiors),
   the REST skeleton path (only if v3 text guidance disappoints).
+
+## Phase A measured; the far-line flag gets its A/B (2026-08-12
+## session F cont.; ~3 gens MCP-estimated)
+
+THE KEYFRAME PROBE (animation_probe_r1.py; animate_image via the
+pipeline's mcp_client; subject extra_man_cream 32x32; 2 same-seed
+walk calls + 1 interpolation call):
+
+1. **FRAME-0 IS COMPOSITE-EXACT, NOT FILE-EXACT** - the probe's
+   payload. Alpha mask EQUAL, alpha stays binary, every VISIBLE
+   pixel's RGB EQUAL; but RGB under fully-transparent pixels is
+   re-encoded (66% of canvas differs at file level, 0 visible px).
+   Same for the interpolation END frame. The validator law: frame
+   exactness = alpha-mask equality + visible-RGB equality. The
+   first naive diff read "66% changed" and the refined instrument
+   cleared it - census over eyeball, at frame scale.
+2. **DETERMINISM CONFIRMED**: same seed, same params -> all frames
+   byte-identical across two calls. Provenance-safe.
+3. **PALETTE HOLDS within curation reach**: walk frames carry 1-6
+   stray px each (no strip surface exists on animate_image;
+   post-validation quantize is the contract). Interpolation calls
+   need a UNION-of-endpoints census (the seated end frame wears its
+   own palette - the single-palette instrument false-alarmed).
+4. **BASELINE STABLE**: feet on row 31 in all 9 frames; bob <= 1px.
+5. **PROFILE SYNTHESIS REFUTED as action text**: "walking, side
+   view, facing left" from a front-facing start spends its frames
+   TURNING, not striding. LAW: cycles animate the START POSE's
+   facing - direction is POSE WORK, not action text. Phase B
+   therefore buys west-profile pose variants per extra FIRST, then
+   cycles from those poses. (The A2 morph also confirms: real
+   sit-downs need same-character seated pose variants as endpoints;
+   interpolating across characters swaps identity mid-flight, as
+   expected for a contract probe.)
+6. **MCP retrieval law**: get_image inlines only the first 4 frames;
+   the full set downloads per-index from
+   /mcp/images/<job>/download?index=N (direct Bearer works - no
+   redirect trap on this endpoint). Spend accounting for MCP
+   animation calls has no ledger hook; ~3 gens estimated by the
+   32x32x8 pixel budget, vendor dashboard the authority (the
+   probe-1 situation, unchanged).
+
+VERDICT: Tier 2 is VIABLE. Phase B (street life) proceeds pose-
+variants-first on the board's word.
+
+THE FAR-LINE A/B (0 gens; census first - and it caught my own
+premise): the flag as recorded UNDERSTATED the difference. The
+builder draws a STEPPED read - line (140,129,112) = OH walk tier 2
+under a paler far walk (186,174,152) = tier 4; the composer draws
+line AND far walk in one uniform pale (206,192,162) = walk tier 4 -
+no edge at all. (The v9 record's phrase "pale top edge" never
+matched the builder's actual pixel - the two-authorities smell was
+also a paper-vs-pixels drift.) Same-frame A/B built by exact-color
+swap (farline_ab.png). RECOMMENDATION: name the BUILDER'S stepped
+read, recorded as TIER LAW - far curb line = walk[1], far walk =
+walk[3], register-aware so every district inherits its own tones.
+Hero is already lawful (NO re-bake, reference sha untouched);
+the district composer re-bakes Moretti's/Vinnie's as recorded
+by-design diffs confined to rows 344-359. AWAITING THE NAMED
+WINNER.
+
+University Hill (item 3) opens next round, paper first: location
+proposal + neighbor briefs before any staging file.
