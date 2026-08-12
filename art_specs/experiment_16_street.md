@@ -1572,3 +1572,60 @@ PROOFS RE-RUN: v23 candidate (now with cut + clipped yellow +
 corrected actors) Godot **0 / 230,400**; approved scene re-baked
 and re-proven **0 / 230,400**, reference sha unchanged. Spend this
 pass: 0 gens; session D total stands at 8.
+
+## The kit promoted; the decal class opened (2026-08-12, board:
+## "I agree with your suggestions. Proceed"; 2 gens)
+
+THE PROMOTIONS, on the board's word:
+- Corner picks **se s16931 / sw s16933** entered approved/ (sha256s
+  in e16_corner_promotion_2026-08-12.json; raws stay in
+  candidates/curb_corners/). The kit placement law rides with them:
+  corners sit on the 16px stone grid; crossing corridors never
+  overlap a return.
+- **The crosswalk entered the hero block**: approved/street_block_
+  staging.json carries the crossing (DiNapoli's doorway alignment,
+  recorded wheel bands, curb cut, clipped yellow zone); the v23
+  candidate file is RETIRED (one writable authority). The staged
+  scene changed by sanctioned ruling: reference sha 9a556b33... ->
+  **bc8c1e0a...**, recorded in e16_crosswalk_promotion_2026-08-12
+  .json; Godot proof **0/230,400**; board v23 supersedes v22b.
+
+QUEUE #2 OPENED — THE GRIME/CRACK DECAL CLASS. Design ruling
+recorded before pixels: decals are TRANSLUCENT overlays, the class
+the oil stains / contact shadows / yellow curb founded — alpha
+layers flattened at bake that darken any district register without
+minting new exact colors (decision 5 stays safe). District grading
+is PLACEMENT DATA under a recorded law: the Meadows dirtiest, Old
+Harbor moderate, Little Sicily swept, University pristine.
+
+- CODE (street_block.py, suite 137 -> 141 with validator rules):
+  `asphalt_patch` (tar seam + hash corner nibbles; ROAD-ONLY,
+  validator-enforced), `grime_stain` (the oil-stain geometry
+  generalized), `wall_streak` (drawn but NOT staged — streaks land
+  on approved facade art and await their own ruling),
+  `crack_to_decal` (the curation law: luminance -> black alpha).
+- THE CRACK PROBE (2 gens, s16951/s16952, provenance
+  e16_crack_probe.json): **free generation at decal scale fills the
+  canvas** (100% opaque texture field — refused, measured) while a
+  crude 2px code polyline @120 refined into a genuine hairline
+  branching crack at 7% opaque. LAW: cracks are SHAPE-FROM-
+  GENERATION, TONE-FROM-LAW — polyline anchor, repair pass,
+  crack_to_decal conversion; the one decal lands on every district
+  road (OH + Meadows swatches proven).
+- Staging schema: optional `decals` list ({type, x, y, w, h,
+  variant} or crack + asset); validator refuses unknown types,
+  out-of-scene origins, off-road patches.
+- IN-SCENE: hero **v24 CANDIDATE** (candidates/street_block_
+  staging_v24_decals.json) — the Old Harbor MODERATE roster: two
+  patches (one per lane), the frost-heave crack by the manhole, two
+  stains. Builder decal support proven inert (approved re-bake
+  byte-identical at bc8c1e0a...); **v24 Godot proof 0/230,400**;
+  approved v23 restored and re-proven 0/230,400.
+
+AWAITING THE BOARD: the v24 decal roster (and with it the class'
+read at "moderate"); the far-curb-line color flag STILL OPEN (needs
+an explicit winner named — the flag's two voices are recorded
+above); then the Meadows/LS rosters, more crack anchors (each its
+own seed), and the wall-streak ruling. Session D+E spend: 10 gens
+total (4 drift + 4 corners + 2 crack probe); expected balance
+~4,112, ledger-verified.

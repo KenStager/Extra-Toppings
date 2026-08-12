@@ -449,6 +449,79 @@ def curb_corner_anchor(orientation: str = "se") -> Image.Image:
     return im
 
 
+# ------------------------------------------------- the decal class
+# Grime, cracks and patches are TRANSLUCENT overlays — the class the
+# oil stains, contact shadows and yellow curb founded: alpha layers
+# flattened into the ground at bake, so they darken any district's
+# register without minting new exact colors (decision 5 stays safe).
+# District grading is placement data, guided by the recorded law:
+# the Meadows dirtiest, Old Harbor moderate, Little Sicily swept,
+# University pristine. Nothing is hand-random: every irregularity
+# derives from paint_wear_drop-class hashes of the decal's own data.
+
+
+def asphalt_patch(w: int, h: int, variant: int = 0) -> Image.Image:
+    """A patched-asphalt decal: the road crew's newer tar reads darker.
+
+    Translucent black fill with a heavier tar seam; corner nibbles by
+    the recorded hash keep the rectangle honest (patches are cut by
+    hand, not by CAD). Deterministic in (w, h, variant).
+    """
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rectangle([1, 1, w - 2, h - 2], fill=(10, 9, 8, 56))
+    d.rectangle([1, 1, w - 2, h - 2], outline=(8, 7, 6, 118))
+    for cx, cy in ((0, 0), (w - 3, 0), (0, h - 3), (w - 3, h - 3)):
+        if paint_wear_drop(cx + variant * 7, cy + variant * 11, 55):
+            d.rectangle([cx, cy, cx + 2, cy + 2], fill=(0, 0, 0, 0))
+    return im
+
+
+def grime_stain(w: int, h: int, variant: int = 0) -> Image.Image:
+    """A grime-stain decal: 2-3 lobed translucent darkening, the oil
+    stains' geometry generalized. Deterministic in (w, h, variant).
+    """
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse([0, h // 4, w - 1, h - 1], fill=(14, 12, 10, 62))
+    lx = (variant * 37) % max(w // 2, 1)
+    d.ellipse([lx, 0, lx + w // 2, h // 2 + 1], fill=(14, 12, 10, 48))
+    if variant % 2:
+        d.ellipse([w // 3, h // 3, w - 1, h - 1], fill=(10, 9, 8, 44))
+    return im
+
+
+def wall_streak(h: int, w: int = 5) -> Image.Image:
+    """A weather streak for wall bases and sill lines: two nested
+    translucent columns, heavier at the top where the water starts.
+    """
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rectangle([1, 0, w - 2, h - 1], fill=(12, 11, 10, 36))
+    d.rectangle([w // 2 - 1, 0, w // 2, h // 3], fill=(12, 11, 10, 60))
+    return im
+
+
+def crack_to_decal(image: Image.Image, max_alpha: int = 150) -> Image.Image:
+    """Curation law for generated cracks: shape from generation, tone
+    from law. Maps every opaque pixel to translucent BLACK with alpha
+    from darkness (darker source -> stronger crack), so the decal
+    joins the translucent class and lands on any register.
+    """
+    src = image.convert("RGBA")
+    out = Image.new("RGBA", src.size, (0, 0, 0, 0))
+    for y in range(src.height):
+        for x in range(src.width):
+            r, g, b, a = src.getpixel((x, y))
+            if a == 0:
+                continue
+            lum = 0.3 * r + 0.59 * g + 0.11 * b
+            alpha = int(max_alpha * (1.0 - lum / 255.0))
+            if alpha > 24:                      # faint pixels drop out
+                out.putpixel((x, y), (0, 0, 0, alpha))
+    return out
+
+
 def place_with_contact_shadow(
     canvas: Image.Image,
     sprite: Image.Image,
@@ -642,6 +715,19 @@ def validate_scene_staging(data: dict) -> None:
                 raise ValueError(
                     f"wall prop {wname!r} and curb prop {cname!r} share an x-slot"
                 )
+    DECAL_TYPES = {"patch", "stain", "crack"}   # ground decals; wall
+    # streaks touch approved facade art and await their own ruling
+    for i, decal in enumerate(data.get("decals", [])):
+        if decal.get("type") not in DECAL_TYPES:
+            raise ValueError(f"decal {i} has unknown type {decal.get('type')!r}")
+        if not (0 <= decal["x"] < SCENE_WIDTH and 0 <= decal["y"] < SCENE_HEIGHT):
+            raise ValueError(f"decal {i} origin out of scene")
+        if decal["type"] == "patch":
+            road = (data["bands"].get("road_parking", data["bands"].get("road")))
+            road_top = road[0]
+            road_bot = data["bands"].get("road_travel", road)[1]
+            if not (road_top <= decal["y"] < road_bot):
+                raise ValueError(f"decal {i}: patches are road-only")
     crosswalk = data.get("crosswalk")
     if crosswalk is not None:
         x0, x1 = crosswalk["x"]

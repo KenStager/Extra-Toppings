@@ -279,6 +279,39 @@ class CurbCutTests(unittest.TestCase):
             curb_vertical_cut(30, road_side="north")
 
 
+class DecalClassTests(unittest.TestCase):
+    """Grime/crack decals: translucent, deterministic, register-safe."""
+
+    def test_decals_are_deterministic(self) -> None:
+        from tools.art_pipeline.street_block import asphalt_patch, grime_stain
+
+        self.assertEqual(list(asphalt_patch(24, 14, 3).getdata()),
+                         list(asphalt_patch(24, 14, 3).getdata()))
+        self.assertEqual(list(grime_stain(20, 10, 5).getdata()),
+                         list(grime_stain(20, 10, 5).getdata()))
+
+    def test_decals_are_translucent_only(self) -> None:
+        from tools.art_pipeline.street_block import (
+            asphalt_patch, grime_stain, wall_streak)
+
+        for im in (asphalt_patch(24, 14), grime_stain(20, 10), wall_streak(16)):
+            alphas = {im.getpixel((x, y))[3]
+                      for y in range(im.height) for x in range(im.width)}
+            self.assertNotIn(255, alphas)        # never opaque
+            self.assertLess(max(alphas), 160)    # stays a tint, not a paint
+
+    def test_crack_curation_maps_darkness_to_alpha(self) -> None:
+        from tools.art_pipeline.street_block import crack_to_decal
+
+        src = _flat(3, 1, (0, 0, 0, 255))          # black -> strongest
+        src.putpixel((1, 0), (240, 240, 240, 255))  # pale -> drops out
+        src.putpixel((2, 0), (0, 0, 0, 0))          # transparent stays
+        out = crack_to_decal(src)
+        self.assertEqual(out.getpixel((0, 0)), (0, 0, 0, 150))
+        self.assertEqual(out.getpixel((1, 0)), (0, 0, 0, 0))
+        self.assertEqual(out.getpixel((2, 0)), (0, 0, 0, 0))
+
+
 class PlacementTests(unittest.TestCase):
     def _sprite(self) -> Image.Image:
         sprite = _flat(10, 10, (0, 0, 0, 0))
@@ -412,6 +445,48 @@ class SceneStagingValidatorTests(unittest.TestCase):
         self._refuses(
             lambda d: d.update(crosswalk={"x": [280, 320], "stripe": 0}),
             "must be positive",
+        )
+
+
+class DecalStagingTests(unittest.TestCase):
+    def _refuses(self, mutate, fragment: str) -> None:
+        from tools.art_pipeline.street_block import validate_scene_staging
+
+        data = _lawful_staging()
+        mutate(data)
+        with self.assertRaisesRegex(ValueError, fragment):
+            validate_scene_staging(data)
+
+    def test_lawful_decals_pass(self) -> None:
+        from tools.art_pipeline.street_block import validate_scene_staging
+
+        data = _lawful_staging()
+        data["decals"] = [
+            {"type": "patch", "x": 60, "y": 300, "w": 30, "h": 16},
+            {"type": "stain", "x": 20, "y": 190, "w": 24, "h": 10},
+            {"type": "crack", "x": 400, "y": 250,
+             "asset": "candidates/decals/crack_s16952_decal.png"},
+        ]
+        validate_scene_staging(data)
+
+    def test_unknown_decal_type_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(decals=[{"type": "mural", "x": 5, "y": 5}]),
+            "unknown type",
+        )
+
+    def test_patch_off_the_road_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(decals=[{"type": "patch", "x": 60, "y": 180,
+                                        "w": 20, "h": 10}]),
+            "road-only",
+        )
+
+    def test_decal_out_of_scene_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(decals=[{"type": "stain", "x": 700, "y": 5,
+                                        "w": 10, "h": 5}]),
+            "out of scene",
         )
 
 
