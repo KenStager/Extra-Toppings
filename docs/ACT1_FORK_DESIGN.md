@@ -648,8 +648,17 @@ no owner — **Sal notices, and there is no turf penalty**, which is
 what makes the unowned site a genuinely safe pick rather than a
 flavour difference. Opening on an owned district applies a **−25
 relation delta through the existing `adjust_relation` authority** —
-not a new number reached a new way — and their counterplay intensifies
-in that district thereafter. **A dead owner produces no retaliatory
+not a new number reached a new way — and **that delta IS the ongoing
+intensification** (rev. 34): `rival_policy` derives `grudge` from
+relation and feeds it straight into `act_chance`, so a living owner
+whose turf you took comes more often, for as long as the relation
+stays where you put it. No second multiplier prices the same offense
+twice (rev. 33 item 12, rejected). **They are not obliged to hit the
+room that provoked them** — their actions still go to the softest
+address, which is the coherent story rather than a bookkeeping
+exception: an offended rival attacks where the operation is weak.
+P4b.5 may propose a separate multiplier only if measurement
+falsifies the −25 response. **A dead owner produces no retaliatory
 response**: a rival at strength 0 cannot be provoked, and a branch
 that pretended otherwise would resurrect a defeated enemy to punish
 expansion. The site cards therefore carry consequences the engine can
@@ -843,25 +852,49 @@ penalty from its first service.** Entering the branch is never
 refused for want of a manager — the penalty is the consequence, not
 the chair being withheld.
 
-**The post belongs to the ADDRESS, and only to an address that has
-one** (rev. 33 items 7–8). The manager's identity, the day the post
-emptied and the pending opportunity are three fields on the `Shop`
-record, not on `BranchState`: the penalty they carry is that
-address's kitchen capacity and that address's believable ceiling, and
-a branch-level manager would have to be re-associated with an address
-every time it was read. **The founding address never carries the
-post** — it is the operator's own room, it is the one address that
-exists flag-off, and validation REFUSES a manager record on it, so
-the machine cannot reach a released surface even by accident.
-*Eligibility to be appointed:* hired, aware, **assigned to that
-address**, not arrested and not injured. *Holding* the post survives
-injury — a manager with a broken arm is still the manager, and injury
-is not one of the loss routes canon lists. The three outcomes carry
-three persisted successor states: **appointed** (vacancy cleared),
-**declined** (offered and refused), **exhausted** (offered with no
-eligible name to give it to). Declined and exhausted carry the same
-penalty and different records, because what the player did and what
-the player could not do are different facts.
+**The post is ONE typed value on the address** (rev. 33 item 7 as
+corrected by rev. 34 item 1). `ManagerPost` is frozen and replaced
+atomically by the transition authorities — never three independently
+writable fields, which would recreate the exact disagreement class
+`RaidWarning` and `TributeDemand` exist to prevent. It lives on the
+`Shop` because the penalty it carries is that address's kitchen
+capacity and that address's believable ceiling. Its **only valid
+shapes** are: *staffed* — a manager key, no vacancy day, opportunity
+`none`; *vacant/pending*, *vacant/declined*, *vacant/exhausted* — no
+manager, an exact vacancy day, and the matching opportunity. **The
+founding address has NO post at all**, and a Partner non-founding
+address **must have one**: both halves are validated, so the machine
+cannot reach a released surface and cannot go missing where canon
+requires it.
+
+**Two predicates, deliberately not one** (rev. 34 item 1).
+*Appointable:* hired, aware, assigned there, not arrested, **not
+injured**. *Valid holder:* hired, aware, assigned there, not
+arrested — **injury does not vacate the post**, because a manager
+with a broken arm is still the manager and injury is not one of
+canon's loss routes. Validation binds the HOLDER predicate; the
+appointment screen offers only the APPOINTABLE. One predicate for
+both would either evict the injured or let them be appointed from a
+hospital bed.
+
+The three outcomes carry three persisted successor states:
+**appointed** (vacancy cleared), **declined** (offered and refused),
+**exhausted** (offered with no eligible name to give it to).
+Declined and exhausted carry the same penalty and different records,
+because what the player did and what the player could not do are
+different facts.
+
+**The opportunity drains at ONE boundary: immediately before
+service, after every morning staff choice** (rev. 34 item 2). Firing
+or reassigning a manager happens *during* the morning, and a
+tomorrow-shaped trigger would let that address serve once without
+ever receiving the opportunity canon promises. **A pending
+opportunity must never reach an actual service unresolved**, and the
+full vacancy penalty applies only after decline or exhaustion —
+appointment clears it before it ever bites. This one boundary also
+delivers construction's initial opportunity and any vacancy created
+during the previous service or night, so there is exactly one
+trigger rather than a family of them.
 
 Initial placeholders, §6.3-class and
 movable only by the recorded falsification workflow: **one management
@@ -1928,11 +1961,15 @@ Ordered roughly by blast radius, smallest first:
     Carries rev. 33: the target authority's policy (the refusal in
     `models.raid_target` becomes a total order), `ShopDefenseView`,
     the typed address-bearing tribute, the complete manager state
-    machine on the `Shop` record with its bypass-proof validator, and
-    a staff **reassignment** verb gated on a second address — without
-    which the allocation lever canon promises cannot be operated.
-    Three of these touch released code paths on an identity-preserving
-    basis; that identity is MEASURED at both gates, never assumed.
+    machine as ONE typed `ManagerPost` on the `Shop` record with its
+    bypass-proof validator, and a staff **reassignment** verb gated on
+    a second address — without which the allocation lever canon
+    promises cannot be operated. **Every shared model, save, menu and
+    phase edit in this PR is under strict one-address equivalence**
+    (rev. 34 item 6) — shared `Rival` and `Shop` persistence and
+    projection, `raid_target`, raid defense, `_staff_menu`, the tip's
+    district, the heat-teeth membership — and that equivalence is
+    MEASURED at both gates and both battery depths, never assumed.
   - *P4b.4 — the grade and the endings.* The one Partner grading
     view, the tiers, the card that shows its work, `operation` and
     `on_the_hook` with their texts, and the §2.5 matrix rows.
@@ -5513,3 +5550,186 @@ in code.
     gated; (f) the two matrices; (g) FINDINGS. The turf-intrusion
     multiplier of item 12 is NOT in this sequence and joins it only
     on a ruling.
+
+**Revision 34** records the consolidated review's disposition on
+revision 33 and the six corrections it carries. Items 1–7, 9–11 and
+13–17 of revision 33 are ACCEPTED subject to these; item 8 is
+APPROVED with a specified surface; item 12 is REJECTED. Paper first:
+this revision lands before the mechanics it authorizes, and amends
+§2.4.2 and §7 in place rather than living only here.
+
+**Item 8, approved, and what the surface must actually do.**
+Reassignment is required — without it the defense-allocation mechanic
+is decorative. The staff surface: appears **only when multiple
+addresses exist**; lists destinations in **stable-key order** while
+speaking **only district labels**; permits staffing a **construction
+site**, through `addresses_allowing(state, "staffing")`, which is one
+of the two capabilities a site under construction has; routes a
+manager's reassignment **through the vacancy authority BEFORE the
+assignment changes**, so the post is never left pointing at someone
+who has already moved; shows **every employee's current district
+assignment**; and shows **each address's defender count and defense
+strength from `ShopDefenseView`, including whether the guard
+contributes**. That last clause is the point of the screen: the
+player must be able to SEE that reallocating staff changed the
+result, and must not be asked to reverse-engineer `max(nerve) + 4`
+from outcomes.
+
+**Item 12, rejected, and the prose corrected.** `TURF_INTRUSION_MULT`
+is not added. The −25 relation delta **already has** the ongoing
+mechanical consequence the design promised: `rival_policy` derives
+`grudge` from relation and feeds it into `act_chance`, so a living
+owner whose turf you took comes more often for as long as the
+relation stays there. A second multiplier would price the same
+territorial offense twice before P4b.5 has measured it even once.
+§2.4.2 now says the intensification is that delta, through that
+authority, and adds the half revision 33 left unsaid: **the offended
+owner is not obliged to hit the room that provoked them** — their
+actions still go to the softest address, which is coherent story
+rather than a bookkeeping exception. P4b.5 may propose a separate
+multiplier later, and only if measurement falsifies the −25 response.
+
+1. **One typed `ManagerPost`, not three loose fields.** Revision 33
+   put `manager_key`, `manager_vacancy_day` and
+   `manager_opportunity` on `Shop` as three independently writable
+   fields. That is the disagreement class `RaidWarning` and
+   `TributeDemand` exist to prevent, and putting it back one PR after
+   removing it from tribute would have been the respell rule broken
+   in the same commit that cites it. **One frozen `ManagerPost`
+   value, replaced atomically by the transition authorities.** Valid
+   shapes, exhaustively: *staffed* (manager key present, vacancy day
+   absent, opportunity `none`); *vacant/pending*, *vacant/declined*,
+   *vacant/exhausted* (no manager, an exact vacancy day, the matching
+   opportunity). Anything else is refused at construction. **The
+   founding address has no post; a Partner non-founding address must
+   have one** — both directions validated, because a missing post
+   where canon requires one is as wrong as a post where canon forbids
+   it.
+
+   **Two predicates, and revision 33 could not have had one.** It
+   said holding the post survives injury while also asking validation
+   to enforce appointment eligibility — which includes not being
+   injured — so an injured manager would have been simultaneously
+   legitimate and refused. Corrected: *appointable* is hired, aware,
+   assigned there, not arrested, **not injured**; *valid holder* is
+   hired, aware, assigned there, not arrested. Validation binds the
+   HOLDER; the appointment screen offers the APPOINTABLE.
+
+   **Migration, on P4b.2's absence discipline.** A pre-P4b.3 payload
+   carries no post at all. At the **founding address** absence
+   migrates to **no post**, which is what every existing save means.
+   At **Partner's second address** absence migrates to the **initial
+   pending vacancy, dated from that address's persisted acceptance
+   day** — the opportunity was canonically owed from the moment the
+   deal was struck, and no prior engine could have consumed it, so
+   restoring it invents nothing and withholding it would silently rob
+   a loaded run of a window canon grants. **Present-but-malformed
+   refuses**, and the load → serialize → reload chain is pinned with
+   a stable second serialization, exactly as revision 32's arrest day
+   is.
+
+   **`shop_defense` takes an identity, not a loose record.** It
+   accepts a stable shop key, or canonicalizes a supplied `Shop`
+   through `models.canonical_shop` before reading it. A detached copy
+   carrying a real key must not contribute fictional defenders or a
+   fictional guard upgrade to a targeting decision — the same defect
+   `canonical_shop` was built for at the six morning surfaces.
+
+2. **The manager-loss inventory was incomplete, and the opportunity's
+   timing was wrong.** The complete set of routes that empty the
+   post: **route arrest, poach, firing, resignation, reassignment,
+   and paid witness settlement / severance through
+   `evidence.settle_witness`.** The settlement path was missing from
+   revision 33 and is genuinely reachable — Partner joined
+   remediation in P4b.2, so settling a witness who happens to manage
+   shop 2 removes them from the roster (`e.hired = False`) with no
+   fired-knowing-everything record, and would have left a ghost
+   manager behind. **Initial vacancy is the STARTING STATE, not a
+   sixth mutation caller** — nothing transitions into it, which is
+   why revision 33 listing it beside the others was a category error.
+
+   **Timing:** pending opportunities drain through **one automatic
+   boundary immediately before service, after all morning staff
+   choices**. Revision 33's "next morning" trigger was wrong in a way
+   that matters: firing or reassigning a manager happens *during* the
+   morning, so that address would serve once — earning, laundering
+   and taking its full kitchen capacity — before the promised
+   opportunity ever arrived. **A pending opportunity must not reach
+   an actual service unresolved.** The full vacancy penalty applies
+   only after decline or exhaustion; appointment clears it first. The
+   same boundary delivers construction's initial opportunity and any
+   vacancy created during the previous service or night, so there is
+   one trigger and not a family of them. **Settlement and
+   same-morning firing/reassignment are added as rows to the
+   manager-transition matrix.**
+
+3. **The typed tribute's address must be OPERATIONAL, not flavour.**
+   A standing `TributeDemand` is recurring protection attached to an
+   address. Exactly: `_extort` **selects the target once and persists
+   it**; if that rival later raises a warning **while the demand
+   stands**, the warning uses **the demand's stored address** rather
+   than retargeting — the man collecting protection on your Meadows
+   room does not threaten a different room; if a demand and a warning
+   both exist, **cross-state validation requires their addresses to
+   agree**; **paying averts the current warning but preserves the
+   standing weekly demand**, matching current behaviour exactly;
+   **truce and the ledger lean clear the demand**, as they clear the
+   scalar today; and **with no standing demand the existing $1,500
+   payment stays tied to the warning's address and creates no
+   demand** — paying a shakedown that was never demanded must not
+   enrol you in one.
+
+   *Legacy migration, and the one case that must refuse:* a scalar
+   **zero** becomes **no demand**; a **positive scalar with exactly
+   one address** may infer that address, because there was only one
+   it could have meant; a **positive scalar with several addresses
+   REFUSES** — its target is unrecoverable and must never default
+   home, which is the same ruling `save._rival_from` already makes
+   for an untargeted countdown. Canonical and legacy fields remain an
+   **exact schema union**: one or the other, never both, never
+   neither.
+
+4. **The address-pressure matrix's categories were wrong.** Revision
+   33 described coupon days and the law sweep as raid consequences.
+   They are not, and a matrix that mislabels which authority owns a
+   row proves the wrong thing. Corrected, by owner:
+   - **Price war** — the selected address receives **coupon days**.
+   - **Informant tip** — the selected address's **district receives
+     heat**.
+   - **Warning** — **freezes** its selected address.
+   - **Incoming raid** — that **warning's** address supplies the
+     guard, the defenders, the damage days, the stash taken, the
+     reputation lost and the raid's heat.
+   - **Law** — sweeps **every law-targetable address
+     independently**, each against **its own district's heat and its
+     own stash**, and **must not consult the rival target at all**.
+     The law is not a rival; a sweep that read the raid's target
+     would make the police an instrument of Sal's grudge.
+
+5. **The story contract is tighter than "prompts and options."**
+   Partner's multi-address narration names districts and explains why
+   a pressure or a vacancy matters. But **all one-address released
+   narration is preserved byte-for-byte — not merely the prompts and
+   options the golden happens to digest.** The golden's blind spots
+   are not permission to rewrite released prose; `con.say` and
+   `con.bullet` lines on a one-address path are as frozen in practice
+   as a menu string, and the fact that a gate would not catch a
+   change there is the reason to be careful, not a licence. The staff
+   screen must make allocation legible, and the warning, the tribute
+   note, the tip, the raid, the manager opportunity and the nephew
+   penalty must each identify the affected district. Raw keys never
+   appear in player-facing text.
+
+6. **The gate statement was too narrow.** Revision 33 named items 6,
+   10 and 11 as "the three released paths". That undercounts: this
+   pass also changes shared `Rival` persistence, shared `Shop`
+   persistence and projection, `raid_target`, raid defense and
+   `_staff_menu`. **The rule replaces the enumeration: every shared
+   model, save, menu and phase edit in this PR is under strict
+   one-address equivalence.** At the PR boundary: both exhaustive
+   matrices driven through real production paths; the save/load and
+   present-malformed persistence cases; the full suite on 3.11, 3.12
+   and 3.13; ruff and mypy; both identity gates on all three
+   interpreters; the 150- and 500-seed batteries diffed against fresh
+   merged-main output. **No golden regeneration**, and any released
+   movement is a defect to fix rather than a result to record.
