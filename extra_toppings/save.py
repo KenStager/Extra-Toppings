@@ -102,6 +102,27 @@ def _migrate_v2(d: dict) -> dict:
     return out
 
 
+def _arrested_day(d: dict) -> int | None:
+    """THE arrest day's migration boundary. ABSENCE is the licence
+    (P4a's discipline, P4b.2 review): a payload written before the
+    field existed simply does not carry it, and an arrested run from
+    that era has no recorded day — it loads as None and can claim
+    nothing that a day would buy. A payload that HAS the field and
+    holds null on an arrested run is a different thing entirely: it
+    is current-format and missing the fact it is supposed to carry,
+    which is malformed, not historical. `.get` cannot tell those
+    apart, which is why it is not used here."""
+    if "arrested_day" not in d:
+        return None                     # history, migrated
+    day = d["arrested_day"]
+    if day is None and d.get("game_over") == "arrested":
+        raise ValueError(
+            "the run ended in an arrest and the payload carries no "
+            "day for it — a current-format arrest records when the "
+            "file closed")
+    return day
+
+
 def state_from_dict(d: dict) -> State:
     if d.get("version") == 2:
         d = _migrate_v2(d)
@@ -188,7 +209,7 @@ def state_from_dict(d: dict) -> State:
         evidence=[Evidence(**e) for e in d["evidence"]],
         news=list(d["news"]),
         game_over=d["game_over"], debt_paid_day=d["debt_paid_day"],
-        arrested_day=d.get("arrested_day"),
+        arrested_day=_arrested_day(d),
         total_laundered=d["total_laundered"], raids_led=d["raids_led"],
         kills=d["kills"], demand_shock=d["demand_shock"],
         act=d["act"], branch=d["branch"],

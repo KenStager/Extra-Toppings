@@ -634,6 +634,82 @@ class TestTheLedgerReconciles(unittest.TestCase):
         self.assertEqual(state.day, due + 1)
         save.state_from_dict(save.state_to_dict(state))
 
+    def _lagging_arrested(self):
+        """The genuine shape: the file closed on the bill's own night
+        and the phase advanced the day once."""
+        state = self._lagging()             # day 20, bill due 19
+        state.day = 19
+        state.add_case(100.0, "the file closes", kind="physical")
+        state.day = 20
+        assert state.arrested_day == 19
+        return state
+
+    def test_a_fabricated_arrest_is_refused_at_the_boundary(self):
+        # The doctored lagging save: the ending, the day on the
+        # bill's own night, and a file nowhere near closed. It bought
+        # the skipped bill AND the precedence, and it loaded.
+        state = self._lagging()
+        payload = save.state_to_dict(state)
+        payload["game_over"] = "arrested"
+        payload["arrested_day"] = payload["branch_state"]["points_due_day"]
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("it closes at 100", str(caught.exception))
+
+    def test_a_malformed_or_future_arrest_day_is_refused(self):
+        state = self._lagging_arrested()
+        save.state_from_dict(save.state_to_dict(state))      # baseline
+        for bad in (19.0, True, "19", 0, -1, state.day + 1):
+            with self.subTest(bad=bad):
+                payload = save.state_to_dict(state)
+                payload["arrested_day"] = bad
+                with self.assertRaises(ValueError):
+                    save.state_from_dict(payload)
+
+    def test_an_arrest_day_dangling_on_another_ending_is_refused(self):
+        state = self._lagging_arrested()
+        payload = save.state_to_dict(state)
+        payload["game_over"] = "sold"
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("an arrest day is recorded", str(caught.exception))
+
+    def test_absence_migrates_but_a_present_null_does_not(self):
+        # The absence-only discipline at the one boundary licensed to
+        # apply it: a payload written before the field existed does
+        # not carry it and loads as history; a current-format
+        # arrested payload holding null is missing the fact it is
+        # supposed to carry. `.get` cannot tell those apart.
+        # The legacy half uses a plain arrested run, because no
+        # released save can carry a Partner branch at all — and a
+        # migrated arrest has no recorded day, so it can never claim
+        # the lag exception a day would buy.
+        old_run = new_state()
+        old_run.day = 19
+        old_run.add_case(100.0, "the file closes", kind="physical")
+        legacy = save.state_to_dict(old_run)
+        del legacy["arrested_day"]
+        self.assertIsNone(save.state_from_dict(legacy).arrested_day)
+        state = self._lagging_arrested()
+        current = save.state_to_dict(state)
+        current["arrested_day"] = None
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(current)
+        self.assertIn("no day for it", str(caught.exception))
+
+    def test_the_latch_is_append_once(self):
+        # The file closes once. A later call must not rewrite the day
+        # it closed on — a run arrested on Tuesday could otherwise be
+        # re-latched into Thursday and buy a skipped bill with it.
+        state = seated()
+        state.day = 19
+        state.latch_arrest()
+        self.assertEqual(state.arrested_day, 19)
+        state.day = 24
+        state.latch_arrest()
+        state.add_case(100.0, "more of the same", kind="physical")
+        self.assertEqual(state.arrested_day, 19)
+
     def test_an_arrest_that_crossed_on_another_night_excuses_nothing(self):
         # The timing half: an arrest AFTER the bill was already
         # missed does not reach back and excuse it. Carmine's money
@@ -689,7 +765,12 @@ class TestTheLedgerReconciles(unittest.TestCase):
         self.assertLess(state.case, 100)
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(save.state_to_dict(state))
-        self.assertIn("cannot skip a bill", str(caught.exception))
+        # Refused at the migration boundary first: an arrested
+        # payload in the current format carrying no day is missing
+        # the fact it is supposed to carry. The under-threshold
+        # version — ending AND day, with no file — is its own case
+        # below.
+        self.assertIn("no day for it", str(caught.exception))
 
     def test_a_finished_run_cannot_omit_days_of_history(self):
         # And the exception is BOUNDED: `game_over` is not a licence
@@ -698,7 +779,8 @@ class TestTheLedgerReconciles(unittest.TestCase):
         state = table_state(payoff_day=13)
         seat_partner(state)
         state.day = 25
-        state.game_over = "arrested"
+        state.add_case(100.0, "the file closes", kind="physical")
+        self.assertEqual(state.arrested_day, 25)   # a REAL arrest…
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(save.state_to_dict(state))
         self.assertIn("cannot skip a bill", str(caught.exception))

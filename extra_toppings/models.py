@@ -2082,6 +2082,32 @@ def validate_calendar(state: "State") -> None:
         raise ValueError(
             f"the calendar day is a positive whole day, got "
             f"{state.day!r}")
+    # THE ARREST TRANSITION (P4b.2 review). It was persisted and never
+    # validated, so a doctored lagging save could write
+    # `game_over="arrested"` with `arrested_day` on the bill's night
+    # and a file nowhere near closed — fabricating the arrest, its
+    # precedence, and the skipped bill it excuses, all at once. And
+    # `19.0 == 19`, so the day is type-checked like every other.
+    if state.arrested_day is not None:
+        if type(state.arrested_day) is not int:
+            raise ValueError(
+                f"the arrest day is a whole calendar day, got "
+                f"{state.arrested_day!r}")
+        if not 1 <= state.arrested_day <= state.day:
+            raise ValueError(
+                f"the file closed on day {state.arrested_day}, outside "
+                f"the calendar the run has reached (day {state.day})")
+        if state.game_over != "arrested":
+            raise ValueError(
+                f"an arrest day is recorded ({state.arrested_day}) on "
+                f"a run that ended {state.game_over!r}")
+    if state.game_over == "arrested" and state.case < CASE_MAX:
+        # The canonical file, at the threshold the game arrests on.
+        # A record claiming cuffs that never happened is refused
+        # whether or not it also carries a day.
+        raise ValueError(
+            f"the run ended in an arrest with the file at "
+            f"{state.case:.0f}; it closes at {CASE_MAX:g}")
     if state.debt_paid_day is not None:
         if type(state.debt_paid_day) is not int:
             raise ValueError(
@@ -3204,7 +3230,15 @@ class State:
         """THE arrest transition, in one place: the ending and the
         day it happened, recorded together. Nothing else may set
         `game_over` to "arrested", because a terminal without its day
-        is a terminal that later has to be guessed at."""
+        is a terminal that later has to be guessed at.
+
+        APPEND-ONCE. The file closes once; a later call must not
+        rewrite the day it closed on, or a run arrested on Tuesday
+        could be re-latched into Thursday and buy a skipped bill with
+        it. The three callers are all "if this ends the run" paths
+        and can fire on a run already ended."""
+        if self.game_over == "arrested" and self.arrested_day is not None:
+            return
         self.game_over = "arrested"
         self.arrested_day = self.day
 
