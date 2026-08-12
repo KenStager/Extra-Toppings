@@ -1365,3 +1365,36 @@ The door stays chained and NOT-A-DOORWAY: named is not open; the
 flag rides until the club becomes a gameplay surface. Composer
 extension regression-proven again (Moretti's byte-identical).
 review/vinnies_block_v3.png supersedes v2. Spend unchanged: 97.
+
+## The Orchid rebalanced; the interim debt retired to candidates
+## (2026-08-11 session C cont.; board: "The neon orchid is larger
+## than the main name. Work to rebalance... Be purposeful with this
+## work. This is critical refinement"; 8 gens)
+
+REBALANCE (0 gens, data): the marquee is now the name's home - THE
+(small) over ORCHID at letterboard scale 2 on a taller marquee, one
+bulb-row collision caught and fixed by a data nudge; the blade
+tightened to fixed-pitch stacked letters and reads as the vertical
+echo. Composer takes text_lines/pitch from staging.
+
+THE INTERIM DEBT, run purposefully - one prop at a time, anchors
+judged by eyes before any spend (the first crate anchor read as
+striped solid boxes, the booth as a vending machine, and both were
+being resized non-integer by lazy math; both were redrawn on exact
+canvases before a single generation):
+- BAGS (organic, tree precedent): both seeds landed; s16901 picked -
+  soft slate folds, cinched tops, tidy enough for the hero block and
+  grim enough for the Meadows.
+- CRATES: round 1 FAILED and paid for a law - my dark plank GAPS
+  invited the model to open the crates into empty lattice frames.
+  CRATES ARRIVE CLOSED: solid faces with thin seams. Round 2's
+  s16913 picked (dark-seamed X-braces echoing the shutter).
+- BOOTH (the pressure's own furniture - the calls arrive by phone):
+  s16921 picked at 12% wear over the v2 anchor - and it retires the
+  interim booth's institutional-BLUE register violation, the
+  doubled Omega's loudest wrong note on the hero block.
+All picks 0 off-strip. In-scene interim-vs-native A/Bs presented;
+the proof reference is UNTOUCHED - the staging swaps (hero block
+bags/booth, Vinnie's crates), the builder re-run and the byte-check
+await the board's word. Session C spend 105, ledger-verified;
+expected balance ~4,122.
