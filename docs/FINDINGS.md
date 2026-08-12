@@ -2730,6 +2730,100 @@ ways and is reported as added coverage, not proof**:
 the licence never had anything to say about a run that was not
 arrested, and now that is pinned.
 
+## Round 17 — P4b.3: the softest room, and the post nobody could forget
+
+The branch's pressure half and its manager half, built as one bounded
+pass on two consolidated paper commits (design revisions 33 and 34).
+
+**What the reading pass found, and it shaped the whole PR.** §2.4.2
+already specified far more than P4b.3's phase description implies:
+the softest-address tie-break, the exact `ShopDefenseView` formula
+with its baseline of 3 and its guard bonus of 4, the persisted-warning
+rule and the manager state machine were all settled canon. So
+revision 33 resolved the narrow real gaps rather than re-deciding
+ruled text, and said so. The three things genuinely open were the
+targeting POLICY (`raid_target` had been failing closed since P4a),
+whether a staff-assignment verb existed at all, and the magnitude of
+"their counterplay intensifies".
+
+**Two of those were ruled against me, and both rulings were right.**
+Revision 33 proposed the manager as three fields on `Shop`; the
+review replaced it with ONE frozen `ManagerPost` — three
+independently writable fields are the disagreement class
+`RaidWarning` and `TributeDemand` exist to prevent, and proposing
+them one PR after removing the same shape from tribute would have
+broken the respell rule in the commit that cites it. And revision 33
+asked for a new constant, `TURF_INTRUSION_MULT`, for the ongoing turf
+response; the review REJECTED it on a reading the proposal missed —
+the −25 relation delta already carries that consequence, because
+`rival_policy` derives `grudge` from relation and feeds it into
+`act_chance`. A second multiplier would have priced the same offense
+twice before P4b.5 measured it once. The design now says so, and adds
+the half revision 33 left unsaid: the offended owner is not obliged
+to hit the room that provoked them — they still go to the softest
+address, which is coherent story rather than a bookkeeping exception.
+
+**A contradiction inside my own paper, caught in review.** Revision
+33 said holding the post survives injury while also asking validation
+to enforce APPOINTMENT eligibility, which excludes the injured — so
+an injured manager would have been simultaneously legitimate and
+refused. There are now two predicates: `valid_holder` (hired, aware,
+assigned there, not arrested) is what validation binds, and
+`appointable` adds availability and is what the screen offers from.
+
+**A missing route, and a timing error.** The review found that paid
+witness settlement empties a post — reachable since Partner joined
+remediation in P4b.2, and it would have left a ghost manager running
+a shop after the settlement quietly took them off the payroll. And
+revision 33's "next morning" opportunity trigger was wrong in a way
+that mattered: firing or reassigning a manager happens DURING the
+morning, so that address would have served once, at full kitchen
+capacity, before the promised window arrived. The drain now sits at
+ONE boundary immediately before service.
+
+**What was measured.** 1,099 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
+all three; the golden untouched; both fork batteries byte-identical
+by `diff` against a fresh merged-main worktree run at 150 and 500
+seeds. Every shared model, save, menu and phase edit in this pass was
+under strict one-address equivalence (rev. 34 item 6) — shared
+`Rival` and `Shop` persistence, `raid_target`, raid defense,
+`_staff_menu`, the tip's district, the heat-teeth membership — and
+none of them moved a released digit.
+
+**The regression proof, and the vacuous row it exposed.** The engine
+landed across five commits, so a stash had nothing to take: rolling
+`extra_toppings/` back to the paper commit makes both new modules
+fail to IMPORT, and 87 tests do not run at all — reported as what it
+is, not as a failure count. The real proof is per-defect: each
+production behaviour reverted one at a time, matrices re-run. Rows
+killed — the tip's district 1, the guard read from the target 1, the
+demand aiming the warning 1, settlement releasing the post 1, the
+ghost-manager validator 4, the founding-address ban 1, the
+pre-service boundary 3, the kitchen penalty 1, the demand/warning
+agreement 1, address-local defenders **0**.
+
+That zero is the finding. The defender row asserted
+`shop_defense(...).strength` — it INSPECTED the view instead of
+executing the raid, so reverting `incoming_raid` to the global
+`state.crew()` broke nothing at all. It is the exact defect class
+this project has been catching since P4b.1b, written by the session
+that keeps a checklist about it. Replaced by two rows that execute
+through `phases.night`: nobody assigned across town is carried out of
+a fight they were not in, and moving the muscle INTO the threatened
+room changes whether that room holds on the same seed. Both fail on
+the global crew. **The lesson generalised: a probe per row is worth
+more than a count of rows, because a matrix cannot tell you which of
+its own assertions are load-bearing.**
+
+**What P4b.3 does NOT carry, recorded rather than left to be
+noticed.** The turf-intrusion multiplier is not in the tree, by
+ruling. Partner's adoption of the heat teeth is a real difficulty
+increase on an unreleased branch and how much of one is a P4b.5
+battery question, not a P4b.3 one. Both gate figures remain
+containment checks from P4b.1b onward and say nothing about whether
+the branch plays.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2766,13 +2860,16 @@ arrested, and now that is pinned.
   **P4b.1b is MERGED** (PR #25, approved at 416fa36 → merge b2a31ac;
   round 14), with design revision 31 as its paper. **P4b.2 is
   complete and awaiting review** (rounds 15 and 16) on PR #27, after
-  the incident recorded in the round-15 coda; the seventh review
-  round's arrest-day round-trip hold is answered under design
-  revision 32, whose shape (absence as the canonical representation)
-  and whose frozen allow-list are both **RULED AND APPROVED** at
-  `83a97b7` — see revision 32's ruling coda. The **server-side
-  ruleset safeguard remains the one unmet merge prerequisite**, and
-  it is not a design question. Nothing preceded it: the points schema was already ruled by revision 29
+  the incident recorded in the round-15 coda; design revision 32 carries its
+  paper, and its shape and frozen allow-list were both ruled and
+  approved (revision 32's ruling coda). The server-side ruleset
+  safeguard is **now MET** — `Restrict updates` active, KenStager the
+  sole bypass actor scoped for pull requests only — and PR #27 merged
+  at exactly `77cafa7`. **P4b.3 is complete and awaiting review**
+  (round 17), on design revisions 33 and 34. Next: **P4b.4 — the
+  grade and the endings**, then P4b.5 (which owns the P4 full
+  pairwise battery, per §7), then activation as a separate seventh
+  act. Nothing preceded it: the points schema was already ruled by revision 29
   item 1, and round 14's claim that a ruling was owed misread
   revision 28's superseded judgment call. Next: **P4b.3 — the
   manager, the vacancy and the two-front pressure**, which owes TWO
