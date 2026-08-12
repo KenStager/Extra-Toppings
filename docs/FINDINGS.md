@@ -2888,6 +2888,44 @@ current truth — which is the stale-record-read-as-current failure
 this project keeps catching in code, found here in the file whose
 whole job is to be current.
 
+**The follow-up: one door was locked and its twin was not.** The
+correction pass closed `appoint_manager` against detached records and
+left `release_from_posts` reading `employee.key` off whatever it was
+handed — so a clone could empty the canonical manager's post while
+the real person stayed hired, read in and assigned there, creating a
+vacancy from a record that is not anybody. And `canonical_employee`
+itself walked the roster for the FIRST matching key, which accepts an
+ambiguous identity: two entries keyed `e6` are not one person a
+lookup may pick between, they are a payload with no answer. Both are
+now the same door — the key resolves through `_only_with_key`, the
+shared authority that already refuses duplicates for shops and
+wagons, and object identity is enforced on what it returns; vacating
+canonicalizes before it reads a key or touches a post. The refusals
+are pinned with the post asserted byte-for-byte unchanged, and all
+four real routes stand beside them as positive controls so the door
+is not proved by one that refuses everybody.
+
+The lesson is narrower than "canonicalize your inputs" and worth
+stating as it actually happened: **closing one entrance to an
+authority is not closing the authority.** Appointment and vacating
+write the same field, and only one of them was hardened, so the value
+that could not be forged into existence could still be forged out of
+it.
+
+Two proof cleanups landed with it. The doctored-payload baseline
+proved only that deserialization RETURNED; it now asserts the
+pristine payload round-trips to itself before any mutation, so a
+refusal cannot be the baseline's own defect wearing the mutation's
+name. And the reputation validator's comment claimed the engine
+produces only 0..100 — false: `simulate_shift` clamps its drift, but
+`incoming_raid` subtracts 8 and 12 straight off the record with no
+floor. A room at reputation 5 that loses a fight goes to −7 and the
+save taken that night carries it. The comment is corrected, negative
+values join the positive controls, and the reachability is DRIVEN
+through a real landed raid rather than asserted from a literal — no
+clamp was added, because the validator refuses only what cannot be
+compared.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and

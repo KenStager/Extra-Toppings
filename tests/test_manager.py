@@ -362,12 +362,110 @@ class TestAppointmentRefusesEveryOtherDoor(unittest.TestCase):
         self.assertEqual(second(state).manager_post, before)
 
     def test_a_stranger_is_refused(self):
+        # KeyError, not ValueError: an unknown key is a lookup that
+        # cannot be answered, and this is the same shared authority
+        # `shop_by_key` raises from — `canonical_shop` refuses a
+        # ghost address exactly this way.
         state = seated()
         outsider = copy.deepcopy(
             next(e for e in state.employees if "Angelo" in e.name))
         outsider.key = "ghost"
-        with self.assertRaises(ValueError):
+        before = second(state).manager_post
+        with self.assertRaises(KeyError):
             models.appoint_manager(state, second(state), outsider)
+        self.assertEqual(second(state).manager_post, before)
+
+    def test_an_ambiguous_identity_is_refused_not_picked_between(self):
+        # Two entries keyed `e6` are not one person a lookup may pick
+        # between; they are a payload with no answer. Walking the
+        # roster for the first match ACCEPTED that (P4b.3 re-review).
+        state = seated()
+        who = staff(state, "Angelo", second(state).key)
+        state.employees.append(copy.deepcopy(who))
+        before = second(state).manager_post
+        with self.assertRaises(KeyError) as caught:
+            models.appoint_manager(state, second(state), who)
+        self.assertIn("ambiguous identity", str(caught.exception))
+        self.assertEqual(second(state).manager_post, before)
+
+
+class TestVacatingHasTheSameDoorAsAppointing(unittest.TestCase):
+    """P4b.3 re-review: appointment was closed against detached
+    records and VACATING was not, so the authority had one locked
+    door and one open one. A clone could empty the canonical
+    manager's post while the real person stayed hired, read in and
+    assigned there — a vacancy created by a record that is not
+    anybody."""
+
+    def test_a_detached_clone_cannot_vacate_the_canonical_post(self):
+        state = seated()
+        boss = install(state)
+        before = second(state).manager_post
+        with self.assertRaises(ValueError) as caught:
+            models.release_from_posts(state, copy.deepcopy(boss), "fired")
+        self.assertIn("detached copy", str(caught.exception))
+        # Byte for byte: the refusal mutated nothing at all.
+        self.assertEqual(second(state).manager_post, before)
+        self.assertEqual(second(state).manager_post.manager_key, boss.key)
+        self.assertTrue(boss.hired)
+
+    def test_an_ambiguous_identity_cannot_vacate_either(self):
+        state = seated()
+        boss = install(state)
+        state.employees.append(copy.deepcopy(boss))
+        before = second(state).manager_post
+        with self.assertRaises(KeyError) as caught:
+            models.release_from_posts(state, boss, "fired")
+        self.assertIn("ambiguous identity", str(caught.exception))
+        self.assertEqual(second(state).manager_post, before)
+
+    def test_a_stranger_cannot_vacate_either(self):
+        state = seated()
+        install(state)
+        outsider = copy.deepcopy(
+            next(e for e in state.employees if "Marcus" in e.name))
+        outsider.key = "ghost"
+        before = second(state).manager_post
+        with self.assertRaises(KeyError):
+            models.release_from_posts(state, outsider, "fired")
+        self.assertEqual(second(state).manager_post, before)
+
+    def test_every_real_route_still_empties_the_post(self):
+        # The positive controls, so the refusals above are not proved
+        # by a door that refuses everybody. Each is the REAL path.
+        routes_taken = []
+
+        state = seated()
+        boss = install(state)
+        crew = state.hired()
+        phases._staff_menu(state, Listening([3, crew.index(boss), 5]),
+                           random.Random(1))
+        routes_taken.append(("fired", second(state).manager_post.vacant))
+
+        state = seated()
+        boss = install(state)
+        crew = state.hired()
+        phases._staff_menu(state, Listening([4, crew.index(boss), 0, 5]),
+                           random.Random(1))
+        routes_taken.append(("reassigned",
+                             second(state).manager_post.vacant))
+
+        state = seated()
+        boss = install(state)
+        boss.morale, boss.resignation_pending = 1, True
+        phases._staff_trouble(state, Listening(), random.Random(2))
+        routes_taken.append(("resigned", second(state).manager_post.vacant))
+
+        state = seated()
+        boss = install(state)
+        state.add_case(20.0, "what they saw", kind="witness",
+                       source=boss.key)
+        evidence.settle_witness(state, boss, Listening())
+        routes_taken.append(("settled", second(state).manager_post.vacant))
+
+        for label, vacated in routes_taken:
+            with self.subTest(route=label):
+                self.assertTrue(vacated)
 
     def test_a_spent_window_is_not_handed_back(self):
         for spent in ("declined", "exhausted"):
@@ -412,9 +510,15 @@ class TestThePolicyInputsAreBound(unittest.TestCase):
     against a pristine baseline that round-trips."""
 
     def _baseline(self):
+        """The pristine control, proved rather than assumed: the
+        payload must round-trip to ITSELF before any doctoring, or a
+        refusal below could be the baseline's own defect wearing the
+        mutation's name (the standing doctored-payload rule)."""
         state = seated()
         staff(state, "Angelo", second(state).key)
-        save.state_from_dict(save.state_to_dict(state))    # it loads
+        payload = save.state_to_dict(state)
+        restored = save.state_from_dict(payload)
+        self.assertEqual(save.state_to_dict(restored), payload)
         return state
 
     def test_a_reputation_that_cannot_be_compared_is_refused(self):
@@ -430,13 +534,40 @@ class TestThePolicyInputsAreBound(unittest.TestCase):
 
     def test_the_reachable_reputations_still_load(self):
         # No balance clamp was invented: the domain refuses only what
-        # the engine can never produce.
-        for good in (0, 0.0, 20.0, 50, 100.0):
+        # the engine can never produce. NEGATIVE reputation IS
+        # reachable — `incoming_raid` subtracts 8 and 12 directly,
+        # with no floor — so it belongs in the controls rather than
+        # being quietly outlawed by a validator (P4b.3 re-review).
+        for good in (-12.0, -8.0, 0, 0.0, 20.0, 50, 100.0):
             with self.subTest(good=good):
                 state = self._baseline()
                 payload = save.state_to_dict(state)
                 payload["shops"][0]["reputation"] = good
                 save.state_from_dict(payload)
+
+    def test_a_negative_reputation_is_reached_by_playing_the_game(self):
+        # Not asserted from a literal: DRIVEN. A raid that lands
+        # subtracts 12 with no floor, so a room already scraping by
+        # goes under zero, and the save taken that night carries it.
+        # That is why the domain refuses only what cannot be
+        # COMPARED, and imposes no range.
+        state = seated()
+        state.day = second(state).opening_day + 1
+        at = second(state)
+        at.reputation = 5.0
+        at.stash = {"mushrooms": 6}
+        staff(state, "Marcus", at.key, nerve=1)
+        state.rivals["vinnie"].warning = models.RaidWarning(1, at.key)
+        state.rivals["sal"].strength = 0
+        phases.night(state, {"routes": {}, "raid": None},
+                     {"wagons": phases.WagonNight(state)},
+                     Listening([0]), Streams(11))
+        self.assertLess(at.reputation, 0.0)
+        back = save.state_from_dict(save.state_to_dict(state))
+        self.assertEqual(back.shop_by_key(at.key).reputation,
+                         at.reputation)
+        self.assertIn(models.raid_target(back, "vinnie"),
+                      {sh.key for sh in back.shops})
 
     def test_a_nerve_that_cannot_be_added_is_refused(self):
         for bad in ("9", 9.0, None, True):

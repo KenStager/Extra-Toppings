@@ -2000,17 +2000,24 @@ def canonical_employee(state: "State", employee) -> "Employee":
 
     `routes.validate_route_plan` already refuses the same thing for a
     driver; this is that rule, made an authority instead of a local
-    check."""
-    for e in state.employees:
-        if e.key != employee.key:
-            continue
-        if e is not employee:
-            raise ValueError(
-                f"{employee.name} is a detached copy of {e.key!r}, "
-                f"not this world's roster entry — a record is not an "
-                f"identity")
-        return e
-    raise ValueError(f"no employee with key {employee.key!r}")
+    check.
+
+    BOTH halves of the resolution, and the first pass had only one
+    (P4b.3 re-review). Walking the roster for the first matching key
+    ACCEPTS an ambiguous identity: two entries keyed `e6` are not one
+    person the lookup may pick between, they are a payload with no
+    answer. So the key is resolved through `_only_with_key` — the
+    shared authority that already refuses duplicates for shops and
+    wagons — and object identity is enforced on what it returns.
+    `canonical_shop` gets both halves from `shop_by_key`; this is
+    that, spelled out for a roster the state does not index."""
+    found = _only_with_key(state.employees, employee.key, "employee")
+    if found is not employee:
+        raise ValueError(
+            f"{employee.name} is a detached copy of {found.key!r}, "
+            f"not this world's roster entry — a record is not an "
+            f"identity")
+    return found
 
 
 def appoint_manager(state: "State", shop: "Shop", employee) -> None:
@@ -2084,10 +2091,19 @@ def release_from_posts(state: "State", employee, reason: str) -> None:
     removing happened to manage an address — `evidence.settle_witness`
     is the case that proves it, since Partner joined remediation and
     settling a manager would otherwise have left a ghost behind
-    (rev. 34 item 2)."""
+    (rev. 34 item 2).
+
+    THE IDENTITY IS RESOLVED FIRST (P4b.3 re-review). This door read
+    `employee.key` off whatever it was handed, so a detached clone
+    could empty the canonical manager's post while the real person
+    stayed hired, read in and assigned there — a vacancy created by a
+    record that is not anybody. Appointment was closed against that
+    and vacating was not, which left the authority with one locked
+    door and one open one."""
+    who = canonical_employee(state, employee)
     for at in state.shops:
         post = at.manager_post
-        if post is not None and post.manager_key == employee.key:
+        if post is not None and post.manager_key == who.key:
             vacate_manager(state, at, reason)
 
 
@@ -2272,10 +2288,14 @@ def validate_addresses(state: "State") -> None:
         # comparison meaningless — every NaN comparison is False, so
         # the "softest" answer becomes an artefact of iteration order.
         # A bool is refused for the reason `type(...) is int` is used
-        # everywhere else here: True is not a reputation of 1. No
-        # clamp is imposed — the domain is what the engine already
-        # produces (0..100 through `max`/`min`), and this refuses only
-        # what it never could.
+        # everywhere else here: True is not a reputation of 1. NO
+        # CLAMP is imposed, and the range is deliberately unstated:
+        # `simulate_shift` bounds the drift to 0..100, but
+        # `incoming_raid` subtracts 8 and 12 straight off the record
+        # with no floor, so a NEGATIVE reputation is reachable by
+        # ordinary play. What is refused is only what no path can
+        # produce — a value that cannot be compared or is not a
+        # number at all.
         if type(s.reputation) not in (int, float) \
                 or not is_finite_number(s.reputation):
             raise ValueError(
