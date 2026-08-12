@@ -1277,3 +1277,27 @@ base. Nothing is hand-random; everything reproduces.
 `vinnies_branded_v2.png` supersedes v1 at the board (A/B
 presented). Session C spend 97, ledger-verified (4 drift + 62
 vehicles + 22 Moretti's + 9 Vinnie's); expected balance ~4,130.
+
+## Vinnie's promoted; the third instance; ONE composer for the city
+## (2026-08-11 session C cont.; board: "Proceed with v2"; 0 gens)
+
+vinnies_facade.png entered approved/ (v2 lineage recorded). The
+Meadows block became the template's THIRD instance
+(vinnies_block_staging.json, validator PASS): the service doorway
+[248,276] is data, the roll door [352,434] is recorded as
+cargo-not-doorway, and the roster is deliberately GRIM - one tree,
+one docker, the gray pickup at the loading door, crates at the wall
+line. The crates are the interim class (bags/booth precedent:
+donor, desat-warm, 2x) and paid one composition lesson on arrival:
+the first 2+1 stack read as person-and-a-half bulk beside a 40px
+extra and was reduced to a waist-high row before presentation.
+
+TOOLING PROMOTED BY REGRESSION: the Moretti's composer generalized
+into recipes/block_compose.py - district register, slot facade
+assets and every placement read from staging data; any staging-v3
+file composes through one script. The refactor is proven, not
+assumed: it reproduces the Moretti's board BYTE-IDENTICALLY (the
+staging gained its slot 'asset' key as the composer's contract).
+Three districts now render from three data files and one law
+script. review/vinnies_block_v1.png at the board. Session C spend
+unchanged at 97; expected balance ~4,130.
