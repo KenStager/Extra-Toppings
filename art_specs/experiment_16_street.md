@@ -1674,3 +1674,37 @@ then the district-composer adoption of asphalt_field, Meadows/LS
 decal rosters, wall-streak ruling. Session spend: 12 gens total
 (4 drift + 4 corners + 2 crack + 2 manhole); expected balance
 ~4,110, ledger-verified.
+
+## The v25 stack promoted; the field goes citywide (2026-08-12,
+## board: "Approved! Proceed"; 0 gens)
+
+THE PROMOTION (provenance e16_v25_promotion_2026-08-12.json):
+- approved/street_block_staging.json IS the v25 stack — the OH
+  moderate decal roster, road_fill = asphalt_field, and the
+  elliptical manhole (s16961 into approved/; s16322 retired — the
+  flat-on-circle era ends). Candidate files retired; one authority.
+- Hero reference sha, by sanctioned ruling: bc8c1e0a... ->
+  **5d19e406...**; Godot proof **0/230,400**. Board v25 stands.
+- DISTRICT ADOPTION: block_compose draws asphalt_field through each
+  district's own road ramp (+ decal and flip support, both inert
+  where staging carries none). By-design diffs measured and
+  CONFINED TO ROAD ROWS 232-343: Moretti's v1->v2 64,850 px,
+  Vinnie's v5->v6 66,228 px (+ the sedan flip). The diorama
+  re-rendered on the law fill.
+- THE AUDIT THE PROMOTION SURFACED: the district blocks' actor
+  layers predated the traffic-direction law. Moretti's is lawful
+  (two parked, pickup lane-1 native-west); Vinnie's lane-2 sedan
+  drove eastbound facing west — flip:true recorded. Moretti's
+  re-render after the composer flip change: BYTE-IDENTICAL
+  (07d73638...), the inertness proof.
+
+The Meadows road in its own ramp is the promotion's best read: ink
+asphalt, no lattice, the switched-off district finally standing on
+the right ground.
+
+STANDING FLAGS: far-curb-line color (still needs a named winner);
+wall streaks (facade dressing ruling); LS road-lattice data
+revision is RETIRED AS MOOT (the lattice itself is gone). NEXT IN
+QUEUE: Meadows/LS decal rosters (grading law: dirtiest/swept),
+more crack anchors, then the animation slate and University Hill.
+Session spend stands at 12 gens; expected balance ~4,110.
