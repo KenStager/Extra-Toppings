@@ -556,14 +556,64 @@ class TestTheLedgerReconciles(unittest.TestCase):
         state.day = state.branch_state.points_due_day + 1  # day 20
         return state
 
-    def test_a_genuine_arrest_latch_may_lag_the_bill_one_night(self):
-        # The bounded exception: the file closed on the very night a
-        # bill was due, so the points tick never ran and the phase
-        # advanced the day once. That is the only legitimate lag.
-        state = self._lagging()
+    def test_a_real_due_night_arrest_produces_the_lagging_save(self):
+        # THE transition itself, through `phases.night` — not a state
+        # hand-placed to look like its result. The file closes during
+        # the night's own work, BEFORE the branch tick, so the tick
+        # is skipped on a dead run, the bill goes unprocessed, and
+        # the phase advances the day once. That shape is the only
+        # lag there is, and this is where it comes from.
+        state = seated(clean=50_000)
+        due = state.branch_state.points_due_day
+        advance_to(state, due)                  # the bill's own morning
+
+        def close_the_file(st, con):
+            st.add_case(100.0, "the file closes", kind="physical")
+            return False                        # payroll was not short
+
+        with mock.patch.object(phases, "_payroll_and_rent",
+                               side_effect=close_the_file):
+            run_night(state)
+
+        self.assertEqual(state.game_over, "arrested")
+        self.assertEqual(state.branch_state.points_cycles, [])  # skipped
+        self.assertEqual(state.branch_state.points_due_day, due)
+        self.assertEqual(state.day, due + 1)                    # lag of 1
+        save.state_from_dict(save.state_to_dict(state))
+
+    def test_an_arrest_that_crossed_on_another_night_excuses_nothing(self):
+        # The timing half: an arrest AFTER the bill was already
+        # missed does not reach back and excuse it. Carmine's money
+        # was late before the police arrived.
+        state = self._lagging()                 # day 20, bill due 19
+        state.evidence.clear()
+        state.day = 20
         state.add_case(100.0, "the file closes", kind="physical")
         self.assertEqual(state.game_over, "arrested")
-        save.state_from_dict(save.state_to_dict(state))
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(save.state_to_dict(state))
+        self.assertIn("cannot skip a bill", str(caught.exception))
+
+    def test_a_protected_witness_cannot_authorise_a_false_arrest(self):
+        # THE canonical Case, not the raw fold. Partner unlocks
+        # remediation, so a raw sum at or over 100 against a
+        # DISPLAYED file well under it is an ordinary state here — and
+        # it used to authorise the arrest exception outright.
+        state = self._lagging()
+        state.evidence.clear()
+        witness = next(e for e in state.employees)
+        witness.hired = witness.aware = True
+        witness.morale = 9                      # retention-protected
+        state.day = 19
+        state.add_case(100.0, "everything they know", kind="witness",
+                       source=witness.key)
+        state.day = 20
+        state.game_over = "arrested"            # claimed, not earned
+        self.assertGreaterEqual(
+            models.fold_case(state.evidence), models.CASE_MAX)   # raw
+        self.assertLess(state.case, models.CASE_MAX)             # real
+        with self.assertRaises(ValueError):
+            save.state_from_dict(save.state_to_dict(state))
 
     def test_an_unrelated_terminal_cannot_borrow_that_exception(self):
         # `game_over` is not a licence to omit a bill: only the arrest
@@ -696,6 +746,10 @@ class TestTheLedgerReconciles(unittest.TestCase):
         cases = (
             # (cycles, cursor, ending, accepted?)
             (two, 29, models.FORECLOSURE_ENDING, True),
+            # `arrested` is accepted only where an arrest actually
+            # crossed on the second miss's night — the row below
+            # carries one; the bare claim is its own case further
+            # down.
             (two, 29, "arrested", True),        # outranks foreclosure
             (two, 29, None, False),             # a run that should have ended
             (two, 29, "broke", False),          # ended the wrong way
@@ -706,6 +760,13 @@ class TestTheLedgerReconciles(unittest.TestCase):
         for cycles, cursor, ending, accepted in cases:
             with self.subTest(strikes=len(cycles), ending=ending):
                 state = self._state(list(cycles), cursor)
+                if ending == "arrested":
+                    # A real file, crossing on the night the second
+                    # miss was recorded for.
+                    state.day = cycles[-1].due_day
+                    state.add_case(100.0, "the file closes",
+                                   kind="physical")
+                    state.day = max(state.day, cursor - 1)
                 state.game_over = ending
                 if accepted:
                     save.state_from_dict(save.state_to_dict(state))

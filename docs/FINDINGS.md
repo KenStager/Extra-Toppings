@@ -2559,7 +2559,7 @@ a day the run had never reached (the RULER class, which review taught
 in P4b.1b and which recurs the moment a new dated record appears);
 and two assertions were loose enough to pass on the wrong outcome.
 
-**Verification.** 999 tests green on 3.11, 3.12 AND 3.13; ruff and
+**Verification.** 1,001 tests green on 3.11, 3.12 AND 3.13; ruff and
 mypy clean. Both identity gates **300/300 on all three**, stand-pat
 **79/79** (schema v1) — containment. Golden **unchanged at
 `7a62b2af`**. Fork battery **byte-identical to merged main at BOTH

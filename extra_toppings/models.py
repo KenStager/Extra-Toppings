@@ -2094,6 +2094,43 @@ def validate_calendar(state: "State") -> None:
                 f"{state.day})")
 
 
+def arrest_latched_on(state: "State", day: int) -> bool:
+    """THE genuine-arrest-latch authority (P4b.2 review): the run
+    ended in an arrest, and the file crossed on THAT NIGHT.
+
+    Three different things were being called "an arrest" before this,
+    and every one of them was wrong in a way a doctored save could
+    use:
+
+    The CANONICAL Case, never the raw fold. The game arrests against
+    `state.case`, which folds retention-protected sources at half
+    weight — and Partner unlocks remediation, so a raw sum of 100
+    against a displayed 50 is an ordinary state here, not an exotic
+    one. A protected witness record could therefore authorise an
+    arrest that never happened.
+
+    And the CROSSING is bound to the night in question, not merely
+    the ending. An arrest three days later does not retroactively
+    excuse a bill missed before it: Carmine's money was already late
+    when the police arrived.
+    """
+    if state.game_over != "arrested" or state.case < CASE_MAX:
+        return False
+    # It crossed THAT night: the file read under the line on
+    # everything accrued before the day, and at or over it now. Both
+    # sides use the same context-aware fold, so a protected source
+    # counts the same on either side of the comparison.
+    dormant = state.dormant_sources()
+    before = fold_case([r for r in state.evidence if r.day < day], dormant)
+    through = fold_case([r for r in state.evidence if r.day <= day],
+                        dormant)
+    # UNDER the line on the night before, AT OR OVER it by the end of
+    # this one. `before < CASE_MAX` alone was satisfied by an arrest
+    # that crossed days LATER, which is the timing hole: a file that
+    # closes on Thursday does not excuse a bill missed on Tuesday.
+    return before < CASE_MAX <= through
+
+
 def validate_points_schedule(state: "State") -> None:
     """THE points schedule against the DEAL that started it (P4b.2
     review) — one cross-state authority, because every part of this
@@ -2201,8 +2238,7 @@ def validate_points_schedule(state: "State") -> None:
     # arrests. The transition being excused is specific: the file
     # closed on the night a bill was due, so the points tick never
     # ran. Both halves of that are checked.
-    latched = (state.game_over == "arrested"
-               and fold_case(state.evidence) >= CASE_MAX)
+    latched = arrest_latched_on(state, cursor)
     lag = state.day - cursor
     allowed = 1 if latched else 0
     if lag > allowed:
@@ -2211,6 +2247,21 @@ def validate_points_schedule(state: "State") -> None:
             f"no cycle for it — a run cannot skip a bill (day "
             f"{state.day}, ended {state.game_over!r}; only an arrest "
             f"latching that night excuses the one-night lag)")
+    # THE ARREST ALTERNATIVE TO FORECLOSURE, through the same
+    # authority (P4b.2 review). `validate_branch_state` accepts
+    # `arrested` beside two strikes because it has no state to judge
+    # the claim with; unproved, that left "two strikes and the word
+    # arrested" loading with no file behind it whenever no lag
+    # invoked the predicate. The night it must have crossed on is the
+    # one the second miss was recorded for.
+    view = partner_ledger(bs)
+    if view.foreclosed and state.game_over == "arrested" \
+            and not arrest_latched_on(state, bs.points_cycles[-1].due_day):
+        raise ValueError(
+            f"partner: two strikes ended this run as 'arrested', but "
+            f"no arrest crossed on day "
+            f"{bs.points_cycles[-1].due_day} — the file reads "
+            f"{state.case:.0f}")
 
 
 def validate_sitdown_snapshot(state: "State") -> None:
