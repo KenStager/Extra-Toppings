@@ -2385,3 +2385,39 @@ accent tier 2 + COPY in ink ON the panel (subline killed; the
 poster window carries the utility read). Blade widened, letters
 gapped. Census v2->v3 confined to the fascia band.
 university_block_v3 supersedes v2 as the scene candidate.
+
+## University Hill promoted; THE DISTRICT GODOT PROOF closes a
+## standing debt (2026-08-12 session F cont.; board: "Great work.
+## Proceed"; 0 gens)
+
+THE PROMOTION (provenance e16_university_promotion_2026-08-12
+.json): the three facades + the chalkboard entered approved/ with
+sha256s; approved/university_block_staging.json IS the v3 stack
+(slot paths re-pointed, validator PASS, candidate retired);
+re-render from the approved staging BYTE-IDENTICAL to the
+board-approved v3.
+
+THE DEBT, named and closed: the Godot proof was promised at
+Moretti's promotion ("rides with its promotion") and never ran -
+the promise had gone unpaid through THREE district promotions. This
+round built the proof generically and ran it on all three:
+- compose() extracted from the composer (staged-only switch,
+  behavior-identical - triple board regression BYTE-IDENTICAL);
+- a SPRITE SINK: props become engine sprites, their contact shadows
+  stay flattened in the base (the hero's bake law). The first
+  export FAILED ITS OWN SELF-CHECK and the pixel arithmetic found
+  why: shadows landing UNDER the tree-well grates - which forced
+  the right design call: WELLS ARE GROUND, not standing sprites
+  (an iron grate lies IN the pavement); routed to the base, the
+  law's paint order is preserved exactly;
+- the self-check law: the layered export must equal the law render
+  byte-exactly BEFORE anything is exported;
+- a generic godot_preview_district project (one main.gd reading
+  layout.json; district named in district.txt).
+**RESULTS: Moretti's 0/230,400; Vinnie's 0/230,400; University
+0/230,400 (re-run from the APPROVED staging after promotion).**
+Every district block is now engine-real under the same standard as
+the hero.
+
+Session F: 50 gens ledgered + ~18 MCP-estimated; expected balance
+~4,039 by estimate; suite 155; ruff clean.
