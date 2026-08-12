@@ -553,7 +553,9 @@ class TestTheDayThirtyCard(unittest.TestCase):
             if probe.game_over == "arrested":
                 self.assertFalse(con.said("The day-30 track"))
                 return
-        self.skipTest("no seed closed the file this night")
+        self.fail("no seed closed the file this night — the path this "
+                  "contract rides on is gone, and a skip here would "
+                  "turn the contract green by losing it")
 
     def test_a_building_site_shows_no_restaurant_term(self):
         state = seated(day=14)          # accepted today, opens day 16
@@ -596,13 +598,150 @@ class TestTheDayThirtyDispatch(unittest.TestCase):
 
     def test_the_other_chairs_are_unmoved(self):
         state = new_state()
-        state.day = data.DEBT_DUE_DAY
+        state.day = data.DEBT_DUE_DAY + 1
         state.debt = 0
         self.assertEqual(game.day_thirty_grade(state), "survived")
         state.debt = 5_000
         self.assertEqual(game.day_thirty_grade(state), "kneecaps")
         state.branch = models.STAND_PAT
         self.assertEqual(game.day_thirty_grade(state), "kneecaps")
+
+
+class TestATruncatedRunIsNotAGradedRun(unittest.TestCase):
+    """Rev. 37 item 1. Both cases go through `game.run` — the DOOR —
+    because the extracted helper was tested and its caller was not,
+    which is the third instance in three PRs of that shape."""
+
+    def test_a_truncated_partner_run_comes_back_live(self):
+        state = seated(day=14)
+        out = game.run(3, Listening([0] * 400), max_days=20, state=state)
+        self.assertIsNone(out.game_over)
+        self.assertLessEqual(out.day, data.DEBT_DUE_DAY)
+        # …and it is a real, loadable state, not a wreck left behind.
+        save.state_from_dict(save.state_to_dict(out))
+
+    def test_a_truncated_run_prints_no_epilogue(self):
+        state = seated(day=14)
+        con = Listening([0] * 400)
+        game.run(3, con, max_days=20, state=state)
+        self.assertFalse(con.said("EPILOGUE"))
+        self.assertEqual(con.ending(), "")
+
+    def test_a_full_calendar_partner_run_is_graded(self):
+        state = seated(day=14)
+        out = game.run(3, Listening([0] * 400), state=state)
+        self.assertIn(out.game_over,
+                      (models.OPERATION_ENDING, models.ON_THE_HOOK_ENDING,
+                       models.FORECLOSURE_ENDING, "arrested", "broke"))
+        self.assertGreater(out.day, data.DEBT_DUE_DAY)
+
+    def test_the_matrix_itself_refuses_an_unfinished_month(self):
+        # The rule stated where a caller cannot skip it.
+        state = seated(day=data.DEBT_DUE_DAY)
+        with self.assertRaises(ValueError) as caught:
+            game.day_thirty_grade(state)
+        self.assertIn("played out", str(caught.exception))
+
+
+class TestTheEpilogueSaysNothingBeforeItIsSure(unittest.TestCase):
+    """Rev. 37 item 2: the preflight covers renderer presence and the
+    terminal's own prerequisites, not only the registry."""
+
+    def test_a_registered_id_with_no_arm_prints_nothing(self):
+        state = seated()
+        state.game_over = "a_quiet_retirement"
+        owners = dict(models.TERMINAL_OWNERS)
+        owners["a_quiet_retirement"] = frozenset({"partner"})
+        con = Listening()
+        with mock.patch.object(models, "TERMINAL_OWNERS", owners):
+            with self.assertRaises(ValueError) as caught:
+                game.epilogue(state, con)
+        self.assertIn("no epilogue arm renders", str(caught.exception))
+        self.assertEqual(con.lines, [])
+
+    def test_a_grade_with_no_ledger_prints_nothing(self):
+        # Passes `validate_terminal`, then used to raise inside
+        # `grade_view` — two lines after the header had printed.
+        state = seated()
+        state.game_over = models.OPERATION_ENDING
+        state.branch_state = None
+        con = Listening()
+        with self.assertRaises(ValueError) as caught:
+            game.epilogue(state, con)
+        self.assertIn("carries no branch state", str(caught.exception))
+        self.assertEqual(con.lines, [])
+
+    def test_the_rendered_set_and_the_registry_agree(self):
+        self.assertEqual(set(models.TERMINAL_OWNERS),
+                         set(game.RENDERED_TERMINALS))
+
+
+class TestTheGradingNetIsScopedToTheGrade(unittest.TestCase):
+    """Rev. 37 item 3: arrest, foreclosure and insolvency are
+    interruptions, not grades — they were never asked whether the
+    month worked."""
+
+    def _early_foreclosure(self):
+        # A REAL one: starved from day 19, so the day-19 and day-24
+        # bills both miss and the second strike forecloses that night.
+        state = seated(day=26, starve_from=19)
+        self.assertEqual(state.game_over, models.FORECLOSURE_ENDING)
+        state.clean, state.dirty = 360, 0
+        for shop in state.shops:
+            shop.stash = {}
+        state.warehouse, state.warehouse_cash = None, 0
+        return state
+
+    def test_a_foreclosure_reports_its_gross_position(self):
+        state = self._early_foreclosure()
+        arrears = models.partner_ledger(state.branch_state).arrears
+        self.assertGreater(arrears, 0)
+        con = Listening()
+        game.epilogue(state, con)
+        header = next(ln for ln in con.lines if "Net position" in ln)
+        self.assertIn(f"${state.net_worth():,}", header)
+        self.assertNotIn("-$", header)
+
+    def test_an_arrest_reports_its_gross_position(self):
+        state = seated(day=20, starve_from=19)
+        state.add_case(100.0, "the file closes", kind="physical")
+        self.assertEqual(state.game_over, "arrested")
+        state.clean, state.dirty = 360, 0
+        for shop in state.shops:
+            shop.stash = {}
+        con = Listening()
+        game.epilogue(state, con)
+        header = next(ln for ln in con.lines if "Net position" in ln)
+        self.assertIn(f"${state.net_worth():,}", header)
+
+
+class TestTheProseNamesTheRoomItMeasured(unittest.TestCase):
+    """Rev. 37 item 4: the restaurant term reads ONE meter, so a text
+    claiming both rooms claims a fact the grade never looked at."""
+
+    def _ending_for(self, net, reputation, home_reputation):
+        state = seated()
+        set_terms(state, net=net, reputation=reputation)
+        state.shop_by_key(HOME_SHOP_KEY).reputation = home_reputation
+        state.game_over = models.OPERATION_ENDING
+        con = Listening()
+        game.epilogue(state, con)
+        return con
+
+    def test_no_arm_speaks_for_the_founding_room(self):
+        for net, rep in ((99_999, 99.0), (0, 99.0),
+                         (99_999, 1.0), (0, 1.0)):
+            with self.subTest(net=net, rep=rep):
+                # The founding room is a ruin the grade never read.
+                con = self._ending_for(net, rep, home_reputation=-30.0)
+                for line in con.lines:
+                    self.assertNotIn("Both rooms", line)
+
+    def test_the_earned_arms_name_the_new_room(self):
+        self.assertTrue(
+            self._ending_for(99_999, 99.0, -30.0).said("The new room is real"))
+        self.assertTrue(
+            self._ending_for(0, 99.0, -30.0).said("The new room is loved"))
 
 
 class TestTheRunEndsWhereTheLedgerSays(unittest.TestCase):

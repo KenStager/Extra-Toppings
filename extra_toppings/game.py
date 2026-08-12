@@ -63,6 +63,15 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
         if on_night is not None:
             on_night(state, streams)
 
+    if state.day <= data.DEBT_DUE_DAY:
+        # A TRUNCATED RUN IS NOT A GRADED RUN (design rev. 37 item 1).
+        # `max_days` is the harness's observation cutoff, not an
+        # in-world day 30: the month did not end, it was stopped being
+        # watched. Grading it wrote a day-30 terminal onto day 21 and
+        # was then refused by the validator — this engine disagreeing
+        # with itself. The state comes back LIVE, with no terminal and
+        # no epilogue to print about a run that has not finished.
+        return state
     if not state.game_over:
         state.game_over = day_thirty_grade(state)
     epilogue(state, con)
@@ -77,7 +86,18 @@ def day_thirty_grade(state: State) -> str:
     because it is a decision the design states in a table and because
     a matrix buried in a loop can only be tested by playing a whole
     month — which is how the Partner arm would have gone unexercised
-    while `partner.grade` was tested directly beside it (P4b.4)."""
+    while `partner.grade` was tested directly beside it (P4b.4).
+
+    It REFUSES a calendar that has not reached day 31 (rev. 37 item
+    1). The run loop already declines to ask on a truncated run, and
+    this is the same rule stated where it cannot be skipped by a
+    caller who does not know it: a day-30 matrix applied to day 21
+    grades a month that has not happened."""
+    if state.day <= data.DEBT_DUE_DAY:
+        raise ValueError(
+            f"day {state.day} has not reached the end of the month — "
+            f"the day-{data.DEBT_DUE_DAY} matrix grades a calendar "
+            f"that has been played out, never one that was stopped")
     if state.branch == "straight":
         return straight.grade(state)
     if state.branch == "war":
@@ -111,22 +131,62 @@ def _room_name(state: State) -> str:
     return models.address_label(state, partner.the_restaurant(state).key)
 
 
-def epilogue(state: State, con: Console) -> None:
-    # THE REGISTRY, CHECKED BEFORE THE HEADER PRINTS (design rev. 36
-    # item 3). A refusal that has already emitted a header has
-    # emitted half an ending, and half an ending reads as a real one.
+# THE ids this module can actually render. Asserted against the
+# registry by the suite, so an id added to one and not the other
+# fails there rather than in a player's epilogue.
+RENDERED_TERMINALS = frozenset({
+    "sold", "straight_exit", "almost_out", "half_measures", "arrested",
+    "kneecaps", "syndicate", "burned_out", "harbor_yours", "long_war",
+    models.FORECLOSURE_ENDING, models.OPERATION_ENDING,
+    models.ON_THE_HOOK_ENDING, "broke", "survived",
+})
+# The two graded terminals — the only ones whose header reads the
+# grading view's net (rev. 37 item 3).
+_GRADED_TERMINALS = frozenset({models.OPERATION_ENDING,
+                               models.ON_THE_HOOK_ENDING})
+
+
+def _epilogue_preflight(state: State):
+    """Prove everything the epilogue needs before it prints a word,
+    and return the grading view when the ending is a graded one.
+
+    Three things, in order: the terminal is registered and belongs to
+    this chair; an arm exists that renders it; and that arm's
+    prerequisites are present — `branch_state=None` on a Partner
+    grade passes the registry and then raises inside `grade_view`,
+    which used to happen two lines after the header had printed."""
     models.validate_terminal(state)
+    ending = state.game_over
+    if ending not in RENDERED_TERMINALS:
+        raise ValueError(
+            f"no epilogue arm renders {ending!r} — an outcome matrix "
+            f"must not depend on generic epilogue ordering (§2.5)")
+    if ending not in _GRADED_TERMINALS:
+        return None
+    if state.branch_state is None:
+        raise ValueError(
+            f"the {ending!r} grade reads a points ledger and this run "
+            f"carries no branch state")
+    return partner.grade_view(state)
+
+
+def epilogue(state: State, con: Console) -> None:
+    # THE COMPLETE PREFLIGHT, BEFORE THE FIRST WORD (design rev. 36
+    # item 3, widened by rev. 37 item 2). A refusal that has already
+    # emitted a header has emitted half an ending, and half an ending
+    # reads as a real one — so everything this function needs is
+    # proved BEFORE it says anything: the id is registered and owned
+    # by this chair, an arm exists to render it, and whatever that
+    # arm depends on is present. Checking the registry alone left two
+    # refusals still printing a header first.
+    grade_view = _epilogue_preflight(state)
     con.header("EPILOGUE")
-    net = state.net_worth()
-    grade_view = None
-    if state.branch == "partner" and state.branch_state is not None:
-        # The Partner header prints the GRADE'S net, not the gross one
-        # (rev. 36 item 4): they disagree whenever arrears stand, and
-        # an On-the-Hook run heading its own ending with a number its
-        # grade never used invites a player to reconcile two figures
-        # one of which is lying.
-        grade_view = partner.grade_view(state)
-        net = grade_view.net
+    # The DAY-30 GRADE alone prints the grade's net (rev. 37 item 3).
+    # Arrest, foreclosure and insolvency are interruptions, not
+    # grades: subtracting arrears from a foreclosed run reports a
+    # position no rule ever computed — a real day-25 foreclosure
+    # holding $360 against $5,500 outstanding printed -$5,140.
+    net = grade_view.net if grade_view is not None else state.net_worth()
     con.say(f"  Day {min(state.day, data.DEBT_DUE_DAY)}. "
             f"Net position {money(net)} | laundered {money(state.total_laundered)} "
             f"| case file {state.case:.0f}/100")
@@ -343,7 +403,7 @@ def epilogue(state: State, con: Console) -> None:
   the outside and drop the key through the mail slot.
   ENDING: The oven went cold.""")
     elif e == models.OPERATION_ENDING:
-        v = grade_view if grade_view is not None else partner.grade_view(state)
+        v = grade_view
         con.say("""
   Day thirty, and Carmine is paid to the cent. Two rooms, two ovens,
   two sets of books that survive being read — and a partner who
@@ -357,9 +417,9 @@ def epilogue(state: State, con: Console) -> None:
                 f"{v.reputation_required:.0f}.")
         if v.tier == "healthy":
             con.say("""
-  Both rooms are real. The second one has regulars who have never
-  heard of the first, the file is a file and not a case, and when
-  Carmine says "next month" he means a third address.
+  The new room is real. It has regulars who have never heard of the
+  first one, the file is a file and not a case, and when Carmine says
+  "next month" he means a third address.
   ENDING: The Operation — two ovens, and a partner with plans.""")
         elif v.tier == "working" and v.net_met:
             con.say("""
@@ -369,7 +429,7 @@ def epilogue(state: State, con: Console) -> None:
   ENDING: The Operation — money without a room.""")
         elif v.tier == "working":
             con.say("""
-  Both rooms are loved and both tills are thin. Carmine's schedule is
+  The new room is loved and the tills are thin. Carmine's schedule is
   the only thing keeping you honest, and honesty at these margins is
   a month from being a decision again.
   ENDING: The Operation — a room without money.""")
@@ -380,7 +440,7 @@ def epilogue(state: State, con: Console) -> None:
   build an operation. You built a payment schedule with ovens.
   ENDING: The Operation — hollow.""")
     elif e == models.ON_THE_HOOK_ENDING:
-        v = grade_view if grade_view is not None else partner.grade_view(state)
+        v = grade_view
         con.say(f"""
   Day thirty with {money(v.arrears)} still owed, and the vig on it
   compounding while you read this. Both ovens are lit. Neither of them
@@ -417,10 +477,12 @@ def epilogue(state: State, con: Console) -> None:
         # generic `else` that graded whatever reached it as
         # `survived`, so a terminal with no arm did not crash — it
         # printed SOMEBODY ELSE'S ENDING. Measured before the fix:
-        # `operation` rendered "The legitimate exit". `validate_
-        # terminal` above already refuses an unregistered id, so
-        # reaching here means a REGISTERED id whose arm was never
-        # written, and that is a defect to fix rather than a text to
+        # `operation` rendered "The legitimate exit".
+        #
+        # The preflight refuses before a word is printed, so this is
+        # the belt behind the braces: reaching here means
+        # RENDERED_TERMINALS names an id this chain does not actually
+        # handle, which is a defect to fix rather than a text to
         # improvise.
         raise ValueError(
             f"no epilogue arm renders {e!r} — an outcome matrix must "

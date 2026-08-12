@@ -3035,6 +3035,71 @@ toward it; both grading thresholds remain §6.3 placeholders; and the
 arrest's Partner flavour is a text arm on the existing `arrested` id,
 never a new terminal.
 
+**The round-18 correction pass** (five contracts, at `c24c471`).
+Four were mechanical. The fifth was a false claim in a commit message
+of mine, and it is the one worth keeping.
+
+*Two halves of the same PR disagreeing.* `game.run(max_days=N)`
+grades whatever the loop stops on, so a real Partner continuation cut
+at day 20 wrote `operation` on day 21 — and was then refused by the
+`validate_terminal` built one commit earlier. `max_days` is an
+**observation cutoff**, not an in-world day 30: a truncated run now
+returns live, with no terminal and no epilogue, and
+`day_thirty_grade` refuses before day 31 so no caller can open that
+door by accident. Both pins go through `game.run` itself, because
+`TestTheDayThirtyDispatch` tested the extracted helper and never its
+caller — **the third instance in three PRs of proving an authority
+and missing its door** (P4b.3's `release_from_posts`, P4b.4's day-30
+dispatch, and now `game.run`).
+
+*Half an epilogue, twice more.* The preflight proved the REGISTRY and
+not the RENDER: a registered id with no arm, and a Partner grade with
+`branch_state=None` — which passes `validate_terminal` and raises
+inside `grade_view` — both printed a header and a net line before
+failing. Everything the epilogue needs is proved before its first
+word now, and both pins assert `con.lines == []`. And a `skipTest` on
+a lost production path became a failure: a contract that goes green
+by skipping is the vacuous-proof class with better manners.
+
+*A number no rule computes.* The grading view's net was applied to
+every Partner ending rather than to the day-30 grade it belongs to. A
+real day-25 foreclosure holding $360 against $5,500 outstanding
+reported **−$5,140**. Combined-net-less-arrears answers "did the
+month work"; arrest, foreclosure and insolvency are interruptions
+that were never asked.
+
+*Prose claiming what the grade never read.* Two ending arms said
+"Both rooms are loved" and "Both rooms are real" while the restaurant
+term reads only the non-founding room's meter — a founding room at
+negative reputation received either text. The grade is unchanged; the
+sentences name the second room, amended in canon and implementation
+together so they cannot drift.
+
+**And the finding that is about verification rather than code.**
+Commit `1f53fb1` states *"documentation-only: `git diff --name-only`
+names `docs/ACT1_FORK_DESIGN.md` alone"*. The commit contains two
+files: it also added an `AGENTS.md` this session did not write. The
+claim was neither a lie nor a typo. **`git diff` cannot see untracked
+files.** The check ran before `git add -A`, reported truthfully on
+everything it was capable of seeing, and the one file it could not
+see was swept in by the next command. *An instrument blind to the
+thing being asserted proved the assertion* — which is exactly the
+defect class this record has been cataloguing all along (a test that
+inspects instead of executing; a matrix row that reads a view instead
+of running the raid), turned on my own verification instead of on the
+code. The rule, written into revision 37 so it is checkable: **prove
+a documentation-only boundary with `git status --porcelain`, or with
+`git diff --name-only --cached` AFTER staging — never with a bare
+`git diff`.**
+
+The file was wrong on its merits too, independent of how it arrived:
+it duplicated `CLAUDE.md`, creating two protocol homes for one
+protocol — the single-authority rule broken inside a file that
+restates the single-authority rule — and it instructed a reviewer to
+sign commits with an attribution none of this PR's commits uses. It
+is removed. If Codex discovery is wanted it is a separate reviewed
+change: a pointer to the one canonical protocol, never a copy.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
