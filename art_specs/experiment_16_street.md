@@ -1428,3 +1428,102 @@ untouched by any of this, as it should be.
 Boards: hybrid_dinapoli_block_board_v22 (the hero block, all-native
 props), vinnies_block_v5 (native crates and bags). Session C spend
 unchanged at 105; expected balance ~4,122.
+
+## The street kit: curb corners + crosswalk (2026-08-11 session D;
+## drift 4/4 Tier B; 4 gens + 4 drift)
+
+Queue item "curb corners + crosswalk" ran to candidates on the
+recorded assignment: paint is a regular form -> CODE with a recorded
+wear rule; concrete wear is organic -> the s16102 recipe (code
+anchor + pixflux wear @140 under the citywide strip). New law homes
+in street_block.py, all test-pinned (suite 116 -> 131, ruff clean):
+
+- **CURB_TONES** — s16102's five concrete tones censused verbatim
+  (anatomy measured: 7 pale / 1 transition / 5 face / 3 base rows,
+  joints at x=15 mod 16, top-surface speckle 8.5%) and recorded as
+  the single citywide curb authority.
+- **CROSSWALK_PAINT (208,196,168)** — the paint system's pale voice
+  against the center line's worn ochre; exact-color disjoint from
+  every register value, curb tone, reserved identity color, well
+  metal and slate tone (pinned by test).
+- **paint_wear_drop + crosswalk_paint(_vertical)** — worn zebra
+  bars, whole and centered, wear graded by physics: 4% base, 30%
+  in wheel bands, +6 on bar edge rows. NEGATIVE RESULT RECORDED:
+  the letter-scale pixel-drop hash ((x*13+y*7)%11) lays drops on
+  slope -13/7 diagonals that read as moire on 8px bars, and the
+  worn-edge column rule eats the same columns of every bar —
+  paint wear at bar scale needs spatially WHITE loss (a new mixing
+  hash, recorded; grades tuned by eye against B/C variants).
+  pixel_drop_worn kept its authority for letter-scale flaking and
+  got a named home in street_block.py.
+- **curb_vertical_strip** — the flat-on grammar's side-street curb:
+  top surface only (no south face), 16px stone rhythm, 2px dark
+  road edge; both road_side orientations.
+- **curb_corner_anchor** — 32x32 return-arc anchors (radius-6 outer
+  contour, face tapering by cos theta from south-facing to
+  east-facing, s16102 anatomy); se/sw mirrors as CODE; each
+  orientation buys its OWN seeds so generated wear is never a
+  mirror twin.
+- **validate_scene_staging** accepts an optional `crosswalk` staging
+  block and refuses out-of-scene spans, corridors narrower than a
+  figure, and non-positive pitch.
+
+THE WEAR ROUND (4 gens, s16931-16934, anchors eyes-judged in
+context BEFORE spend): all four returned 0 off-strip with 37-42%
+changed — the wear pass fired (wagon-band change rates), the arc
+geometry held, and the texture family-matches s16102 at the seam
+with no pop. PICKS: **se s16931** (cleanest contour; the pale
+tongue at the arc reads as a worn curbstone catching light) and
+**sw s16933** (its equal in the mirror orientation); s16932
+alternate; s16934 rejected on top-surface crack noise. Provenance
+e16_curb_corner_wear.json (params, seeds, hashes, usage).
+
+IN-SCENE PROOFS, nothing promoted:
+- **Hero block v23 CANDIDATE** (candidates/street_block_staging_
+  v23_crosswalk.json): mid-block crossing on DiNapoli's doorway
+  (corridor [286,325] centered on the door), wheel bands derived
+  from the recorded driving depths (lane 1 base 290 -> local rows
+  60-70; lane 2 base 330 -> 100-110); center dashes and the worn
+  edge line break at the corridor (wear phase stays
+  world-anchored). The builder gained staging-path + board-version
+  parameters and the crosswalk law (inert without the staging key —
+  proven: the approved re-bake is BYTE-IDENTICAL, reference sha
+  9a556b33... and board v22 sha unchanged). **Godot proof on the
+  candidate: 0 / 230,400** (import law observed); the approved
+  scene then re-baked and re-proven **0 / 230,400** — the standing
+  state is untouched.
+- **Corner diorama** (review/street_kit_corner_diorama_v1.png,
+  recipes/kit_corner_diorama.py, 0 gens): a 400x360 half-frame
+  intersection from law code + approved assets — both corner picks
+  at their returns, vertical strips to the horizon, BOTH crosswalk
+  orientations (vertical bars over the cross street with lane-
+  column wheel bands), far-line breaks, lamppost, sedan
+  approaching, two extras mid-crossing. One reflection round paid:
+  v1's walk columns stopped at the cornice line and the rows above
+  read as black voids — cross-street sidewalks and curbs run to
+  the horizon with the road.
+
+FLAGGED FOR THE BOARD, loudly:
+1. **The mid-block crossing is a placement judgment.** A marked
+   crossing's natural home is a corner; the 640 hero block cannot
+   stage an intersection without facade surgery (shorten a flank
+   facade by regeneration, widen the scene, or give corners their
+   own scene instances). The diorama shows the corner-true
+   composition; v23 shows the zero-surgery in-scene read. The
+   board rules which (or neither) proceeds to promotion.
+2. **Far-curb-line color is a two-authorities smell**: the hero
+   builder draws it in WALK tier 2 (140,129,112) while
+   block_compose draws (206,192,162). Both are recorded renders;
+   unifying changes bytes somewhere — the board's call which voice
+   wins. The diorama used the builder's.
+3. Corner promotion would also record the placement law: corner
+   pieces sit on the 16px stone grid (joints assume x = 0 mod 16
+   placement).
+4. Composer/builder session-path defaults were dead (prior
+   scratchpads); both now parameterized via ART_WORKTREE with this
+   session's default. Composer regression after the change:
+   Moretti's AND Vinnie's boards both **0 pixels differ**.
+
+Session D spend: 8 (4 drift + 4 corners), ledger-verified;
+expected balance ~4,114 (API still USD-anomalous; vendor dashboard
+remains the authority).

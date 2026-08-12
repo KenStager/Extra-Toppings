@@ -9,6 +9,8 @@ from PIL import Image
 from tools.art_pipeline.street_block import (
     AFTER_DARK_VARIANTS,
     ASPHALT_RAMP,
+    CROSSWALK_PAINT,
+    CURB_TONES,
     DISTRICT_REGISTERS,
     FLANK_RAMP,
     GLASS_RAMP,
@@ -17,6 +19,10 @@ from tools.art_pipeline.street_block import (
     WELL_METALS,
     a2_blob_fill,
     column_stamp,
+    crosswalk_paint,
+    crosswalk_paint_vertical,
+    curb_corner_anchor,
+    curb_vertical_strip,
     desaturate_warm,
     flank_recolor,
     luminance_ramp,
@@ -126,6 +132,116 @@ class CodeAssetTests(unittest.TestCase):
         row = [a.getpixel((x, 1))[:3] for x in range(64)]
         self.assertIn((168, 152, 118), row)                          # painted
         self.assertIn((0, 0, 0), row)                                # worn gap
+
+
+class StreetKitTests(unittest.TestCase):
+    """Curb corners + crosswalk: the kit pieces and their wear laws."""
+
+    def test_crosswalk_is_deterministic(self) -> None:
+        a = crosswalk_paint(120)
+        b = crosswalk_paint(120)
+        self.assertEqual(list(a.getdata()), list(b.getdata()))
+
+    def test_crosswalk_is_paint_only_with_binary_alpha(self) -> None:
+        im = crosswalk_paint(120)
+        seen = {im.getpixel((x, y)) for y in range(im.height) for x in range(im.width)}
+        self.assertLessEqual(
+            seen, {(*CROSSWALK_PAINT, 255), (0, 0, 0, 0)}
+        )
+
+    def test_crosswalk_lays_only_whole_centered_bars(self) -> None:
+        # depth 120 at pitch 16 -> 7 whole bars centered: rows 8..111
+        im = crosswalk_paint(120, corridor=40, stripe=8, gap=8)
+        painted_rows = {
+            y for y in range(im.height)
+            if any(im.getpixel((x, y))[3] for x in range(im.width))
+        }
+        self.assertEqual(min(painted_rows), 8)
+        self.assertEqual(max(painted_rows), 111)
+        self.assertEqual(len(painted_rows), 7 * 8)
+
+    def test_crosswalk_wear_obeys_the_recorded_paint_rule(self) -> None:
+        from tools.art_pipeline.street_block import paint_wear_drop
+
+        im = crosswalk_paint(120)
+        for y in range(8, 16):                   # first bar, base 4% + edges
+            pct = 10 if y in (8, 15) else 4
+            for x in range(im.width):
+                expected = 0 if paint_wear_drop(x, y, pct) else 255
+                self.assertEqual(im.getpixel((x, y))[3], expected, (x, y))
+
+    def test_crosswalk_wheel_bands_wear_hardest(self) -> None:
+        worn = crosswalk_paint(120, wheel_bands=((40, 120),))
+        fresh = crosswalk_paint(120)
+
+        def paint_px(im, y0, y1):
+            return sum(
+                1 for y in range(y0, y1) for x in range(im.width)
+                if im.getpixel((x, y))[3]
+            )
+
+        self.assertEqual(paint_px(worn, 0, 40), paint_px(fresh, 0, 40))
+        self.assertLess(paint_px(worn, 40, 120), paint_px(fresh, 40, 120) * 0.85)
+
+    def test_vertical_crosswalk_is_the_transpose(self) -> None:
+        h = crosswalk_paint(96, corridor=32)
+        v = crosswalk_paint_vertical(96, corridor=32)
+        self.assertEqual(v.size, (96, 32))
+        self.assertEqual(
+            h.getpixel((5, 20)), v.getpixel((20, 5))
+        )
+
+    def test_vertical_strip_palette_is_citywide_curb_concrete(self) -> None:
+        strip = curb_vertical_strip(64)
+        seen = {
+            strip.getpixel((x, y))[:3]
+            for y in range(strip.height) for x in range(strip.width)
+        }
+        self.assertLessEqual(seen, set(CURB_TONES))
+
+    def test_vertical_strip_road_edge_faces_the_named_side(self) -> None:
+        east = curb_vertical_strip(32, road_side="east")
+        west = curb_vertical_strip(32, road_side="west")
+        self.assertEqual(east.getpixel((9, 5))[:3], CURB_TONES[0])
+        self.assertEqual(east.getpixel((0, 5))[:3], CURB_TONES[4])
+        self.assertEqual(west.getpixel((0, 5))[:3], CURB_TONES[0])
+        with self.assertRaisesRegex(ValueError, "road_side"):
+            curb_vertical_strip(32, road_side="north")
+
+    def test_corner_anchor_contract(self) -> None:
+        se = curb_corner_anchor("se")
+        self.assertEqual(se.size, (32, 32))
+        seen = {
+            se.getpixel((x, y))
+            for y in range(32) for x in range(32)
+        }
+        opaque = {c[:3] for c in seen if c[3] == 255}
+        self.assertLessEqual(opaque, set(CURB_TONES))
+        self.assertIn((0, 0, 0, 0), seen)                    # walk + road alpha
+        # walk interior transparent, road corner transparent, band opaque
+        self.assertEqual(se.getpixel((5, 5))[3], 0)
+        self.assertEqual(se.getpixel((31, 31))[3], 0)
+        self.assertEqual(se.getpixel((5, 24))[3], 255)
+
+    def test_corner_anchor_sw_is_the_mirror(self) -> None:
+        se, sw = curb_corner_anchor("se"), curb_corner_anchor("sw")
+        self.assertEqual(se.getpixel((0, 20)), sw.getpixel((31, 20)))
+        with self.assertRaisesRegex(ValueError, "orientation"):
+            curb_corner_anchor("ne")
+
+    def test_kit_constants_disjoint_from_registers_and_reserved(self) -> None:
+        # The citywide-infrastructure ruling as exact colors: crosswalk
+        # paint and curb concrete never collide with a register value
+        # (night maps are exact-color passes; a shared value would let
+        # a district shift catch the infrastructure).
+        infra = set(CURB_TONES) | {CROSSWALK_PAINT, (168, 152, 118), (190, 158, 74)}
+        self.assertEqual(len(infra), 8)                      # all distinct
+        for name, register in DISTRICT_REGISTERS.items():
+            for surface, ramp in register.items():
+                hits = [tone for tone in ramp if tone in infra]
+                self.assertEqual(hits, [], f"{name}/{surface}")
+        self.assertFalse(infra & set(WELL_METALS))
+        self.assertFalse(infra & set(SLATE_RAMP))
 
 
 class PlacementTests(unittest.TestCase):
@@ -238,6 +354,29 @@ class SceneStagingValidatorTests(unittest.TestCase):
         self._refuses(
             lambda d: d["props"].update(crate={"line": "wall", "span": [350, 370]}),
             "share an x-slot",
+        )
+
+    def test_lawful_crosswalk_block_passes(self) -> None:
+        from tools.art_pipeline.street_block import validate_scene_staging
+
+        data = _lawful_staging()
+        data["crosswalk"] = {"x": [280, 320]}
+        validate_scene_staging(data)
+
+    def test_crosswalk_out_of_scene_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(crosswalk={"x": [620, 660]}), "out of scene"
+        )
+
+    def test_crosswalk_narrower_than_a_figure_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(crosswalk={"x": [280, 300]}), "narrower"
+        )
+
+    def test_crosswalk_bad_pitch_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(crosswalk={"x": [280, 320], "stripe": 0}),
+            "must be positive",
         )
 
 

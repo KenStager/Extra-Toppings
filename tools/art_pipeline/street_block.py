@@ -39,6 +39,30 @@ SLATE_RAMP: list[RGB] = [(46, 51, 58), (74, 82, 92), (108, 118, 130), (158, 168,
 OXBLOOD_RAMP: list[RGB] = [(84, 32, 28), (122, 44, 38), (158, 62, 50), (196, 96, 74)]
 WELL_METALS: list[RGB] = [(58, 54, 48), (76, 70, 62), (94, 87, 76), (112, 104, 90)]
 
+# Citywide curb concrete, censused verbatim from approved curb s16102
+# (dark to light: base shadow, face, transition/joint, wear speckle,
+# top surface). Curb corners and vertical strips continue THESE tones
+# — infrastructure reads constant across districts (the flagged
+# decision-2 judgment: streets change register, road furniture does
+# not).
+CURB_TONES: list[RGB] = [
+    (58, 54, 46), (107, 99, 85), (143, 133, 112), (179, 167, 143), (201, 188, 164),
+]
+# Crosswalk bars are the paint system's pale voice (period white
+# against the center line's worn ochre). Exact-color disjoint from
+# every register value, curb tone, and reserved identity color —
+# verified by test.
+CROSSWALK_PAINT: RGB = (208, 196, 168)
+
+
+def pixel_drop_worn(x: int, y: int) -> bool:
+    """The recorded pixel-drop wear hash: (x*13 + y*7) % 11 == 0.
+
+    First paid for on Vinnie's flaking letters; the single authority
+    for deterministic paint/surface loss. Nothing is hand-random.
+    """
+    return (x * 13 + y * 7) % 11 == 0
+
 
 def a2_blob_fill(sheet: Image.Image, bx: int, by: int) -> Image.Image:
     """Seamless 16px fill from a blob-style A2 autotile block at (bx, by).
@@ -199,6 +223,169 @@ def worn_edge_line(image: Image.Image, y: int, color: RGB = (168, 152, 118)) -> 
         if (x * 7 + 3) % 23 not in (0, 1):
             for dy in range(2):
                 image.putpixel((x, y + dy), (*color, 255))
+
+
+def paint_wear_drop(x: int, y: int, pct: int) -> bool:
+    """The crosswalk's recorded wear rule: drop the paint pixel where a
+    white-mixing hash of (x, y) falls under `pct` percent.
+
+    Recorded 2026-08-11 with a negative result worth keeping: the
+    letter-scale pixel-drop hash ((x*13+y*7)%11) lays its drops on
+    slope -13/7 diagonals, which read as moire on 8px-tall zebra bars,
+    and the worn-edge column rule eats the same columns of every bar.
+    Paint wear at bar scale needs spatially WHITE loss — still fully
+    deterministic, never hand-random.
+    """
+    h = ((x * 73856093) ^ (y * 19349663)) & 0x7FFFFFFF
+    return h % 100 < pct
+
+
+def crosswalk_paint(
+    road_depth: int,
+    corridor: int = 40,
+    stripe: int = 8,
+    gap: int = 8,
+    wheel_bands: tuple[tuple[int, int], ...] = (),
+) -> Image.Image:
+    """Worn zebra paint layer for a crossing over a HORIZONTAL road.
+
+    Continental bars parallel to traffic (aerial-true), stacked
+    curb-to-curb at `stripe`+`gap` pitch; only whole bars are laid,
+    centered with margins (paint crews do not paint half a bar into a
+    gutter). Paint-only alpha: the district's road shows through gaps
+    and wear — paint is citywide, ground is register.
+
+    Wear is the recorded `paint_wear_drop` rule, graded by physics
+    (grades tuned by eye 2026-08-11 against B/C variants and recorded
+    here as law): 4% base loss, 30% inside `wheel_bands` (local row
+    spans where the travel lanes' tires cross — the bars in wheel
+    paths wear to fragments while bars between lanes survive), +6 on
+    each bar's edge rows where paint chips first. Deterministic by
+    construction; byte-equal on every call.
+    """
+    im = Image.new("RGBA", (corridor, road_depth), (0, 0, 0, 0))
+    pitch = stripe + gap
+    bars = max((road_depth - 8 + gap) // pitch, 1)   # >=4px margin each end
+    y = (road_depth - (bars * stripe + (bars - 1) * gap)) // 2
+    for _ in range(bars):
+        for yy in range(y, y + stripe):
+            in_wheels = any(b0 <= yy < b1 for b0, b1 in wheel_bands)
+            edge_row = yy in (y, y + stripe - 1)
+            pct = (30 if in_wheels else 4) + (6 if edge_row else 0)
+            for x in range(corridor):
+                if paint_wear_drop(x, yy, pct):
+                    continue
+                im.putpixel((x, yy), (*CROSSWALK_PAINT, 255))
+        y += pitch
+    return im
+
+
+def crosswalk_paint_vertical(
+    road_width: int,
+    corridor: int = 40,
+    stripe: int = 8,
+    gap: int = 8,
+    wheel_bands: tuple[tuple[int, int], ...] = (),
+) -> Image.Image:
+    """The same crossing over a VERTICAL (north-south) road: bars run
+    vertical (still parallel to traffic), stacked west-to-east;
+    `wheel_bands` are local COLUMN spans after the transpose. One wear
+    authority, two orientations.
+    """
+    return crosswalk_paint(road_width, corridor, stripe, gap, wheel_bands).transpose(
+        Image.Transpose.TRANSPOSE
+    )
+
+
+def curb_vertical_strip(
+    height: int, width: int = 10, road_side: str = "east"
+) -> Image.Image:
+    """Curb along a north-south street edge — top surface only (the
+    flat-on grammar shows south faces; a side-on curb has none). Pale
+    field in s16102's top-surface tones, stone joints on the 16px
+    rhythm, a 2px dark road edge with a 1px transition; wear speckle
+    by the recorded pixel-drop hash. `road_side` names which edge the
+    road touches.
+    """
+    if road_side not in ("east", "west"):
+        raise ValueError(f"road_side must be east or west, got {road_side!r}")
+    base, face, joint, speckle, pale = CURB_TONES
+    im = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    for y in range(height):
+        for x in range(width):
+            if x >= width - 2:
+                col = base
+            elif x == width - 3:
+                col = joint
+            elif y % 16 == 15:
+                col = joint
+            elif pixel_drop_worn(x, y):
+                col = speckle
+            else:
+                col = pale
+            im.putpixel((x, y), (*col, 255))
+    if road_side == "west":
+        im = im.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    return im
+
+
+def curb_corner_anchor(orientation: str = "se") -> Image.Image:
+    """32x32 code anchor for a curb corner return — the crude form the
+    pixflux wear pass textures (the s16102 recipe carried around a
+    corner). 'se': the block WEST of a cross street — the south-facing
+    band enters from the west and wraps north up the east edge; 'sw'
+    is the mirror for the block east of the cross street. Anchors are
+    code and may mirror; each orientation buys its own generation
+    seeds, so no generated wear is ever a mirror twin.
+
+    Anatomy censused from s16102 (rows: 7 pale / 1 transition /
+    5 face / 3 base shadow; joints every 16px); the return arc sweeps
+    the dark contour and face around the outer corner, tapering the
+    face to nothing as the edge turns from south-facing to east-facing.
+    """
+    import math
+
+    if orientation not in ("se", "sw"):
+        raise ValueError(f"orientation must be se or sw, got {orientation!r}")
+    base, face, joint, _speckle, pale = CURB_TONES
+    size, ccx, ccy, radius = 32, 25.5, 25.5, 6.0
+    im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    for y in range(size):
+        for x in range(size):
+            in_band, in_strip = y >= 16, x >= 22
+            if not (in_band or in_strip):
+                continue                       # walk interior shows through
+            qx, qy = x - ccx, y - ccy
+            if qx > 0 and qy > 0:              # the return arc
+                dist = math.hypot(qx, qy)
+                if dist > radius:
+                    continue                   # road beyond the arc
+                depth = radius - dist
+                c = math.cos(math.atan2(qx, qy))
+                base_span = 2.0 + c
+                if depth < base_span:
+                    col = base
+                elif depth < base_span + 5.0 * c:
+                    col = face
+                elif depth < base_span + 5.0 * c + 1.0:
+                    col = joint
+                else:
+                    col = pale
+            elif qx <= 0 and in_band:          # straight south band
+                r = y - 16
+                col = (pale if r <= 6 else joint if r == 7
+                       else face if r <= 12 else base)
+                if r <= 6 and x % 16 == 15:
+                    col = joint
+            else:                              # straight east strip
+                depth = 31 - x
+                col = base if depth <= 1 else joint if depth == 2 else pale
+                if depth > 2 and y % 16 == 15:
+                    col = joint
+            im.putpixel((x, y), (*col, 255))
+    if orientation == "sw":
+        im = im.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    return im
 
 
 def place_with_contact_shadow(
@@ -394,6 +581,16 @@ def validate_scene_staging(data: dict) -> None:
                 raise ValueError(
                     f"wall prop {wname!r} and curb prop {cname!r} share an x-slot"
                 )
+    crosswalk = data.get("crosswalk")
+    if crosswalk is not None:
+        x0, x1 = crosswalk["x"]
+        if not (0 <= x0 < x1 < SCENE_WIDTH):
+            raise ValueError("crosswalk x span out of scene")
+        if x1 - x0 + 1 < 24:
+            raise ValueError("crosswalk corridor narrower than a figure")
+        for key in ("stripe", "gap"):
+            if key in crosswalk and crosswalk[key] <= 0:
+                raise ValueError(f"crosswalk {key} must be positive")
 
 
 def register_mapping(
