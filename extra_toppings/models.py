@@ -472,6 +472,14 @@ HEAT_DECAY = 5
 HEAT_AMBER = 50.0         # covert capacity halves: work it hot, work it thin
 HEAT_RED = 80.0           # the district cannot be worked at all
 HEAT_SLOW_DECAY = 3       # a hot district cools slower: the city remembers
+# WHICH CHAIRS FEEL THE WEATHER (design rev. 29 item 7, built in
+# P4b.3). Carmine's Partner adopts the teeth above at UNCHANGED
+# constants — the two-front pressure the branch is named for is each
+# address's own district gating that address's covert usefulness, not
+# a second set of bands wearing the first set's name. One home, so
+# the day a later chair adopts them it joins a set instead of adding
+# another string comparison beside this one.
+HEAT_TEETH_BRANCHES = frozenset({"war", "partner"})
 
 
 @dataclass(frozen=True)
@@ -490,7 +498,7 @@ class HeatPolicy:
 
 
 def district_heat_policy(state: "State", dk: str) -> HeatPolicy:
-    if state.branch != "war":
+    if state.branch not in HEAT_TEETH_BRANCHES:
         return HeatPolicy("cool", 1.0, True, HEAT_DECAY)
     heat = state.districts[dk].heat
     if heat >= HEAT_RED:
