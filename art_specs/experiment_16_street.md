@@ -2057,3 +2057,68 @@ reverse:
 Session F spend: 16 gens ledgered (4 drift + 2 cracks + 8 neighbors
 + 2 profile poses) + ~3 MCP-estimated (no ledger hook); expected
 balance ~4,091 by estimate.
+
+## Phase B run: the crowds get their legs (2026-08-12 session F
+## cont.; board: "Perfect, proceed"; 24 gens ledgered + 9 MCP
+## estimate rows)
+
+THE POSE CAMPAIGN (16 gens, three rounds + squash fallbacks - the
+full ladder recorded in recipes profile_pose_batch{,_r2}.py):
+- r1 (12 gens, free route, own-palette strips, garments named from
+  the census sheet): women LANDED (s17211/s17221, stature lawful);
+  docker/cop FAILED on garment coverage; elder/kid FAILED ON
+  STATURE (24->30, 23->31) - the free route pulls figures to fill
+  the canvas, and "32x32 sprite" language feeds it.
+- r2 (8 gens, proportion + coverage language, canvas phrase
+  dropped): docker s17234 and cop s17244 PICKED at source stature.
+  The elder came back STOOPED and right - CARRYING A CANE in both
+  seeds: my own "cane-free" in the description planted the token
+  (the negation lesson, paid again in a new form). The kid refused
+  smallness twice - proportion language moved vehicles but not
+  children.
+- r3 (3 gens): elder re-rolled cane-less (word absent, negatives
+  armed) - still tall; SQUASH+REPAIR (the wagon/manhole mechanism)
+  landed BOTH stature failures exactly: kid h24 (s17265 via the
+  s17263 body squashed non-integer to source stature, repair @150),
+  elder h24 (s17257 via s17256). THE LAW EXTENDS: the repair
+  mechanism holds proportion for FIGURES too - stature that
+  language cannot buy, the squash buys deterministically.
+- Curation (recorded, censused): man_cream trousers 50 px burgundy
+  -> gray (the gate probe's known drift); kid hair 50 px + fringe/
+  shorts 17 px navy -> black. FINAL SET: seven west profiles
+  staged (candidates/profile_poses/final/), all 0 off-strip, all
+  within 1 px of source stature. Mirror law buys east free.
+
+THE CYCLES (9 MCP jobs: 7 walks x 8 frames from the west poses +
+2 seated idles x 4): submitted async - and the 10-job concurrency
+belief became a MEASURED FACT (rate limit at 10/10; the batch
+recipe now submits under the cap). Validated by the law module:
+- frame-0 composite-exact 8/8... except the kid at ONE PIXEL - the
+  n=3 probe said exact, the n=9 batch found the violation. LAW
+  AMENDED: frame 0 is ALWAYS OURS - the stored pose replaces the
+  vendor's frame-0 copy at bake; the class is neutralized.
+- binary alpha 9/9 clips; baselines stable (29-30); off-palette
+  drift 0-25 px/frame, ALL near-tone blends - curation-quantized
+  to the union palettes (159 px total across all clips; frame 0
+  restored verbatim; curated/ set is the candidate).
+- Loop seams (delta last->first vs inter-frame mean): clean on the
+  women/kid/seated, ~2x on man_cream/docker/seated_b - flagged for
+  the eyes pass at speed; playback order is f1..f8 looping (frame
+  0 is the standing pose, not part of the cycle).
+EYES VERDICTS: man_cream, elder (a genuinely stooped shuffle),
+docker, kid and both seated idles READ; woman_burgundy grows
+waist-length hair mid-cycle (flag - one re-roll candidate);
+woman_pale FADES to all-navy (identity fail - re-roll next round).
+THE COP JOB sits at 46% with a static ETA (~30 min) - recorded
+PENDING, possibly the stalled-job class; re-polled next round,
+re-queued if dead. Provenance: jobs.json + ledger estimate rows
+(mcp_estimate kind - the MCP surface has no ledger hook; two job
+ids were lost to a poll timeout and are marked as such).
+
+Session F totals: 40 gens ledgered (4 drift + 2 cracks + 8
+neighbors + 2 profile probe + 24 pose campaign... [16 poses + 8
+r2]) + ~12 MCP-estimated (3 probe + 9 cycles); expected balance
+~4,055 by estimate; vendor dashboard the authority. AWAITING THE
+BOARD: the pose set + cycle candidates (strips and GIFs
+presented), the woman_pale/woman_burgundy re-roll word, the cop
+resolution; University Hill paper next.
