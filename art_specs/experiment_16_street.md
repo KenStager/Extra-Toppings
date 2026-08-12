@@ -2348,3 +2348,40 @@ The accent slate-cyan is signage's LAWFUL home - the institutional-
 cyan reservation explicitly governs signage and signals. Census:
 v1->v2 diff 6,179 px confined to rows 62-138 (fascia + blade).
 university_block_v2 supersedes v1 as the scene candidate.
+
+## The reflection: good direction, bad implementation - THE
+## SIGN-SURFACE LAW (2026-08-12 session F cont.; board's catch;
+## 0 gens, 4-step reflection)
+
+The board approved the three-technology direction and rejected the
+execution, and the reflection found the root in one sentence: I
+differentiated the LETTERS but left them raw on noisy generated
+masonry. Every strong sign in this project already sat on its own
+surface (DiNapoli's red board, Vinnie's whitewash field, the
+Orchid's marquee) - UH's mottled fascia was the first NOISY wall
+the lettering ever landed on, which is why the failure appeared
+here first. Element verdicts, owned: the grounds board was fitted
+edge-to-edge with no margins (a black bar, not a mounted sign);
+the cup pictogram at 9px was below the readable-icon threshold (a
+smudge); the "carved" top-edge-peek read as ghosting/double-strike,
+on speckle that ate its contrast; the two-tone sat raw on the same
+noise; the blade letters touched their frame.
+
+**THE SIGN-SURFACE LAW, recorded: A SIGN IS A SURFACE PLUS LETTERS
+- lettering never lands raw on generated wall texture. Every sign
+is a smooth code surface first (board, frieze, panel), THEN its
+letter treatment.**
+
+v3 (all code): CAMPUS BOOKS = inset dressed-stone FRIEZE
+(architrave rules) with the name carved DEBOSSED (dark letters,
+pale +1+1 shadow - light catching the lower cut face); the
+TEXTBOOKS subline died in round 2 of the reflection (two lines
+never fit a 22px band at these scales - it slid off the frieze;
+the blade and the spine windows carry the rest). COMMON GROUNDS =
+a properly MOUNTED board (inset, wall visible above and below),
+the name alone (cup and subline killed). QUICK COPY = the 90s BOX
+SIGN - a bright panel echoing its fluorescent window, QUICK in
+accent tier 2 + COPY in ink ON the panel (subline killed; the
+poster window carries the utility read). Blade widened, letters
+gapped. Census v2->v3 confined to the fascia band.
+university_block_v3 supersedes v2 as the scene candidate.
