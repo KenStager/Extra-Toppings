@@ -2279,3 +2279,45 @@ CENSUSED before the eyes pass, not after the board asks.
 
 Session F: 44 gens ledgered + ~18 MCP-estimated; expected balance
 ~4,045 by estimate. Her pose + v3 cycle are the CANDIDATES.
+
+## Woman_pale joins; the stride metric becomes law; University Hill
+## stands (2026-08-12 session F cont.; board: "Great work. Proceed";
+## 6 gens)
+
+WOMAN_PALE PROMOTED on the word: approved/animations is 9/9 clips.
+One catch paid before it settled: the first re-promotion carried
+STALE PROVENANCE (v2's seed/job under v3's frames - the re-hash
+was correct, the story wasn't); the manifest builder's record was
+corrected to describe the actual frames (v3 s17324, both rejects
+noted) and the promotion re-run. THE STRIDE METRIC IS LAW:
+stride_range() in animation_validate with the glide-vs-stride
+test pinned (suite 153 -> 155) - walks are gait-censused before
+the eyes pass from Phase C on.
+
+UNIVERSITY HILL BUILT on the papered ruling (6 gens, recipes
+uh_facades_r1 / uh_brand): all three fronts LANDED ROUND 1 on the
+accumulated laws - textured shells, white-mix mottle, coverage
+descriptions, no_background=False, 0 off-strip all six seeds,
+88-96% repaint. Picks: campus_books s17401 (17402: edge
+artifacts), common_grounds s17411, quick_copy s17421. Brand layers
+code: three signs, the chalkboard easel prop, and A GLINT-LAW
+REFINEMENT recorded: sky-catch lands on DARK glass only - the copy
+shop's fluorescent window is lit from within and outshines any
+reflection.
+
+THE STAGING (candidates/university_block_staging.json, validator
+PASS) paid two laws forward in one authoring pass:
+1. The chalkboard's first placement sat in the lamppost's curb
+   x-slot and validate_scene_staging REFUSED it - the law caught
+   what the eye placed; moved to the door's east pier.
+2. The first draft invented a COOL UH gutter pan and yellow curb;
+   the cross-staging census caught the infrastructure violation -
+   curb concrete, lane paint and hydrant yellow are CITYWIDE (the
+   flagged ruling stands); constants restored, verified in pixels.
+The roster is decals: [] BY DESIGN - the grading law now reads
+across all four districts: Meadows dirtiest / OH moderate / LS
+swept / UNIVERSITY PRISTINE. university_block_v1 is the scene
+candidate; its Godot proof rides with promotion per precedent.
+
+Session F: 50 gens ledgered + ~18 MCP-estimated; expected balance
+~4,039 by estimate; suite 155; ruff clean.

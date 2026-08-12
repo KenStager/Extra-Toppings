@@ -147,3 +147,30 @@ def validate_animation_manifest(manifest: dict, root) -> None:
         for rel in frames:
             if not binary_alpha(Image.open(root / rel).convert("RGBA")):
                 raise ValueError(f"{cid}: non-binary alpha in {rel}")
+
+
+def stride_range(frames: list[Image.Image], rows: int = 3) -> int:
+    """The gait census (the woman_pale lesson, 2026-08-12): a true
+    walk alternates contact/passing/contact, so the foot spread —
+    the x-extent of the bottom `rows` content rows — oscillates.
+    Measured on the set's walkers: true strides range 7-8; the
+    rejected glide ranged 3. Walks are gait-censused BEFORE the
+    eyes pass, not after the board asks. Returns max-min spread
+    across the given frames (pass the loop frames, not frame 0).
+    """
+    widths = []
+    for f in frames:
+        im = f.convert("RGBA")
+        bbox = im.getbbox()
+        if not bbox:
+            widths.append(0)
+            continue
+        bottom = bbox[3] - 1
+        xs = [
+            x
+            for y in range(max(0, bottom - rows + 1), bottom + 1)
+            for x in range(im.width)
+            if im.getpixel((x, y))[3] > 0
+        ]
+        widths.append(max(xs) - min(xs) if xs else 0)
+    return max(widths) - min(widths)

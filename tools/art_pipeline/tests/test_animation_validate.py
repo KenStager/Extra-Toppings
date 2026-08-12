@@ -133,5 +133,23 @@ class ManifestTests(unittest.TestCase):
                 validate_animation_manifest(bad, tmp)
 
 
+
+class StrideTests(unittest.TestCase):
+    def test_glide_vs_stride(self) -> None:
+        from tools.art_pipeline.animation_validate import stride_range
+
+        def figure(spread: int) -> Image.Image:
+            im = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+            for y in (13, 14, 15):
+                for x in range(7 - spread // 2, 8 + spread // 2 + 1):
+                    im.putpixel((x, y), (10, 10, 10, 255))
+            return im
+
+        glide = [figure(4) for _ in range(8)]
+        self.assertEqual(stride_range(glide), 0)
+        stride = [figure(2 if i % 2 else 8) for i in range(8)]
+        self.assertGreaterEqual(stride_range(stride), 5)
+
+
 if __name__ == "__main__":
     unittest.main()
