@@ -13,6 +13,8 @@ the points schedule it starts. The lifecycle it hands the world to
 pressure, grade and endings are later PRs'.
 """
 
+from dataclasses import dataclass
+
 from . import data, evidence, models
 from .models import BranchState, Shop, State, Wagon
 from .ui import Console, money
@@ -102,6 +104,148 @@ def first_points_due(shop: Shop, payoff_day: int) -> int:
     # hoist was supposed to end, sitting one function below the
     # comment that claimed it had.
     return models.first_points_due(shop.acceptance_day, payoff_day)
+
+
+@dataclass(frozen=True)
+class PartnerGradeView:
+    """THE Partner grade, derived once (§2.4.2, rev. 24 item 1;
+    rev. 35 item 2, corrected by rev. 36 item 4).
+
+    Both term VALUES, both requirements, both verdicts, the tier and
+    the terminal id — so the card the player reads mid-month and the
+    epilogue's verdict are one arithmetic BY CONSTRUCTION rather than
+    by agreement. A second spelling would let the card promise
+    `healthy` while the epilogue delivers `hollow`, which is worse
+    than a wrong number: a game that lied to somebody steering by it.
+
+    Every consumer reads this — the card, the grade, the day-30
+    epilogue header, the tier arm and every later study — rather than
+    reproducing the arithmetic, which is the two-homes defect with
+    extra steps: it agrees until one of them is edited."""
+
+    net: int                    # combined net LESS current arrears
+    net_required: int
+    net_met: bool
+    reputation: float           # the non-founding room's own meter
+    reputation_required: float
+    reputation_met: bool
+    arrears: int                # the terminal's discriminator, not the tier's
+    tier: str                   # hollow < working < healthy
+    ending: str
+
+
+def the_restaurant(state: State) -> Shop:
+    """The room the restaurant term reads, BY IDENTITY (rev. 35 item
+    3): the non-founding address, resolved through the lifecycle
+    rather than by the key spelling `shop2` or by list position.
+
+    It REFUSES rather than choosing when there is more than one. Act
+    I's Partner builds exactly one second room; picking among several
+    would be the positional defect P4a abolished, wearing a new hat.
+    A later act that wants several rules how, and does not inherit a
+    guess."""
+    founding = models.founding_shop(state).key
+    rooms = [s for s in state.shops if s.key != founding]
+    if len(rooms) != 1:
+        raise ValueError(
+            f"the grade reads ONE second address and this run keeps "
+            f"{len(rooms)}; which room the restaurant term means is "
+            f"a ruling, not an inference")
+    return rooms[0]
+
+
+def grade_view(state: State) -> PartnerGradeView:
+    """THE one derivation. The net term extends the existing
+    `State.net_worth` authority — already address-agnostic since P4a —
+    and subtracts CURRENT ARREARS read from `partner_ledger` rather
+    than recounted. Carmine's capital is equity and is never
+    subtracted; no fixed capital is counted, exactly as net_worth has
+    always behaved.
+
+    The gate is AND (rev. 24 item 1): `healthy` needs both terms,
+    `working` exactly one, `hollow` neither. Money must not
+    compensate for a dead restaurant."""
+    if state.branch_state is None:
+        raise ValueError("the Partner grade reads a branch state; "
+                         "this run took no chair")
+    ledger = models.partner_ledger(state.branch_state)
+    net = state.net_worth() - ledger.arrears
+    room = the_restaurant(state)
+    # STRICTLY greater (rev. 25 item 2, restated by rev. 36 item 1):
+    # the released one-shop grade always compared this way, and the
+    # inclusive draft that briefly said otherwise was superseded
+    # before anything was built on it.
+    net_met = net > models.OPERATION_NET_THRESHOLD
+    rep_met = room.reputation >= models.PARTNER_REPUTATION_THRESHOLD
+    met = int(net_met) + int(rep_met)
+    tier = models.PARTNER_TIERS[met]
+    return PartnerGradeView(
+        net=net,
+        net_required=models.OPERATION_NET_THRESHOLD,
+        net_met=net_met,
+        reputation=room.reputation,
+        reputation_required=models.PARTNER_REPUTATION_THRESHOLD,
+        reputation_met=rep_met,
+        arrears=ledger.arrears,
+        tier=tier,
+        ending=(models.ON_THE_HOOK_ENDING if ledger.arrears
+                else models.OPERATION_ENDING))
+
+
+def grade(state: State) -> str:
+    """§2.5's day-30 matrix for Partner: the TERMINAL discriminator is
+    ARREARS, never the strike count (rev. 22 item 7) — a player who
+    missed once and paid the catch-up bill reaches day 30 with one
+    strike, zero arrears, and The Operation earned. Which KIND of
+    Operation is the tier's separate question.
+
+    Returns the view's id and never re-derives it."""
+    return grade_view(state).ending
+
+
+def day_thirty_card(state: State, con: Console) -> None:
+    """THE nightly card (§2.4.2, rev. 24 item 1; slotted by rev. 36
+    item 2).
+
+    It renders AFTER the rival and law phases and before the day
+    advances — not beside the points bill, where
+    `partner.night_obligation` runs. The law can still seize the
+    stash, freeze clean cash or close the file after that point, so a
+    card rendered there would be derived consistently and be STALE,
+    which is the same class of wrong as an inconsistent one and
+    harder to see.
+
+    Prospective, always: the day-30 TRACK, never an ending already
+    earned. The tier and the arrears are shown as TWO readings,
+    because they answer independent questions — §2.5 is explicit that
+    the terminal id is not the grade, and a player who has paid every
+    bill can still be heading for a hollow room.
+
+    An arrest that night suppresses it: a forecast for a run that has
+    already ended is noise over the ending."""
+    if state.game_over or state.branch != "partner":
+        return
+    room = the_restaurant(state)
+    if not models.address_allows(room, state.day, "service"):
+        return          # still a building site: the term is meaningless
+    view = grade_view(state)
+    where = models.address_label(state, room.key)
+    con.say("")
+    con.say("  The day-30 track — where this month is pointing, not "
+            "where it ended:")
+    con.say(f"    Combined net {money(view.net)} "
+            f"(needs more than {money(view.net_required)}) — "
+            f"{'clear' if view.net_met else 'short'}")
+    con.say(f"    {where} reputation {view.reputation:.0f} "
+            f"(needs {view.reputation_required:.0f}) — "
+            f"{'clear' if view.reputation_met else 'short'}")
+    con.say(f"    On this track: the {view.tier} operation.")
+    if view.arrears:
+        con.say(f"    And Carmine is owed {money(view.arrears)} — while "
+                f"that stands, day thirty is On the Hook whatever the "
+                f"rooms look like.")
+    else:
+        con.say("    Carmine is square. Day thirty grades the rooms.")
 
 
 def site_label(district: str) -> str:

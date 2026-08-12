@@ -351,6 +351,26 @@ EARLY_PAYOFF_DAY = 10
 # THE terminal the second strike reaches. Canon's id, spelled once
 # (§2.5): `foreclosure`, not a paraphrase of it.
 FORECLOSURE_ENDING = "foreclosure"
+# Partner's day-30 pair (§2.5, rev. 22 item 3). Explicit ids, because
+# an outcome matrix must not depend on generic epilogue ordering.
+OPERATION_ENDING = "operation"
+ON_THE_HOOK_ENDING = "on_the_hook"
+# THE combined-net bar, one home, NO comparator in the name (design
+# rev. 36 item 1). Both consumers compare it STRICTLY: the released
+# `survived` grade always did, and revision 25 item 2 ruled that
+# Partner's term matches it in comparison and value both — revision
+# 24's inclusive draft was superseded before it was ever built on.
+# A name like `..._MIN` or `..._AT_LEAST` would smuggle the rejected
+# boundary back in as an inference.
+OPERATION_NET_THRESHOLD = 8000
+# The restaurant term (§2.4.2, rev. 24 item 1): above the ~20 the room
+# opens at, so it must be EARNED, and below the 50 the founding shop
+# starts from, so it is reachable inside the month. A §6.3 placeholder.
+PARTNER_REPUTATION_THRESHOLD = 35.0
+# The tiers, ordered (rev. 24 item 1). The gate is AND: money must not
+# compensate for a dead restaurant, which is the branch's thesis.
+PARTNER_TIERS = ("hollow", "working", "healthy")
+
 
 
 def first_points_due(acceptance_day: int, payoff_day: int) -> int:
@@ -817,6 +837,42 @@ class BranchState:
 # this one definition — nothing else may spell a branch id.
 BRANCH_ORDER = ("straight", "partner", "war", "quiet_sale")
 ACTIVE_BRANCHES = frozenset(BRANCH_ORDER)
+
+# The chair that is no chair: the sit-down's decline, and where the
+# escrow reverts to. It is a branch VALUE, not the absence of one.
+STAND_PAT = "stand_pat"
+# THE TERMINAL REGISTRY (design rev. 36 item 3): every ending id, and
+# WHICH BRANCHES MAY REACH IT. One table, consumed by validation and
+# by the epilogue alike, with renderer coverage asserted against its
+# inventory.
+#
+# Failing closed on an UNKNOWN id was necessary and not sufficient: a
+# KNOWN id on the wrong branch still prints somebody else's story, and
+# `partner` + `straight_exit` is the case that proves it — the
+# Straight Path's earned exit, rendered for a run that never went
+# straight, with every id present in the table.
+_ANY_CHAIR = frozenset(BRANCH_ORDER) | {None, STAND_PAT}
+TERMINAL_OWNERS: dict = {
+    # The latch and clean insolvency reach every chair and no chair.
+    "arrested": _ANY_CHAIR,
+    "broke": _ANY_CHAIR,
+    # The day-30 grades of a run that took no chair. The escrow's
+    # revert lands here too — it sets `stand_pat`, which is why this
+    # is not simply `{None}`.
+    "survived": frozenset({None, STAND_PAT}),
+    "kneecaps": frozenset({None, STAND_PAT}),
+    "straight_exit": frozenset({"straight"}),
+    "almost_out": frozenset({"straight"}),
+    "half_measures": frozenset({"straight"}),
+    "syndicate": frozenset({"war"}),
+    "harbor_yours": frozenset({"war"}),
+    "long_war": frozenset({"war"}),
+    "burned_out": frozenset({"war"}),
+    "sold": frozenset({"quiet_sale"}),
+    FORECLOSURE_ENDING: frozenset({"partner"}),
+    OPERATION_ENDING: frozenset({"partner"}),
+    ON_THE_HOOK_ENDING: frozenset({"partner"}),
+}
 
 
 @dataclass
@@ -2576,6 +2632,56 @@ def validate_cross_state(state: "State") -> None:
     # produce its own refusal before it is used as a ruler here
     # (P4b.3 review — this check was masking the anchor's).
     validate_manager_posts(state)
+    validate_terminal(state)
+
+
+def validate_terminal(state: "State") -> None:
+    """THE terminal registry, bound (design rev. 36 item 3).
+
+    An ending must exist, and it must belong to the chair that
+    reached it. Failing closed on an unknown id alone would still let
+    a KNOWN id on the wrong branch print somebody else's story —
+    `partner` with `straight_exit` renders the Straight Path's earned
+    exit for a run that never went straight, and every id in that
+    combination is real.
+
+    Partner's day-30 pair additionally binds to the ledger and the
+    calendar: The Operation is owed zero, On the Hook is owed
+    something, and NEITHER may be recorded before day 30 has actually
+    completed. Mid-month arrears are deliberately NOT a terminal —
+    owing Carmine on day 20 is an ordinary state, and demanding an
+    ending for it would refuse saves the player reached by playing
+    correctly."""
+    ending = state.game_over
+    if ending is None:
+        return
+    owners = TERMINAL_OWNERS.get(ending)
+    if owners is None:
+        raise ValueError(
+            f"unknown terminal {ending!r} — every ending is named in "
+            f"the registry, and one that is not would print whatever "
+            f"arm it happened to fall through to")
+    if state.branch not in owners:
+        raise ValueError(
+            f"the run ended {ending!r} on the {state.branch!r} "
+            f"chair, which cannot reach it")
+    if ending not in (OPERATION_ENDING, ON_THE_HOOK_ENDING):
+        return
+    if state.day <= data.DEBT_DUE_DAY:
+        raise ValueError(
+            f"a day-30 grade ({ending!r}) is recorded on day "
+            f"{state.day}; it is earned when day "
+            f"{data.DEBT_DUE_DAY} has been played out")
+    arrears = partner_ledger(state.branch_state).arrears \
+        if state.branch_state is not None else 0
+    if ending == OPERATION_ENDING and arrears:
+        raise ValueError(
+            f"the run ended {OPERATION_ENDING!r} owing Carmine "
+            f"{arrears}; The Operation is square with him")
+    if ending == ON_THE_HOOK_ENDING and not arrears:
+        raise ValueError(
+            f"the run ended {ON_THE_HOOK_ENDING!r} owing nothing — "
+            f"there is no hook without arrears")
 
 
 def validate_calendar(state: "State") -> None:
