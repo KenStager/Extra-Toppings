@@ -2441,3 +2441,57 @@ aaa70eb. The 155 was a miscount at recording time, not a lost test.
 The three "155" records above stand as written - this entry is the
 correction. The suite of record at session G open: **154 tests, OK;
 ruff clean.**
+
+## Street shelf (a): the cool-glass pass on Anchor Diner + Rossi's -
+## candidates + A/B (2026-08-12 session G; board ruling: shelf first;
+## 0 gens - all code)
+
+The glass ruling's standing flag is paid, candidate-first
+(recipes/streetshelf_coolglass_ab.py; provenance
+e16_streetshelf_coolglass.json). Mapping in facade v2's exact
+vocabulary, no new tones: zone-scoped glass FIELD (46,42,38) ->
+MIDNIGHT (48,59,90) - these are dark unlit fronts, so the darkest
+cool tone carries the field where Moretti's lit displays took slate;
+the hero stays the block's most alive glass. GLINTS DRAWN, NOT
+INHERITED: one sky-catch streak per bay in Moretti's censused 18px
+form (diner panes 3/3 symmetric at +52 from each window origin;
+Rossi's lower-left pane).
+
+CONTENT-PRESERVED judgments, flagged for the ruling:
+- the diner's (74,68,58) blobs are interior pendant-lamp silhouettes
+  - KEPT warm (warmth behind cool glass, the Moretti's read);
+- Rossi's (74,68,58) inside the window IS its muntin grid (cols
+  25/66, row 50, censused) - frame structure, never mapped;
+- DOORS untouched (Moretti's precedent mapped bays only) - the
+  diner's dark door glass stays sepia pending its own word.
+
+NUMBERS: diner 5,025 field px mapped + 36 glint px (diff exactly
+5,025, zones only; palette gains only MID+SKY); Rossi's 3,112 + 18
+(diff 3,112, zones only). IN-SCENE, composed from data: a PATCHED
+BUILDER COPY (facade paths -> candidates, PROJ -> scratch - the
+standing proof project untouched, its reference verified 5d19e406...
+before comparing) rebuilt the block; diff vs the standing reference
+7,787 px, all inside the 8,137-px facade zone footprint (350
+occluded by staged props). The in-scene A/B is the payload: the
+flanks stop reading as dead sepia voids beside DiNapoli's sky-lit
+displays; three fronts share one glazing family; the hero keeps its
+dominance.
+
+FLAGGED alongside, found during the pass:
+1. **Builder read-path smell**: builder.py loads the diner from
+   candidates/bespoke_facades/ (line 207), not approved/ - the
+   copies are byte-identical TODAY (both e0274b76...), so it is
+   latent, but the read path should be approved/; the one-line
+   re-point rides with the promotion re-bake if this pass is ruled
+   in.
+2. **The upper-story band stays sepia code glass** - out of this
+   ruling's scope, but after this pass it is the block's only warm
+   glazing; extending the cool law to the band is its own small
+   round (re-bakes every district block) if the board wants it.
+
+AWAITING THE WORD: the two candidates (promotion = approved/ swap +
+hero re-bake + Godot proof + reference-sha change recorded
+by-design), the two content judgments, the door question, and the
+two flags. Boards: coolglass_ab_diner, coolglass_ab_neighbor,
+coolglass_inscene_{mock,board}. Session G spend: 4 gens (drift
+only).
