@@ -909,6 +909,25 @@ mode a second spelling would produce here is the cruellest available,
 a card that says you are steering toward *healthy* and an epilogue
 that says *hollow*.
 
+*The card renders AFTER the night is settled* (rev. 36 item 2):
+after the rival and law phases, before the day advances. Rendering it
+beside the points bill — where `partner.night_obligation` runs —
+would derive it consistently and still print a STALE verdict, because
+the law can seize the stock, freeze the cash or close the file after
+that point. It shows only while Partner is live and the second
+address is open, an arrest that night suppresses it entirely, and it
+speaks PROSPECTIVELY — the **day-30 track**, never an ending already
+earned — keeping the operational tier and the arrears status as two
+separate readings, because they are two independent questions and the
+terminal id is not the grade.
+
+*Every consumer reads the VIEW, not its arithmetic* (rev. 36 item 4).
+The card, the grade, the day-30 epilogue header, the tier arm and
+every later study consume `PartnerGradeView`. The epilogue's header
+prints raw `State.net_worth()` today, which DISAGREES with combined
+net whenever arrears stand — so an On-the-Hook run would head its own
+ending with a number its grade never used.
+
 *The restaurant term names its address by IDENTITY*: it is **the
 non-founding address**, resolved through `founding_shop`, never
 "shop 2" by key spelling and never by list position. With more than
@@ -1185,6 +1204,25 @@ Operation. Which *kind* of Operation is a second, independent question,
 answered by the tiers of §2.4.2 — the terminal id is not the grade, and
 "branch-good" in §2.7 means the healthy tier, never merely the id
 (rev. 23 item 1).
+**THE TERMINAL REGISTRY is canonical, and it carries OWNERSHIP**
+(rev. 36 item 3). One table names every terminal id and which
+branches may reach it; save/load validation and the epilogue both
+consume it, and renderer coverage is asserted against its inventory.
+Failing closed on an UNKNOWN id was not enough — a KNOWN id on the
+wrong branch still prints somebody else's story, and `partner` +
+`straight_exit` is the case that proves it. The check runs **before
+the epilogue header**, so a refusal emits no partial ending: half an
+epilogue is worse than none, because it reads as a real one.
+
+*Partner's day-30 pair, exactly:* `operation` requires **zero
+arrears**; `on_the_hook` requires **arrears outstanding**; both are
+valid only **after day 30 has completed** (`state.day >
+DEBT_DUE_DAY`, ordinarily day 31). Mid-month arrears require no
+terminal at all — owing Carmine money on day 20 is an ordinary state,
+and a validator that demanded an ending for it would refuse saves the
+player reached by playing correctly. Arrest, foreclosure and
+insolvency keep their §2.5 precedence over both.
+
 **And the epilogue dispatcher FAILS CLOSED on an id it does not
 know** (rev. 35 item 1). "An outcome matrix must not depend on generic
 epilogue ordering" was ruled twice — rev. 15 item 4 for The Syndicate,
@@ -2003,13 +2041,13 @@ Ordered roughly by blast radius, smallest first:
   - *P4b.4 — the grade and the endings.* The one Partner grading
     view, the tiers, the card that shows its work, `operation` and
     `on_the_hook` with their texts, and the §2.5 matrix rows. Carries
-    rev. 35: the epilogue dispatcher fails closed on an unknown id
-    (today `operation` prints **The Legitimate Exit**, measured), the
-    grading view is the single derivation behind both the card and
-    the epilogue, `models.OPERATION_HOLDS_NET` is one home for a
-    number two comparators read, and the terminal/arrears
-    relationship binds in validation the way foreclosure's already
-    does. The released `survived` grade is touched only to read the
+    rev. 35 as corrected by rev. 36: the canonical terminal registry
+    with branch ownership, consumed by validation AND the epilogue
+    and checked before the header prints; the grading view as the
+    single derivation behind the card, the grade, the epilogue header
+    and every study; `models.OPERATION_NET_THRESHOLD` as one home for
+    a threshold BOTH consumers compare strictly; and the card
+    rendered after the law has had its say. The released `survived` grade is touched only to read the
     hoisted constant — identity MEASURED at both gates, never
     assumed.
   - *P4b.5 — bots, battery and study.* The Partner bot, both
@@ -5784,8 +5822,10 @@ are NOT reopened. What follows is the genuinely open remainder, plus
 one defect the reading pass found in released code. It amends §2.4.2,
 §2.5 and §7 in place.
 
-1. **The epilogue dispatcher prints somebody else's ending, and this
-   is measured rather than argued.** *Current behaviour.* `epilogue`
+1. **EXTENDED BY REVISION 36 ITEM 3 — failing closed on unknown ids
+   was necessary and not sufficient. The epilogue dispatcher prints
+   somebody else's ending, and this is measured rather than
+   argued.** *Current behaviour.* `epilogue`
    is an if/elif chain ending in `else: # survived — grade the exit`.
    *Measured on merged main*: a state with `game_over = "operation"`
    prints **"ENDING: The legitimate exit. The rarest pie on the
@@ -5841,8 +5881,10 @@ one defect the reading pass found in released code. It amends §2.4.2,
    arms* are selected by WHICH term passed: net alone is *money
    without a room*, reputation alone is *a room without money*.
 
-5. **One home for 8,000, and the two comparators it is read
-   with — flagged rather than buried.** Revision 24 promotes the
+5. **CORRECTED BY REVISION 36 ITEM 1 — the premise was a superseded
+   item read as live, and the proposal below is wrong.** Kept
+   verbatim as what was proposed. **One home for 8,000, and the two
+   comparators it is read with — flagged rather than buried.** Revision 24 promotes the
    `survived` grade's existing bar to a named home "at unchanged
    value". The tree reads `net > 8000` (game.py, strict); revision 24
    specifies Partner's term as **≥ $8,000**. *Ruling:*
@@ -5868,7 +5910,9 @@ one defect the reading pass found in released code. It amends §2.4.2,
    while owing Carmine money is refused at the boundary, not
    discovered in an epilogue.
 
-7. **The card, and where the player meets it.** Revision 24 requires
+7. **CORRECTED BY REVISION 36 ITEM 2 — the slot is right after the
+   law, not beside the points bill. The card, and where the player
+   meets it.** Revision 24 requires
    it to show its work "while there is still time to steer", which
    rules out an epilogue-only card. *Ruling:* it renders in the
    **night's branch tick**, beside the points ledger that already
@@ -5894,3 +5938,103 @@ one defect the reading pass found in released code. It amends §2.4.2,
    shared edit is under strict one-address equivalence, MEASURED at
    both gates and both battery depths. "Containment" does not license
    a moved digit.
+
+**Revision 36** records the disposition on revision 35: four
+corrections, and the rest of that packet approved. Paper first — it
+lands before any P4b.4 mechanic. Revision 35's affected items are
+marked in place rather than left to read as live, on revision 32's
+precedent. It amends §2.4.2, §2.5 and §7.
+
+1. **The $8,000 proposal is REJECTED, and the reason it was made is
+   the finding.** Revision 35 item 5 proposed one home read with two
+   comparators, on the premise that revision 24 item 1's "≥ $8,000"
+   was live. **It was not.** Revision 25 item 2 had already
+   superseded it, and canonical §2.4.2 already reads *"combined net
+   strictly greater than $8,000"*. So **both consumers use
+   `> 8_000`** — Partner and the released `survived` grade alike — at
+   one neutral home, `models.OPERATION_NET_THRESHOLD`, named without
+   a comparator in it so no reader infers one. **$8,000 fails and
+   $8,001 passes, pinned in BOTH consumers.** Reputation stays
+   `>= 35`.
+
+   *Why this is recorded as a failure and not a tidy-up.* Revision 25
+   item 2 does not merely give a different answer; it anticipates the
+   exact argument revision 35 made — "a silent contract change
+   dressed as a promotion to a named home" — and DECLINES the
+   inclusive boundary explicitly. Reading a superseded item as live
+   is the failure this project has now hit three times: round 14's
+   points-schema claim, revision 32's flag (which had to be marked
+   superseded where it stood), and this. It was cited BY THIS SESSION
+   in revision 32's ruling coda and then committed anyway, two
+   revisions later, by reading §8 forward from revision 24 and
+   stopping at the first item that answered the question. **The
+   working rule, stated so it can be checked rather than intended:
+   when §8 answers a question, read FORWARD to the end of the record
+   before quoting it, and prefer the canonical section — which said
+   "strictly greater" in plain sight — over the revision that
+   introduced it.**
+
+2. **The card renders after the night is SETTLED.** Revision 35 item
+   7 put it in the night's branch tick beside the points bill.
+   `partner.night_obligation` runs before `rivals.rival_phase` and
+   `_law_phase`, and the law can still seize the stash, freeze clean
+   cash or close the file — so a card rendered there is derived
+   consistently and is still STALE, which is the same class of wrong
+   as an inconsistent one and harder to see. *Ruling:* render
+   automatically **after rival and law processing, before the day
+   advances**, only while Partner is live and the second address is
+   open. **An arrest that night suppresses it entirely** — a
+   day-30 track for a run that just ended is not a forecast, it is
+   noise over the ending. The phrasing is **prospective**: the
+   *day-30 track*, never an ending already earned. And the
+   **operational tier and the arrears status are two readings**, not
+   one line, because they answer independent questions and §2.5 is
+   explicit that the terminal id is not the grade. *Pins:* a real law
+   mutation, with the card asserted to reflect the POST-law view; and
+   an arrest that night, with no card.
+
+3. **Fail closed on branch/terminal MISMATCH, not only on unknown
+   ids.** Revision 35 item 1 was necessary and not sufficient: a
+   KNOWN id on the wrong branch still prints somebody else's story,
+   and `partner` + `straight_exit` is the case that proves it — the
+   Straight Path's earned exit, rendered for a run that never went
+   straight, with every id in the table. *Ruling:* **one canonical
+   terminal registry** naming each id and **which branches may reach
+   it**. Save/load validation consumes it, `epilogue` consumes it,
+   and renderer coverage is asserted against its inventory so an id
+   added without an arm fails in the suite. The check runs **before
+   the epilogue header prints**, because a refusal that has already
+   emitted a header has emitted half an ending, and half an ending
+   reads as a real one. `survived` becomes an explicit arm.
+
+   *Partner's day-30 pair, exactly:* `operation` requires **zero
+   arrears**; `on_the_hook` requires **arrears outstanding**; both
+   are valid **only after day 30 has completed** (`state.day >
+   DEBT_DUE_DAY`, ordinarily day 31). **Mid-month arrears require no
+   terminal** — owing Carmine on day 20 is an ordinary state, and a
+   validator demanding an ending for it would refuse saves reached by
+   correct play, which is the precise failure §2.4.2 forbids for the
+   manager vacancy. **Arrest, foreclosure and insolvency keep
+   precedence** over both.
+
+4. **The Partner epilogue must display the GRADING VIEW's net.** The
+   epilogue header prints raw `State.net_worth()`, which disagrees
+   with combined net whenever arrears stand — so an On-the-Hook run
+   would head its own ending with a number its own grade never used,
+   and a player reconciling the two would be right to think one of
+   them was lying. *Ruling:* the card, the grade, the day-30 epilogue
+   header, the tier arm and every later study **consume
+   `PartnerGradeView`** rather than reproducing its arithmetic.
+   Reproducing it is the two-homes defect with extra steps: it agrees
+   until one of them is edited. *Pin:* an `on_the_hook` state where
+   gross net and net-after-arrears DIFFER, so a header reading the
+   wrong one is visible rather than coincidentally equal.
+
+**Approved from revision 35, unchanged:** one frozen grading view;
+the identity-based non-founding address with refusal on ambiguity;
+the AND-gated tiers and `working`'s two arms; automatic nightly
+visibility; explicit `operation` and `on_the_hook` prose; and
+Partner-flavoured text on the existing `arrested` id. Item 8's
+exclusions stand — §2.7's neglect bar is P4b.5's measurement
+contract, both thresholds remain §6.3 placeholders, and P4b.4 must
+not tune toward either.
