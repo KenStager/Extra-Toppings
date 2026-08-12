@@ -8,8 +8,8 @@ by anything the player does. Player-facing dice use persistent streams.
 import random
 from dataclasses import dataclass, field
 
-from . import (data, escrow, evidence, market, models, raids, rivals,
-               routes, shop, straight, war)
+from . import (data, escrow, evidence, market, models, partner, raids,
+               rivals, routes, shop, straight, war)
 from .config import GameConfig
 from .models import Shop, SitdownSnapshot, State, case_prefix
 from .rng import Streams
@@ -1553,6 +1553,10 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
     elif state.branch == "war" and not state.game_over:
         war.night_obligation(state, con, payroll_short)
         war.night_insolvency(state, con, payroll_short)
+    elif state.branch == "partner" and not state.game_over:
+        partner.night_obligation(state, con)
+        if not state.game_over:
+            partner.night_insolvency(state, con, payroll_short)
     elif state.branch == "quiet_sale" and not state.game_over:
         escrow.night_insolvency(state, con, payroll_short)
 
@@ -1815,4 +1819,4 @@ def _law_phase(state: State, con: Console, streams: Streams) -> None:
         frozen = min(state.clean, 500)
         state.clean -= frozen
     if state.case >= 100:
-        state.game_over = "arrested"
+        state.latch_arrest()

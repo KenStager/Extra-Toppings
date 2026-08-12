@@ -18,7 +18,8 @@ from . import data, models
 from .models import (RaidAttemptRecord, RouteExecutionRecord,
                      ActiveEvent, BranchState, DamageRecord, District,
                      Employee, Evidence, Rival, Shop, SitdownSnapshot, State,
-                     WarCampaignState, validate_branch_state,
+                     PointsCycleRecord, WarCampaignState,
+                     validate_branch_state,
                      validate_cross_state, validate_evidence)
 from .rng import Streams
 
@@ -49,6 +50,20 @@ def state_to_dict(state: State) -> dict:
         "news": list(state.news),
         "game_over": state.game_over,
         "debt_paid_day": state.debt_paid_day,
+        # Added post-v3 without a version bump. THE KEY IS PRESENT
+        # EXACTLY WHEN A DAY WAS RECORDED (design rev. 32 item 1) —
+        # one rule, not a special case. A run whose file has not
+        # closed has no closing day; an arrest migrated from before
+        # the field existed has none either. Writing `null` for
+        # either is writing a value for something that does not
+        # exist, and it is what made an accepted legacy save
+        # unloadable the moment the player saved again: `_arrested_day`
+        # licenses ABSENCE and refuses a present null, so the writer
+        # must not manufacture one. Omission makes the round trip
+        # stable by construction and invents no date for a night
+        # nobody recorded.
+        **({"arrested_day": state.arrested_day}
+           if state.arrested_day is not None else {}),
         "total_laundered": state.total_laundered,
         "raids_led": state.raids_led,
         "kills": state.kills,
@@ -96,6 +111,43 @@ def _migrate_v2(d: dict) -> dict:
     out.setdefault("branch", None)
     out.setdefault("branch_state", None)
     return out
+
+
+def _arrested_day(d: dict) -> int | None:
+    """THE arrest day's migration boundary. ABSENCE is the licence
+    (P4a's discipline, P4b.2 review): a payload written before the
+    field existed simply does not carry it, and an arrested run from
+    that era has no recorded day — it loads as None and can claim
+    nothing that a day would buy. A payload that HAS the field and
+    holds null on an arrested run is a different thing entirely: it
+    is current-format and missing the fact it is supposed to carry,
+    which is malformed, not historical. `.get` cannot tell those
+    apart, which is why it is not used here.
+
+    And the licence is SCOPED (rev. 32 item 2). Absence is a claim
+    about WHEN a payload was written, and that claim is checkable: a
+    save can only predate the field if it came from a build that
+    shipped before it. Carmine's Partner is unreleased, so a Partner
+    arrest carrying no day is not history — it is a current-format
+    arrest that failed to latch, and it is refused here rather than
+    admitted as a run from an era that never existed."""
+    if "arrested_day" not in d:
+        branch = d.get("branch")
+        if (d.get("game_over") == "arrested"
+                and branch not in models.BRANCHES_PREDATING_ARREST_DAY):
+            raise ValueError(
+                f"an arrest on the {branch!r} branch carries no day "
+                f"for it, and that branch shipped after the day was "
+                f"recorded — this payload cannot predate the field it "
+                f"is missing")
+        return None                     # history, migrated
+    day = d["arrested_day"]
+    if day is None and d.get("game_over") == "arrested":
+        raise ValueError(
+            "the run ended in an arrest and the payload carries no "
+            "day for it — a current-format arrest records when the "
+            "file closed")
+    return day
 
 
 def state_from_dict(d: dict) -> State:
@@ -184,6 +236,7 @@ def state_from_dict(d: dict) -> State:
         evidence=[Evidence(**e) for e in d["evidence"]],
         news=list(d["news"]),
         game_over=d["game_over"], debt_paid_day=d["debt_paid_day"],
+        arrested_day=_arrested_day(d),
         total_laundered=d["total_laundered"], raids_led=d["raids_led"],
         kills=d["kills"], demand_shock=d["demand_shock"],
         act=d["act"], branch=d["branch"],
@@ -314,6 +367,16 @@ def _branch_state_from(payload: dict | None) -> BranchState | None:
                 for c in payload["campaigns"]]
         except TypeError as exc:
             raise ValueError(f"war: malformed campaign payload ({exc})")
+    if payload.get("points_cycles"):
+        # The points history is typed the same way and for the same
+        # reason (rev. 29 item 1): both books DERIVE from these
+        # records, so validation must judge real ones. A payload
+        # whose shape does not fit is refused, not repaired.
+        try:
+            payload["points_cycles"] = [
+                PointsCycleRecord(**c) for c in payload["points_cycles"]]
+        except TypeError as exc:
+            raise ValueError(f"partner: malformed points payload ({exc})")
     try:
         return BranchState(**payload)
     except TypeError as exc:

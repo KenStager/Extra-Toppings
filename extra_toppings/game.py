@@ -1,6 +1,6 @@
 """Game orchestration: the 30-day run and its endings."""
 
-from . import data, escrow, phases, sitdown, straight, war
+from . import data, escrow, models, phases, sitdown, straight, war
 from .config import GameConfig
 from .models import State, new_state
 from .rng import Streams
@@ -80,7 +80,7 @@ def _check_endings(state: State) -> None:
     if state.game_over:
         return
     if state.case >= 100:
-        state.game_over = "arrested"
+        state.latch_arrest()
     elif state.clean <= 0 and state.dirty <= 0 and state.warehouse_cash <= 0 \
             and not any(sh.stash for sh in state.shops) \
             and all(sh.ingredients <= 0 for sh in state.shops) \
@@ -270,6 +270,19 @@ def epilogue(state: State, con: Console) -> None:
   it does not reopen. The vendetta outlives the month, the ledger of
   damage outlives the vendetta, and the city settles in to watch.
   ENDING: A Long War. You chose a war that will outlive the month.""")
+    elif e == models.FORECLOSURE_ENDING:
+        misses = [c for c in state.branch_state.points_cycles
+                  if not c.paid] if state.branch_state is not None else []
+        when = f"on day {misses[-1].due_day}" if misses else "in the end"
+        con.say(f"""
+  Two misses. Carmine never said they had to be consecutive, and you
+  heard what you wanted to hear. The second one came due {when}
+  and the money was somewhere else: in a wall, in a wagon, in a
+  man's pocket.
+  His capital was never a loan and there was never a payoff number.
+  You were an operator with two rooms. Now you are a man who used to
+  have one.
+  ENDING: Foreclosed — his money, his shop, his city.""")
     elif e == "broke":
         if state.branch == "straight":
             con.say("""

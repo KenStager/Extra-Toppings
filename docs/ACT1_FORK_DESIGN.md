@@ -395,6 +395,21 @@ terminal check therefore lives in the evidence-accrual path itself, not in
 the night's `_law_phase` sweep (§5), and it takes precedence over every
 simultaneous success (§2.5).
 
+**The latch RECORDS the night it closed on** (rev. 32). The day the
+file closed is a transition, not something to be reconstructed later
+from the ledger — the arrest itself changes who is retention-protected,
+so replaying yesterday's evidence against today's roster answers a
+different question than the one that was asked. It is written once,
+when it closes, and read back thereafter. Two consequences bind
+everywhere: a run arrested on Tuesday can never be re-latched into
+Thursday, and **a persisted arrest day is a persisted fact that
+validation checks** — a whole day, inside the calendar the run has
+reached, on a run that actually ended in an arrest. Saves written
+before the day was recorded carry no day at all, and an arrest with no
+recorded day can claim nothing that a day would buy (§2.4.2's one-night
+lag is the case that matters). The save contract for that history is
+rev. 32.
+
 ### 2.4 The branches
 
 Each branch below is specified as: goal · unlocks · pressure replacing the
@@ -614,6 +629,18 @@ CYCLE of five days. Later cycles advance from the PRIOR DUE DATE by
 exactly five days, never from the day a payment was made, so the
 schedule cannot drift; opening day remains independently
 `acceptance_day + 2`.
+
+**The one-night lag, and the only thing that licenses it** (rev. 32).
+A saved run may stand exactly one night past a due day with that
+cycle unrecorded, and only because the file closed on the due date
+itself: the night phase latched the arrest, left the bill unprocessed
+on a dead run, and advanced the day once. The licence is the
+**recorded arrest transition on that night** (§2.3) — never
+`game_over` in general, never an arrest on some other night, and never
+an arrest with no recorded day. An arrest three days later excuses
+nothing: Carmine's money was late before the police arrived. Any
+other run standing past an unrecorded due day skipped a bill and the
+save is refused.
 
 **The territorial response, executable** (rev. 29): Little Sicily
 answers to **Sal**, The Meadows to **Vinnie**, and University Hill has
@@ -1849,7 +1876,11 @@ Ordered roughly by blast radius, smallest first:
     (rev. 29 item 7): Partner joins `REMEDIATION_BRANCHES` and the
     shared clean-insolvency accounting, and the dirty-first payment
     authority is hoisted out of `war.night_obligation` into one home
-    both consumers use.
+    both consumers use. Carries rev. 32: the arrest day is a recorded
+    transition, validated where it is read, and its migration is
+    round-trip stable — the local proof is a **load → serialize →
+    reload chain with a stable second serialization**, not a load
+    that stops at step one.
   - *P4b.3 — the manager, the vacancy and the two-front pressure.*
     Appointment through one transition authority, the vacancy as a
     valid state and its penalties, the `ShopDefenseView` that answers
@@ -4925,3 +4956,118 @@ living only in §8.
    five days**, never from the day a payment happened to be made, so
    the schedule cannot drift. Opening day remains independently
    `acceptance_day + 2`. §2.4.2 amended.
+
+**Revision 32** responds to the P4b.2 review's seventh round, which
+found the one defect the six earlier rounds had walked past: the
+arrest day was given a migration boundary and never given a way back
+out of one. An old arrested save loads — and can never be saved
+again. Paper first: this revision lands before the correction it
+authorizes, and amends §2.3 and §2.4.2 rather than living only here.
+Item 1's SHAPE is proposed, not ruled — see the flag at the end.
+
+1. **Absence is the representation: the key is present exactly when a
+   day was recorded.** The defect, stated exactly. `arrested_day` was
+   added post-v3 as an additive field whose migration licence is
+   ABSENCE (P4a's discipline): a payload written before the field
+   existed does not carry it, loads as `None`, and claims nothing.
+   But serialization wrote the field unconditionally, so that
+   migrated run round-tripped to `"arrested_day": null` — which the
+   same boundary refuses, correctly, as a current-format arrest
+   missing the fact it is supposed to carry. Load once, refuse
+   forever. The existing migration pin stopped after the load and
+   never round-tripped, which is why six rounds did not see it.
+
+   The rule that fixes it is one rule, not a special case: **the key
+   is written when there is a day and omitted when there is not.** A
+   run whose file has not closed has no closing day; an arrest
+   migrated from before the field existed has none either; writing
+   `null` for either is writing a value for something that does not
+   exist. Omission is round-trip stable **by construction** — the
+   second serialization is byte-identical to the first, because
+   nothing in the loop invents a value — and it invents no date for a
+   night nobody recorded. REJECTED alternatives: an explicit sentinel
+   (`"unrecorded"`) and a companion "day unknown" flag. Both are
+   durable and both are a second spelling of a fact absence already
+   states, and this project's most-caught defect class is two homes
+   for one fact.
+
+2. **The absence licence is scoped to histories that could genuinely
+   carry it.** Absence must not become a universal excuse: it is a
+   claim about WHEN a payload was written, and that claim is
+   checkable. A save can only predate the arrest-day field if it
+   comes from a build that shipped before it — a run that took no
+   chair, or one of the branches released at the time: the Straight
+   Path, the Quiet Sale, the Harbor War. **Carmine's Partner is
+   unreleased**, so a Partner arrest carrying no day is not history;
+   it is a current-format arrest that failed to latch, and it is
+   REFUSED.
+
+   The set is **frozen history, and an allow-list**. It must never be
+   respelled as `RELEASED_BRANCHES`, which GROWS: Partner joins it at
+   its own activation (the seventh P4b act), and a Partner save
+   written then still cannot predate a field that shipped before it.
+   An allow-list also refuses by default for every branch added
+   later, so the licence cannot widen by omission.
+
+3. **What does not change, stated so it is not quietly traded away.**
+   A payload that HAS the field and holds `null` on an arrested run
+   is still refused — `.get` still cannot tell absence from a present
+   null, and this correction does not make the writer produce one.
+   A migrated arrest still has no recorded day and therefore can
+   never claim §2.4.2's one-night lag, which is licensed by the
+   recorded transition and by nothing else. Nothing here loosens
+   §2.3's validation of a present day: whole, inside the calendar
+   reached, on a run that actually ended in an arrest.
+
+   The honest cost, recorded rather than glossed: for the branches
+   the licence covers, a current-engine arrest that somehow failed to
+   latch is indistinguishable from a genuine legacy one, because both
+   are "no recorded day" and that state must stay loadable for the
+   histories that legitimately hold it. Item 2 is what shrinks that
+   surface to the branches where an unrecorded arrest is a real
+   possibility; on Partner — the branch this PR builds — it is
+   refused outright.
+
+**FLAGGED, blocking the P4b.2 merge — SUPERSEDED by the ruling coda
+below, and kept verbatim as the proposal it was.** Reading a
+superseded item as live is the failure revision 29 item 1 already
+cost this project a round trip for, so the flag is marked where it
+stands rather than left to be discovered. Item 1's shape is this
+session's choice, not a ruling. Absence-as-representation, the
+sentinel and the companion flag were all available; the argument for
+absence is round-trip stability by construction and one home for one
+fact, and the argument against it is that it makes ordinary saves
+stop writing a key they write today (loading is unaffected — the
+loader has always read presence, never truthiness). If the reviewer
+wants the sentinel or the flag instead, this revision and the
+correction under it are rewritten before anything else in P4b.2
+moves.
+
+**Revision 32 ruling (the shape, approved).** The review ruled on
+revision 32 at `83a97b7` and the flag above is closed. **Absence is
+the canonical representation** — approved on grounds the proposal did
+not itself argue and which are recorded here because they are the
+reason: the field HAS NOT SHIPPED, so omitting it breaks no released
+save shape. A **sentinel** was rejected because it widens the value
+domain without resolving provenance unless the save version also
+changes — and it would not have earned a version bump. A **companion
+flag** was rejected because it creates two writable facts about one
+day.
+
+The **frozen allow-list is approved exactly as scoped**: `None`, the
+Straight Path, the Quiet Sale and the Harbor War. It must **remain
+independent of a growing `RELEASED_BRANCHES`**, and Partner and every
+future branch refuse by default. The **admitted ambiguity on the
+older branches is the necessary compatibility cost**, accepted as
+such — and the thing that makes it acceptable is stated as the
+binding half: **an unknown legacy day cannot license Partner's
+skipped bill**, because §2.4.2's one-night lag is licensed by the
+recorded transition and by nothing else.
+
+The story and the mechanics agree at the end of this: the file closes
+once; a known transition keeps its night; a genuinely old arrest
+stays unknown; and no date is ever reconstructed.
+
+The merge remains blocked by the **server-side ruleset safeguard**,
+which is an independent prerequisite and not a design question
+(FINDINGS rounds 15–16).

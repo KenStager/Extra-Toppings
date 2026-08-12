@@ -193,7 +193,10 @@ EVIDENCE_KINDS = ("witness", "paper", "physical", "pattern", "legacy",
 # counsel availability, the laundering ceiling, settlements, retention
 # protection, hiring refusals, cross-state validation and the docket
 # all consume this one pair; never a scattered branch check.
-REMEDIATION_BRANCHES = frozenset({"straight", "war"})
+# Partner joined by rev. 29 item 7, with the capability policy
+# unchanged: two registers give the Case a new paper source, and
+# counsel is affordable on Carmine's money and busy.
+REMEDIATION_BRANCHES = frozenset({"straight", "war", "partner"})
 
 
 def remediation_unlocked(state: "State") -> bool:
@@ -207,6 +210,36 @@ def remediation_unlocked(state: "State") -> bool:
 # hidden anywhere end the run. One transition, one nightly rule; the
 # branches narrate it in their own voices.
 INSOLVENT_NIGHTS = 2
+
+# THE points cadence and prices (§2.4.2), in one home because both
+# the branch module and the persistence validator price bills from
+# them: $2,500 every 5 days forever, a $500 vig riding the next bill
+# after a miss, and the SECOND strike — at any later cycle,
+# consecutive or not — forecloses.
+POINTS_PER_CYCLE = 2_500
+POINTS_VIG = 500
+POINTS_CYCLE_DAYS = 5
+POINTS_STRIKES_TO_FORECLOSE = 2
+# The early-payoff compliment: paying the debt by this day defers the
+# FIRST cycle by one whole cycle (§2.4.2, rev. 31 item 3).
+EARLY_PAYOFF_DAY = 10
+# THE terminal the second strike reaches. Canon's id, spelled once
+# (§2.5): `foreclosure`, not a paraphrase of it.
+FORECLOSURE_ENDING = "foreclosure"
+
+
+def first_points_due(acceptance_day: int, payoff_day: int) -> int:
+    """THE first due day (rev. 31 item 3), from the address's
+    PERSISTED acceptance day: `acceptance_day + (10 if payoff_day <=
+    10 else 5)`.
+
+    It lives here rather than in the branch module because the
+    persistence validator prices the schedule from it too, and a
+    second spelling of the anchor is how a cursor and a ledger come
+    to disagree about the same deal."""
+    grace = (2 * POINTS_CYCLE_DAYS if payoff_day <= EARLY_PAYOFF_DAY
+             else POINTS_CYCLE_DAYS)
+    return acceptance_day + grace
 
 
 def insolvency_tick(state: "State", payroll_short: bool) -> str | None:
@@ -469,6 +502,107 @@ class WarCampaignState:
     captured_pre_latch: bool = False   # capture completed on a live run
 
 
+@dataclass(frozen=True)
+class PointsCycleRecord:
+    """ONE points cycle, appended once and frozen thereafter (§2.4.2,
+    rev. 29 item 1).
+
+    The canonical state is this history; arrears, strikes and the
+    running total are DERIVED from it by `partner_ledger`. Fields
+    that could be mutated beside the history — an arrears balance, a
+    strike counter — are exactly the defect the typed evidence
+    ledger and the war's campaign records each had to remove: two
+    writable sources for one fact, free to disagree after any partial
+    update.
+
+    `bill` is the COMPLETE amount presented that cycle — prior
+    arrears plus the cycle's points plus the vig — because there is
+    no partial payment: the bill clears the cycle or the cycle
+    records a miss. `vig` is the term inside that bill, recorded so
+    the arithmetic can be re-derived rather than trusted."""
+    due_day: int
+    bill: int
+    vig: int
+    paid: bool
+    paid_day: int | None = None
+
+
+@dataclass(frozen=True)
+class PartnerLedgerView:
+    """THE derived points view (§2.4.2, rev. 29 item 1): every
+    consumer — the status card, the night, validation, the day-30
+    grade, the epilogue and the studies — reads these numbers from
+    one place, so a tier can never mean one thing on screen and
+    another in FINDINGS."""
+    arrears: int            # owed RIGHT NOW
+    strikes: int            # misses that happened and never unhappen
+    paid_total: int         # cumulative points actually paid
+    next_bill: int          # what the next cycle will present
+    next_vig: int           # the vig term inside it
+    next_due_day: int | None
+    cycles: int             # records in the history
+
+    @property
+    def foreclosed(self) -> bool:
+        """The second strike forecloses — at any later cycle,
+        consecutive or not (§2.4.2)."""
+        return self.strikes >= POINTS_STRIKES_TO_FORECLOSE
+
+
+def partner_ledger(branch_state: "BranchState") -> PartnerLedgerView:
+    """Derive both books from the one history.
+
+    ARREARS is the last record's bill if that record went unpaid,
+    and zero otherwise — never a sum over misses, because each
+    cycle's bill already carries the prior arrears forward. STRIKES
+    counts every miss ever: paying a later bill clears what is owed
+    and leaves the strike standing, which is the whole point of
+    keeping two books."""
+    cycles = branch_state.points_cycles
+    arrears = cycles[-1].bill if cycles and not cycles[-1].paid else 0
+    strikes = sum(1 for c in cycles if not c.paid)
+    paid_total = sum(c.bill for c in cycles if c.paid)
+    vig = POINTS_VIG if arrears else 0
+    next_due = (cycles[-1].due_day + POINTS_CYCLE_DAYS if cycles
+                else branch_state.points_due_day)
+    return PartnerLedgerView(
+        arrears=arrears, strikes=strikes, paid_total=paid_total,
+        next_bill=arrears + POINTS_PER_CYCLE + vig, next_vig=vig,
+        next_due_day=next_due, cycles=len(cycles))
+
+
+def pay_dirty_first(state: "State", amount: int) -> bool:
+    """THE dirty-first payment authority (rev. 29 item 7), hoisted out
+    of `war.night_obligation` so points and war pay draw money the
+    same way rather than twice.
+
+    Street money goes first because it is the harder money to spend;
+    affordability is checked BEFORE any mutation, so a bill that
+    cannot be met leaves both tills exactly as they were rather than
+    draining one and failing on the other. Returns whether it was
+    paid."""
+    # An exact whole amount: this moves money, and a float or a NaN
+    # would slip past the comparison below and then subtract
+    # something that is not a number of dollars.
+    if type(amount) is not int:
+        raise ValueError(f"a bill is a whole number of dollars, got "
+                         f"{amount!r}")
+    # A negative bill is money moving the WRONG WAY through a
+    # payment authority — it would credit both tills and report
+    # success. Nothing computes one; reaching here with one is a
+    # caller bug.
+    if amount < 0:
+        raise ValueError(f"a bill cannot be negative, got {amount}")
+    if amount == 0:
+        return True
+    if state.dirty + state.clean < amount:
+        return False
+    from_dirty = min(state.dirty, amount)
+    state.dirty -= from_dirty
+    state.clean -= amount - from_dirty
+    return True
+
+
 @dataclass
 class BranchState:
     """Act II branch-specific state — None until the sit-down seats a
@@ -486,10 +620,14 @@ class BranchState:
     settled_witnesses: list = field(default_factory=list)  # Employee.key
     ad_days_left: int = 0                # advertising campaign days
     insolvent_days: int = 0              # consecutive clean-insolvent nights
-    # Carmine's Partner
+    # Carmine's Partner. The scheduler's cursor plus the append-only
+    # cycle history; `points_missed` and `vig_owed` are RETIRED
+    # (rev. 29 item 1) — both books derive from the history through
+    # `partner_ledger`, and a counter beside it could disagree with
+    # it after any partial update. Partner has never been released,
+    # so this is a schema correction and not a migration.
     points_due_day: int | None = None
-    points_missed: int = 0
-    vig_owed: int = 0
+    points_cycles: list = field(default_factory=list)  # PointsCycleRecord
     # The Harbor War (rev. 14: campaigns per rival — flat one-war
     # fields could not represent a second declaration without
     # overwriting history). Only genuinely branch-wide facts live
@@ -922,13 +1060,39 @@ RELEASED_BRANCHES = frozenset({"straight", "quiet_sale", "war"})
 if not RELEASED_BRANCHES <= ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("RELEASED_BRANCHES out of step with BRANCH_ORDER")
 
+# THE branches a save could carry BEFORE the night the file closed on
+# was recorded (design rev. 32 item 2). This is FROZEN HISTORY, not
+# policy: it is what shipped when `arrested_day` landed, and it must
+# never be respelled as `RELEASED_BRANCHES` — that set GROWS. Partner
+# joins it at its own activation, and a Partner save written then
+# still cannot predate a field that shipped before it. An ALLOW-LIST,
+# so a branch added later refuses by default rather than inheriting a
+# licence nobody meant to give it. `None` is a run that took no chair.
+# It READS as a copy of `RELEASED_BRANCHES` and is deliberately not
+# one: the two sets coincide only because the field landed while
+# exactly those three chairs were released, they answer different
+# questions ("what may a player enter now" vs "what could a save
+# already have been"), and they part the day Partner activates. The
+# duplicated members are the price of that, and the alternative —
+# deriving this from the live released set — is the bug.
+BRANCHES_PREDATING_ARREST_DAY: frozenset[str | None] = frozenset(
+    {None, "straight", "quiet_sale", "war"})
+if not (BRANCHES_PREDATING_ARREST_DAY - {None}) <= ACTIVE_BRANCHES:
+    raise RuntimeError("BRANCHES_PREDATING_ARREST_DAY names a branch "
+                       "that does not exist")
+
 # Which BranchState fields are live per active branch; everything else
 # must sit at its dataclass default or the payload is a cross-branch mix.
 _BRANCH_FIELDS = {
     "straight": {"disposal_runs_left", "last_crime_day", "counsel_retained",
                  "counsel_days", "remediation_used", "settled_witnesses",
                  "ad_days_left", "insolvent_days"},
-    "partner": {"points_due_day", "points_missed", "vig_owed"},
+    "partner": {"points_due_day", "points_cycles",
+                # The shared remediation verbs (rev. 29 item 7) and
+                # the shared insolvency counter, through the same
+                # machinery every other active branch uses.
+                "counsel_retained", "counsel_days", "remediation_used",
+                "settled_witnesses", "insolvent_days"},
     "war": {"campaigns", "war_pay_paid", "war_pay_short_nights",
             "insurance_paid_until",
             # The shared remediation fields (rev. 14 item 8): the war
@@ -1002,6 +1166,132 @@ def validate_branch_state(branch: str | None,
         _validate_straight(branch_state, game_over)
     elif branch == "war":
         _validate_war(branch_state, game_over)
+    elif branch == "partner":
+        _validate_partner(branch_state, game_over)
+
+
+def _validate_partner(bs: "BranchState", game_over: str | None) -> None:
+    """The points history must BE the history it claims (§2.4.2,
+    rev. 29 item 1) — the war's reconciliation oracle applied to
+    Carmine's book.
+
+    Every derived number is re-derived here from the records and
+    checked against what the records say, so a hand-edited bill, a
+    cycle inserted out of order, or a cursor pointing somewhere the
+    ledger does not agree with is refused rather than quietly
+    repricing the day-30 grade."""
+    cycles = bs.points_cycles
+    if type(cycles) is not list:
+        raise ValueError(f"partner: the points history is a list, got "
+                         f"{cycles!r}")
+    running_arrears = 0
+    previous_due: int | None = None
+    for i, c in enumerate(cycles):
+        if not isinstance(c, PointsCycleRecord):
+            raise ValueError(
+                f"partner: points_cycles[{i}] is not a cycle record, "
+                f"got {c!r}")
+        for name in ("due_day", "bill", "vig"):
+            if type(getattr(c, name)) is not int:
+                raise ValueError(
+                    f"partner: points_cycles[{i}].{name} is a whole "
+                    f"number, got {getattr(c, name)!r}")
+        if type(c.paid) is not bool:
+            raise ValueError(
+                f"partner: points_cycles[{i}].paid is a boolean, got "
+                f"{c.paid!r}")
+        # The cadence is fixed and the history is ordered: cycles
+        # advance from the PRIOR DUE DATE by exactly five days
+        # (rev. 31 item 3), never from whenever a payment happened.
+        if previous_due is not None \
+                and c.due_day != previous_due + POINTS_CYCLE_DAYS:
+            raise ValueError(
+                f"partner: points_cycles[{i}] is due on day "
+                f"{c.due_day}; the cadence puts it on "
+                f"{previous_due + POINTS_CYCLE_DAYS}")
+        previous_due = c.due_day
+        # THE bill reconciles exactly: prior arrears + the cycle's
+        # points + a vig that rides if and only if something was
+        # carried forward.
+        expected_vig = POINTS_VIG if running_arrears else 0
+        expected_bill = running_arrears + POINTS_PER_CYCLE + expected_vig
+        if (c.vig, c.bill) != (expected_vig, expected_bill):
+            raise ValueError(
+                f"partner: points_cycles[{i}] bills {c.bill} with vig "
+                f"{c.vig}; the ledger owes "
+                f"{expected_bill} with vig {expected_vig}")
+        if c.paid:
+            if type(c.paid_day) is not int:
+                raise ValueError(
+                    f"partner: points_cycles[{i}] is paid and must "
+                    f"record the day, got {c.paid_day!r}")
+            if c.paid_day < c.due_day:
+                raise ValueError(
+                    f"partner: points_cycles[{i}] was paid on day "
+                    f"{c.paid_day}, before it was due ({c.due_day})")
+            running_arrears = 0
+        else:
+            if c.paid_day is not None:
+                raise ValueError(
+                    f"partner: points_cycles[{i}] is unpaid and "
+                    f"cannot record a payment day ({c.paid_day})")
+            running_arrears = c.bill
+    if type(bs.points_due_day) is not int:
+        raise ValueError(
+            f"partner: the points cursor is a whole calendar day, got "
+            f"{bs.points_due_day!r}")
+    view = partner_ledger(bs)
+    # The cursor is a CACHED SUMMARY, and a cached summary reconciles
+    # exactly against the ledger or it is not a summary.
+    if view.next_due_day != bs.points_due_day:
+        raise ValueError(
+            f"partner: the points cursor says day {bs.points_due_day} "
+            f"and the ledger says {view.next_due_day}")
+    # THE TERMINAL CONTRACT, BOTH WAYS (P4b.2 review). Checking only
+    # "two strikes on a live run" left the other three corners open:
+    # a foreclosure ending with no strikes behind it, and two strikes
+    # under an unrelated ending, both loaded happily. The complete
+    # relationship is: two strikes END the run, and they end it as
+    # foreclosure unless the arrest latch took precedence that same
+    # night (§2.5); and the foreclosure ending exists only where two
+    # strikes put it.
+    if view.foreclosed:
+        if game_over is None:
+            raise ValueError(
+                f"partner: {view.strikes} strikes forecloses — a run "
+                f"carrying them is over")
+        if game_over not in (FORECLOSURE_ENDING, "arrested"):
+            raise ValueError(
+                f"partner: {view.strikes} strikes ends the run as "
+                f"{FORECLOSURE_ENDING!r} (or 'arrested', which "
+                f"outranks it); this run ended {game_over!r}")
+        # THE SECOND MISS ENDS IT, so the record that creates strike
+        # two is the LAST record, and a third strike cannot exist
+        # (P4b.2 review). Accepting "two or more" accepted a ledger
+        # that kept billing after the shop stopped being the
+        # player's: a third miss, or a cycle paid on a night Carmine
+        # already had the keys.
+        if view.strikes != POINTS_STRIKES_TO_FORECLOSE:
+            raise ValueError(
+                f"partner: the run ends on strike "
+                f"{POINTS_STRIKES_TO_FORECLOSE}; this ledger carries "
+                f"{view.strikes}")
+        if cycles[-1].paid:
+            raise ValueError(
+                "partner: the second miss ends the run, so the miss "
+                "that ended it is the last cycle — this ledger keeps "
+                "billing afterwards")
+    elif game_over == FORECLOSURE_ENDING:
+        raise ValueError(
+            f"partner: a run ends in {FORECLOSURE_ENDING!r} on the "
+            f"second strike; this ledger carries {view.strikes}")
+    # Partner unlocks the same counterplay verbs as every other
+    # remediation branch (rev. 29 item 7), so its remediation state
+    # is bound by the same validator — retained counsel, days served,
+    # the paid-points cap and the settled list. Unlocking the menus
+    # without validating what they write was half a join.
+    _validate_remediation_fields("partner", bs)
+    _validate_insolvency("partner", bs, game_over)
 
 
 def _validate_remediation_fields(branch: str, bs: "BranchState") -> None:
@@ -1788,7 +2078,12 @@ def validate_cross_state(state: "State") -> None:
                 f"{label} stash: {space_used(stash)} space used over "
                 f"the {space_cap(state, where)}-space cap")
     validate_execution_history(state)
+    # THE SNAPSHOT FIRST: the points schedule consumes its payoff day,
+    # so a malformed one must produce its own deliberate refusal
+    # rather than a TypeError from arithmetic downstream (P4b.2
+    # review).
     validate_sitdown_snapshot(state)
+    validate_points_schedule(state)
     _validate_witnesses_and_campaigns(state)
 
 
@@ -1808,6 +2103,32 @@ def validate_calendar(state: "State") -> None:
         raise ValueError(
             f"the calendar day is a positive whole day, got "
             f"{state.day!r}")
+    # THE ARREST TRANSITION (P4b.2 review). It was persisted and never
+    # validated, so a doctored lagging save could write
+    # `game_over="arrested"` with `arrested_day` on the bill's night
+    # and a file nowhere near closed — fabricating the arrest, its
+    # precedence, and the skipped bill it excuses, all at once. And
+    # `19.0 == 19`, so the day is type-checked like every other.
+    if state.arrested_day is not None:
+        if type(state.arrested_day) is not int:
+            raise ValueError(
+                f"the arrest day is a whole calendar day, got "
+                f"{state.arrested_day!r}")
+        if not 1 <= state.arrested_day <= state.day:
+            raise ValueError(
+                f"the file closed on day {state.arrested_day}, outside "
+                f"the calendar the run has reached (day {state.day})")
+        if state.game_over != "arrested":
+            raise ValueError(
+                f"an arrest day is recorded ({state.arrested_day}) on "
+                f"a run that ended {state.game_over!r}")
+    if state.game_over == "arrested" and state.case < CASE_MAX:
+        # The canonical file, at the threshold the game arrests on.
+        # A record claiming cuffs that never happened is refused
+        # whether or not it also carries a day.
+        raise ValueError(
+            f"the run ended in an arrest with the file at "
+            f"{state.case:.0f}; it closes at {CASE_MAX:g}")
     if state.debt_paid_day is not None:
         if type(state.debt_paid_day) is not int:
             raise ValueError(
@@ -1818,6 +2139,166 @@ def validate_calendar(state: "State") -> None:
                 f"the debt was paid on day {state.debt_paid_day}, "
                 f"outside the calendar the run has reached (day "
                 f"{state.day})")
+
+
+def arrest_latched_on(state: "State", day: int) -> bool:
+    """THE genuine-arrest-latch authority (P4b.2 review): the run
+    ended in an arrest, and the file crossed on THAT NIGHT.
+
+    It reads the PERSISTED TRANSITION and reconstructs nothing.
+
+    Earlier versions recomputed the crossing by folding the ledger as
+    it stood before the night and comparing — first with the raw sum,
+    then with the canonical context-aware one. Both were wrong in the
+    same way, and the second more subtly: the fold depends on WHO IS
+    PROTECTED, and the arrest itself changes that. A driver arrested
+    on a delegated route stops being retention-protected the moment
+    they are booked, which restores full weight to every record they
+    ever sourced — so replaying yesterday's ledger against today's
+    roster shows a file that was already closed, and a genuine
+    transition is refused as a forgery. Applying the post-cuffs
+    relationship to the night before rewrites causality.
+
+    So the day the file closed is recorded when it closes
+    (`State.latch_arrest`) and simply read back here. An arrest three
+    days later still excuses nothing: Carmine's money was late before
+    the police arrived, and the recorded day says so.
+    """
+    return (state.game_over == "arrested"
+            and state.arrested_day == day)
+
+
+def validate_points_schedule(state: "State") -> None:
+    """THE points schedule against the DEAL that started it (P4b.2
+    review) — one cross-state authority, because every part of this
+    needs facts `validate_branch_state` cannot see.
+
+    That validator judges the ledger's internal arithmetic: bills
+    reconciling, cycles five days apart, the cursor agreeing with the
+    history. All of that can be perfect and still describe the wrong
+    deal. The FIRST due day is not free — it is
+    `acceptance_day + (10 if payoff_day <= 10 else 5)` from the
+    address the deal built and the payoff the table recorded — so an
+    empty ledger with a cursor on day 20, or a whole history shifted
+    one day, passed every internal check while contradicting canon.
+
+    It binds, in one place: the first due day; every later cycle
+    against it; that no live cycle was SKIPPED (a due day the run has
+    passed with no record for it); that no record is dated in a
+    future the run has not reached; and that a payment is recorded on
+    the cycle's own due day — gameplay pays on the day the bill falls
+    due, and a bill met later is a MISS carried into a later
+    record's arrears, never a late payment written back."""
+    bs = state.branch_state
+    if state.branch != "partner" or bs is None:
+        return
+    snap = state.sitdown_snapshot
+    if snap is None:
+        raise ValueError(
+            "partner: the deal is struck at the table, and no "
+            "sit-down snapshot records it")
+    # The address the deal built: the one that is not the founding
+    # shop. P4b keeps exactly two, and a world with more has no
+    # single Partner address to anchor a schedule to.
+    founding = founding_shop(state)
+    built = [s for s in state.shops if s.key != founding.key]
+    if len(built) != 1:
+        raise ValueError(
+            f"partner: the deal builds one second address; this world "
+            f"keeps {len(built)}")
+    site = built[0]
+    if site.acceptance_day is None:
+        raise ValueError(
+            "partner: the second address records no acceptance day, "
+            "and the points schedule starts from it")
+    # THE ANCHOR ITSELF RECONCILES (P4b.2 review). Trusting the
+    # persisted acceptance day made the whole schedule self-
+    # consistent about the wrong deal: move acceptance and opening to
+    # 15/17 on a payoff-13 save, put the cursor on 20, and every
+    # other rule agrees with the shifted story. The deal is struck at
+    # the table on the morning after the debt died (rev. 29 item 4),
+    # so that is what acceptance means and it is checked here.
+    if site.acceptance_day != snap.payoff_day + 1:
+        raise ValueError(
+            f"partner: the second address was accepted on day "
+            f"{site.acceptance_day}; the deal is struck at the table "
+            f"on day {snap.payoff_day + 1}, the morning after the "
+            f"debt died")
+    first_due = first_points_due(site.acceptance_day, snap.payoff_day)
+    for i, c in enumerate(bs.points_cycles):
+        expected = first_due + i * POINTS_CYCLE_DAYS
+        if c.due_day != expected:
+            raise ValueError(
+                f"partner: points_cycles[{i}] falls due on day "
+                f"{c.due_day}; the deal puts it on {expected}")
+        if c.due_day > state.day:
+            raise ValueError(
+                f"partner: points_cycles[{i}] falls due on day "
+                f"{c.due_day}, which the run has not reached (day "
+                f"{state.day})")
+        # Payment lands on the cycle's OWN due day. A bill met later
+        # is a miss that carried, and it is recorded as the later
+        # cycle's arrears — never written back onto the one it
+        # missed, which would erase a strike that happened.
+        if c.paid and c.paid_day != c.due_day:
+            raise ValueError(
+                f"partner: points_cycles[{i}] is due on day "
+                f"{c.due_day} and records payment on {c.paid_day} — "
+                f"a bill met later is a miss carried forward, not a "
+                f"late payment")
+    cursor = first_due + len(bs.points_cycles) * POINTS_CYCLE_DAYS
+    if bs.points_due_day != cursor:
+        raise ValueError(
+            f"partner: the points cursor says day {bs.points_due_day}; "
+            f"the deal and {len(bs.points_cycles)} recorded cycle(s) "
+            f"put it on {cursor}")
+    # A cycle the run has LIVED THROUGH has a record. Without this a
+    # save could simply omit an inconvenient miss and present a
+    # shorter, cleaner history that every other check accepts.
+    #
+    # The boundary is `cursor < state.day`, not `<=` (P4b.2 review):
+    # on the MORNING a bill falls due the night has not run yet, so
+    # cursor == day is the ordinary valid state every save taken that
+    # day carries, and refusing it would refuse real saves.
+    #
+    # A finished run gets a BOUNDED exception, not a blanket one. The
+    # only legitimate lag is the single night a terminal took the
+    # run before the points tick — arrest latching on the very night
+    # a bill was due — after which the phase still advances the day
+    # once. A run standing six days past an unrecorded bill has not
+    # transitioned; it has skipped, and `game_over` is not a licence
+    # to omit history.
+    # The one-night lag is licensed by a GENUINE ARREST LATCH, not by
+    # the mere presence of an ending (P4b.2 review). `game_over` alone
+    # let a save claim `sold` or `broke` and omit a bill, and let an
+    # `arrested` payload omit one without carrying the Case that
+    # arrests. The transition being excused is specific: the file
+    # closed on the night a bill was due, so the points tick never
+    # ran. Both halves of that are checked.
+    latched = arrest_latched_on(state, cursor)
+    lag = state.day - cursor
+    allowed = 1 if latched else 0
+    if lag > allowed:
+        raise ValueError(
+            f"partner: day {cursor} fell due and the ledger records "
+            f"no cycle for it — a run cannot skip a bill (day "
+            f"{state.day}, ended {state.game_over!r}; only an arrest "
+            f"latching that night excuses the one-night lag)")
+    # THE ARREST ALTERNATIVE TO FORECLOSURE, through the same
+    # authority (P4b.2 review). `validate_branch_state` accepts
+    # `arrested` beside two strikes because it has no state to judge
+    # the claim with; unproved, that left "two strikes and the word
+    # arrested" loading with no file behind it whenever no lag
+    # invoked the predicate. The night it must have crossed on is the
+    # one the second miss was recorded for.
+    view = partner_ledger(bs)
+    if view.foreclosed and state.game_over == "arrested" \
+            and not arrest_latched_on(state, bs.points_cycles[-1].due_day):
+        raise ValueError(
+            f"partner: two strikes ended this run as 'arrested', but "
+            f"no arrest crossed on day "
+            f"{bs.points_cycles[-1].due_day} — the file reads "
+            f"{state.case:.0f}")
 
 
 def validate_sitdown_snapshot(state: "State") -> None:
@@ -2593,6 +3074,16 @@ class State:
     news: list = field(default_factory=list)
     game_over: str | None = None                         # ending id once decided
     debt_paid_day: int | None = None
+    # THE DAY THE FILE CLOSED (P4b.2 review). Persisted at the
+    # transition, never reconstructed: recomputing "was this an
+    # arrest that night?" from the CURRENT roster applies today's
+    # relationships to yesterday's ledger, and the cuffs themselves
+    # change those relationships — a driver arrested on a route stops
+    # being retention-protected the moment they are booked, which
+    # restores full weight to everything they ever said. Added
+    # post-v3 without a version bump: absent in older payloads and
+    # None there, which is P4a's absence-only discipline.
+    arrested_day: int | None = None
     act: int = 1                                         # 1 = the hustle; 2 after the sit-down
     branch: str | None = None                            # act-2 chair id once chosen
     branch_state: BranchState | None = None              # chair-specific state after the fork
@@ -2754,7 +3245,23 @@ class State:
         self.evidence.append(Evidence(day=self.day, magnitude=amount,
                                       kind=kind, why=why, source=source))
         if self.case >= 100:
-            self.game_over = "arrested"
+            self.latch_arrest()
+
+    def latch_arrest(self) -> None:
+        """THE arrest transition, in one place: the ending and the
+        day it happened, recorded together. Nothing else may set
+        `game_over` to "arrested", because a terminal without its day
+        is a terminal that later has to be guessed at.
+
+        APPEND-ONCE. The file closes once; a later call must not
+        rewrite the day it closed on, or a run arrested on Tuesday
+        could be re-latched into Thursday and buy a skipped bill with
+        it. The three callers are all "if this ends the run" paths
+        and can fire on a run already ended."""
+        if self.game_over == "arrested" and self.arrested_day is not None:
+            return
+        self.game_over = "arrested"
+        self.arrested_day = self.day
 
     def total_stock_units(self) -> int:
         """Contraband anywhere — EVERY address's stash plus the

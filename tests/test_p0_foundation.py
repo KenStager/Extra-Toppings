@@ -244,13 +244,20 @@ class TestBranchStatePersistence(unittest.TestCase):
         self.assertIn("branch_state", d)
         self.assertIsNone(d["branch_state"])
         state.act = 2
-        state.branch = "partner"
-        state.branch_state = BranchState(points_due_day=19, points_missed=1)
+        state.branch = "straight"
+        # A populated BranchState, from a branch whose coherence does
+        # not require a whole deal behind it. Partner's populated
+        # state now anchors to the address the deal built and the
+        # payoff the table recorded (P4b.2), so building one here
+        # would mean building that world too — which is
+        # tests/test_points.py's business, not this file's.
+        state.branch_state = BranchState(disposal_runs_left=3,
+                                         last_crime_day=6)
         restored = save.state_from_dict(save.state_to_dict(state))
         self.assertEqual(restored.act, 2)
-        self.assertEqual(restored.branch, "partner")
+        self.assertEqual(restored.branch, "straight")
         self.assertEqual(restored.branch_state,
-                         BranchState(points_due_day=19, points_missed=1))
+                         state.branch_state)
 
 
 class TestStreamMigration(unittest.TestCase):

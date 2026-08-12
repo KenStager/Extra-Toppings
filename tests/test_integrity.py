@@ -451,9 +451,20 @@ class TestSaveCompleteness(unittest.TestCase):
 
         from extra_toppings import save
         state, _ = fresh(35)
+        live = save.state_to_dict(state)
+        # The closing day is written only when there IS one (design
+        # rev. 32 item 1), so the completeness check runs on a state
+        # that carries every optional fact — otherwise a genuinely
+        # forgotten field could hide behind "it was None".
+        state.latch_arrest()
         d = save.state_to_dict(state)
         for f in dataclasses.fields(type(state)):
             self.assertIn(f.name, d, f"State.{f.name} missing from save")
+        # And omission stays EXACTLY one key wide: a second field that
+        # starts disappearing from live saves is a decision, not a
+        # detail, and it fails here first.
+        self.assertEqual(set(d) - set(live), {"arrested_day"})
+        self.assertEqual(set(live) - set(d), set())
 
     def test_demand_shock_survives_the_round_trip(self):
         from extra_toppings import save
