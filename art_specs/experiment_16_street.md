@@ -2495,3 +2495,62 @@ by-design), the two content judgments, the door question, and the
 two flags. Boards: coolglass_ab_diner, coolglass_ab_neighbor,
 coolglass_inscene_{mock,board}. Session G spend: 4 gens (drift
 only).
+
+## Cool-glass PROMOTED; Rossi's gets its groceries (2026-08-12
+## session G cont.; board: "Proceed! Looks great. Maybe some
+## groceries in the window though?"; 2 gens)
+
+THE PROMOTION (provenance e16_coolglass_promotion_2026-08-12.json):
+both cool-glass facades entered approved/ (diner 300d2f1a...,
+neighbor e934fc1a...; sepia raws preserved in candidates/
+bespoke_facades/, byte-verified before the swap). The builder
+read-path smell CLOSED: builder.py diner load re-pointed
+candidates/ -> approved/. Hero re-baked; the promoted reference is
+BYTE-IDENTICAL to the candidate in-scene run the board approved
+(0 px diff) - reference sha 5d19e406... -> **74dbdea2...** by
+sanctioned ruling. **GODOT PROOF 0/230,400** (import law observed;
+the Godot binary lives at ~/Applications/Godot.app, not
+/Applications - recorded for the next session). Board v26 stands.
+The content judgments ride as ruled with the approval (lamp blobs
+warm, muntins unmapped, doors sepia); the upper-band flag stays
+open.
+
+THE GROCERIES (board's ask; the Moretti's-r8 code-goods chain,
+recipes rossis_groceries_r1.py + _finish.py, provenance
+e16_rossis_groceries.json):
+- SCAFFOLD (eyes-judged before spend): crude code goods in raw
+  color on the SEPIA raw (raw-in law) - can pyramid with red label
+  bands, CLOSED crates (the interim-debt law: solid faces, thin
+  seams), burlap sacks, shelf board; goods fill the BOTTOM pane row
+  only. Strip mints NOTHING: the facade's 6 tones + brick red
+  (124,66,52) + cream (198,182,156), both long-standing block
+  colors.
+- GENERATION (2 gens, s17501/s17502, @120): both 0 off-strip, and
+  the change CONCENTRATED where it should - 665/797 and 701/835
+  changed px inside the goods zone (not the grain-refusal class:
+  the model refined the goods). **s17501 PICKED** - its crates keep
+  the red on the can labels; s17502's brick-red crates compete.
+- THE CENSUS REFUTED MY EYEBALL TWICE IN ONE ROUND, recorded: (1)
+  I graded s17501's crates "muted gray-brown" - region census says
+  (96,82,68)+seams with ZERO field px; (2) I then read the final's
+  crates as "gone navy" - the navy was the mapped GLASS behind and
+  between them, which is correct behavior. Census over eyeball, at
+  goods scale.
+- FINISHING (deterministic): the generation grained ~123 wall px
+  outside the window (the confinement assert caught it) -> SURGICAL
+  COMPOSITION: approved cool-glass base + the generation's WINDOW
+  ZONE only; 1,803 remaining field px -> midnight; the glint
+  re-lands in the clear TOP pane (30,47) (goods claimed the old
+  lower-left position); muntin grid asserted intact; palette
+  asserted <= strip + the two cool tones.
+- IN-SCENE (patched builder in scratch): diff vs the promoted
+  reference 1,426 px, ZERO outside the window footprint. The read:
+  Rossi's stops being an empty dark front - the stock reads at 1x,
+  the shop looks occupied, the glass above stays cool.
+
+candidates/rossis_groceries/groceries_s17501_coolglass.png is the
+CANDIDATE - nothing promoted; promotion = approved swap + hero
+re-bake + Godot proof + by-design sha change, on the word. Boards:
+rossis_groceries_ab, rossis_groceries_inscene_ab. Session G spend:
+6 gens (4 drift + 2 groceries); expected balance ~4,033 by
+estimate; dashboard the authority.
