@@ -1765,3 +1765,74 @@ manhole audit swap (all three scenes then elliptical), the walk-
 spill flag, the crack-variety option - and the standing far-line
 and wall-streak flags. Session F spend: 4 gens (drift only);
 expected balance ~4,106.
+
+## Moretti's gets real neighbors; the Meadows gets its own crack
+## (2026-08-12 session F cont.; board: "Gens are of no concern,
+## quality is the sole focus. Generate any necessary assets. Also, I
+## notice Moretti's has no real neighbors"; 10 gens)
+
+CRACK VARIETY (2 gens, recipe crack_variety_r1.py): two NEW polyline
+topologies through the proven chain - a Y-BIFURCATION (s16971, 6.8%
+opaque) and a STEPPED cold-joint (s16972, 5.5%), each anchor its own
+drawing and seed, anchors eyes-judged distinct against s16952 before
+spend. In-scene on the Meadows ink both read as true hairlines.
+**s16971 swapped into the Vinnie's v7 roster** - the Meadows carries
+its own fracture, not the hero's shape; s16972 recorded as variety
+stock for future rosters.
+
+LS NEIGHBORS (8 gens, 2 rounds) - the flagged INTERIM plain flanks
+become real businesses. NAMES, delegated picks per the flank-naming
+precedent (rejections recorded): west = **PALERMO BAKERY**
+(place-name; Sicily's capital in Little Sicily; CARUSO'S killed as
+real-person referent, RICCI'S killed by the tree - Angelo Ricci is
+the muscle, MARINO'S killed once already); east = **DE LUCA BARBER
+SHOP** (where the long memories get traded; FIGARO'S killed as
+real-opera referent, ROMANO'S runner-up). Briefs: prosperous-modest,
+NO awnings (the oxblood scallop stays Moretti's signature); bakery =
+display window of loaves on wooden shelves (the r8 code-goods
+route); barber = dark glass over a pale cafe curtain (the content-
+preserved law: what must stay dark is DRAWN dark), blank pier
+reserved for the CODE pole.
+
+- **r1 FAILED on quality, recorded**: no_background carved the
+  ENTIRE flat stucco shell into alpha (11,183/12,290 px, hole
+  geometry identical across seeds) - the walls came back as pure
+  backfill with zero generated texture. The Moretti's-r2 lesson in a
+  new coat: flat scaffold rectangles give the engine nothing to fire
+  on.
+- **r2 LANDED** (seeds 17003/17004 bakery, 17013/17014 barber, @120,
+  no_background=False): crude stucco mottle + sills/lintels/reveals
+  in raw color gave the repair its bite; full-canvas bboxes, 0
+  off-strip all four, 83-84% repaint into the LS register. THE
+  MOTTLE PAID A LAW FORWARD: the first draft's (x*13+y*7)%97 hash
+  read as DIAGONAL RAIN at 3x - the zebra-bar moire family
+  resurfacing at stucco scale, caught by eyes BEFORE spend and
+  redrawn on the white-mixing hash. Picks: **bakery s17004** (17003:
+  stray fascia flecks), **barber s17014** (17013: black door-edge
+  notch).
+- **Brand layers (code, 0 gens)**: PALERMO/BAKERY + DE LUCA/BARBER
+  SHOP lettering (first draft's subline collided with the scale-2
+  descenders - fascia is 22px, main y8 + sub y23 exactly fills it);
+  sky-catch glints per bay (drawn, never inherited); the barber pole
+  as striped code in register red + cream, no case blue - and the
+  pole's first draft sat on the WEST pier inside tree_b's crown
+  x-slot (the v11 lesson swallows wall content), moved to the east
+  pier where it stands clear.
+
+IN-SCENE: **morettis_block_v4 CANDIDATE** (candidates/morettis_block
+_staging_v4_neighbors.json, validator PASS) = the v3 swept-roster
+stack + named slot assets + BOTH new doorways as data (bakery
+[118,154], barber [566,602]). Census v3->v4: 21,626 px confined to
+buildings rows 56-151, ZERO pixels in Moretti's center span. Honest
+flags: the loaves read register-cream (the strip carries no crust
+gold - an accent-tier round is priced if the board wants golden
+crust); upper band stays the recorded lum-mapped INTERIM; LS
+wardrobe extras still pending.
+
+Provenance e16_ls_neighbors_2026-08-12.json (params, seeds, sha256s,
+both failure records). AWAITING THE BOARD: the Moretti's v4 stack
+(neighbors + swept roster + manhole), the Vinnie's v7 stack
+(dirtiest roster + own crack + manhole), the loaf-crust option, and
+the standing far-line/wall-streak flags. Session F spend: 14 gens
+(4 drift + 2 cracks + 8 neighbors); expected balance ~4,096,
+ledger-verified.
