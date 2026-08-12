@@ -2421,3 +2421,23 @@ the hero.
 
 Session F: 50 gens ledgered + ~18 MCP-estimated; expected balance
 ~4,039 by estimate; suite 155; ruff clean.
+
+## Session G opens: drift Tier B, and a correction to session F's
+## suite count (2026-08-12 session G; 4 drift gens)
+
+DRIFT HARNESS (session_G_street_shelf, run session_2026-08-12_G):
+probe_canon_pizza Tier B diff=0.0967 histL1=0.0420; probe_box_open
+Tier B diff=0.1230 histL1=0.0625; probe_slice_bitforge Tier A
+byte-identical; probe_palette_canary Tier B diff=0.2061
+histL1=0.0898; all validators pass. OVERALL Tier B - clear to
+generate.
+
+CORRECTION, owned: session F recorded "suite 155" (twice above, and
+"153 -> 155" at the stride pin). The committed head 546e876 runs
+**154**. Decomposed against the tree: the stride-pin commit aaa70eb
+added exactly ONE test (test_glide_vs_stride); its parent d2ee031
+runs 153, aaa70eb and 546e876 run 154; no test file changed after
+aaa70eb. The 155 was a miscount at recording time, not a lost test.
+The three "155" records above stand as written - this entry is the
+correction. The suite of record at session G open: **154 tests, OK;
+ruff clean.**
