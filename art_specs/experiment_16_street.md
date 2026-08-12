@@ -2554,3 +2554,45 @@ re-bake + Godot proof + by-design sha change, on the word. Boards:
 rossis_groceries_ab, rossis_groceries_inscene_ab. Session G spend:
 6 gens (4 drift + 2 groceries); expected balance ~4,033 by
 estimate; dashboard the authority.
+
+## The window survey: every district's glass graded (2026-08-12
+## session G cont.; board question: "Do any of the other windows in
+## any of the districts need props for polish?"; 0 gens - survey
+## only)
+
+Every window on all four blocks censused and eyes-graded
+(review/window_survey_2026-08-12.png shows the offenders).
+
+DRESSED, no action: DiNapoli's (sky-lit displays); Moretti's (lit
+shelves + glints); PALERMO's loaves (content EXISTS - the queued
+loaf-crust round is an accent fix, not a dressing fix); DE LUCA
+(cafe curtain + pole tell the story; a chair silhouette is optional
+and recommended AGAINST); CAMPUS BOOKS (spine windows read);
+QUICK COPY (taped posters, deeply 90s); the Orchid (poster cases,
+letterboard, blade); Meadows east flank (boarded BY DESIGN); upper
+bands (the Meadows census by design; LS band is already the queued
+lum-map interim - curtain/shade variety can ride that round).
+
+NEEDING POLISH, priced, in priority order:
+1. **COMMON GROUNDS (UH) - the weakest window standing**: the
+   "warm light behind cool glass" intent landed as a FLAT
+   warm-brown void ((92,84,72) + sepia dark, one glint, zero
+   content). The code-goods chain fits exactly: counter/cup-shelf/
+   pastry-case silhouettes in raw color, repair pass, ~2 gens.
+2. **ANCHOR DINER (OH)**: two wide midnight bands carry only the
+   lamp silhouettes - the largest empty glass on the hero block.
+   Period dressing: cafe HALF-CURTAIN band (code - the De Luca
+   precedent) + counter items via code-goods (~2 gens; a
+   curtains-only code round costs 0 and can be judged first).
+3. **VINNIE'S (Meadows) - a defect against its own brief, not a
+   dressing ask**: the brief says "one dark window low in the
+   GLASS RAMP"; the standing pixels are PURE BLACK holes ((0,0,0)
+   1,801 px + (20,18,24) 511). The emptiness is thematic and
+   STAYS; the fix is code-only (0 gens): lift the openings to the
+   Meadows glass-ramp low tier with a faint frame so they read as
+   dark glass, not missing pixels.
+
+AWAITING THE WORD on: which of 1-3 proceed (each candidate-first
+with A/B per the standing method), the loaf-crust round's slot
+unchanged - AND the Rossi's grocery candidate above still awaits
+its own explicit word. Spend unchanged: 6 gens.
