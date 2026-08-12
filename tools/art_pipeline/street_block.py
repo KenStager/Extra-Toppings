@@ -329,6 +329,67 @@ def curb_vertical_strip(
     return im
 
 
+def curb_cut(corridor: int, band_height: int = 16) -> Image.Image:
+    """Curb-cut apron across a crossing corridor (board note 2026-08-12:
+    crossings get curb cuts — period-true; ramps predate the thirty
+    days and the ADA made them law in 1990).
+
+    Overlays the 16px south-facing curb band: the face and base drop
+    out across the cut and a sloped apron (speckle tone) meets the
+    road through a softened lip; 4px triangular wings step the full
+    face down at each side. s16102 anatomy rows; wear by the recorded
+    pixel-drop hash. Deterministic, opaque, CURB_TONES only.
+    """
+    base, face, joint, speckle, pale = CURB_TONES
+    im = Image.new("RGBA", (corridor, band_height), (0, 0, 0, 0))
+    for y in range(band_height):
+        for x in range(corridor):
+            if y <= 6:
+                col = speckle if pixel_drop_worn(x, y) else pale
+            elif y == 7:
+                col = speckle                       # softened shoulder
+            else:
+                d = min(x, corridor - 1 - x)        # wing distance
+                if d < 4 and y >= 8 + 2 * d:
+                    col = face if y <= 12 else base  # the face steps down
+                elif y <= 13:
+                    col = joint if pixel_drop_worn(x, y) else speckle  # apron
+                elif y == 14:
+                    col = joint
+                else:
+                    col = face                      # soft lip, not full shadow
+            im.putpixel((x, y), (*col, 255))
+    return im
+
+
+def curb_vertical_cut(
+    corridor: int, width: int = 10, road_side: str = "east"
+) -> Image.Image:
+    """The cut for a side-street curb strip: across the corridor the
+    2px dark road edge opens into apron tones, with 2px wings stepping
+    the edge back at each end. Same anatomy as curb_vertical_strip.
+    """
+    if road_side not in ("east", "west"):
+        raise ValueError(f"road_side must be east or west, got {road_side!r}")
+    base, face, joint, speckle, pale = CURB_TONES
+    im = Image.new("RGBA", (width, corridor), (0, 0, 0, 0))
+    for y in range(corridor):
+        d = min(y, corridor - 1 - y)
+        for x in range(width):
+            if x < width - 3:
+                col = speckle if pixel_drop_worn(x, y) else pale
+            elif x == width - 3:
+                col = speckle
+            elif d == 0 or (d == 1 and x == width - 1):
+                col = base                          # wing: edge steps back
+            else:
+                col = joint if pixel_drop_worn(x, y) else speckle
+            im.putpixel((x, y), (*col, 255))
+    if road_side == "west":
+        im = im.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    return im
+
+
 def curb_corner_anchor(orientation: str = "se") -> Image.Image:
     """32x32 code anchor for a curb corner return — the crude form the
     pixflux wear pass textures (the s16102 recipe carried around a

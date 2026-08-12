@@ -1527,3 +1527,48 @@ FLAGGED FOR THE BOARD, loudly:
 Session D spend: 8 (4 drift + 4 corners), ledger-verified;
 expected balance ~4,114 (API still USD-anomalous; vendor dashboard
 remains the authority).
+
+## Board notes on the kit round: traffic direction + curb cuts
+## (2026-08-12; 0 gens — all code and data)
+
+The board accepted the kit boards ("looks great") with two catches,
+both real, both now law:
+
+1. **"Both lanes seem to be flowing the same way."** Measured true,
+   and the root recorded: ALL FIVE fleet assets natively face LEFT,
+   and the actor layer placed them unmirrored — so both travel lanes
+   read westbound (v20's "right-hand traffic reads correctly" claim
+   did not survive this census). THE TRAFFIC-DIRECTION LAW, now in
+   the staging comment: lane 1 (north travel lane) is westbound and
+   takes native facing; lane 2 (south) is eastbound and takes
+   `flip: true` (builder support added). THE WAGON NEVER MIRRORS —
+   the pan-D emblem is brand geometry — so the wagon always drives
+   lane 1 westbound; the pickup (no lettering) mirrors into lane 2.
+   actors_presentation updated (wagon x330 base 290; pickup flipped,
+   x190 base 330); the staged scene is untouched (reference sha
+   9a556b33... unchanged after re-bake; board v22b supersedes v22's
+   actor read). The diorama gained opposing traffic the same way.
+2. **"We should have curb cuts for crosswalks."** Period-true (ramps
+   predate the thirty days; the ADA made them law in 1990). New law
+   code, test-pinned (suite 131 -> 134): `curb_cut` — the 16px
+   band's face and base drop out across the corridor into a sloped
+   speckle-tone apron with 4px triangular wing steps, s16102 anatomy,
+   pixel-drop wear; `curb_vertical_cut` — the side-street strip's
+   2px dark edge opens the same way, both orientations. The builder
+   draws the cut at any staged crossing corridor, softens the far
+   curb line to the ramp tone, and CLIPS the yellow regulation zone
+   clear of the apron (paint never runs onto a ramp).
+
+COMPOSITION LESSON, paid in one render: the diorama's v1 corridors
+overlapped the corner returns once the cuts made the overlap
+visible (H-corridor [102,141] vs corner [110,142]; V-rows [164,204]
+vs strip stubs from 192). Real intersections put the ramp flush
+BEFORE the return: H-corridor moved to [70,109], V-rows to
+[152,192], lamppost cleared off the apron. RECORDED AS PART OF THE
+KIT'S PLACEMENT LAW: crossing corridors never overlap a corner
+return; they end where the return begins.
+
+PROOFS RE-RUN: v23 candidate (now with cut + clipped yellow +
+corrected actors) Godot **0 / 230,400**; approved scene re-baked
+and re-proven **0 / 230,400**, reference sha unchanged. Spend this
+pass: 0 gens; session D total stands at 8.

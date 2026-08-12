@@ -244,6 +244,41 @@ class StreetKitTests(unittest.TestCase):
         self.assertFalse(infra & set(SLATE_RAMP))
 
 
+class CurbCutTests(unittest.TestCase):
+    """Board note 2026-08-12: crossings get curb cuts."""
+
+    def test_curb_cut_is_deterministic_and_citywide(self) -> None:
+        from tools.art_pipeline.street_block import curb_cut
+
+        a, b = curb_cut(40), curb_cut(40)
+        self.assertEqual(list(a.getdata()), list(b.getdata()))
+        self.assertEqual(a.size, (40, 16))
+        seen = {a.getpixel((x, y))[:3] for y in range(16) for x in range(40)}
+        self.assertLessEqual(seen, set(CURB_TONES))
+
+    def test_curb_cut_opens_the_face_and_keeps_wing_steps(self) -> None:
+        from tools.art_pipeline.street_block import curb_cut
+
+        im = curb_cut(40)
+        # mid-corridor face rows are apron (no full base shadow)
+        self.assertNotEqual(im.getpixel((20, 10))[:3], CURB_TONES[0])
+        self.assertNotEqual(im.getpixel((20, 15))[:3], CURB_TONES[0])
+        # wing edge keeps the dark step against the neighboring curb
+        self.assertEqual(im.getpixel((0, 15))[:3], CURB_TONES[0])
+
+    def test_vertical_cut_orientations_and_palette(self) -> None:
+        from tools.art_pipeline.street_block import curb_vertical_cut
+
+        east = curb_vertical_cut(30, road_side="east")
+        west = curb_vertical_cut(30, road_side="west")
+        self.assertEqual(east.size, (10, 30))
+        self.assertEqual(east.getpixel((9, 0))[:3], CURB_TONES[0])   # wing
+        self.assertNotEqual(east.getpixel((9, 15))[:3], CURB_TONES[0])  # open
+        self.assertEqual(east.getpixel((0, 15)), west.getpixel((9, 15)))
+        with self.assertRaisesRegex(ValueError, "road_side"):
+            curb_vertical_cut(30, road_side="north")
+
+
 class PlacementTests(unittest.TestCase):
     def _sprite(self) -> Image.Image:
         sprite = _flat(10, 10, (0, 0, 0, 0))
