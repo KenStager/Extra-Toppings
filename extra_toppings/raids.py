@@ -383,7 +383,13 @@ def incoming_raid(state: State, rival_key: str, con: Console,
     if not target_raid:
         options.append(
             f"Pay tribute ({money(rival.tribute_demanded or 1500)} dirty)")
-    has_guard = "guard" in target.upgrades
+    # ONE definition of "defended", shared with the rival who chose
+    # this address (rev. 29 item 2): the guard and the crew standing
+    # here come from the same view. Live staffing decides the fight —
+    # the telegraph froze WHERE they come, not who is there when they
+    # arrive.
+    defense = models.shop_defense(state, target)
+    has_guard = defense.guard
     if has_guard:
         options[0] += " — night security helps"
     if target_raid:
@@ -447,9 +453,11 @@ def incoming_raid(state: State, rival_key: str, con: Console,
                           max(0, target.damage_days - damage_before),
                           0.0, wagon_taken=True)
 
-    # Fight.
-    defenders = state.crew()
-    strength = max([e.nerve for e in defenders], default=3) + (4 if has_guard else 0)
+    # Fight. The people who defend an address are the people who are
+    # AT it (rev. 33 item 10): `state.crew()` here meant a cook across
+    # town threw punches in a room he has never worked in.
+    defenders = defense.defenders
+    strength = defense.strength
     attack = 4 + rival.strength / 12 + rng.uniform(0, 4) \
         + war.raid_edge(state, rival_key)
     if strength + rng.uniform(0, 4) >= attack:

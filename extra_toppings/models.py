@@ -95,12 +95,39 @@ class RaidWarning:
         return None
 
 
+@dataclass(frozen=True)
+class TributeDemand:
+    """A standing shakedown: how much a week, and WHICH address is
+    paying for its ovens (design rev. 33 item 5, made operational by
+    rev. 34 item 3).
+
+    The same value shape as `RaidWarning`, deliberately — an amount
+    and a target held as two loose fields can disagree, and a reload
+    must not be able to move a standing demand to a different door.
+    The demand is protection attached to an ADDRESS: while it stands,
+    a warning this rival raises goes to the address they are already
+    collecting on rather than being retargeted."""
+
+    amount: int
+    shop_key: str
+
+    def __post_init__(self) -> None:
+        if type(self.amount) is not int or self.amount <= 0:
+            raise ValueError(f"a demand is for a positive whole sum, "
+                             f"got {self.amount!r}")
+        if not isinstance(self.shop_key, str) or not self.shop_key:
+            raise ValueError(f"a demand must name an address, got "
+                             f"{self.shop_key!r}")
+
+
 @dataclass
 class Rival:
     key: str
     strength: float
     relation: float = -10.0       # -100 vendetta … +100 partner
-    tribute_demanded: int = 0
+    # THE standing demand, typed: the sum and the door it was slid
+    # under are one value or they are nothing (rev. 34 item 3).
+    tribute: "TributeDemand | None" = None
     # THE telegraphed raid, typed: the countdown and the address it
     # named are one value or they are nothing (rev. 23 item 2).
     warning: "RaidWarning | None" = None
@@ -119,6 +146,14 @@ class Rival:
         DERIVED read: the warning itself is the typed value, so there
         is no second field to fall out of step with it."""
         return self.warning.nights if self.warning is not None else 0
+
+    @property
+    def tribute_demanded(self) -> int:
+        """What they want a week, 0 when nothing stands. DERIVED for
+        the same reason the countdown is: the demand is the typed
+        value, and a second writable field beside it could disagree
+        with the address it names."""
+        return self.tribute.amount if self.tribute is not None else 0
 
 
 @dataclass
@@ -1758,6 +1793,15 @@ def multi_address(state: "State") -> bool:
     return len(state.shops) > 1
 
 
+def address_label(state: "State", shop_key: str) -> str:
+    """What an address is CALLED in front of the player (rev. 33 item
+    13). The game has never given a shop a proper name and this does
+    not mint one — a new naming authority with no canon behind it
+    would be a second identity beside the key. An address is its
+    district, and RAW KEYS NEVER APPEAR in player-facing text."""
+    return data.DISTRICTS[state.shop_by_key(shop_key).district]["label"]
+
+
 # THE defense formula's two numbers (design rev. 30 item 4). They are
 # PART OF THE FORMULA, not incidental: an undefended address scores
 # the baseline, not zero, and the guard is worth exactly this much.
@@ -2109,6 +2153,22 @@ def validate_addresses(state: "State") -> None:
         if rv.warning is not None and rv.warning.shop_key not in seen:
             raise ValueError(f"rival {key!r}: warning names unknown "
                              f"address {rv.warning.shop_key!r}")
+        if rv.tribute is None:
+            continue
+        if rv.tribute.shop_key not in seen:
+            raise ValueError(f"rival {key!r}: a standing demand names "
+                             f"unknown address {rv.tribute.shop_key!r}")
+        # A demand and a warning from the SAME rival must name the
+        # same room (rev. 34 item 3). While protection stands, the
+        # warning is raised against the address already being
+        # collected on — two different doors would be two rivals'
+        # worth of pressure recorded as one man's.
+        if rv.warning is not None \
+                and rv.warning.shop_key != rv.tribute.shop_key:
+            raise ValueError(
+                f"rival {key!r}: collecting on "
+                f"{rv.tribute.shop_key!r} and threatening "
+                f"{rv.warning.shop_key!r} — one man, two rooms")
 
 
 def validate_cross_state(state: "State") -> None:

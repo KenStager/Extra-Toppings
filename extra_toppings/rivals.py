@@ -148,11 +148,20 @@ def rival_phase(state: State, con: Console, rng: random.Random) -> None:
             _extort(state, rival, spec, con, rng)
         elif roll < pol.raid_t:
             # The warning names its address the moment it is raised
-            # (rev. 23 item 2), through the one target authority.
-            rival.warning = models.RaidWarning(
-                rng.randint(2, 3), models.raid_target(state, key))
+            # (rev. 23 item 2), through the one target authority —
+            # UNLESS this rival already collects protection somewhere,
+            # in which case the warning goes to the address they are
+            # already standing over (rev. 34 item 3). The man taking
+            # money for the Meadows ovens does not threaten a
+            # different room.
+            aimed = (rival.tribute.shop_key if rival.tribute is not None
+                     else models.raid_target(state, key))
+            rival.warning = models.RaidWarning(rng.randint(2, 3), aimed)
             con.bullet(f"Unfamiliar cars idle across from the shop. {spec['short']}'s "
                        f"plates. Something is coming.")
+            if models.multi_address(state):
+                con.bullet(f"  Across from the "
+                           f"{models.address_label(state, aimed)} room, to be exact.")
         else:
             _plant(state, rival, spec, con, rng)
 
@@ -188,15 +197,37 @@ def _poach(state: State, rival, spec: dict, con: Console, rng: random.Random) ->
 
 
 def _extort(state: State, rival, spec: dict, con: Console, rng: random.Random) -> None:
+    # The target is chosen ONCE, here, and persisted with the sum
+    # (rev. 34 item 3): a standing demand is protection attached to an
+    # address, and every later reading of it — including a warning
+    # this rival raises while it stands — reads the record rather than
+    # asking again.
     demand = rng.randrange(600, 1400, 100)
-    rival.tribute_demanded = demand
+    rival.tribute = models.TributeDemand(demand,
+                                         models.raid_target(state, rival.key))
     con.bullet(f"A note under the door: {money(demand)} a week 'keeps the ovens safe.' "
                f"— {spec['short']}")
+    if models.multi_address(state):
+        con.bullet(f"  It was slid under the "
+                   f"{models.address_label(state, rival.tribute.shop_key)} "
+                   f"door. That is the room he means.")
 
 
 def _plant(state: State, rival, spec: dict, con: Console, rng: random.Random) -> None:
+    # The tip names an address through the ONE target authority and
+    # the heat lands on THAT district (rev. 33 item 6). It used to
+    # land on `data.HOME_DISTRICT` unconditionally, which with two
+    # addresses would have had the rival moving against your Meadows
+    # room by phoning the police about Old Harbor. With one address
+    # the authority returns it and it stands in the home district, so
+    # every released run raises the same heat in the same place from
+    # the same draw — an identity MEASURED at both gates, not assumed.
+    aimed = models.raid_target(state, rival.key)
     con.bullet("An anonymous tip sends a patrol crawling past your block all night.")
-    state.add_heat(data.HOME_DISTRICT, 12)
+    if models.multi_address(state):
+        con.bullet(f"  The block is the {models.address_label(state, aimed)} "
+                   f"one. Somebody was specific.")
+    state.add_heat(state.shop_by_key(aimed).district, 12)
     if rng.random() < 0.3:
         # Paper, not witness (rev. 10 ruling): a tip in a file is an
         # intelligence report, not testimony — counsel can argue it.
@@ -253,7 +284,7 @@ def negotiate(state: State, con: Console, rng: random.Random) -> None:
         odds = 0.3 + (state.rivals[key].strength < 40) * 0.3 + max(0, rival.relation) / 200
         if rng.random() < odds:
             models.set_relation(state, key, max(rival.relation, 25))
-            rival.tribute_demanded = 0
+            rival.tribute = None
             con.say("  Handshakes over espresso. Your trucks stay out of each other's mirrors.")
         else:
             models.adjust_relation(state, key, -5)
@@ -268,7 +299,7 @@ def _lean(state: State, key: str, rival, spec: dict, con: Console) -> None:
     models.apply_rival_damage(state, key, "ledger",
                               models.LEDGER_LEAN_STRENGTH)
     models.adjust_relation(state, key, -10)
-    rival.tribute_demanded = 0
+    rival.tribute = None
     rival.ledger_stolen = False   # leverage used is leverage gone
     state.dirty += 2000
     con.say("  You read three names off page twelve. An envelope arrives by morning.")
