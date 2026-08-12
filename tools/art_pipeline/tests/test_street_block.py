@@ -12,6 +12,7 @@ from tools.art_pipeline.street_block import (
     CROSSWALK_PAINT,
     CURB_TONES,
     DISTRICT_REGISTERS,
+    far_line_tone,
     FLANK_RAMP,
     GLASS_RAMP,
     SLATE_RAMP,
@@ -601,3 +602,22 @@ class DistrictRegisterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FarLineLawTests(unittest.TestCase):
+    """The far curb line's single voice (ruled 2026-08-12 session F,
+    delegated): walk tier 2 of the scene's own register."""
+
+    def test_hero_value_pinned(self) -> None:
+        # the ratified hero read: OH walk tier 2 — the builder's
+        # historical hardcode, now derived
+        self.assertEqual(
+            far_line_tone(DISTRICT_REGISTERS["old_harbor"]["walk"]),
+            (140, 129, 112))
+
+    def test_register_aware_citywide(self) -> None:
+        for district, reg in DISTRICT_REGISTERS.items():
+            tone = far_line_tone(reg["walk"])
+            self.assertEqual(tone, reg["walk"][1], district)
+            # the line articulates: darker than the walk's top tier
+            self.assertLess(sum(tone), sum(reg["walk"][3]), district)

@@ -2004,3 +2004,56 @@ WINNER.
 
 University Hill (item 3) opens next round, paper first: location
 proposal + neighbor briefs before any staging file.
+
+## The deferral round: the far line ruled and derived, the gate
+## probed, the debts paid (2026-08-12 session F cont.; board: "Pause
+## now to reflect. I defer to you. Proceed as you best see fit";
+## 6-step reflection, 2 gens)
+
+Decisions taken UNDER DELEGATION, recorded loudly and cheap to
+reverse:
+
+1. **THE FAR-LINE RULING: the stepped read wins.** The line is the
+   shadow seam at the far curb's foot - dark asphalt, the seam, the
+   lit walk behind; the hero's fourteen-round ratified read, and the
+   A/B's most legible frame. Now LAW: `far_line_tone(walk_ramp) =
+   walk[1]` in street_block.py, test-pinned (hero value + register-
+   awareness + darker-than-walk-top articulation). BOTH renderers
+   DERIVE from it - the smell was never color, it was two hardcoded
+   voices with no shared home. Proofs: hero re-baked under the
+   derived law BYTE-IDENTICAL (reference sha 5d19e406... unchanged -
+   the law captured the ratified read exactly); districts re-baked
+   as by-design diffs of EXACTLY rows 344-347 (2,560 px each) -
+   boards morettis_block_v5 / vinnies_block_v8 supersede. THE CATCH
+   THE DERIVATION SURFACED: the composer's hardcode was LS cream
+   CITYWIDE - the Meadows' violet-gray far street wore a Little
+   Sicily line until this law; it now speaks (120,118,136), its own
+   walk[1].
+2. **The instruments became law code**: animation_validate.py
+   (composite_exact - the probe's 66% false alarm as a pinned test;
+   binary_alpha; union-palette census - the a2 lesson pinned;
+   baseline_rows; frame_delta) + test_animation_validate.py. Suite
+   145 -> 151, ruff clean.
+3. **PHASE B GATE PROBED (2 gens, profile_pose_probe.py)**: anchored
+   @100 REFUSED (8% grain, still front-facing - the clean-anchor
+   refusal holds for figures at low strength); FREE generation under
+   the sprite's own 6-color strip LANDED a true left profile
+   (correctly narrower, hair/sweater right, 0 off-strip). One
+   defect, curation-scale: the strip's burgundy landed on the
+   trousers ("gray trousers" in the desc lost) - region-scoped
+   exact-color reassignment is the recorded fix. VERDICT: the free
+   route is the pose recipe; the 7-extra batch rides next round,
+   cycles after poses.
+4. **Probe provenance written** (e16_animation_probe_2026-08-12
+   .json: job ids, params, verdicts, 23 frame hashes) - the billing
+   history says job ids matter.
+5. **THE SINGLE-COPY DEBT, STOPGAPPED**: .private_art (58M, now
+   holding every promoted asset and record) tarred to
+   ~/Desktop/Projects/Extra-Toppings-backups/private_art_2026-08-12_
+   session-F.tar.gz (35M, 3,778 files) - a second copy on the SAME
+   disk converts one deletion from zero into two, and is NOT a
+   backup; the off-machine copy remains the user's call, re-flagged.
+
+Session F spend: 16 gens ledgered (4 drift + 2 cracks + 8 neighbors
++ 2 profile poses) + ~3 MCP-estimated (no ledger hook); expected
+balance ~4,091 by estimate.

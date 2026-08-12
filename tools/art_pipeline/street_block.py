@@ -297,6 +297,22 @@ def crosswalk_paint_vertical(
     )
 
 
+def far_line_tone(walk_ramp: "list[RGB]") -> "RGB":
+    """The far curb line's single voice (ruled 2026-08-12, session F,
+    under the board's delegation - the A/B record is in the spec).
+
+    From this camera the far edge reads as the shadow seam at the
+    curb's foot: dark asphalt, this line, then the lit walk behind -
+    the hero's fourteen-round ratified read. The line is WALK TIER 2
+    of the scene's own register; the far walk band stays each
+    renderer's walk fill. This closed the oldest two-authorities
+    smell (builder hardcoded OH walk[1]; the composer hardcoded LS
+    cream citywide - which put a Little Sicily line on the Meadows'
+    violet-gray far street until this law).
+    """
+    return walk_ramp[1]
+
+
 def curb_vertical_strip(
     height: int, width: int = 10, road_side: str = "east"
 ) -> Image.Image:
