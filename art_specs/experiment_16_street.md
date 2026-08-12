@@ -1708,3 +1708,60 @@ revision is RETIRED AS MOOT (the lattice itself is gone). NEXT IN
 QUEUE: Meadows/LS decal rosters (grading law: dirtiest/swept),
 more crack anchors, then the animation slate and University Hill.
 Session spend stands at 12 gens; expected balance ~4,110.
+
+## The grading law's first cross-district test: Meadows dirtiest,
+## Little Sicily swept (2026-08-12 session F; drift 4/4 Tier B; 0
+## roster gens)
+
+Session F opened per protocol (fresh worktree at 0beee46, 143 tests,
+ruff clean, drift 4/4 Tier B). The queue's head ran data-only, with
+the composer regression run FIRST: both approved stagings reproduce
+their standing boards from this worktree BYTE-IDENTICALLY (Moretti's
+v2, Vinnie's v6) before any candidate was authored.
+
+AUDIT CATCH before the rosters: both district stagings still staged
+the RETIRED flat-circle manhole s16322 - the v25 promotion ended the
+flat-on-circle era on the hero only. The elliptical swap rides in
+both candidates as data (asset + content-span; base_y unchanged -
+content-bottom anchoring absorbs the shorter ellipse; spans
+re-derived from the s16961 bbox: Vinnie's [483,508], Moretti's
+[303,328]).
+
+THE ROSTERS (candidates, validator PASS both):
+- **Vinnie's v7** (candidates/vinnies_block_staging_v7_decals.json),
+  MEADOWS DIRTIEST: three patches (two reading as one utility dig
+  crossing parking+lane 1, one lane-2 repair), the frost crack west
+  in lane 1 (the s16952 decal, hero's crack reused at a different
+  lane and position), loading-door drips at the pickup stall, gutter
+  grime under the club lamppost, a lane-2 drip trail east. Census:
+  2,706 px changed vs v6, confined to road rows 228-334.
+- **Moretti's v3** (candidates/morettis_block_staging_v3_decals
+  .json), LITTLE SICILY SWEPT: ONE faint gutter mark east of the
+  parked sedan - the district's cleanliness IS the read; the host
+  sweeps his walk. Census: 498 px vs v2 (150 stain + 348 manhole).
+
+THE CRITIQUE PASS PAID (the loop, before the board saw anything):
+1. **The walk stain failed.** The dirtiest roster's first draft put
+   a morning-after spill on the walk at the club corner; at 5x the
+   grime_stain lobes read as a raised gray MOUND on the pale walk -
+   the same function that lies flat on dark asphalt turns its lobe
+   structure into highlight-and-shadow on light ground. PULLED and
+   recorded in the staging comment: a walk-scale spill needs its own
+   decal law (flat, wet-edged), flagged beside wall_streak's pending
+   facade-dressing ruling - surface-specific decals need their
+   surface's read proven.
+2. **The drip trail sat in the manhole's column** (x480 vs cover
+   483-508) and read as seepage stuck to the cover - moved east to
+   x545, clear of it.
+
+Cross-scene honesty, flagged: the crack decal is the SAME s16952
+shape the hero carries (different lane/position). One or two new
+polyline anchors (~1-2 gens each, own seeds, crack_to_decal) buy
+true variety; priced, awaiting appetite.
+
+A/B boards at the board: ab_vinnies_v6_v7, ab_morettis_v2_v3 (2x,
+standing over candidate). AWAITING THE BOARD: both rosters, the
+manhole audit swap (all three scenes then elliptical), the walk-
+spill flag, the crack-variety option - and the standing far-line
+and wall-streak flags. Session F spend: 4 gens (drift only);
+expected balance ~4,106.
