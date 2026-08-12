@@ -2926,6 +2926,115 @@ through a real landed raid rather than asserted from a literal — no
 clamp was added, because the validator refuses only what cannot be
 compared.
 
+## Round 18 — P4b.4: the ending that was never printed
+
+The branch's grade and its two day-30 terminals, on two consolidated
+paper commits (design revisions 35 and 36).
+
+**The reading pass found a defect in RELEASED code, and it was
+measured before it was argued.** `game.epilogue` is an if/elif chain
+ending in `else: # survived — grade the exit`. On merged main, a
+state carrying `game_over = "operation"` printed **"ENDING: The
+legitimate exit. The rarest pie on the menu."** — the Straight Path's
+rarest outcome, on a Partner run that never went straight.
+
+What makes that worth a FINDINGS entry rather than a line in a commit
+message is its history. *"An outcome matrix must not depend on
+generic epilogue ordering"* was ruled at **revision 15 item 4**,
+promoting The Syndicate from an upgraded text to an explicit id, and
+again at **revision 22 item 3**, giving Partner three ids of its own.
+Both rulings were correct and both were obeyed. **Both times the
+remedy was a new id, and the MECHANISM that punishes a missing arm
+was left standing.** The dispatcher now fails closed, `survived` is
+an explicit arm, and an id with no text raises.
+
+**And failing closed on unknown ids was not enough.** A KNOWN id on
+the wrong chair still prints somebody else's story: `partner` with
+`straight_exit` renders the Straight Path's earned exit with every id
+in the table. One canonical registry now names each terminal AND the
+chairs that may reach it, consumed by validation and by the epilogue
+alike, checked BEFORE the header prints — a refusal that has already
+emitted a header has emitted half an ending, and half an ending reads
+as a real one.
+
+**A superseded item read as live, for the third time — and this one
+was mine, twice over.** Revision 35 item 5 proposed one home for
+$8,000 read with two comparators, arguing that revision 24 item 1's
+"≥ $8,000" was live and the released grade's `>` was frozen beside
+it. **Revision 25 item 2 had already superseded that**, and canonical
+§2.4.2 said *"strictly greater than $8,000"* in plain sight. Worse,
+revision 25 item 2 does not merely answer differently: it anticipates
+the exact argument revision 35 made — *"a silent contract change
+dressed as a promotion to a named home"* — and declines the inclusive
+boundary explicitly. The proposal was the thing already refused, in
+the words it was refused in.
+
+This is the third occurrence: round 14's points-schema claim,
+revision 32's flag (marked superseded where it stood for precisely
+this reason), and now this — **cited by this session in revision 32's
+own ruling coda, then committed anyway two revisions later.** The
+mechanism was reading §8 forward from revision 24 and stopping at the
+first item that answered the question. The rule is written into
+revision 36 item 1 so it can be checked rather than intended: **read
+§8 forward to the END of the record before quoting it, and prefer the
+canonical section over the revision that introduced it.**
+`OPERATION_NET_THRESHOLD` carries no comparator in its name for the
+same reason — a `_MIN` suffix would smuggle the rejected boundary
+back as an inference.
+
+**Three more corrections came from review, all real.** The card was
+proposed beside the points bill, where `partner.night_obligation`
+runs — before the rival and law phases, which can still seize the
+stash, freeze cash or close the file. A card there is derived
+consistently and is STALE, which is the same class of wrong as an
+inconsistent one and harder to see; it renders after both phases now.
+The epilogue header printed gross `net_worth`, which disagrees with
+combined net whenever arrears stand, so an On-the-Hook run would have
+headed its own ending with a number its grade never used. And
+revision 35's day-30 pair needed the calendar bound as well as the
+ledger, with mid-month arrears explicitly requiring no terminal —
+owing Carmine on day 20 is an ordinary state, and demanding an ending
+for it would refuse saves reached by playing correctly.
+
+**The probe sweep changed the DESIGN this round, not only the
+tests.** Thirteen probes, eleven killed rows, two killed nothing.
+The fail-closed epilogue tail was **unreachable** — `validate_terminal`
+catches unregistered ids first, so the `raise` could only be reached
+by a registered id with no arm, which no test created; the coverage
+contract is now pinned by patching the registry, so an id added
+tomorrow without a text fails in the suite rather than borrowing an
+arm. And the Partner **day-30 dispatch** was never exercised at all:
+`partner.grade` was tested directly while the run loop's `if/elif`
+that reaches it was not — the same "test the authority, miss the
+door" shape as P4b.3's `release_from_posts`, one PR later. It became
+`game.day_thirty_grade`, a named §2.5-precedence-5 authority instead
+of a matrix buried in a loop reachable only by playing a whole month.
+
+**The generalisation, now twice earned:** a probe per row does not
+merely audit the tests. Twice it has revealed that production code
+had no door a test could reach, and the honest fix was to give the
+authority a name rather than to write a cleverer assertion.
+
+**Fixtures are driven, not posed.** The Partner fixture takes the
+chair through the real sit-down scene and winds forward through REAL
+NIGHTS; the arrears state comes from starving the till before a due
+day — a genuinely missed bill, never an appended record saying one
+was missed. Building it that way immediately caught two fixtures that
+validated while describing a month that could not have happened.
+
+**What was measured.** 1,171 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
+all three; the golden untouched; both fork batteries byte-identical
+by `diff` against a fresh merged-main worktree run at 150 and 500
+seeds. Regression against the paper commit: 39 fail.
+
+**What P4b.4 does NOT carry**, recorded rather than left to be
+noticed: §2.7's neglect bar becoming binding at ≥ 15 points at 500
+seeds is P4b.5's measurement contract and this PR tuned nothing
+toward it; both grading thresholds remain §6.3 placeholders; and the
+arrest's Partner flavour is a text arm on the existing `arrested` id,
+never a new terminal.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2978,12 +3087,16 @@ compared.
   only. It was an independent merge prerequisite for two rounds and
   is no longer one.
 
-  **AWAITING REVIEW: P4b.3** — the manager, the vacancy and the
-  two-front pressure — as **PR #28**, round 17, on design revisions
-  33 and 34, carrying both matrices rev. 30 item 3 requires.
+  **P4b.3** — the manager, the vacancy and the two-front pressure —
+  is **MERGED** (PR #28, approved at exact head `6aca3ab`, merged
+  `91bfc824`; round 17), carrying both matrices rev. 30 item 3
+  requires.
 
-  **NEXT, after P4b.3 merges:** P4b.4 (the grade and the endings),
-  then P4b.5, then activation as a separate seventh act. The **P4
+  **AWAITING REVIEW: P4b.4** — the grade and the endings — round 18,
+  on design revisions 35 and 36.
+
+  **NEXT, after P4b.4 merges:** P4b.5, then activation as a separate
+  seventh act. The **P4
   full-battery item** (the pairwise eight-component vectors) is
   **P4b.5's**, exactly as §7 assigns it — paper, execution and
   results alike.
