@@ -1301,3 +1301,46 @@ staging gained its slot 'asset' key as the composer's contract).
 Three districts now render from three data files and one law
 script. review/vinnies_block_v1.png at the board. Session C spend
 unchanged at 97; expected balance ~4,130.
+
+## The Meadows assembled: a nightlife district switched off
+## (2026-08-11 session C cont.; board: "Reflect on the meadows...
+## Utilize sequential thinking"; 8-step reflection, 0 gens)
+
+THE REFLECTION (sequential, recorded in full in the session; the
+verdict): the block said "generic quiet street" where the canon
+says "clubs, concert halls, money that comes out after dark"
+(data.py:71; underground 1.5 = the city's highest; luxury-good
+bias; stadium events). The Meadows' theme position: the district
+where WARMTH IS A COMMODITY, sold after dark - and by day the
+commodity is locked in its packaging. Not University's
+institutional cold: a warm district SWITCHED OFF. The club-violet
+law already encodes this ("money-adjacent, never glamorous"), and
+the reservation of warm neon for the cast makes the unlit state a
+legal requirement, not just a mood.
+
+THE DRESSING (all data + code, zero gens; staging carries every
+parameter, the composer reads them):
+- WEST FLANK = A SHUTTERED CLUB: dark marquee with UNLIT bulb dots,
+  dead-neon zigzag blade sign in accent darks (NO NAME BOUND -
+  naming awaits the board; the blade takes code lettering the day
+  it is named), chained + padlocked double door (the district's
+  second padlock - the Meadows locks up by day), poster cases with
+  abstract no-text posters (one fresh violet field). FLAGGED
+  JUDGMENTS: the club door is recorded NOT-A-DOORWAY pending
+  naming; the posters pull the grime/decal class forward.
+- UPPER BAND, Meadows variant (meadows_upper_band): 7 blinds-drawn
+  / 2 dark / 1 boarded (warm plank tiers - the warm-through-cold
+  echo) / 2 sky-catch - the district census in one band.
+- EAST FLANK: poster case + a boarded window; morning-after litter
+  at both corners (interim bags); the lamppost moved to the club's
+  door (night infrastructure stands where the night business is);
+  the tree east. Composition collisions caught by law and by eye:
+  the validator refused the first bags placement (x-slot exclusion),
+  the tree initially hid the entire club front, the docker stood in
+  the tree bed - all corrected in data.
+- COMPOSER extension regression-proven: Moretti's board still
+  renders BYTE-IDENTICAL (dressing machinery is inert where staging
+  carries none).
+
+review/vinnies_block_v2.png supersedes v1 (A/B at the board).
+Session C spend unchanged: 97; expected balance ~4,130.
