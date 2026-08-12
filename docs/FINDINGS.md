@@ -2670,8 +2670,19 @@ the second serialization is byte-identical to the first because
 nothing in the loop invents a value. The rejected alternatives are
 recorded in rev. 32 — an explicit sentinel and a companion "day
 unknown" flag, both durable, both a second spelling of a fact
-absence already states. **The shape is this session's proposal, not
-a ruling, and it is flagged as blocking the merge.**
+absence already states.
+
+**And the shape was RULED.** It was proposed flagged and unruled; the
+review approved absence as the canonical representation at `83a97b7`,
+on a ground the proposal had not itself argued: the field **has not
+shipped**, so omitting it breaks no released save shape. The sentinel
+was rejected because it widens the value domain without resolving
+provenance unless the save version also changes — and it would not
+have earned a bump; the companion flag because it creates two
+writable facts about one day. Recorded as design revision 32's ruling
+coda; the flag in revision 32 is marked superseded where it stands,
+because reading a superseded item as live is the failure round 15
+already cost a round trip for.
 
 **The licence is scoped, because absence is a checkable claim.**
 Absence asserts WHEN a payload was written, and only a build that
@@ -2690,8 +2701,14 @@ to latch is indistinguishable from a genuine legacy one — both are
 "no recorded day", and that state must stay loadable for the
 histories that legitimately hold it. Scoping shrinks the surface to
 the branches where an unrecorded arrest is a real possibility; on
-Partner, the branch this PR builds, it is refused outright. Two
-existing pins moved onto the stronger refusal as a result: the
+Partner, the branch this PR builds, it is refused outright. **The
+review accepted that cost explicitly as the necessary compatibility
+price**, on the binding half: an unknown legacy day cannot license
+Partner's skipped bill, because the one-night lag is licensed by the
+recorded transition and by nothing else. The allow-list is approved
+exactly as scoped and must remain independent of a growing
+`RELEASED_BRANCHES`. Two existing pins moved onto the stronger
+refusal as a result: the
 false-arrest and un-latched-witness cases now fail at the licence
 rather than at the present-null check, and one of them asserts the
 new reason.
@@ -2751,8 +2768,11 @@ arrested, and now that is pinned.
   complete and awaiting review** (rounds 15 and 16) on PR #27, after
   the incident recorded in the round-15 coda; the seventh review
   round's arrest-day round-trip hold is answered under design
-  revision 32, whose SHAPE is flagged and unruled, and the
-  server-side ruleset safeguard remains an unmet merge prerequisite. Nothing preceded it: the points schema was already ruled by revision 29
+  revision 32, whose shape (absence as the canonical representation)
+  and whose frozen allow-list are both **RULED AND APPROVED** at
+  `83a97b7` — see revision 32's ruling coda. The **server-side
+  ruleset safeguard remains the one unmet merge prerequisite**, and
+  it is not a design question. Nothing preceded it: the points schema was already ruled by revision 29
   item 1, and round 14's claim that a ruling was owed misread
   revision 28's superseded judgment call. Next: **P4b.3 — the
   manager, the vacancy and the two-front pressure**, which owes TWO

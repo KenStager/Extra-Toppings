@@ -5028,7 +5028,11 @@ Item 1's SHAPE is proposed, not ruled — see the flag at the end.
    possibility; on Partner — the branch this PR builds — it is
    refused outright.
 
-**FLAGGED, blocking the P4b.2 merge:** item 1's shape is this
+**FLAGGED, blocking the P4b.2 merge — SUPERSEDED by the ruling coda
+below, and kept verbatim as the proposal it was.** Reading a
+superseded item as live is the failure revision 29 item 1 already
+cost this project a round trip for, so the flag is marked where it
+stands rather than left to be discovered. Item 1's shape is this
 session's choice, not a ruling. Absence-as-representation, the
 sentinel and the companion flag were all available; the argument for
 absence is round-trip stability by construction and one home for one
@@ -5038,3 +5042,32 @@ loader has always read presence, never truthiness). If the reviewer
 wants the sentinel or the flag instead, this revision and the
 correction under it are rewritten before anything else in P4b.2
 moves.
+
+**Revision 32 ruling (the shape, approved).** The review ruled on
+revision 32 at `83a97b7` and the flag above is closed. **Absence is
+the canonical representation** — approved on grounds the proposal did
+not itself argue and which are recorded here because they are the
+reason: the field HAS NOT SHIPPED, so omitting it breaks no released
+save shape. A **sentinel** was rejected because it widens the value
+domain without resolving provenance unless the save version also
+changes — and it would not have earned a version bump. A **companion
+flag** was rejected because it creates two writable facts about one
+day.
+
+The **frozen allow-list is approved exactly as scoped**: `None`, the
+Straight Path, the Quiet Sale and the Harbor War. It must **remain
+independent of a growing `RELEASED_BRANCHES`**, and Partner and every
+future branch refuse by default. The **admitted ambiguity on the
+older branches is the necessary compatibility cost**, accepted as
+such — and the thing that makes it acceptable is stated as the
+binding half: **an unknown legacy day cannot license Partner's
+skipped bill**, because §2.4.2's one-night lag is licensed by the
+recorded transition and by nothing else.
+
+The story and the mechanics agree at the end of this: the file closes
+once; a known transition keeps its night; a genuinely old arrest
+stays unknown; and no date is ever reconstructed.
+
+The merge remains blocked by the **server-side ruleset safeguard**,
+which is an independent prerequisite and not a design question
+(FINDINGS rounds 15–16).
