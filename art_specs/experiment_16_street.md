@@ -2247,3 +2247,35 @@ the three names (CAMPUS BOOKS / COMMON GROUNDS / QUICK COPY).
 
 Session F totals: 44 gens ledgered + ~16 MCP-estimated; expected
 balance ~4,047 by estimate; dashboard the authority.
+
+## "Is her walk convincing?" - measured, no, then made so
+## (2026-08-12 session F cont.; board question; 1 MCP gen)
+
+The board's question exposed a grading gloss, owned plainly: my
+"the blouse holds" verdict graded IDENTITY and glossed MOTION. The
+measurement answered the actual question:
+
+THE STRIDE METRIC (new instrument - foot-spread oscillation: the
+x-extent of the bottom 3 content rows per frame; a truestride
+alternates contact/passing/contact): man_cream oscillates range 8,
+woman_burgundy range 7 - and woman_pale's v2 cycle measured RANGE
+3, feet never separating. She GLID with shimmer; motion-zone census
+agreed (legs 31% vs the others' 40-41%). And the skirt excuse died
+by comparison: woman_burgundy wears the same long skirt and
+strides.
+
+THE FIX (1 gen, seed 17324, job 5cdfcabe...): the probe's law
+applied - ACTION TEXT DRIVES MOTION CHARACTER - so the action
+named the gait explicitly ("long visible strides, feet stepping
+far apart, legs swinging, skirt swaying with each step"). v3
+measured: oscillation RANGE 8 (equal to man_cream, the set's
+best), loop seam improved (1.4x vs the glide's 2.1x), validators
+clean, identity intact. Eyes agree: the skirt breaks into stride,
+the back foot trails. The glide cycle is preserved in rejected/.
+
+LAW NOTED for the module when Phase C opens: the stride metric
+joins animation_validate as a measured helper - walks are GAIT-
+CENSUSED before the eyes pass, not after the board asks.
+
+Session F: 44 gens ledgered + ~18 MCP-estimated; expected balance
+~4,045 by estimate. Her pose + v3 cycle are the CANDIDATES.
