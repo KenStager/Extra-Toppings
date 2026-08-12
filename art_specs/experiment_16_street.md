@@ -2321,3 +2321,30 @@ candidate; its Godot proof rides with promotion per precedent.
 
 Session F: 50 gens ledgered + ~18 MCP-estimated; expected balance
 ~4,039 by estimate; suite 155; ruff clean.
+
+## The signage differentiated: three sign technologies (2026-08-12
+## session F cont.; board: "Differentiate some of the signage in
+## University Hill"; 0 gens - all code)
+
+The board's catch was real: all three fronts wore ONE sign voice
+(scale-2 cream over ink shadow, identical layout) - three
+businesses, one sign shop. The house's own precedents differentiate
+by SIGN TECHNOLOGY, not just words (Vinnie's bulk scale-3, the
+Orchid's blade + letterboard, Moretti's awning subline) - applied
+in the cold register, uh_brand.py rebuilt:
+- **CAMPUS BOOKS = CARVED STONE**: dark incised letters (storefront
+  tier 2) with a pale top-edge highlight, NO drop shadow - the
+  inscription reads cut into the masonry; plus a stacked **BOOKS
+  blade** on the east pier (the Orchid's blade precedent) in accent
+  cyan on a dark board - the block's silhouette breaks.
+- **COMMON GROUNDS = PAINTED BOARD**: a dark sign board behind
+  cream letters with a code steaming-cup pictogram; COFFEE subline
+  in accent cyan (first pass sank into the fascia - ink shadow
+  restored its edge).
+- **QUICK COPY = 90s TWO-TONE CHANNEL**: QUICK in accent tier 3,
+  COPY in cream (the first pass used tier 4 and the zoom read it
+  as near-cream - one tier darker bought the contrast).
+The accent slate-cyan is signage's LAWFUL home - the institutional-
+cyan reservation explicitly governs signage and signals. Census:
+v1->v2 diff 6,179 px confined to rows 62-138 (fascia + blade).
+university_block_v2 supersedes v1 as the scene candidate.
