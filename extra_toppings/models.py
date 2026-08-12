@@ -1060,6 +1060,27 @@ RELEASED_BRANCHES = frozenset({"straight", "quiet_sale", "war"})
 if not RELEASED_BRANCHES <= ACTIVE_BRANCHES:      # import-time consistency
     raise RuntimeError("RELEASED_BRANCHES out of step with BRANCH_ORDER")
 
+# THE branches a save could carry BEFORE the night the file closed on
+# was recorded (design rev. 32 item 2). This is FROZEN HISTORY, not
+# policy: it is what shipped when `arrested_day` landed, and it must
+# never be respelled as `RELEASED_BRANCHES` — that set GROWS. Partner
+# joins it at its own activation, and a Partner save written then
+# still cannot predate a field that shipped before it. An ALLOW-LIST,
+# so a branch added later refuses by default rather than inheriting a
+# licence nobody meant to give it. `None` is a run that took no chair.
+# It READS as a copy of `RELEASED_BRANCHES` and is deliberately not
+# one: the two sets coincide only because the field landed while
+# exactly those three chairs were released, they answer different
+# questions ("what may a player enter now" vs "what could a save
+# already have been"), and they part the day Partner activates. The
+# duplicated members are the price of that, and the alternative —
+# deriving this from the live released set — is the bug.
+BRANCHES_PREDATING_ARREST_DAY: frozenset[str | None] = frozenset(
+    {None, "straight", "quiet_sale", "war"})
+if not (BRANCHES_PREDATING_ARREST_DAY - {None}) <= ACTIVE_BRANCHES:
+    raise RuntimeError("BRANCHES_PREDATING_ARREST_DAY names a branch "
+                       "that does not exist")
+
 # Which BranchState fields are live per active branch; everything else
 # must sit at its dataclass default or the payload is a cross-branch mix.
 _BRANCH_FIELDS = {

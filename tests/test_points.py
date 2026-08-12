@@ -684,18 +684,99 @@ class TestTheLedgerReconciles(unittest.TestCase):
         # released save can carry a Partner branch at all — and a
         # migrated arrest has no recorded day, so it can never claim
         # the lag exception a day would buy.
-        old_run = new_state()
-        old_run.day = 19
-        old_run.add_case(100.0, "the file closes", kind="physical")
-        legacy = save.state_to_dict(old_run)
-        del legacy["arrested_day"]
-        self.assertIsNone(save.state_from_dict(legacy).arrested_day)
+        self.assertIsNone(
+            save.state_from_dict(self._legacy_arrest()).arrested_day)
         state = self._lagging_arrested()
         current = save.state_to_dict(state)
         current["arrested_day"] = None
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(current)
         self.assertIn("no day for it", str(caught.exception))
+
+    def _legacy_arrest(self):
+        """A save from before the day was recorded: a run that took no
+        chair, arrested, with the field simply not there. Built from a
+        REAL arrest through the accrual latch, then stripped of the
+        field the era did not have — the only honest way to make an
+        artifact of a build that no longer exists."""
+        old_run = new_state()
+        old_run.day = 19
+        old_run.add_case(100.0, "the file closes", kind="physical")
+        assert old_run.game_over == "arrested"
+        legacy = save.state_to_dict(old_run)
+        del legacy["arrested_day"]
+        return legacy
+
+    def test_a_migrated_arrest_survives_being_saved_again(self):
+        # THE defect (rev. 32 item 1). Absence licensed the load, the
+        # writer emitted `"arrested_day": null`, and the SAME boundary
+        # refuses a present null — so an accepted legacy save became
+        # unloadable the moment the player saved again. The old pin
+        # stopped at the load, which is why it passed.
+        loaded = save.state_from_dict(self._legacy_arrest())
+        self.assertIsNone(loaded.arrested_day)          # step 1: loads
+        again = save.state_to_dict(loaded)
+        self.assertNotIn("arrested_day", again)         # no date invented
+        reloaded = save.state_from_dict(again)          # step 2: RELOADS
+        self.assertIsNone(reloaded.arrested_day)
+        # …and the loop is closed: the second serialization is the
+        # first one, so this save survives every later save too.
+        self.assertEqual(save.state_to_dict(reloaded), again)
+
+    def test_a_live_run_writes_no_closing_day_at_all(self):
+        # The same one rule seen from the other side: a run whose file
+        # has not closed has no closing day, so there is no key. This
+        # is what makes the migrated arrest above round-trip without a
+        # second spelling — omission is the representation everywhere,
+        # never a special case for history.
+        live = save.state_to_dict(seated())
+        self.assertNotIn("arrested_day", live)
+        self.assertIsNone(save.state_from_dict(live).arrested_day)
+        closed = save.state_to_dict(self._lagging_arrested())
+        self.assertEqual(closed["arrested_day"], 19)
+
+    def test_the_absence_licence_does_not_reach_an_unreleased_branch(self):
+        # Rev. 32 item 2: absence is a claim about WHEN a payload was
+        # written, and Partner shipped after the field. A Partner
+        # arrest with no day is not a run from an era that never
+        # existed — it is one that failed to latch.
+        payload = save.state_to_dict(self._lagging_arrested())
+        self.assertEqual(payload["branch"], "partner")
+        del payload["arrested_day"]
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(payload)
+        self.assertIn("cannot predate the field", str(caught.exception))
+
+    def test_the_licence_is_frozen_history_and_an_allow_list(self):
+        # Exhaustive over every branch the engine knows plus the
+        # chairless run — the boundary's whole input domain for this
+        # question. Hand-built payloads, deliberately: an artifact of
+        # a build that shipped before the field is the one thing no
+        # real path in THIS tree can produce.
+        licensed = {None, "straight", "quiet_sale", "war"}
+        for branch in (None,) + models.BRANCH_ORDER:
+            with self.subTest(branch=branch):
+                payload = {"game_over": "arrested", "branch": branch}
+                if branch in licensed:
+                    self.assertIsNone(save._arrested_day(payload))
+                else:
+                    with self.assertRaises(ValueError):
+                        save._arrested_day(payload)
+        # And the set is FROZEN, not a view of the released one: at
+        # Partner's activation `RELEASED_BRANCHES` gains "partner"
+        # and this licence must not follow it.
+        self.assertEqual(models.BRANCHES_PREDATING_ARREST_DAY, licensed)
+        self.assertNotIn("partner", models.BRANCHES_PREDATING_ARREST_DAY)
+
+    def test_absence_licenses_nothing_on_a_run_that_was_not_arrested(self):
+        # The licence answers one question only. A payload with no day
+        # and no arrest is an ordinary run, whatever chair it took —
+        # including the unreleased one.
+        for branch in (None,) + models.BRANCH_ORDER:
+            for ending in (None, "sold", "survived"):
+                with self.subTest(branch=branch, ending=ending):
+                    self.assertIsNone(save._arrested_day(
+                        {"game_over": ending, "branch": branch}))
 
     def test_the_latch_is_append_once(self):
         # The file closes once. A later call must not rewrite the day
@@ -765,12 +846,13 @@ class TestTheLedgerReconciles(unittest.TestCase):
         self.assertLess(state.case, 100)
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(save.state_to_dict(state))
-        # Refused at the migration boundary first: an arrested
-        # payload in the current format carrying no day is missing
-        # the fact it is supposed to carry. The under-threshold
-        # version — ending AND day, with no file — is its own case
-        # below.
-        self.assertIn("no day for it", str(caught.exception))
+        # Refused at the migration boundary first. The writer omits a
+        # day it does not have (rev. 32 item 1), so this arrives as
+        # ABSENCE — and absence on the unreleased Partner branch is
+        # not a history to migrate, it is an arrest that never
+        # latched. The under-threshold version — ending AND day, with
+        # no file — is its own case below.
+        self.assertIn("cannot predate the field", str(caught.exception))
 
     def test_a_finished_run_cannot_omit_days_of_history(self):
         # And the exception is BOUNDED: `game_over` is not a licence

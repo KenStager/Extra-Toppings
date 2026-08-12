@@ -2641,6 +2641,78 @@ happened while moving fast at the user's explicit and correct
 request. Moving fast is not the defect; moving fast without a
 boundary is.
 
+## Round 16 — the arrest that could be loaded once
+
+P4b.2's seventh review round found the defect the six before it
+walked past, and it is not in the ledger at all. It is in the field
+the ledger's lag exception reads.
+
+**The defect, exactly.** `arrested_day` was added post-v3 as an
+additive field under P4a's absence-only migration discipline: a
+payload written before the field existed does not carry it, loads as
+`None`, and can claim nothing a recorded day would buy. That half was
+right, and it was tested. The other half was never written.
+`state_to_dict` emitted the key unconditionally, so the migrated run
+serialized straight back to `"arrested_day": null` — which the SAME
+boundary refuses, correctly, as a current-format arrest missing the
+fact it is supposed to carry. An accepted legacy save therefore
+became **unloadable the moment the player saved again**. The
+migration pin stopped after the load and never round-tripped, which
+is precisely why it passed: it tested the half that worked.
+
+**The shape chosen, and flagged.** Absence is the representation
+(design rev. 32 item 1): the key is written when there is a day and
+omitted when there is not — one rule, not a special case for
+history. A run whose file has not closed has no closing day; an
+arrest migrated from before the field existed has none either. The
+round trip is then stable BY CONSTRUCTION rather than by agreement:
+the second serialization is byte-identical to the first because
+nothing in the loop invents a value. The rejected alternatives are
+recorded in rev. 32 — an explicit sentinel and a companion "day
+unknown" flag, both durable, both a second spelling of a fact
+absence already states. **The shape is this session's proposal, not
+a ruling, and it is flagged as blocking the merge.**
+
+**The licence is scoped, because absence is a checkable claim.**
+Absence asserts WHEN a payload was written, and only a build that
+shipped before the field could have produced one. Carmine's Partner
+is unreleased, so a Partner arrest carrying no day is not history —
+it is a current-format arrest that failed to latch, and it is
+refused. The allow-list is frozen history and must never be
+respelled as `RELEASED_BRANCHES`, which grows: Partner joins that
+set at its own activation and still cannot predate a field that
+shipped first. An allow-list also refuses by default for every
+branch added later.
+
+**The honest cost, measured rather than glossed.** For the branches
+the licence does cover, a current-engine arrest that somehow failed
+to latch is indistinguishable from a genuine legacy one — both are
+"no recorded day", and that state must stay loadable for the
+histories that legitimately hold it. Scoping shrinks the surface to
+the branches where an unrecorded arrest is a real possibility; on
+Partner, the branch this PR builds, it is refused outright. Two
+existing pins moved onto the stronger refusal as a result: the
+false-arrest and un-latched-witness cases now fail at the licence
+rather than at the present-null check, and one of them asserts the
+new reason.
+
+**Regression pins.** Six prove pre-fix failure with
+`extra_toppings/` stashed: the round-trip chain
+(`test_a_migrated_arrest_survives_being_saved_again`), the
+live-run omission (`test_a_live_run_writes_no_closing_day_at_all`),
+the unreleased-branch refusal
+(`test_the_absence_licence_does_not_reach_an_unreleased_branch`),
+the exhaustive licence table over every branch the engine knows
+(`test_the_licence_is_frozen_history_and_an_allow_list` — FAIL on
+the `partner` subtest, ERROR on the absent constant), the moved
+false-arrest assertion, and the serialization-completeness guard,
+which now runs on a state carrying every optional fact and pins that
+omission stays exactly one key wide. **One new test passes both
+ways and is reported as added coverage, not proof**:
+`test_absence_licenses_nothing_on_a_run_that_was_not_arrested` —
+the licence never had anything to say about a run that was not
+arrested, and now that is pinned.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2676,8 +2748,11 @@ boundary is.
   before anything changed, so the golden was not regenerated).
   **P4b.1b is MERGED** (PR #25, approved at 416fa36 → merge b2a31ac;
   round 14), with design revision 31 as its paper. **P4b.2 is
-  complete and awaiting review** (round 15) on PR #27, after the
-  incident recorded in the round-15 coda. Nothing preceded it: the points schema was already ruled by revision 29
+  complete and awaiting review** (rounds 15 and 16) on PR #27, after
+  the incident recorded in the round-15 coda; the seventh review
+  round's arrest-day round-trip hold is answered under design
+  revision 32, whose SHAPE is flagged and unruled, and the
+  server-side ruleset safeguard remains an unmet merge prerequisite. Nothing preceded it: the points schema was already ruled by revision 29
   item 1, and round 14's claim that a ruling was owed misread
   revision 28's superseded judgment call. Next: **P4b.3 — the
   manager, the vacancy and the two-front pressure**, which owes TWO
