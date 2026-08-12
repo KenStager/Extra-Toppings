@@ -1344,3 +1344,24 @@ parameter, the composer reads them):
 
 review/vinnies_block_v2.png supersedes v1 (A/B at the board).
 Session C spend unchanged: 97; expected balance ~4,130.
+
+## The club named: THE ORCHID (2026-08-11 session C cont.; board:
+## "Work to determine a name"; 0 gens)
+
+Determined per the flank-naming precedent - candidates censused
+against the tree, the theme guard and the glyph set, rejections
+recorded. THE ORCHID: the club-violet accent IS orchid violet, so
+the name binds the district's accent color to a place the way
+oxblood binds to Moretti's awning and gold to the family; an orchid
+is hothouse warmth sold as luxury - the Meadows' thesis in one
+flower. Rejected: EMPIRE (killed by the tree - it is the game's own
+tagline word), SAVOY (real-ballroom referent too strong), ONYX
+(black where the district is violet), PALACE (generic), VELVET
+(lounge-cliche drift). Bound as slot data (business the_orchid);
+the blade sign carries the name as stacked DEAD-NEON letters in the
+accent's unlit tiers; the marquee carries THE ORCHID as a pale
+letterboard strip (changeable letters read by day - period-true).
+The door stays chained and NOT-A-DOORWAY: named is not open; the
+flag rides until the club becomes a gameplay surface. Composer
+extension regression-proven again (Moretti's byte-identical).
+review/vinnies_block_v3.png supersedes v2. Spend unchanged: 97.
