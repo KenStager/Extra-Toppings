@@ -1865,3 +1865,80 @@ its own explicit word.
 
 Session F totals: 14 gens (4 drift + 2 cracks + 8 neighbors);
 expected balance ~4,096, ledger-verified.
+
+## The animation slate designed (2026-08-12 session F cont.; board:
+## "sitting animations, an animated door opening, queueing in line,
+## grabbing pizza, etc... utilize sequential thinking"; 10-step
+## reflection, 0 gens - paper before probe)
+
+THE MECHANISM LAW (the slate's load-bearing cut) - every animation
+ask classifies into one of three classes before any spend:
+- **(A) CHARACTER LOOPS** (walk, idle, seated fidget, working
+  loops): generated pixel cycles, animate_image/v3 class, gated by
+  the keyframe probe. ~1 gen per 32x32 8-frame cycle.
+- **(B) PROP STATE-CHANGES** (hinged doors, the roll shutter, wagon
+  doors): few-frame transitions between KNOWN states. REGULAR
+  TRANSFORMATIONS ARE CODE - a hinged leaf foreshortening into its
+  dark reveal, slats vanishing behind a lintel - drawn from the
+  facades' own pixels, deterministic. Generation only where the
+  code read fails at 1x.
+- **(C) SCENE CHOREOGRAPHY** (queueing, walking to the counter,
+  driving, delivery dashes): ENGINE STAGING over class-A loops -
+  positions over time in Godot. ZERO new pixels. Queueing in line
+  = spaced idle loops + one walk + slot advance; it was never a
+  pixel problem.
+
+HELD-PROP LAW (grabbing pizza, carrying crates, answering the
+phone): every held-prop interaction decomposes FIRST into [static
+holding-pose variant] + [engine translation of the prop sprite];
+a generated interaction loop is bought only where that decomposition
+visibly fails at 1x. The animation-scale echo of "regular forms are
+code." Held-prop generation is undocumented vendor-side (docs
+addendum item 2) - our decomposition stands on our own measurements.
+
+RECLASSIFICATIONS against the standing queue, flagged:
+- **Wagon drive-bob -> engine staging** (wheel rotation is invisible
+  at 6px; a 1px y-oscillation is a Godot transform). Optional
+  2-frame suspension squash ONLY if the transform bob reads
+  mechanical.
+- **Cast N/E/W idles -> the interiors round** (street scenes are
+  flat-on S-facing; direction poses belong where directions exist).
+
+DIRECTION + MIRROR LAW (proposed, awaiting the probe's evidence):
+street walkers need E/W PROFILES; extras carry no brand geometry,
+and 32px asymmetries sit below read threshold, so CROWD EXTRAS
+MIRROR (one west walk buys east free). CAST and anything lettered
+never mirrors (the wagon's law). Whether animate_image can turn a
+front-facing sprite into a walking profile is a probe question, not
+an assumption.
+
+THE INSTRUMENT LIST (law code with tests when the class opens -
+animation_validate.py): frame-0 byte-exact; END-FRAME byte-exact on
+interpolation calls; per-frame palette census vs the sprite's own
+palette (animate_image exposes NO forced-strip surface - palette
+conformance is POST-VALIDATION, a recorded contract difference from
+pixflux); per-frame binary alpha; content-bbox stability (feet on
+baseline, bob <= 2px); loop continuity (last->first delta vs
+inter-frame mean); determinism (same seed, repeat call).
+
+THE SLATE, phased - each phase presents boards, nothing enters
+approved/ without the word:
+- **PHASE A - probes (~3 gens)**: A1 keyframe probe (extra_man_cream
+  32x32, "walking, side view, facing left", 8 frames: measures
+  frame-0 exactness, palette drift, alpha, profile synthesis,
+  determinism via one same-seed repeat); A2 interpolation probe
+  (standing->seated, 4 frames: measures BOTH-endpoint exactness).
+- **PHASE B - street life (~6-10 gens, gated on A)**: west-profile
+  walk cycles for the walking extras, mirrored east; seated idles
+  a/b (the four-top breathes).
+- **PHASE C - shop life (~4-8 gens)**: Tony's oven loop (the theme's
+  signature animation - thirty years of oven warmth IS Tony at the
+  oven), Bee's counter idle, holding-pose variants (box hand-off,
+  phone), talking loop if cheap.
+- **PHASE D - code (0 gens, any time)**: DiNapoli door-open frame
+  strip (the door-class proof at the board), Vinnie's shutter roll,
+  phone-ring blink. Door-gap interiors get a 2-3 tier warm sliver
+  per district register, exact-color (decision 5 stays safe).
+- **PHASE E - deferred by existing rulings**: Orchid marquee chase
+  (decision 5), night variants, cast direction poses (interiors),
+  the REST skeleton path (only if v3 text guidance disappoints).
