@@ -2673,3 +2673,60 @@ candidate STILL awaits its word. Boards: commons_window_ab,
 books_window_ab, deluca_window_ab, uh_polish_inscene_ab,
 deluca_inscene_ab. Session G spend: 10 gens (4 drift + 2 groceries
 + 4 commons); expected balance ~4,029 by estimate.
+
+## Four promoted; the cool glass goes citywide as candidates
+## (2026-08-12 session G cont.; board: "Great work. Now, the cool
+## glass"; 0 gens - all code)
+
+INTERPRETATION RECORDED LOUDLY (the session-F "Great work. Proceed"
+precedent): "Great work" promotes the four standing candidates;
+"Now, the cool glass" opens the flagged citywide extension. Cheap
+to reverse if misread.
+
+THE PROMOTION (provenance e16_window_polish_promotion_2026-08-12
+.json): Rossi's groceries -> approved/neighbor_s16601.png
+(379d07e9...); Common Grounds -> 44acefd6...; Campus Books ->
+79b98707...; De Luca -> 0323cd68... Byte-checks: the approved-
+staging re-renders reproduce the board-approved candidate boards
+BYTE-IDENTICALLY (uh_v4 == uh_polish_candidate; morettis_v6 ==
+deluca_candidate). PROOFS ALL GREEN: hero re-baked with the stocked
+grocery window, reference 74dbdea2... -> **56dda0e7...** by
+sanctioned ruling, **GODOT 0/230,400**; district proofs
+**Moretti's 0/230,400** and **University 0/230,400** (self-checks
+byte-exact; Vinnie's untouched at v8). Standing boards: hero v27,
+morettis_block v6, university_block v4.
+
+THE CITYWIDE COOL GLASS (candidates, recipes citywide_coolglass.py
++ _inscene.py, provenance e16_citywide_coolglass.json):
+- **THE GLINT-MARKS-THE-GLASS RULE, recorded**: glazed door panels
+  carrying a drawn glint are glass and map (Palermo's door, Quick
+  Copy's door, De Luca's small window - and the census caught
+  Campus Books' door TRANSOM glint at (118-120,40-41), so the
+  transom maps); unglinted door leaves stay dark (Common Grounds,
+  and the hero diner's standing door flag).
+- Facade candidates, field (46,42,38) -> midnight, zone-scoped,
+  glints surviving by construction: Palermo 3,375 px (loaves
+  against midnight - the Rossi's read), Quick Copy 1,265, De Luca
+  2,204 (incl. curtain hem/hook-dip glass), Campus Books 3,868
+  (books pop against midnight). Moretti's already cool (B2c);
+  Quick Copy's lit window maps nothing (lit outshines
+  reflections); the Meadows stays out of scope (violet register;
+  its black-hole survey item stands separately unruled).
+- **THE UPPER BAND** (the standing only-warm-glazing flag): code
+  candidate - glass (52,48,42) -> midnight 4,407 px, glass_hi
+  (74,70,62) -> slate 858 px. Hero in-scene: 5,265 px differ, ALL
+  in band rows 0-55. KNOCK-ON MEASURED, not assumed: the LS/UH
+  district bands are lum-mapped interims and shift 4,407 px each
+  through their ramps (register-lawful by construction; the LS
+  band's proper own-register round remains queued). The
+  street_block.py code change (band tones) lands ONLY with
+  promotion, suite + ruff riding with it.
+
+IN-SCENE A/Bs: cool_inscene_{hero,morettis,university}_ab +
+cool_upper_band_ab + per-facade cool_*_ab. The read: the city
+glazes cool top to bottom; every district's goods and lit content
+stand against midnight; the hero keeps its sky-lit dominance.
+AWAITING THE WORD on the extension (promotion = approved swaps +
+band code change + hero re-bake + district re-renders + all Godot
+proofs + by-design sha changes). Session G spend: 10 gens; expected
+balance ~4,029.
