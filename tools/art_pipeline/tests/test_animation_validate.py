@@ -74,5 +74,64 @@ class CensusTests(unittest.TestCase):
         self.assertEqual(frame_delta(a, b), 1)
 
 
+
+class ManifestTests(unittest.TestCase):
+    def _set(self, tmp):
+        import hashlib
+        import os
+        pose = sprite((10, 20, 30), (0, 0, 0))
+        f1 = sprite((10, 20, 30), (5, 5, 5))
+        f2 = sprite((30, 20, 10), (0, 0, 0))
+        paths = {}
+        for name, im in (("pose.png", pose), ("f0.png", pose),
+                         ("f1.png", f1), ("f2.png", f2)):
+            im.save(os.path.join(tmp, name))
+            paths[name] = name
+        sha = {n: hashlib.sha256(open(os.path.join(tmp, n), "rb").read()).hexdigest()
+               for n in paths}
+        clip = {"kind": "walk", "mirror_east": True, "pose": "pose.png",
+                "frames": ["f0.png", "f1.png", "f2.png"],
+                "playback": {"loop_start": 1, "loop_end": 2, "duration_ms": 120},
+                "sha256": sha}
+        return {"schema_version": 1, "clips": {"c": clip}}
+
+    def test_lawful_manifest_passes(self) -> None:
+        import tempfile
+        from tools.art_pipeline.animation_validate import validate_animation_manifest
+        with tempfile.TemporaryDirectory() as tmp:
+            validate_animation_manifest(self._set(tmp), tmp)
+
+    def test_refusals(self) -> None:
+        import copy
+        import tempfile
+        from tools.art_pipeline.animation_validate import validate_animation_manifest
+        with tempfile.TemporaryDirectory() as tmp:
+            good = self._set(tmp)
+            bad = copy.deepcopy(good)
+            bad["clips"]["c"]["kind"] = "dance"
+            with self.assertRaises(ValueError):
+                validate_animation_manifest(bad, tmp)
+            bad = copy.deepcopy(good)
+            del bad["clips"]["c"]["mirror_east"]
+            with self.assertRaises(ValueError):
+                validate_animation_manifest(bad, tmp)
+            bad = copy.deepcopy(good)
+            bad["clips"]["c"]["playback"]["loop_end"] = 9
+            with self.assertRaises(ValueError):
+                validate_animation_manifest(bad, tmp)
+            bad = copy.deepcopy(good)
+            bad["clips"]["c"]["sha256"]["f1.png"] = "0" * 64
+            with self.assertRaises(ValueError):
+                validate_animation_manifest(bad, tmp)
+            # frame-0-is-ours: f0 not the pose refuses
+            bad = copy.deepcopy(good)
+            sprite((99, 99, 99), (0, 0, 0)).save(f"{tmp}/f0.png")
+            import hashlib
+            bad["clips"]["c"]["sha256"]["f0.png"] = hashlib.sha256(
+                open(f"{tmp}/f0.png", "rb").read()).hexdigest()
+            with self.assertRaises(ValueError):
+                validate_animation_manifest(bad, tmp)
+
+
 if __name__ == "__main__":
     unittest.main()

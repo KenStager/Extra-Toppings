@@ -94,3 +94,56 @@ def frame_delta(a: Image.Image, b: Image.Image) -> int:
             if aa != ab or (ra, ga, ba) != (rb, gb, bb):
                 n += 1
     return n
+
+
+ANIMATION_KINDS = {"walk", "seated_idle"}
+
+
+def validate_animation_manifest(manifest: dict, root) -> None:
+    """Refuse a malformed animation manifest — never repair.
+
+    The durable-asset contract (2026-08-12): every clip records its
+    pose, its frame files with sha256s, its playback law (frame 0 is
+    the pose, the loop plays loop_start..loop_end), and its mirror
+    law. Binding checks re-hash the files and re-run the frame-0
+    composite-exactness instrument.
+    """
+    import hashlib
+    from pathlib import Path
+
+    root = Path(root)
+    if manifest.get("schema_version") != 1:
+        raise ValueError("unknown manifest schema_version")
+    clips = manifest.get("clips")
+    if not isinstance(clips, dict) or not clips:
+        raise ValueError("manifest has no clips")
+    for cid, clip in clips.items():
+        if clip.get("kind") not in ANIMATION_KINDS:
+            raise ValueError(f"{cid}: unknown kind {clip.get('kind')!r}")
+        if clip.get("kind") == "walk" and not isinstance(
+                clip.get("mirror_east"), bool):
+            raise ValueError(f"{cid}: walk clips must state mirror_east")
+        frames = clip.get("frames", [])
+        if len(frames) < 2:
+            raise ValueError(f"{cid}: fewer than two frames")
+        pb = clip.get("playback", {})
+        if not (1 <= pb.get("loop_start", 0) <= pb.get("loop_end", -1)
+                < len(frames)):
+            raise ValueError(f"{cid}: playback loop out of range")
+        if pb.get("duration_ms", 0) <= 0:
+            raise ValueError(f"{cid}: duration_ms must be positive")
+        hashes = clip.get("sha256", {})
+        for rel in [clip.get("pose")] + frames:
+            p = root / rel
+            if not p.exists():
+                raise ValueError(f"{cid}: missing file {rel}")
+            digest = hashlib.sha256(p.read_bytes()).hexdigest()
+            if hashes.get(rel) != digest:
+                raise ValueError(f"{cid}: sha256 mismatch for {rel}")
+        pose = Image.open(root / clip["pose"]).convert("RGBA")
+        f0 = Image.open(root / frames[0]).convert("RGBA")
+        if not composite_exact(pose, f0):
+            raise ValueError(f"{cid}: frame 0 is not the pose (frame-0-is-ours law)")
+        for rel in frames:
+            if not binary_alpha(Image.open(root / rel).convert("RGBA")):
+                raise ValueError(f"{cid}: non-binary alpha in {rel}")

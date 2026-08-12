@@ -2122,3 +2122,49 @@ r2]) + ~12 MCP-estimated (3 probe + 9 cycles); expected balance
 BOARD: the pose set + cycle candidates (strips and GIFs
 presented), the woman_pale/woman_burgundy re-roll word, the cop
 resolution; University Hill paper next.
+
+## The durability round: the animation class made rebuildable
+## (2026-08-12 session F cont.; board: "establish a lasting pipeline
+## and durable assets"; 3 MCP re-rolls)
+
+THE SET COMPLETED: the stalled cop job resolved as FAILED
+vendor-side ("Generation timed out" - the dead-job class measured;
+whether it charged joins the billing evidence) and re-queued
+(s17331, landed); woman_burgundy re-rolled clean (s17322 - the hair
+holds); woman_pale re-rolled (s17321) and still weakest - ROOT
+CAUSE IS THE POSE (s17221's pale top is barely present; the cycle
+inherits what the pose lacks). Flagged: re-pose with coverage
+language next round, then re-cycle. Rejected raws preserved under
+rejected/ before every re-download. 8 of 9 clips read.
+
+DURABILITY, the actual deliverables:
+1. **The finishing recipes** (pose_finishing.py, cycle_finishing.py)
+   - every inline curation from the Phase B loop now rebuilds
+   final/ and curated/ from raws DETERMINISTICALLY; both proven
+   byte-identical on re-run. The class of loss that killed the v14
+   compose cannot reach this work.
+2. **THE ANIMATION MANIFEST** (build_animation_manifest.py ->
+   animation_manifest.json, 9 clips): pose + frames + sha256 per
+   file + playback law (frame 0 is the pose; loop plays 1..n-1 at
+   120ms) + mirror law + per-clip provenance (jobs, seeds, re-roll
+   notes, the two ids lost to the poll timeout marked as such).
+3. **validate_animation_manifest** in animation_validate.py: REFUSES
+   unknown kinds, missing mirror law, out-of-range loops, sha
+   mismatches, missing files, non-binary alpha, and frame-0-not-
+   the-pose (re-runs the composite-exactness instrument at binding
+   - the validator IS the frame-0 law's enforcement). Test-pinned;
+   suite 151 -> 153, ruff clean.
+The engine story: Godot consumes the manifest (frames as
+AnimatedSprite2D at duration_ms, flip_h for east); static-frame
+import fidelity rides on the block proof's precedent (same import
+pipeline, binary alpha); a living walking-extra scene demo is the
+next round's presentation piece, not a fidelity gap.
+
+Promotion shape ON THE WORD: manifest + curated frames + poses
+enter approved/animations/ as one unit (validator binding at
+promotion, per the transitions law); woman_pale rides flagged or
+holds back - the board's call.
+
+Session F totals: 40 gens ledgered + ~15 MCP-estimated (12 prior +
+3 re-rolls); expected balance ~4,052 by estimate; dashboard the
+authority.
