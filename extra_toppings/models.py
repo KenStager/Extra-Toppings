@@ -1743,33 +1743,102 @@ def operating_shop(state: "State") -> "Shop":
     return exactly_one_shop(state)
 
 
+def multi_address(state: "State") -> bool:
+    """Does this run keep more than one address? THE one home for that
+    question (rev. 33 item 13, rev. 34 item 5).
+
+    Every addressed menu entry and every addressed line of narration
+    is gated on it, because a one-address run's prompts, options AND
+    PROSE are frozen — the golden digests the first two and the
+    project freezes the third, and a gate's blind spot is a reason
+    for care rather than a licence. Spelling `len(state.shops) > 1`
+    at each site would be the same condition respelled once per
+    consumer, and the day one copy drifts is the day a released
+    transcript moves."""
+    return len(state.shops) > 1
+
+
+# THE defense formula's two numbers (design rev. 30 item 4). They are
+# PART OF THE FORMULA, not incidental: an undefended address scores
+# the baseline, not zero, and the guard is worth exactly this much.
+# Named here so the view and any future reader share one home; the
+# arithmetic is the merged engine's, preserved rather than
+# paraphrased.
+DEFENSE_BASELINE_NERVE = 3
+GUARD_DEFENSE_BONUS = 4
+
+
+@dataclass(frozen=True)
+class ShopDefenseView:
+    """THE one answer to how defended an address is (rev. 29 item 2),
+    consumed by the rival CHOOSING a target and by the raid that
+    ARRIVES — one definition of "defended", so the two can never
+    disagree.
+
+    A headcount rule was rejected: it would let a roomful of low-nerve
+    honest employees make an address LOOK defended by people who take
+    no part in defending it, and it would disagree with the mechanic
+    the game already resolves raids with."""
+
+    shop_key: str
+    defenders: tuple
+    strength: int
+    guard: bool
+
+
+def shop_defense(state: "State", shop: "Shop | str") -> ShopDefenseView:
+    """Derive one address's defense. Takes an IDENTITY, not a loose
+    record (rev. 34 item 1): a stable key, or a `Shop` that is proved
+    to be this world's through `canonical_shop` first. A detached copy
+    carrying a real key would otherwise contribute fictional defenders
+    and a fictional guard upgrade to a targeting decision — the same
+    defect `canonical_shop` was built for at the morning surfaces.
+
+    DEFENDERS are the existing crew test made address-local: hired,
+    aware, available and assigned HERE, in roster order — the order
+    `State.crew` already returns, so the raid's injury draw sees the
+    same sequence it always did at a single address."""
+    at = state.shop_by_key(shop) if isinstance(shop, str) \
+        else canonical_shop(state, shop)
+    defenders = tuple(e for e in state.crew() if e.shop_key == at.key)
+    guard = "guard" in at.upgrades
+    strength = max([e.nerve for e in defenders],
+                   default=DEFENSE_BASELINE_NERVE) \
+        + (GUARD_DEFENSE_BONUS if guard else 0)
+    return ShopDefenseView(shop_key=at.key, defenders=defenders,
+                           strength=strength, guard=guard)
+
+
 def raid_target(state: "State", rival_key: str) -> str:
     """THE address-target authority (design rev. 22 item 5): which of
-    the player's addresses a rival moves against. P4a supplies the
-    mechanism and P4b the policy (rev. 27 item 4) — while one address
-    exists the answer is that address, and "the softer of your two
-    shops" becomes a real decision only once there are two.
+    the player's addresses a rival moves against. P4a supplied the
+    mechanism and P4b.3 supplies the policy (rev. 27 item 4, ruled in
+    §2.4.2 and rev. 33 item 1) — the SOFTEST address.
+
+    Softest is a TOTAL ORDER, and every component ascends: lowest
+    defense strength, then fewer defenders, then lower reputation,
+    then the stable key. A shop nobody respects is the one they hit,
+    which is the same direction as low strength and few defenders —
+    a tie-break whose components ran in different directions would be
+    a defect nobody sees for six rounds (rev. 33 item 2). Because the
+    key is the last component the order is total: no two addresses
+    can tie every component, so `state.shops` order can never decide
+    and reversing the list changes nothing.
 
     It never guesses: with no address there is nothing to raid, and
-    that is a refusal rather than a home default."""
+    that is a refusal rather than a home default. A site under
+    construction is not a target — there is nothing there to raid —
+    so a founding shop plus a building site is still ONE targetable
+    address (§2.4.2)."""
     targetable = addresses_allowing(state, "rival_targeting")
     if not targetable:
         raise ValueError("no address exists for a raid to target")
-    # A site under construction is not a target — there is nothing
-    # there to raid — so a founding shop plus a building site is
-    # still ONE targetable address, and the policy question does not
-    # arise until two are actually open (§2.4.2).
-    if len(targetable) != 1:
-        # P4b owns the "softer of your two shops" policy (rev. 27
-        # item 4). Until it exists, picking one would be picking by
-        # LIST POSITION — reversing state.shops would move the raid to
-        # a different address, which is the whole defect stable keys
-        # exist to abolish. So this refuses rather than guessing.
-        raise ValueError(
-            f"{len(targetable)} targetable addresses exist and no "
-            f"targeting policy has been ruled on — P4b owns that "
-            f"choice")
-    return targetable[0].key
+
+    def softness(at: "Shop") -> tuple:
+        view = shop_defense(state, at)
+        return (view.strength, len(view.defenders), at.reputation, at.key)
+
+    return min(targetable, key=softness).key
 
 
 # ── the address lifecycle (§2.4.2; rev. 29 items 3–4) ────────────
