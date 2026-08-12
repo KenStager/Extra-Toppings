@@ -2596,3 +2596,80 @@ AWAITING THE WORD on: which of 1-3 proceed (each candidate-first
 with A/B per the standing method), the loaf-crust round's slot
 unchanged - AND the Rossi's grocery candidate above still awaits
 its own explicit word. Spend unchanged: 6 gens.
+
+## The three-window round: the survey's grades overruled and the
+## method repaired (2026-08-12 session G cont.; board: "Common
+## grounds, the book store, and the barber shop could both use more
+## work. Reflect critically... sequential thinking... begin the
+## reflection loop"; 4 gens)
+
+THE REFLECTION, owned first: my survey graded PRESENCE of content
+at band-crop distance, not QUALITY OF READ at real scale - the
+stride-gloss failure class again. At 4x: Campus Books' "spines" are
+a strict 12px-period cycle of full-height bars (a radiator, and the
+rhythm census MEASURES it: period 12 at peak 0.85); De Luca's
+"curtain" is nine 10px blank slabs (wainscot, not fabric); Common
+Grounds breaks its own brief (the promised warm note is a two-tone
+mud void). Three DIFFERENT defects: absence / false uniformity /
+wrong rhythm scale.
+
+TWO ADDITIONS TO THE TOOLBOX (8-step sequential reflection):
+- **THE VARIETY COROLLARY**: code that draws organic-variety
+  content (books, goods, fabric) must carry deterministic variety
+  on the white-mix hash - one width at one pitch is how a shelf of
+  books becomes a fence. The corollary of "regular forms are code",
+  now paid for.
+- **THE RHYTHM CENSUS** (instrument, in the polish recipes):
+  column-occupancy autocorrelation over a content row; a single
+  dominant period is the fence tell. Gates: organic variety < 0.55;
+  legitimately-rhythmic fabric < 0.90 (pleats are periodic by
+  nature - the gate distinction is recorded, not fudged).
+- THE THREE-DISTANCE PROTOCOL: every window fix judged at 4x zoom,
+  1x in-scene, AND by census before presentation.
+
+THE ROUNDS (each candidate-first; recipes window_polish_commons_r1/
+r2/_finish, window_polish_books, window_polish_deluca; provenance
+e16_window_polish_{commons,books,deluca}.json):
+1. **COMMON GROUNDS** (4 gens): r1 REFUSED as measured - my
+   scaffold drew the interior in final strip tones and the model
+   grained the walls (22/116 px in-window; the raw-in law re-paid
+   in a new coat). r2 with raw-shifted tones fired exactly:
+   4,590/4,590 in-window repaint, 0 off-strip both seeds.
+   **s17514 picked** (s17513: counter-front noise marks). Content
+   per brief: warm field, varied cream/amber cups (hash widths/
+   heights/gaps), menu board as dark surface + pale LINE
+   SUGGESTIONS (no glyphs - the sign-surface corollary), counter +
+   espresso silhouette, midnight glass strip + margins ("behind
+   cool glass", literally), the short 6px UH glint REDRAWN on the
+   strip at finishing. Scaffold catch before spend: pendant lamps
+   died (their heads read as more cups). Finishing surgical (the
+   Rossi's precedent); diff 3,827 px zone-only; rhythm 0.40/0.16.
+2. **CAMPUS BOOKS** (0 gens, code-only - 2-4px spines would die at
+   pixflux grain): the variety corollary's reference
+   implementation - width 2-4, height 7-11 BOTTOM-ALIGNED, 1-in-7
+   leaners, 1-in-9 gaps, 1-in-10 lying stacks, weighted cold tones
+   with rare warm/pale, no minting. Diff 2,825 px confined to the
+   four shelf zones; rhythm 0.16-0.46 vs the standing fence's
+   0.85. The A/B reads: radiator -> bookshelf.
+3. **DE LUCA** (0 gens, code-only): 3px pleats with jitter, hook
+   dips into dark glass at the rod, hem dropped to dark glass with
+   hash-hung columns - the curtain HANGS. Restraint ruled in the
+   reflection and kept: no second light, no chair - the dark glass
+   IS the barber's story. Diff 542 px zone-only; rhythm 0.55 under
+   the fabric gate.
+
+SCOPE GUARD, flagged not smuggled: De Luca's and the UH fronts'
+glass stays sepia-family - the cool-glass law's ruled scope was the
+hero flanks; extending it citywide re-bakes two district blocks and
+is its own cheap deterministic round if the board wants coherence
+after seeing these A/Bs.
+
+IN-SCENE: UH composed with BOTH candidates (uh_polish_candidate;
+the strip finally reads campus-gate-at-2am); De Luca on the LS
+block (deluca_candidate). AWAITING THE WORD: the three candidates
+(promotions = approved swaps + district re-renders + Godot proofs
+per precedent), the citywide-glass flag - and the Rossi's grocery
+candidate STILL awaits its word. Boards: commons_window_ab,
+books_window_ab, deluca_window_ab, uh_polish_inscene_ab,
+deluca_inscene_ab. Session G spend: 10 gens (4 drift + 2 groceries
++ 4 commons); expected balance ~4,029 by estimate.
