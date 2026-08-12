@@ -12,11 +12,13 @@ are driven through the REAL night phase wherever a real path exists;
 the reconciliation is driven through the REAL save boundary.
 """
 
+import random
 import unittest
 from dataclasses import FrozenInstanceError
 from unittest import mock
 
-from extra_toppings import evidence, models, partner, phases, save
+from extra_toppings import (evidence, market, models, partner,
+                            phases, save)
 from extra_toppings.models import (BranchState, PointsCycleRecord,
                                    new_state, partner_ledger)
 from extra_toppings.rng import Streams
@@ -581,6 +583,57 @@ class TestTheLedgerReconciles(unittest.TestCase):
         self.assertEqual(state.day, due + 1)                    # lag of 1
         save.state_from_dict(save.state_to_dict(state))
 
+    def test_the_cuffs_that_close_the_file_do_not_forge_the_night(self):
+        # THE causality case, reproduced through the real service and
+        # night. A protected driver's 100-point witness record
+        # displays as 50 while they are loyal. On the bill's due
+        # night a delegated route arrests them — which REVOKES that
+        # protection, restoring full weight to what they already
+        # said — and the file closes for real.
+        #
+        # Recomputing the crossing from the ledger would then replay
+        # yesterday against the post-cuffs roster, see a file already
+        # at 100, and refuse a genuine transition as a forgery. The
+        # transition is persisted instead, so this loads.
+        state = seated(clean=50_000)
+        due = state.branch_state.points_due_day
+        advance_to(state, due)                  # the bill's own morning
+        market.roll_prices(state, random.Random(3))
+        home = state.shop_by_key(models.HOME_SHOP_KEY)
+        driver = next(e for e in state.employees if e.driving >= 4)
+        driver.hired = driver.aware = True
+        driver.morale = 9                       # retention-protected
+        state.add_case(100.0, "everything they know", kind="witness",
+                       source=driver.key)
+        self.assertLess(state.case, models.CASE_MAX)      # halved: 50
+        self.assertIsNone(state.game_over)
+
+        home.stash = {"mushrooms": 6}
+        home.ingredients, home.demand_today = 40, 20
+        home.delivery_pool = 10
+        plans = {"routes": {models.HOME_SHOP_KEY: {
+            "district": "old_harbor", "driver": driver,
+            "ride_along": False, "cargo": {"mushrooms": 4}, "legit": 2,
+            "origin_shop": models.HOME_SHOP_KEY,
+            "wagon_key": models.HOME_WAGON_KEY}}}
+        con = Listening()
+        # Seed 38 is where a delegated route on this night ends in
+        # an arrest — found by scanning the real path, not chosen to
+        # make a number come out, and asserted below so a future
+        # engine that stops reaching it fails here.
+        report = phases.service(state, plans, con, Streams(38))
+        self.assertTrue(driver.arrested, con.lines)       # the cuffs
+        self.assertEqual(state.game_over, "arrested")     # and the file
+        self.assertEqual(state.arrested_day, due)
+
+        phases.night(state, plans, report, con, Streams(38), PARTNER_ON)
+        # The bill went unprocessed on a dead run, and the day moved
+        # once — the lagging save, produced rather than posed.
+        self.assertEqual(state.branch_state.points_cycles, [])
+        self.assertEqual(state.branch_state.points_due_day, due)
+        self.assertEqual(state.day, due + 1)
+        save.state_from_dict(save.state_to_dict(state))
+
     def test_an_arrest_that_crossed_on_another_night_excuses_nothing(self):
         # The timing half: an arrest AFTER the bill was already
         # missed does not reach back and excuse it. Carmine's money
@@ -590,6 +643,7 @@ class TestTheLedgerReconciles(unittest.TestCase):
         state.day = 20
         state.add_case(100.0, "the file closes", kind="physical")
         self.assertEqual(state.game_over, "arrested")
+        self.assertEqual(state.arrested_day, 20)     # not the bill's night
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(save.state_to_dict(state))
         self.assertIn("cannot skip a bill", str(caught.exception))
@@ -609,6 +663,7 @@ class TestTheLedgerReconciles(unittest.TestCase):
                        source=witness.key)
         state.day = 20
         state.game_over = "arrested"            # claimed, not earned
+        self.assertIsNone(state.arrested_day)   # no transition behind it
         self.assertGreaterEqual(
             models.fold_case(state.evidence), models.CASE_MAX)   # raw
         self.assertLess(state.case, models.CASE_MAX)             # real
@@ -765,7 +820,7 @@ class TestTheLedgerReconciles(unittest.TestCase):
                     # miss was recorded for.
                     state.day = cycles[-1].due_day
                     state.add_case(100.0, "the file closes",
-                                   kind="physical")
+                                   kind="physical")   # latches the day
                     state.day = max(state.day, cursor - 1)
                 state.game_over = ending
                 if accepted:

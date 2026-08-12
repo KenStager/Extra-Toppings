@@ -1819,4 +1819,4 @@ def _law_phase(state: State, con: Console, streams: Streams) -> None:
         frozen = min(state.clean, 500)
         state.clean -= frozen
     if state.case >= 100:
-        state.game_over = "arrested"
+        state.latch_arrest()

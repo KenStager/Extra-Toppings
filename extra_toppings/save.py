@@ -50,6 +50,9 @@ def state_to_dict(state: State) -> dict:
         "news": list(state.news),
         "game_over": state.game_over,
         "debt_paid_day": state.debt_paid_day,
+        # Added post-v3 without a version bump: a primitive with
+        # a `.get` default, so older payloads load it as None.
+        "arrested_day": state.arrested_day,
         "total_laundered": state.total_laundered,
         "raids_led": state.raids_led,
         "kills": state.kills,
@@ -185,6 +188,7 @@ def state_from_dict(d: dict) -> State:
         evidence=[Evidence(**e) for e in d["evidence"]],
         news=list(d["news"]),
         game_over=d["game_over"], debt_paid_day=d["debt_paid_day"],
+        arrested_day=d.get("arrested_day"),
         total_laundered=d["total_laundered"], raids_led=d["raids_led"],
         kills=d["kills"], demand_shock=d["demand_shock"],
         act=d["act"], branch=d["branch"],

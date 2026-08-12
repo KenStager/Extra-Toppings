@@ -80,7 +80,7 @@ def _check_endings(state: State) -> None:
     if state.game_over:
         return
     if state.case >= 100:
-        state.game_over = "arrested"
+        state.latch_arrest()
     elif state.clean <= 0 and state.dirty <= 0 and state.warehouse_cash <= 0 \
             and not any(sh.stash for sh in state.shops) \
             and all(sh.ingredients <= 0 for sh in state.shops) \

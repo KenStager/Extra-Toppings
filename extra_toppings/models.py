@@ -2098,37 +2098,27 @@ def arrest_latched_on(state: "State", day: int) -> bool:
     """THE genuine-arrest-latch authority (P4b.2 review): the run
     ended in an arrest, and the file crossed on THAT NIGHT.
 
-    Three different things were being called "an arrest" before this,
-    and every one of them was wrong in a way a doctored save could
-    use:
+    It reads the PERSISTED TRANSITION and reconstructs nothing.
 
-    The CANONICAL Case, never the raw fold. The game arrests against
-    `state.case`, which folds retention-protected sources at half
-    weight — and Partner unlocks remediation, so a raw sum of 100
-    against a displayed 50 is an ordinary state here, not an exotic
-    one. A protected witness record could therefore authorise an
-    arrest that never happened.
+    Earlier versions recomputed the crossing by folding the ledger as
+    it stood before the night and comparing — first with the raw sum,
+    then with the canonical context-aware one. Both were wrong in the
+    same way, and the second more subtly: the fold depends on WHO IS
+    PROTECTED, and the arrest itself changes that. A driver arrested
+    on a delegated route stops being retention-protected the moment
+    they are booked, which restores full weight to every record they
+    ever sourced — so replaying yesterday's ledger against today's
+    roster shows a file that was already closed, and a genuine
+    transition is refused as a forgery. Applying the post-cuffs
+    relationship to the night before rewrites causality.
 
-    And the CROSSING is bound to the night in question, not merely
-    the ending. An arrest three days later does not retroactively
-    excuse a bill missed before it: Carmine's money was already late
-    when the police arrived.
+    So the day the file closed is recorded when it closes
+    (`State.latch_arrest`) and simply read back here. An arrest three
+    days later still excuses nothing: Carmine's money was late before
+    the police arrived, and the recorded day says so.
     """
-    if state.game_over != "arrested" or state.case < CASE_MAX:
-        return False
-    # It crossed THAT night: the file read under the line on
-    # everything accrued before the day, and at or over it now. Both
-    # sides use the same context-aware fold, so a protected source
-    # counts the same on either side of the comparison.
-    dormant = state.dormant_sources()
-    before = fold_case([r for r in state.evidence if r.day < day], dormant)
-    through = fold_case([r for r in state.evidence if r.day <= day],
-                        dormant)
-    # UNDER the line on the night before, AT OR OVER it by the end of
-    # this one. `before < CASE_MAX` alone was satisfied by an arrest
-    # that crossed days LATER, which is the timing hole: a file that
-    # closes on Thursday does not excuse a bill missed on Tuesday.
-    return before < CASE_MAX <= through
+    return (state.game_over == "arrested"
+            and state.arrested_day == day)
 
 
 def validate_points_schedule(state: "State") -> None:
@@ -3037,6 +3027,16 @@ class State:
     news: list = field(default_factory=list)
     game_over: str | None = None                         # ending id once decided
     debt_paid_day: int | None = None
+    # THE DAY THE FILE CLOSED (P4b.2 review). Persisted at the
+    # transition, never reconstructed: recomputing "was this an
+    # arrest that night?" from the CURRENT roster applies today's
+    # relationships to yesterday's ledger, and the cuffs themselves
+    # change those relationships — a driver arrested on a route stops
+    # being retention-protected the moment they are booked, which
+    # restores full weight to everything they ever said. Added
+    # post-v3 without a version bump: absent in older payloads and
+    # None there, which is P4a's absence-only discipline.
+    arrested_day: int | None = None
     act: int = 1                                         # 1 = the hustle; 2 after the sit-down
     branch: str | None = None                            # act-2 chair id once chosen
     branch_state: BranchState | None = None              # chair-specific state after the fork
@@ -3198,7 +3198,15 @@ class State:
         self.evidence.append(Evidence(day=self.day, magnitude=amount,
                                       kind=kind, why=why, source=source))
         if self.case >= 100:
-            self.game_over = "arrested"
+            self.latch_arrest()
+
+    def latch_arrest(self) -> None:
+        """THE arrest transition, in one place: the ending and the
+        day it happened, recorded together. Nothing else may set
+        `game_over` to "arrested", because a terminal without its day
+        is a terminal that later has to be guessed at."""
+        self.game_over = "arrested"
+        self.arrested_day = self.day
 
     def total_stock_units(self) -> int:
         """Contraband anywhere — EVERY address's stash plus the
