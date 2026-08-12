@@ -1836,3 +1836,32 @@ both failure records). AWAITING THE BOARD: the Moretti's v4 stack
 the standing far-line/wall-streak flags. Session F spend: 14 gens
 (4 drift + 2 cracks + 8 neighbors); expected balance ~4,096,
 ledger-verified.
+
+## Both stacks promoted: the districts wear their grading, Moretti's
+## keeps company (2026-08-12 session F cont.; board: "Approved all
+## around"; 0 gens)
+
+THE PROMOTION (provenance e16_ls_district_promotion_2026-08-12
+.json): approved/morettis_block_staging.json IS the v4 stack -
+PALERMO BAKERY and DE LUCA BARBER SHOP as slot assets (facades
+copied into approved/, sha256s recorded; raws stay in candidates/),
+both new doorways as data, the LS SWEPT roster, the elliptical
+manhole. approved/vinnies_block_staging.json IS the v7 stack - the
+MEADOWS DIRTIEST roster with its own Y-split crack s16971, the
+elliptical manhole. s16322 is now retired from EVERY staging - the
+flat-on-circle era ends citywide. Candidate staging files retired;
+one writable authority. Byte-checks: both approved stagings
+re-render BYTE-IDENTICAL to the board-approved v4/v7 boards.
+Standing boards: morettis_block_v4, vinnies_block_v7. The grading
+law now reads across three districts on approved data: Old Harbor
+moderate (hero), Little Sicily swept, the Meadows dirtiest -
+University's pristine slot stays empty until its block exists.
+
+Deliberately NOT treated as ruled by "all around": the far-curb-line
+flag (still needs a NAMED winner between the builder's (140,129,112)
+and the composer's (206,192,162)), the wall-streak facade ruling,
+and the loaf-crust accent-tier round (priced, 2 gens) - each awaits
+its own explicit word.
+
+Session F totals: 14 gens (4 drift + 2 cracks + 8 neighbors);
+expected balance ~4,096, ledger-verified.
