@@ -896,6 +896,26 @@ delivers construction's initial opportunity and any vacancy created
 during the previous service or night, so there is exactly one
 trigger rather than a family of them.
 
+**The grade is ONE derived view, and the card renders it** (rev. 35
+items 2–4). `PartnerGradeView` carries both term VALUES, both
+requirements, both verdicts, the tier and the terminal id, derived in
+one place from `State.net_worth` minus current arrears and from the
+restaurant's own reputation meter; `partner.grade` returns the id from
+that view and never re-derives it, exactly as `partner_ledger` is the
+one derivation behind every points display. The card the player reads
+mid-month and the grade the epilogue prints are then the same
+arithmetic by construction rather than by agreement — the failure
+mode a second spelling would produce here is the cruellest available,
+a card that says you are steering toward *healthy* and an epilogue
+that says *hollow*.
+
+*The restaurant term names its address by IDENTITY*: it is **the
+non-founding address**, resolved through `founding_shop`, never
+"shop 2" by key spelling and never by list position. With more than
+one non-founding address the view **refuses** rather than picking —
+Act I's Partner builds exactly one second room, and a silent choice
+among several is the defect stable keys exist to abolish.
+
 Initial placeholders, §6.3-class and
 movable only by the recorded falsification workflow: **one management
 opportunity**, **kitchen capacity × 0.50**, **believable ceiling ×
@@ -1165,6 +1185,16 @@ Operation. Which *kind* of Operation is a second, independent question,
 answered by the tiers of §2.4.2 — the terminal id is not the grade, and
 "branch-good" in §2.7 means the healthy tier, never merely the id
 (rev. 23 item 1).
+**And the epilogue dispatcher FAILS CLOSED on an id it does not
+know** (rev. 35 item 1). "An outcome matrix must not depend on generic
+epilogue ordering" was ruled twice — rev. 15 item 4 for The Syndicate,
+rev. 22 item 3 for Partner's three — and both times the fix was a new
+id while the *mechanism* that punished a missing arm was left in
+place: a final `else` that grades whatever reaches it as `survived`.
+An unhandled terminal therefore does not crash, it PRINTS SOMEBODY
+ELSE'S ENDING. The dispatcher raises on an unknown id instead, and the
+inventory of ids is asserted against the arms that render them.
+
 Pre-day-30 terminals: arrest (any branch, via the latch); Foreclosure
 (Partner); Burned Out (War); clean insolvency (any branch — the Straight
 Path is where it lives); the escrow close — Sold, in three tiers with the
@@ -1972,7 +2002,16 @@ Ordered roughly by blast radius, smallest first:
     MEASURED at both gates and both battery depths, never assumed.
   - *P4b.4 — the grade and the endings.* The one Partner grading
     view, the tiers, the card that shows its work, `operation` and
-    `on_the_hook` with their texts, and the §2.5 matrix rows.
+    `on_the_hook` with their texts, and the §2.5 matrix rows. Carries
+    rev. 35: the epilogue dispatcher fails closed on an unknown id
+    (today `operation` prints **The Legitimate Exit**, measured), the
+    grading view is the single derivation behind both the card and
+    the epilogue, `models.OPERATION_HOLDS_NET` is one home for a
+    number two comparators read, and the terminal/arrears
+    relationship binds in validation the way foreclosure's already
+    does. The released `survived` grade is touched only to read the
+    hoisted constant — identity MEASURED at both gates, never
+    assumed.
   - *P4b.5 — bots, battery and study.* The Partner bot, both
     ablations, the §2.7 letters measured, FINDINGS, and human play.
 
@@ -5733,3 +5772,125 @@ multiplier later, and only if measurement falsifies the −25 response.
    interpreters; the 150- and 500-seed batteries diffed against fresh
    merged-main output. **No golden regeneration**, and any released
    movement is a defect to fix rather than a result to record.
+
+**Revision 35** is P4b.4's complete paper, landed before any of its
+mechanics, on the P4b.3 pattern: one consolidated packet rather than
+a preliminary question round. The reading pass again found the design
+more complete than §7's line implies — revision 24 item 1 already
+specifies the tier vocabulary, both terms, the AND gate, both
+thresholds, the three texts with `working`'s two arms and the card
+that shows its work, and §2.5 already rules the discriminator. Those
+are NOT reopened. What follows is the genuinely open remainder, plus
+one defect the reading pass found in released code. It amends §2.4.2,
+§2.5 and §7 in place.
+
+1. **The epilogue dispatcher prints somebody else's ending, and this
+   is measured rather than argued.** *Current behaviour.* `epilogue`
+   is an if/elif chain ending in `else: # survived — grade the exit`.
+   *Measured on merged main*: a state with `game_over = "operation"`
+   prints **"ENDING: The legitimate exit. The rarest pie on the
+   menu."** — the Straight Path's rarest outcome, on a Partner run
+   that never went straight. *Governing text:* "an outcome matrix
+   must not depend on generic epilogue ordering", ruled at rev. 15
+   item 4 and again at rev. 22 item 3. Both times the remedy was a
+   new id; both times the MECHANISM that punishes a missing arm
+   survived. *Ruling:* the dispatcher **fails closed** — an id with
+   no arm raises rather than falling through, and the `survived` arm
+   becomes an explicit test for `"survived"`. A guard test asserts
+   the id inventory against the arms that render them, so the next id
+   added without a text fails in the suite instead of borrowing one.
+   *The meaningful alternative* — add the two Partner arms and leave
+   the `else` — is rejected: it fixes this instance of a defect whose
+   class has now recurred three times. *Consequences.* Code: one
+   `elif`, one `raise`, one guard test. Released behaviour: `survived`
+   still reaches its four grades by the same route, and no other
+   released id was ever reaching the `else` — which the gates will
+   confirm rather than the comment.
+
+2. **One grading view, two consumers, and the cruellest possible
+   failure if there were two.** *Ruling:* `partner.PartnerGradeView`,
+   frozen, carrying `net`, `net_required`, `net_met`, `reputation`,
+   `reputation_required`, `reputation_met`, `tier` and `ending`;
+   `partner.grade_view(state)` is its sole derivation and
+   `partner.grade(state) -> str` returns `view.ending`. This is
+   `partner_ledger`/`PartnerLedgerView`'s exact shape reused, not a
+   second invention. The card the player reads mid-month and the
+   epilogue's verdict are then one arithmetic by construction. *Why
+   it matters more here than usual:* a second spelling would let the
+   card promise `healthy` while the epilogue delivers `hollow`, which
+   is worse than a wrong number — it is a game that lied to a player
+   who was steering by it.
+
+3. **The restaurant term names its address by identity.** Revision 24
+   says "shop 2's own reputation meter", which is a spelling.
+   *Ruling:* the **non-founding address**, resolved through
+   `founding_shop` — never the key `shop2`, never list position. With
+   more than one non-founding address the view **REFUSES** rather
+   than choosing: Act I's Partner builds exactly one second room, and
+   picking among several would be the positional defect P4a abolished
+   wearing a new hat. If a later act wants a rule for several, it
+   rules one; it does not inherit a guess.
+
+4. **The tier arithmetic, spelled to the comparator.** `hollow` <
+   `working` < `healthy`; the gate is **AND**, `healthy` needs both
+   terms, `working` exactly one, `hollow` neither (rev. 24 item 1,
+   unchanged). *The net term* is `State.net_worth` **minus current
+   arrears** — `net_worth` is already the address-agnostic authority
+   P4a made it, so nothing is re-derived, and arrears come from
+   `partner_ledger` rather than being recounted. *`working`'s two
+   arms* are selected by WHICH term passed: net alone is *money
+   without a room*, reputation alone is *a room without money*.
+
+5. **One home for 8,000, and the two comparators it is read
+   with — flagged rather than buried.** Revision 24 promotes the
+   `survived` grade's existing bar to a named home "at unchanged
+   value". The tree reads `net > 8000` (game.py, strict); revision 24
+   specifies Partner's term as **≥ $8,000**. *Ruling:*
+   `models.OPERATION_HOLDS_NET = 8000` is the single home, and **the
+   two call sites keep their own comparators** — the released
+   `survived` grade keeps `>` because its behaviour is frozen and a
+   comparator change would move a released outcome at exactly one
+   value; Partner uses `>=` because that is what was ruled. **This is
+   stated loudly because it looks like a bug and is not**: one
+   number, two questions, and a run sitting at exactly $8,000 is
+   *not* "the operation holds" under the old grade while it *is* a
+   passing net term under the new one. If the reviewer prefers one
+   comparator, the release-side change is a golden-moving act and
+   must be ruled as such.
+
+6. **The terminal/arrears relationship binds in validation, both
+   directions.** P4b.2 made foreclosure bidirectional — the ending
+   implies two strikes and two strikes on a live run imply the
+   ending. *Ruling:* the same for the day-30 pair. A Partner run
+   ending `operation` carries **zero arrears**; a run ending
+   `on_the_hook` carries **arrears outstanding**; neither may be
+   recorded before day 30. A doctored save that claims The Operation
+   while owing Carmine money is refused at the boundary, not
+   discovered in an epilogue.
+
+7. **The card, and where the player meets it.** Revision 24 requires
+   it to show its work "while there is still time to steer", which
+   rules out an epilogue-only card. *Ruling:* it renders in the
+   **night's branch tick**, beside the points ledger that already
+   reports there, from the night the second address OPENS — before
+   that the restaurant term is meaningless because the room is not
+   trading. Every night, not on request: a card the player can
+   decline to look at is the "avoidable by not looking" failure
+   rev. 30 item 2 closed for the management window. *The meaningful
+   alternative* — a menu entry — is rejected for that reason.
+
+8. **What P4b.4 does NOT carry, so it is not discovered later.**
+   §2.7's neglect bar becoming binding at ≥ 15 points at 500 seeds is
+   a MEASUREMENT contract and belongs to **P4b.5** with the rest of
+   the battery; this PR must not tune toward it. The two thresholds
+   stay §6.3 placeholders moved only by the recorded falsification
+   workflow. The arrest's Partner flavour is a **text arm** on the
+   existing `arrested` id — never a new id — on the precedent of
+   Won-the-War-Lost-the-Verdict.
+
+9. **Gate character.** Containment, under rev. 30 item 1 — with the
+   same caveat P4b.3 carried and for the same reason: item 1 and item
+   5 touch code every released branch and flag-off execute. Every
+   shared edit is under strict one-address equivalence, MEASURED at
+   both gates and both battery depths. "Containment" does not license
+   a moved digit.
