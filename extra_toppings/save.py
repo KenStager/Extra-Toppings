@@ -150,6 +150,44 @@ def _arrested_day(d: dict) -> int | None:
     return day
 
 
+def _manager_post(sd: dict) -> dict:
+    """THE management post's migration boundary (design rev. 34
+    item 1), on P4b.2's absence discipline: absence is the licence,
+    a present-but-malformed record refuses.
+
+    Two absences mean two different things, and telling them apart is
+    the whole job. At an address with **no lifecycle dates** — the
+    founding room — absence means NO POST, which is what every save
+    ever written means. At a **dated** address absence means the
+    INITIAL PENDING VACANCY, dated from that address's own persisted
+    acceptance day: the opportunity was canonically owed from the
+    moment the deal was struck, no engine that wrote this payload
+    could have consumed it, and withholding it would silently rob a
+    loaded run of a window §2.4.2 grants it. Restoring it invents
+    nothing — the date is read off the record, never guessed.
+
+    Serialization is the mirror: `asdict` writes the record when there
+    is one and `None` when there is not, so the round trip is stable
+    by construction."""
+    if "manager_post" not in sd:
+        acceptance = sd.get("acceptance_day")
+        if acceptance is None:
+            return sd                       # the founding room: no post
+        sd = dict(sd)
+        sd["manager_post"] = models.ManagerPost(
+            vacancy_day=acceptance, opportunity="pending")
+        return sd
+    post = sd["manager_post"]
+    if post is None or isinstance(post, models.ManagerPost):
+        return sd
+    if not isinstance(post, dict):
+        raise ValueError(f"a management post is a record or nothing, "
+                         f"got {post!r}")
+    sd = dict(sd)
+    sd["manager_post"] = models.ManagerPost(**post)
+    return sd
+
+
 def state_from_dict(d: dict) -> State:
     if d.get("version") == 2:
         d = _migrate_v2(d)
@@ -199,6 +237,7 @@ def state_from_dict(d: dict) -> State:
                     f"{len(d['shops'])} addresses and one carries no "
                     f"key — its identity cannot be inferred")
             sd["key"] = models.HOME_SHOP_KEY
+        sd = _manager_post(sd)
         shops.append(Shop(**sd))
     # Every later inference resolves to THE sole address, whatever it
     # is called — never to the home key by reflex, which would mint a
@@ -286,6 +325,59 @@ def _log(d: dict, name: str) -> list:
     return value
 
 
+def _tribute_from(v: dict, sole_key: str) -> dict:
+    """THE standing demand's migration boundary (design rev. 34 item
+    3), on the same EXACT SCHEMA UNION rule the warning already
+    uses: canonical `tribute` or legacy `tribute_demanded`, exactly
+    one of them, never both and never neither.
+
+    The legacy spelling was a bare sum with no address, and the one
+    case that MUST refuse is the one a home default would have
+    silently repaired: a positive demand in a payload carrying
+    several addresses names a door that is unrecoverable, and
+    guessing it would enrol the wrong room in a weekly shakedown.
+    Zero is not a demand at all and migrates to none; a positive sum
+    with exactly ONE address may be inferred, because there was only
+    one door it could ever have meant."""
+    has_typed = "tribute" in v
+    has_legacy = "tribute_demanded" in v
+    typed = v.pop("tribute", None)
+    amount = v.pop("tribute_demanded", None)
+    if has_typed and has_legacy:
+        raise ValueError(
+            "a rival carries both a typed demand and a legacy sum — "
+            "two answers about the same shakedown, with no rule for "
+            "which one is true")
+    if not has_typed and not has_legacy:
+        raise ValueError(
+            "a rival carries no tribute field at all — every version "
+            "wrote one of the two, so this payload is malformed")
+    if has_typed:
+        if typed is None:
+            v["tribute"] = None
+        elif isinstance(typed, dict):
+            v["tribute"] = models.TributeDemand(**typed)
+        else:
+            raise ValueError(f"a typed demand must be a record or "
+                             f"nothing, got {typed!r}")
+        return v
+    # `True` is not an int here — `type(...) is int` — because a
+    # boolean shakedown is a malformed save, not a $1 demand.
+    if type(amount) is not int or amount < 0:
+        raise ValueError(f"a legacy tribute is a whole non-negative "
+                         f"sum, got {amount!r}")
+    if amount == 0:
+        v["tribute"] = None                 # nothing was standing
+    elif not sole_key:
+        raise ValueError(
+            f"a standing demand of {amount} names no address and the "
+            f"payload carries several — which door it was slid under "
+            f"cannot be inferred, only guessed")
+    else:
+        v["tribute"] = models.TributeDemand(amount, sole_key)
+    return v
+
+
 def _rival_from(payload: dict, sole_key: str) -> Rival:
     """A telegraphed raid is a typed value carrying its target address
     (design rev. 23 item 2). A payload written before warnings named
@@ -303,7 +395,7 @@ def _rival_from(payload: dict, sole_key: str) -> Rival:
     countdown is an `int` or it is not a countdown, and erasing or
     inventing a telegraphed raid across a reload is a story failure,
     not a rounding error."""
-    v = dict(payload)
+    v = _tribute_from(dict(payload), sole_key)
     has_typed = "warning" in v
     has_legacy = "raid_warning" in v
     warning = v.pop("warning", None)

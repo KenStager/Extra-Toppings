@@ -255,7 +255,11 @@ class TestTwoRivalsInOneNight(unittest.TestCase):
         state = arriving(shop_with_stash(), "sal", "vinnie")
         state.dirty = 6000
         for key in ("sal", "vinnie"):
-            state.rivals[key].tribute_demanded = 1500
+            # A standing demand is typed and names the room it is
+            # collected on (rev. 34 item 3) — here, the address each
+            # warning already names.
+            state.rivals[key].tribute = models.TributeDemand(
+                1500, state.rivals[key].warning.shop_key)
         con = run_night(state, {"routes": {}, "raid": None},
                         Watching([2, 1]))
         offers = con.decoy_offers()

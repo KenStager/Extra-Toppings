@@ -95,12 +95,129 @@ class RaidWarning:
         return None
 
 
+@dataclass(frozen=True)
+class TributeDemand:
+    """A standing shakedown: how much a week, and WHICH address is
+    paying for its ovens (design rev. 33 item 5, made operational by
+    rev. 34 item 3).
+
+    The same value shape as `RaidWarning`, deliberately — an amount
+    and a target held as two loose fields can disagree, and a reload
+    must not be able to move a standing demand to a different door.
+    The demand is protection attached to an ADDRESS: while it stands,
+    a warning this rival raises goes to the address they are already
+    collecting on rather than being retargeted."""
+
+    amount: int
+    shop_key: str
+
+    def __post_init__(self) -> None:
+        if type(self.amount) is not int or self.amount <= 0:
+            raise ValueError(f"a demand is for a positive whole sum, "
+                             f"got {self.amount!r}")
+        if not isinstance(self.shop_key, str) or not self.shop_key:
+            raise ValueError(f"a demand must name an address, got "
+                             f"{self.shop_key!r}")
+
+
+# THE closed vocabulary of what has become of an address's one
+# management opportunity (§2.4.2, rev. 30 item 2). `none` is a staffed
+# post with nothing outstanding; `pending` is a window the player
+# still holds; `declined` and `exhausted` are two ways of having spent
+# it, carrying the same penalty and different records — what the
+# player chose and what the player could not do are different facts.
+MANAGER_OPPORTUNITIES = ("none", "pending", "declined", "exhausted")
+MANAGER_SPENT = frozenset({"declined", "exhausted"})
+# THE complete inventory of routes that empty a post (rev. 34 item 2).
+# Initial vacancy is deliberately ABSENT: it is the starting state of
+# an address that has never been staffed, not a transition into
+# vacancy, and listing it beside the others was a category error.
+# Paid witness settlement is present because Partner joined
+# remediation in P4b.2 — settling a manager removes them from the
+# roster with no fired-knowing-everything record, and would otherwise
+# have left a ghost manager running a shop.
+MANAGER_LOSS_REASONS = ("arrest", "poach", "fired", "resigned",
+                        "reassigned", "settled")
+
+
+@dataclass(frozen=True)
+class ManagerPost:
+    """An address's management post, as ONE value (design rev. 34
+    item 1).
+
+    Three independently writable fields — a manager key, a vacancy
+    day and an opportunity — are the disagreement class `RaidWarning`
+    and `TributeDemand` exist to prevent: a post could record a
+    manager AND a vacancy day, or a vacancy with no day, and nothing
+    would notice until the penalty fired at an address the player
+    believed was staffed. So the shapes are enumerated and anything
+    else is refused at construction:
+
+      staffed         — a manager key, no vacancy day, `none`
+      vacant/pending  — no manager, an exact vacancy day, `pending`
+      vacant/declined — no manager, an exact vacancy day, `declined`
+      vacant/exhausted— no manager, an exact vacancy day, `exhausted`
+
+    The authorities replace the whole value; nothing mutates a part
+    of it."""
+
+    manager_key: str | None = None
+    vacancy_day: int | None = None
+    opportunity: str = "none"
+
+    def __post_init__(self) -> None:
+        if self.opportunity not in MANAGER_OPPORTUNITIES:
+            raise ValueError(
+                f"unknown management opportunity "
+                f"{self.opportunity!r}; the vocabulary is "
+                f"{MANAGER_OPPORTUNITIES}")
+        if self.manager_key is not None:
+            if not isinstance(self.manager_key, str) or not self.manager_key:
+                raise ValueError(
+                    f"a staffed post names somebody, got "
+                    f"{self.manager_key!r}")
+            if self.vacancy_day is not None:
+                raise ValueError(
+                    f"a post held by {self.manager_key!r} also records "
+                    f"a vacancy on day {self.vacancy_day!r} — it is "
+                    f"staffed or it is empty, never both")
+            if self.opportunity != "none":
+                raise ValueError(
+                    f"a staffed post carries no outstanding "
+                    f"opportunity, got {self.opportunity!r}")
+            return
+        # Vacant: the day it emptied is the fact the opportunity is
+        # anchored to, and rev. 30 item 2 forbids reconstructing it
+        # from the calendar — so it is REQUIRED and exact.
+        if self.opportunity == "none":
+            raise ValueError(
+                "an empty post is pending, declined or exhausted — "
+                "'none' is what a staffed post carries")
+        if type(self.vacancy_day) is not int or self.vacancy_day < 1:
+            raise ValueError(
+                f"an empty post records the whole calendar day it "
+                f"emptied, got {self.vacancy_day!r}")
+
+    @property
+    def vacant(self) -> bool:
+        return self.manager_key is None
+
+    @property
+    def penalised(self) -> bool:
+        """The nephew is running it: the window was offered and spent.
+        A `pending` vacancy is NOT penalised — the player still holds
+        a move against it."""
+        return self.opportunity in MANAGER_SPENT
+
+
 @dataclass
 class Rival:
     key: str
     strength: float
     relation: float = -10.0       # -100 vendetta … +100 partner
-    tribute_demanded: int = 0
+    # THE standing demand, typed: the sum and the door it was slid
+    # under are one value or they are nothing (rev. 34 item 3).
+    tribute: "TributeDemand | None" = None
     # THE telegraphed raid, typed: the countdown and the address it
     # named are one value or they are nothing (rev. 23 item 2).
     warning: "RaidWarning | None" = None
@@ -119,6 +236,14 @@ class Rival:
         DERIVED read: the warning itself is the typed value, so there
         is no second field to fall out of step with it."""
         return self.warning.nights if self.warning is not None else 0
+
+    @property
+    def tribute_demanded(self) -> int:
+        """What they want a week, 0 when nothing stands. DERIVED for
+        the same reason the countdown is: the demand is the typed
+        value, and a second writable field beside it could disagree
+        with the address it names."""
+        return self.tribute.amount if self.tribute is not None else 0
 
 
 @dataclass
@@ -437,6 +562,14 @@ HEAT_DECAY = 5
 HEAT_AMBER = 50.0         # covert capacity halves: work it hot, work it thin
 HEAT_RED = 80.0           # the district cannot be worked at all
 HEAT_SLOW_DECAY = 3       # a hot district cools slower: the city remembers
+# WHICH CHAIRS FEEL THE WEATHER (design rev. 29 item 7, built in
+# P4b.3). Carmine's Partner adopts the teeth above at UNCHANGED
+# constants — the two-front pressure the branch is named for is each
+# address's own district gating that address's covert usefulness, not
+# a second set of bands wearing the first set's name. One home, so
+# the day a later chair adopts them it joins a set instead of adding
+# another string comparison beside this one.
+HEAT_TEETH_BRANCHES = frozenset({"war", "partner"})
 
 
 @dataclass(frozen=True)
@@ -455,7 +588,7 @@ class HeatPolicy:
 
 
 def district_heat_policy(state: "State", dk: str) -> HeatPolicy:
-    if state.branch != "war":
+    if state.branch not in HEAT_TEETH_BRANCHES:
         return HeatPolicy("cool", 1.0, True, HEAT_DECAY)
     heat = state.districts[dk].heat
     if heat >= HEAT_RED:
@@ -1743,33 +1876,267 @@ def operating_shop(state: "State") -> "Shop":
     return exactly_one_shop(state)
 
 
+def multi_address(state: "State") -> bool:
+    """Does this run keep more than one address? THE one home for that
+    question (rev. 33 item 13, rev. 34 item 5).
+
+    Every addressed menu entry and every addressed line of narration
+    is gated on it, because a one-address run's prompts, options AND
+    PROSE are frozen — the golden digests the first two and the
+    project freezes the third, and a gate's blind spot is a reason
+    for care rather than a licence. Spelling `len(state.shops) > 1`
+    at each site would be the same condition respelled once per
+    consumer, and the day one copy drifts is the day a released
+    transcript moves."""
+    return len(state.shops) > 1
+
+
+def address_label(state: "State", shop_key: str) -> str:
+    """What an address is CALLED in front of the player (rev. 33 item
+    13). The game has never given a shop a proper name and this does
+    not mint one — a new naming authority with no canon behind it
+    would be a second identity beside the key. An address is its
+    district, and RAW KEYS NEVER APPEAR in player-facing text."""
+    return data.DISTRICTS[state.shop_by_key(shop_key).district]["label"]
+
+
+# THE defense formula's two numbers (design rev. 30 item 4). They are
+# PART OF THE FORMULA, not incidental: an undefended address scores
+# the baseline, not zero, and the guard is worth exactly this much.
+# Named here so the view and any future reader share one home; the
+# arithmetic is the merged engine's, preserved rather than
+# paraphrased.
+DEFENSE_BASELINE_NERVE = 3
+GUARD_DEFENSE_BONUS = 4
+
+
+@dataclass(frozen=True)
+class ShopDefenseView:
+    """THE one answer to how defended an address is (rev. 29 item 2),
+    consumed by the rival CHOOSING a target and by the raid that
+    ARRIVES — one definition of "defended", so the two can never
+    disagree.
+
+    A headcount rule was rejected: it would let a roomful of low-nerve
+    honest employees make an address LOOK defended by people who take
+    no part in defending it, and it would disagree with the mechanic
+    the game already resolves raids with."""
+
+    shop_key: str
+    defenders: tuple
+    strength: int
+    guard: bool
+
+
+def shop_defense(state: "State", shop: "Shop | str") -> ShopDefenseView:
+    """Derive one address's defense. Takes an IDENTITY, not a loose
+    record (rev. 34 item 1): a stable key, or a `Shop` that is proved
+    to be this world's through `canonical_shop` first. A detached copy
+    carrying a real key would otherwise contribute fictional defenders
+    and a fictional guard upgrade to a targeting decision — the same
+    defect `canonical_shop` was built for at the morning surfaces.
+
+    DEFENDERS are the existing crew test made address-local: hired,
+    aware, available and assigned HERE, in roster order — the order
+    `State.crew` already returns, so the raid's injury draw sees the
+    same sequence it always did at a single address."""
+    at = state.shop_by_key(shop) if isinstance(shop, str) \
+        else canonical_shop(state, shop)
+    defenders = tuple(e for e in state.crew() if e.shop_key == at.key)
+    guard = "guard" in at.upgrades
+    strength = max([e.nerve for e in defenders],
+                   default=DEFENSE_BASELINE_NERVE) \
+        + (GUARD_DEFENSE_BONUS if guard else 0)
+    return ShopDefenseView(shop_key=at.key, defenders=defenders,
+                           strength=strength, guard=guard)
+
+
+def address_needs_manager(state: "State", shop: "Shop") -> bool:
+    """Does this address carry a management post at all? The founding
+    address never does — it is the operator's own room, it is the one
+    address that exists flag-off, and keeping the machine off it is
+    what makes every released surface safe by CONSTRUCTION rather
+    than by care (§2.4.2, rev. 34 item 1)."""
+    return shop.key != founding_shop(state).key
+
+
+def valid_holder(state: "State", shop: "Shop", employee_key: str) -> bool:
+    """May this person still HOLD the post? Hired, aware, assigned
+    here, not arrested. **Injury is deliberately absent** (rev. 34
+    item 1): a manager with a broken arm is still the manager, and
+    injury is not one of canon's loss routes. This is the predicate
+    VALIDATION binds — `appointable` is the stricter one the
+    appointment screen offers from, and one predicate could not do
+    both jobs without either evicting the injured or letting them be
+    appointed from a hospital bed."""
+    for e in state.employees:
+        if e.key != employee_key:
+            continue
+        return bool(e.hired and e.aware and not e.arrested
+                    and e.shop_key == shop.key)
+    return False
+
+
+def appointable(state: "State", shop: "Shop") -> list:
+    """Who may be GIVEN the post today: a valid holder who is also
+    available — not injured, not in custody. In roster order, so the
+    screen is never ordered by anything positional."""
+    return [e for e in state.employees
+            if valid_holder(state, shop, e.key) and e.available]
+
+
+def canonical_employee(state: "State", employee) -> "Employee":
+    """THE person-REFERENCE authority (P4b.3 review), the roster's
+    twin of `canonical_shop`.
+
+    An `Employee` is a mutable record, not an identity. A detached
+    clone carrying a real key answers every question with ITS OWN
+    fields — so a copy that is on its feet could hand the post to the
+    canonical person who is in hospital, and the appointment would be
+    recorded by key against a body that cannot hold it. Refused,
+    never redirected: substituting the canonical object would repair
+    the call while leaving whatever the caller already read off the
+    copy sourced from somewhere else.
+
+    `routes.validate_route_plan` already refuses the same thing for a
+    driver; this is that rule, made an authority instead of a local
+    check.
+
+    BOTH halves of the resolution, and the first pass had only one
+    (P4b.3 re-review). Walking the roster for the first matching key
+    ACCEPTS an ambiguous identity: two entries keyed `e6` are not one
+    person the lookup may pick between, they are a payload with no
+    answer. So the key is resolved through `_only_with_key` — the
+    shared authority that already refuses duplicates for shops and
+    wagons — and object identity is enforced on what it returns.
+    `canonical_shop` gets both halves from `shop_by_key`; this is
+    that, spelled out for a roster the state does not index."""
+    found = _only_with_key(state.employees, employee.key, "employee")
+    if found is not employee:
+        raise ValueError(
+            f"{employee.name} is a detached copy of {found.key!r}, "
+            f"not this world's roster entry — a record is not an "
+            f"identity")
+    return found
+
+
+def appoint_manager(state: "State", shop: "Shop", employee) -> None:
+    """THE appointment half of the one transition authority. Replaces
+    the whole post value; the vacancy day and the outstanding
+    opportunity go with it, because a post that recorded an
+    appointment while keeping yesterday's vacancy day is exactly the
+    disagreement `ManagerPost` exists to make unrepresentable.
+
+    BOTH identities are resolved before anything is read (P4b.3
+    review): the address through `canonical_shop`, the person through
+    `canonical_employee`. Checking a clone's availability and then
+    recording the canonical key is the mixed-boundary defect —
+    circumstances read from one object, consequences written against
+    another.
+
+    And the post must be EXACTLY vacant/pending. Appointing over a
+    `declined` or `exhausted` window would hand back an opportunity
+    the player has already spent, which is the save/load rule broken
+    by another door; appointing over a staffed post would replace a
+    manager without the transition that empties one. Every refusal
+    here mutates nothing."""
+    at = canonical_shop(state, shop)
+    who = canonical_employee(state, employee)
+    if not address_needs_manager(state, at):
+        raise ValueError(
+            f"{at.key!r} is the founding address and carries no "
+            f"management post")
+    post = at.manager_post
+    if post is None or not post.vacant:
+        raise ValueError(
+            f"the post at {at.key!r} is not empty — a manager is "
+            f"replaced by vacating the post, not by writing over it")
+    if post.opportunity != "pending":
+        raise ValueError(
+            f"the management opportunity at {at.key!r} is already "
+            f"{post.opportunity!r}; a spent window is not handed back")
+    if not valid_holder(state, at, who.key) or not who.available:
+        raise ValueError(
+            f"{who.name} cannot take the post at {at.key!r} — "
+            f"the post is held by somebody hired, read in, assigned "
+            f"there, out of custody and on their feet")
+    at.manager_post = ManagerPost(manager_key=who.key)
+
+
+def vacate_manager(state: "State", shop: "Shop", reason: str) -> None:
+    """THE vacating half. Every route out of the post calls this —
+    route arrest, poach, firing, resignation, reassignment and paid
+    witness settlement (rev. 34 item 2) — and it records the day the
+    post emptied together with the fresh window canon grants, because
+    "one management menu after an arrest, a poach, a resignation, a
+    firing or a reassignment" means EACH of them, not one per run.
+
+    Idempotent on an already-empty post: a route that fires twice
+    must not reset a window the player has already spent."""
+    if reason not in MANAGER_LOSS_REASONS:
+        raise ValueError(f"unknown vacancy reason {reason!r}")
+    at = canonical_shop(state, shop)
+    if at.manager_post is None or at.manager_post.vacant:
+        return
+    at.manager_post = ManagerPost(vacancy_day=state.day,
+                                  opportunity="pending")
+
+
+def release_from_posts(state: "State", employee, reason: str) -> None:
+    """The route-facing door: this person has stopped being available
+    to manage anything, so any post naming them empties. One call per
+    loss route, and the writing still happens in exactly one place.
+
+    The routes must not have to know whether the person they are
+    removing happened to manage an address — `evidence.settle_witness`
+    is the case that proves it, since Partner joined remediation and
+    settling a manager would otherwise have left a ghost behind
+    (rev. 34 item 2).
+
+    THE IDENTITY IS RESOLVED FIRST (P4b.3 re-review). This door read
+    `employee.key` off whatever it was handed, so a detached clone
+    could empty the canonical manager's post while the real person
+    stayed hired, read in and assigned there — a vacancy created by a
+    record that is not anybody. Appointment was closed against that
+    and vacating was not, which left the authority with one locked
+    door and one open one."""
+    who = canonical_employee(state, employee)
+    for at in state.shops:
+        post = at.manager_post
+        if post is not None and post.manager_key == who.key:
+            vacate_manager(state, at, reason)
+
+
 def raid_target(state: "State", rival_key: str) -> str:
     """THE address-target authority (design rev. 22 item 5): which of
-    the player's addresses a rival moves against. P4a supplies the
-    mechanism and P4b the policy (rev. 27 item 4) — while one address
-    exists the answer is that address, and "the softer of your two
-    shops" becomes a real decision only once there are two.
+    the player's addresses a rival moves against. P4a supplied the
+    mechanism and P4b.3 supplies the policy (rev. 27 item 4, ruled in
+    §2.4.2 and rev. 33 item 1) — the SOFTEST address.
+
+    Softest is a TOTAL ORDER, and every component ascends: lowest
+    defense strength, then fewer defenders, then lower reputation,
+    then the stable key. A shop nobody respects is the one they hit,
+    which is the same direction as low strength and few defenders —
+    a tie-break whose components ran in different directions would be
+    a defect nobody sees for six rounds (rev. 33 item 2). Because the
+    key is the last component the order is total: no two addresses
+    can tie every component, so `state.shops` order can never decide
+    and reversing the list changes nothing.
 
     It never guesses: with no address there is nothing to raid, and
-    that is a refusal rather than a home default."""
+    that is a refusal rather than a home default. A site under
+    construction is not a target — there is nothing there to raid —
+    so a founding shop plus a building site is still ONE targetable
+    address (§2.4.2)."""
     targetable = addresses_allowing(state, "rival_targeting")
     if not targetable:
         raise ValueError("no address exists for a raid to target")
-    # A site under construction is not a target — there is nothing
-    # there to raid — so a founding shop plus a building site is
-    # still ONE targetable address, and the policy question does not
-    # arise until two are actually open (§2.4.2).
-    if len(targetable) != 1:
-        # P4b owns the "softer of your two shops" policy (rev. 27
-        # item 4). Until it exists, picking one would be picking by
-        # LIST POSITION — reversing state.shops would move the raid to
-        # a different address, which is the whole defect stable keys
-        # exist to abolish. So this refuses rather than guessing.
-        raise ValueError(
-            f"{len(targetable)} targetable addresses exist and no "
-            f"targeting policy has been ruled on — P4b owns that "
-            f"choice")
-    return targetable[0].key
+
+    def softness(at: "Shop") -> tuple:
+        view = shop_defense(state, at)
+        return (view.strength, len(view.defenders), at.reputation, at.key)
+
+    return min(targetable, key=softness).key
 
 
 # ── the address lifecycle (§2.4.2; rev. 29 items 3–4) ────────────
@@ -1914,6 +2281,26 @@ def validate_addresses(state: "State") -> None:
         if s.district not in data.DISTRICTS:
             raise ValueError(f"shops[{i}]: unknown district "
                              f"{s.district!r}")
+        # REPUTATION IS A RULER NOW (P4b.3 review). It was display and
+        # arithmetic; the targeting order compares it, so a payload
+        # carrying `"bad"` loads and then raises TypeError deep inside
+        # a rival's decision, and NaN loads and silently makes the
+        # comparison meaningless — every NaN comparison is False, so
+        # the "softest" answer becomes an artefact of iteration order.
+        # A bool is refused for the reason `type(...) is int` is used
+        # everywhere else here: True is not a reputation of 1. NO
+        # CLAMP is imposed, and the range is deliberately unstated:
+        # `simulate_shift` bounds the drift to 0..100, but
+        # `incoming_raid` subtracts 8 and 12 straight off the record
+        # with no floor, so a NEGATIVE reputation is reachable by
+        # ordinary play. What is refused is only what no path can
+        # produce — a value that cannot be compared or is not a
+        # number at all.
+        if type(s.reputation) not in (int, float) \
+                or not is_finite_number(s.reputation):
+            raise ValueError(
+                f"shops[{i}]: reputation is a finite number, got "
+                f"{s.reputation!r}")
         # The lifecycle dates bind together (§2.4.2, rev. 29 item 4):
         # both or neither, whole calendar days (a bool is not a day —
         # `type(...) is int`, the save layer's own rule), the recorded
@@ -2033,6 +2420,27 @@ def validate_addresses(state: "State") -> None:
         if e.shop_key not in seen:
             raise ValueError(f"employees[{i}] ({e.key}): assigned to "
                              f"unknown address {e.shop_key!r}")
+        # THE DEFENSE FORMULA'S INPUTS (P4b.3 review). `max(nerve)`
+        # and the availability predicate are read by the targeting
+        # order and by the raid that arrives, so a payload carrying
+        # `nerve="9"` loads and then raises TypeError mid-raid, and a
+        # truthy non-bool `hired` quietly answers a question the
+        # engine believes is boolean. Exact types, refused rather
+        # than coerced — the same rule the calendar fields use, for
+        # the same reason: these are rulers now.
+        if type(e.nerve) is not int:
+            raise ValueError(
+                f"employees[{i}] ({e.key}): nerve is a whole number, "
+                f"got {e.nerve!r}")
+        for flag in ("hired", "aware", "arrested"):
+            if type(getattr(e, flag)) is not bool:
+                raise ValueError(
+                    f"employees[{i}] ({e.key}): {flag} is true or "
+                    f"false, got {getattr(e, flag)!r}")
+        if type(e.injured_days) is not int or e.injured_days < 0:
+            raise ValueError(
+                f"employees[{i}] ({e.key}): injured days is a whole "
+                f"count of days, got {e.injured_days!r}")
     # A telegraphed raid names an address that exists — a warning
     # pointing nowhere could never be resolved, and reloading must not
     # be able to retarget one already on the board (rev. 23 item 2).
@@ -2040,6 +2448,83 @@ def validate_addresses(state: "State") -> None:
         if rv.warning is not None and rv.warning.shop_key not in seen:
             raise ValueError(f"rival {key!r}: warning names unknown "
                              f"address {rv.warning.shop_key!r}")
+        if rv.tribute is None:
+            continue
+        if rv.tribute.shop_key not in seen:
+            raise ValueError(f"rival {key!r}: a standing demand names "
+                             f"unknown address {rv.tribute.shop_key!r}")
+        # A demand and a warning from the SAME rival must name the
+        # same room (rev. 34 item 3). While protection stands, the
+        # warning is raised against the address already being
+        # collected on — two different doors would be two rivals'
+        # worth of pressure recorded as one man's.
+        if rv.warning is not None \
+                and rv.warning.shop_key != rv.tribute.shop_key:
+            raise ValueError(
+                f"rival {key!r}: collecting on "
+                f"{rv.tribute.shop_key!r} and threatening "
+                f"{rv.warning.shop_key!r} — one man, two rooms")
+
+
+def validate_manager_posts(state: "State") -> None:
+    """THE post's validation, and the reason the one transition
+    authority cannot quietly become decorative (rev. 33 item 7,
+    rev. 34 item 1).
+
+    Six routes empty a post, and "six callers must remember" is
+    precisely how a single authority stops being one. So a recorded
+    manager who is not currently a VALID HOLDER is REFUSED here: a
+    route that forgets `release_from_posts` fails in a test with the
+    ghost named in the message, instead of running a shop through
+    somebody who was fired last Tuesday.
+
+    Both directions of the post's existence bind. The founding
+    address must carry NO post — that is what keeps the machine off
+    every released surface. A Partner non-founding address must carry
+    ONE, because a missing post where canon requires one is as wrong
+    as a post where canon forbids it, and an address with no post
+    silently escapes both the vacancy penalty and the opportunity.
+
+    The holder predicate, not the appointable one: injury does not
+    vacate a post, so a manager on crutches passes here and simply
+    could not be appointed today."""
+    founding = founding_shop(state).key
+    for at in state.shops:
+        post = at.manager_post
+        if at.key == founding:
+            if post is not None:
+                raise ValueError(
+                    f"the founding address {at.key!r} carries a "
+                    f"management post; that room is the operator's")
+            continue
+        if state.branch == "partner" and post is None:
+            raise ValueError(
+                f"address {at.key!r} carries no management post — a "
+                f"Partner address is managed, vacant or under the "
+                f"nephew, never unrecorded")
+        if post is None:
+            continue
+        if post.vacancy_day is not None:
+            # The post cannot have emptied before the address it
+            # belongs to was accepted (P4b.3 review): a second room
+            # struck on day 14 loading with a vacancy dated day 1 is
+            # a window opened before the deal, and the chronology is
+            # checkable from the record rather than assumed.
+            earliest = at.acceptance_day or 1
+            if not earliest <= post.vacancy_day <= state.day:
+                raise ValueError(
+                    f"address {at.key!r}: the post emptied on day "
+                    f"{post.vacancy_day}, outside the span this "
+                    f"address has existed (accepted day {earliest}, "
+                    f"today day {state.day})")
+        if post.manager_key is None:
+            continue
+        if not valid_holder(state, at, post.manager_key):
+            raise ValueError(
+                f"address {at.key!r} records a manager "
+                f"({post.manager_key!r}) who cannot hold the post — "
+                f"they must be hired, read in, assigned there and out "
+                f"of custody")
 
 
 def validate_cross_state(state: "State") -> None:
@@ -2085,6 +2570,12 @@ def validate_cross_state(state: "State") -> None:
     validate_sitdown_snapshot(state)
     validate_points_schedule(state)
     _validate_witnesses_and_campaigns(state)
+    # THE POSTS LAST, for the reason the snapshot comes first: a
+    # post's vacancy day is measured against its ADDRESS'S acceptance
+    # day, so an acceptance day that disagrees with the deal must
+    # produce its own refusal before it is used as a ruler here
+    # (P4b.3 review — this check was masking the anchor's).
+    validate_manager_posts(state)
 
 
 def validate_calendar(state: "State") -> None:
@@ -3034,10 +3525,26 @@ class Shop:
     # A PRESENT-but-malformed value is refused in validate_addresses.
     acceptance_day: int | None = None
     opening_day: int | None = None
+    # THE manager's post, as ONE typed value (rev. 34 item 1). None
+    # means this address has no post at all, which is the founding
+    # address always and every save written before P4b.3. Absence
+    # migrates; a present-but-malformed record refuses.
+    manager_post: "ManagerPost | None" = None
 
     @property
     def stash_cap(self) -> int:
         return data.SHOP_STASH_CAP * (2 if "walk_in" in self.upgrades else 1)
+
+    @property
+    def unmanaged(self) -> bool:
+        """Is this address running under Carmine's nephew TODAY? The
+        penalty binds only once the opportunity has been spent — a
+        pending window is a vacancy the player still has a move
+        against, and charging it before they have been offered the
+        move is the "avoidable by not looking" failure rev. 30 item 2
+        closed from the other side."""
+        return (self.manager_post is not None
+                and self.manager_post.penalised)
 
     @property
     def kitchen_cap(self) -> int:
@@ -3045,6 +3552,16 @@ class Shop:
         if "second_oven" in self.upgrades:
             base = int(base * 1.5)
         if self.damage_days:
+            base //= 2
+        # The nephew runs a slower kitchen (§2.4.2's placeholder,
+        # ×0.50). Applied AFTER the damage halving, and as integer
+        # floor division, because two successive halvings do not
+        # commute with the `int(base * 1.5)` above them and an
+        # unspecified order is a number nobody can reproduce
+        # (rev. 33 item 9). Inert unless the post is spent, and the
+        # founding address never carries a post at all — so flag-off
+        # arithmetic is untouched by construction, not by care.
+        if self.unmanaged:
             base //= 2
         return base
 

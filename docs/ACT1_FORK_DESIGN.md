@@ -648,8 +648,17 @@ no owner — **Sal notices, and there is no turf penalty**, which is
 what makes the unowned site a genuinely safe pick rather than a
 flavour difference. Opening on an owned district applies a **−25
 relation delta through the existing `adjust_relation` authority** —
-not a new number reached a new way — and their counterplay intensifies
-in that district thereafter. **A dead owner produces no retaliatory
+not a new number reached a new way — and **that delta IS the ongoing
+intensification** (rev. 34): `rival_policy` derives `grudge` from
+relation and feeds it straight into `act_chance`, so a living owner
+whose turf you took comes more often, for as long as the relation
+stays where you put it. No second multiplier prices the same offense
+twice (rev. 33 item 12, rejected). **They are not obliged to hit the
+room that provoked them** — their actions still go to the softest
+address, which is the coherent story rather than a bookkeeping
+exception: an offended rival attacks where the operation is weak.
+P4b.5 may propose a separate multiplier only if measurement
+falsifies the −25 response. **A dead owner produces no retaliatory
 response**: a rival at strength 0 cannot be provoked, and a branch
 that pretended otherwise would resurrect a defeated enemy to punish
 expansion. The site cards therefore carry consequences the engine can
@@ -737,6 +746,18 @@ now twice). *Staff*: the branch's binding constraint — assignments per
 shop, a named manager for shop 2 (an aware employee; their loyalty is now
 load-bearing), familiarity resets in the new district, and poaching one
 roster across two addresses is how rivals fight you here.
+
+**Assignment is a PLAYER VERB, or the allocation lever is a display**
+(rev. 33 item 8). `Employee.shop_key` has been persisted since P4a and
+nothing has ever been able to change it: the roster is dealt out when
+the world is built and frozen there. "Staff assigned to an address are
+that address's defense allocation" and "moving people after a
+telegraph changes whether you hold" both require a verb that moves
+people, so P4b.3 adds one — a **reassignment entry in the staff
+menu, offered only while more than one address exists**, which is
+never flag-off and never on a released branch. Reassigning the
+manager away from their address empties the post through the one
+transition authority, exactly as a firing does.
 
 **An invariant, declared and tested — in three recorded phases**
 (rev. 22 item 8, reconciling the invariant with §3.2's D14–D16, where
@@ -831,13 +852,60 @@ penalty from its first service.** Entering the branch is never
 refused for want of a manager — the penalty is the consequence, not
 the chair being withheld.
 
+**The post is ONE typed value on the address** (rev. 33 item 7 as
+corrected by rev. 34 item 1). `ManagerPost` is frozen and replaced
+atomically by the transition authorities — never three independently
+writable fields, which would recreate the exact disagreement class
+`RaidWarning` and `TributeDemand` exist to prevent. It lives on the
+`Shop` because the penalty it carries is that address's kitchen
+capacity and that address's believable ceiling. Its **only valid
+shapes** are: *staffed* — a manager key, no vacancy day, opportunity
+`none`; *vacant/pending*, *vacant/declined*, *vacant/exhausted* — no
+manager, an exact vacancy day, and the matching opportunity. **The
+founding address has NO post at all**, and a Partner non-founding
+address **must have one**: both halves are validated, so the machine
+cannot reach a released surface and cannot go missing where canon
+requires it.
+
+**Two predicates, deliberately not one** (rev. 34 item 1).
+*Appointable:* hired, aware, assigned there, not arrested, **not
+injured**. *Valid holder:* hired, aware, assigned there, not
+arrested — **injury does not vacate the post**, because a manager
+with a broken arm is still the manager and injury is not one of
+canon's loss routes. Validation binds the HOLDER predicate; the
+appointment screen offers only the APPOINTABLE. One predicate for
+both would either evict the injured or let them be appointed from a
+hospital bed.
+
+The three outcomes carry three persisted successor states:
+**appointed** (vacancy cleared), **declined** (offered and refused),
+**exhausted** (offered with no eligible name to give it to).
+Declined and exhausted carry the same penalty and different records,
+because what the player did and what the player could not do are
+different facts.
+
+**The opportunity drains at ONE boundary: immediately before
+service, after every morning staff choice** (rev. 34 item 2). Firing
+or reassigning a manager happens *during* the morning, and a
+tomorrow-shaped trigger would let that address serve once without
+ever receiving the opportunity canon promises. **A pending
+opportunity must never reach an actual service unresolved**, and the
+full vacancy penalty applies only after decline or exhaustion —
+appointment clears it before it ever bites. This one boundary also
+delivers construction's initial opportunity and any vacancy created
+during the previous service or night, so there is exactly one
+trigger rather than a family of them.
+
 Initial placeholders, §6.3-class and
 movable only by the recorded falsification workflow: **one management
 opportunity**, **kitchen capacity × 0.50**, **believable ceiling ×
 0.50**. *One manager-transition authority* updates the manager's
 identity, the vacancy day and the remaining opportunity together — a
 post that empties by four different routes must not update its record
-four different ways. And **entering the branch with no eligible
+four different ways — **and a validator refuses any state in which
+the recorded manager is not currently eligible to hold the post**, so
+a route that forgets to call the authority fails in a test instead of
+keeping a ghost manager (rev. 33 item 7). And **entering the branch with no eligible
 manager is legitimate**: the address opens under Carmine's nephew as
 an **initial vacancy**, which is a valid state carrying the same
 penalty, never a refusal to enter a chair the sit-down offered.
@@ -1890,6 +1958,18 @@ Ordered roughly by blast radius, smallest first:
     constants, defenders become target-local, and the three named
     residues are cleared — the informant tip's `HOME_DISTRICT` heat,
     the incoming raid's global `state.crew()`, and scalar tribute.
+    Carries rev. 33: the target authority's policy (the refusal in
+    `models.raid_target` becomes a total order), `ShopDefenseView`,
+    the typed address-bearing tribute, the complete manager state
+    machine as ONE typed `ManagerPost` on the `Shop` record with its
+    bypass-proof validator, and a staff **reassignment** verb gated on
+    a second address — without which the allocation lever canon
+    promises cannot be operated. **Every shared model, save, menu and
+    phase edit in this PR is under strict one-address equivalence**
+    (rev. 34 item 6) — shared `Rival` and `Shop` persistence and
+    projection, `raid_target`, raid defense, `_staff_menu`, the tip's
+    district, the heat-teeth membership — and that equivalence is
+    MEASURED at both gates and both battery depths, never assumed.
   - *P4b.4 — the grade and the endings.* The one Partner grading
     view, the tiers, the card that shows its work, `operation` and
     `on_the_hook` with their texts, and the §2.5 matrix rows.
@@ -5071,3 +5151,585 @@ stays unknown; and no date is ever reconstructed.
 The merge remains blocked by the **server-side ruleset safeguard**,
 which is an independent prerequisite and not a design question
 (FINDINGS rounds 15–16).
+
+**Revision 33** is P4b.3's complete paper, landed before any of its
+mechanics. It resolves everything the branch's pressure half and its
+manager half need in ONE pass rather than a preliminary question
+round, because P4b.3 carries two root authorities and a question
+answered about one of them in isolation tends to be answered wrong.
+Facts recoverable from canon or from the tree are RESOLVED here and
+not elevated; what is elevated is what materially changes mechanics,
+persistence, story, RNG, balance or released behaviour. It amends
+§2.4.2 and §7 in place. Items 6, 10 and 11 are the ones that touch a
+released code path; item 12 is the only NEW constant this revision
+asks for, and it is flagged as needing a ruling before it is spelled
+in code.
+
+1. **The target authority becomes a total order, and stops
+   refusing.** *Current behaviour and governing text.*
+   `models.raid_target` (models.py) is the one address-target
+   authority. With one targetable address it returns that address;
+   with two it RAISES — "P4b owns that choice" — because picking one
+   would have been picking by list position. §2.4.2 already rules the
+   policy: the rival moves against the **softest** address, where
+   *softest* is the lowest `ShopDefenseView` strength, tie-broken by
+   **fewer defenders**, then **lower reputation**, then **stable
+   key**. *Ruling:* implement exactly that, as a total order over
+   `addresses_allowing(state, "rival_targeting")` — a `sorted` key of
+   `(strength, defender_count, reputation, key)`, ascending, first
+   element wins. The refusal is retained for the genuinely impossible
+   case: **no** targetable address is still a `ValueError`, never a
+   home default. Because the final tie-break is the stable key, the
+   answer is TOTAL: no pair of addresses can tie all four components,
+   so the result never depends on `state.shops` order and reversing
+   the list changes nothing. *The meaningful alternative* is a
+   weighted or randomised choice among near-equal addresses, which is
+   rejected twice over: it would spend RNG this branch has not
+   reserved, and it would make the defence lever unreadable — a
+   player who allocates crew to make an address safer must be able to
+   see that it worked. *Consequences.* Code: one function body
+   replaces one raise. Mechanics: two open addresses become a real
+   allocation decision. Persistence: none — the answer is computed at
+   the moment a warning is raised and then FROZEN in the warning (see
+   item 4). Story: the telegraph must name where the cars are idling
+   (item 13).
+
+2. **Reputation's direction in the tie-break, stated so it cannot be
+   read backwards.** Lower reputation breaks a tie toward being
+   TARGETED: a shop nobody respects is the one they hit. That is the
+   same direction as low strength and few defenders — every component
+   of the sort ascends, and "softest" means smallest on all four.
+   Recorded because a tie-break whose components run in different
+   directions is a bug nobody sees for six rounds.
+
+3. **`ShopDefenseView`: one view, two consumers, the formula
+   preserved exactly.** *Current behaviour.* `raids.incoming_raid`
+   computes `strength = max([e.nerve for e in defenders], default=3)
+   + (4 if has_guard else 0)` inline, over `defenders =
+   state.crew()` — the GLOBAL crew. Nothing else has a notion of how
+   defended an address is. *Ruling:* a frozen
+   `models.ShopDefenseView(shop_key, defenders, strength)` with
+   `models.shop_defense(state, shop)` as its sole constructor.
+   *Defenders* at an address are the employees who are **hired,
+   aware, available and assigned there** — the existing crew test
+   (`State.crew`) made address-local by `e.shop_key == shop.key`, in
+   `state.employees` order, which is the order `state.crew()` already
+   returns. *Strength* is `max(nerve of defenders, default 3) + (4 if
+   "guard" in shop.upgrades else 0)` — the **baseline of 3** and the
+   **guard bonus of 4** are part of the formula per rev. 30 item 4,
+   not incidental, and a paraphrase would score an undefended address
+   0 where the engine scores 3. Both the targeting sort and the
+   arriving raid read this one view. *The meaningful alternative*
+   was a headcount rule, already rejected by rev. 29 item 2 and not
+   reopened. *Consequences.* Code: the inline expression in
+   `raids.incoming_raid` is replaced by the view; the guard bonus
+   already reads the target shop's own upgrades and keeps doing so.
+   Mechanics: with one address and every employee assigned to it the
+   defender list is the same list in the same order, so the strength
+   and the injury draw are unchanged — an identity claim to be
+   MEASURED at both gates, not asserted. Persistence: none; the view
+   is derived, never stored, and **live staffing decides the fight
+   when the crew arrives** while the telegraph's target stays frozen.
+   Story: the raid may now say who was standing there.
+
+4. **Every delayed consequence persists with its address; nothing is
+   re-derived at resolution time.** The rule, stated once: **if a
+   consequence is decided tonight and lands later, the address it
+   named is stored with it, and the resolution reads the record.**
+   Applied to the complete inventory of delayed consequences:
+   - *The telegraphed raid* — already typed and already frozen
+     (`RaidWarning(nights, shop_key)`, rev. 23 item 2). Unchanged, and
+     it is the PRECEDENT the rest of this item follows.
+   - *Tribute* — see item 5. Delayed by construction: a demand is
+     made on one night and paid on another.
+   - *The informant tip* — NOT delayed; it lands the night it is
+     drawn. It therefore needs addressing, not persistence (item 6).
+   - *The raid target* — the frozen `shop_key` inside the warning IS
+     the record; `raid_target` is never consulted a second time when
+     the raid arrives.
+   - *The management opportunity* — a persisted pending state with
+     the day the post emptied (item 7), never reconstructed from the
+     calendar, which rev. 30 item 2 forbids in terms.
+   - *The price war* — resolves immediately inside `rival_phase` and
+     already routes through `raid_target`; it stays immediate.
+
+5. **Tribute becomes a typed value that names an address.** *Current
+   behaviour and governing text.* `Rival.tribute_demanded: int` is a
+   bare scalar (models.py); `rivals._extort` sets it, `raids`'s
+   incoming-raid menu prices the tribute option from it, and
+   `negotiate` and `_lean` clear it. Canon: "tribute demands can now
+   name either address", and rev. 29 item 8 names scalar tribute as
+   one of the three residues. *Ruling:* a frozen
+   `models.TributeDemand(amount: int, shop_key: str)` validated at
+   construction, **mirroring `RaidWarning` exactly** — same defect
+   class, same shape, one precedent rather than two inventions. The
+   demand names its address through the same target authority. A
+   derived `Rival.tribute_demanded -> int` property is retained,
+   returning the amount or 0, exactly as `Rival.raid_warning` already
+   derives the countdown from the typed warning — so every released
+   read site is untouched and there is no second writable field to
+   fall out of step. *The meaningful alternative* — two loose fields,
+   `tribute_demanded` and `tribute_shop_key` — is rejected for the
+   reason rev. 23 item 2 already rejected it for warnings: two fields
+   can disagree, and a reload could move a demand to a different
+   address. *Consequences.* Code: one dataclass, one derived
+   property, one save-migration function modelled on
+   `save._rival_from`'s EXACT SCHEMA UNION (canonical `tribute` or
+   legacy `tribute_demanded`, exactly one, never both and never
+   neither; absence is the migration licence and a present-but-
+   malformed value refuses). Mechanics: unchanged amounts, unchanged
+   draw. Persistence: a reload cannot retarget a standing demand.
+   Story: the note under the door says which door.
+
+6. **The informant tip lands on the addressed district, not on
+   `HOME_DISTRICT`.** *Current behaviour.* `rivals._plant` calls
+   `state.add_heat(data.HOME_DISTRICT, 12)` — a literal home
+   district, on a released code path. *Ruling:* the tip names an
+   address through `raid_target` and raises heat on THAT address's
+   district. *Why it is identity-preserving and why that is not an
+   excuse:* with exactly one address, `raid_target` returns it and
+   `new_state` builds it in `data.HOME_DISTRICT`, so every released
+   run raises the same heat in the same district from the same
+   draw — `raid_target` consumes no RNG. That is an identity claim
+   about a RELEASED surface and it is **measured at both gates and in
+   both batteries, never assumed**; a moved digit here is a refactor
+   defect to be fixed, not a result to be recorded. *The meaningful
+   alternative* — give the tip its own district policy independent of
+   the raid target — is rejected: it would mean the rival who is
+   moving against your Meadows shop phones the police about Old
+   Harbor, and it would put a second targeting rule beside the one
+   authority.
+
+7. **The manager state machine, complete.** *Current behaviour.*
+   There is no manager in the tree at all: no field, no verb, no
+   penalty. `Employee.shop_key` exists and is persisted; nothing
+   reads it for anything but `shop.cooks_skill`. *Governing text:*
+   §2.4.2 and rev. 30 item 2 — a vacancy is a valid state, the
+   opportunity is persisted state rather than timing, appointing
+   clears it, declining or exhausting it activates the full penalty,
+   save and load preserve it, construction provides its one
+   opportunity, and a shop that opens unmanaged runs under Carmine's
+   nephew at the full penalty from its first service.
+   *Ruling — the schema.* Three fields on `Shop`:
+   `manager_key: str | None`, `manager_vacancy_day: int | None`,
+   `manager_opportunity: str` from the closed vocabulary
+   `("none", "pending", "declined", "exhausted")`. They live on the
+   ADDRESS because the penalty is that address's kitchen capacity and
+   that address's ceiling, and because a branch-level manager would
+   need re-associating with an address on every read. The **founding
+   address never carries the post**, and validation refuses a manager
+   record on it — that is what keeps the machine off every released
+   surface by construction rather than by care.
+   *Ruling — eligibility.* Appointable: **hired, aware, assigned to
+   that address, not arrested, not injured**. Holding the post
+   survives injury; injury is not one of canon's loss routes and a
+   manager with a broken arm is still the manager.
+   *Ruling — one authority, made bypass-proof.*
+   `models.appoint_manager(state, shop, employee)` and
+   `models.vacate_manager(state, shop, reason)` are the only writers
+   of all three fields, and they write them TOGETHER. Every loss
+   route calls `vacate_manager`: **arrest, poach, firing,
+   resignation, reassignment**, plus **initial vacancy**, which is
+   the post never having been filled rather than a transition out of
+   it. Because "six callers must remember" is exactly how a
+   single authority becomes decorative, a **validator** binds at the
+   night boundary and at save/load: *a recorded manager who is not
+   currently eligible to hold the post is REFUSED*. A route that
+   forgets the authority therefore fails in a test with a ghost
+   manager named in the message, instead of running a shop through
+   someone who was fired last Tuesday. *The meaningful alternative* —
+   derive the manager's validity on read and skip the persisted
+   vacancy — is rejected in terms by rev. 30 item 2: the day the post
+   emptied would be unrecordable and the opportunity would have to be
+   reconstructed from the calendar, which is the reconstruction
+   defect P4b.2 spent two review rounds removing from the arrest day.
+   *Ruling — the opportunity.* Every transition into vacancy creates
+   exactly ONE pending opportunity, recorded with the day the post
+   emptied; it is not a lifetime one-shot, because canon grants the
+   menu "after an arrest, a poach, a resignation, a firing or a
+   reassignment" — each of them. It is surfaced automatically at the
+   next morning on which the address exists and the run is live,
+   which is before that address's next service by the day's own
+   order, and which is also how a site under construction gets the
+   one opportunity rev. 30 item 2 grants it. That reconciles "before
+   that address's next service" with an address that has no service
+   yet, in one rule rather than two triggers.
+   *Ruling — the three outcomes.* **Appointed**: manager set, vacancy
+   day cleared, opportunity `none`. **Declined**: offered and
+   refused; opportunity `declined`; penalty active. **Exhausted**:
+   offered with no eligible name to give it to; opportunity
+   `exhausted`; penalty active. Declined and exhausted carry the same
+   penalty and different records because what the player chose and
+   what the player could not do are different facts, and the epilogue
+   and the story lines read differently. *Consequences.* Code: three
+   `Shop` fields, two authority functions, one validator arm, one
+   morning surface, one `kitchen_cap` term and one
+   `believable_ceiling` term. Mechanics: the penalties of item 9.
+   Persistence: additive fields with absence-licensed migration —
+   absent means "no post", which is exactly what every existing save
+   means. Story: item 13.
+
+8. **Reassignment must exist as a player verb, or the allocation
+   lever is a display.** *Current behaviour.* `Employee.shop_key` is
+   dealt out when the world is built and **nothing in the tree ever
+   changes it** — there is no assignment surface of any kind.
+   *Governing text:* "Staff assigned to an address are that address's
+   defense allocation"; "moving people after a telegraph changes
+   whether you hold, not where they come"; "assignments per shop".
+   All three are unplayable without a verb. *Ruling:* one
+   reassignment entry in the staff menu, **offered only while more
+   than one address exists** — which is never flag-off and never on a
+   released branch, so no golden prompt moves. Reassigning the
+   manager away from their address empties the post through
+   `vacate_manager`, exactly as a firing does. *The meaningful
+   alternative* — ship only a manager-appointment verb and no general
+   reassignment — is rejected because it leaves the defence
+   allocation canon promises unoperable: the player could see which
+   address is softest and have no way to change it. *Consequences.*
+   Code: one menu arm, gated. Mechanics: staffing becomes the lever
+   §2.4.2 says it is; the roster still does not double.
+   Persistence: none new — `shop_key` is already persisted and
+   already validated. Story: the entry names districts, never keys.
+   **This is the largest scope call in the packet and the one most
+   worth overturning if the reviewer reads P4b.3's boundary
+   differently**; if it is cut, §2.4.2's allocation language must be
+   softened in the same breath, because the design would then promise
+   a lever the game does not have.
+
+9. **The vacancy penalties, exactly, and their interaction with
+   damage.** Canon's placeholders are **kitchen capacity × 0.50** and
+   **believable ceiling × 0.50**. *Ruling:* both are applied as
+   INTEGER floor division by 2, and the kitchen term is applied
+   **after** the existing damage halving in `Shop.kitchen_cap`
+   (`base = 60`; `second_oven` → `int(base * 1.5)`; `damage_days` →
+   `base //= 2`; then vacancy → `base //= 2`). Order is specified
+   because two successive floor divisions do not commute with the
+   `int(base * 1.5)` that precedes them, and an unspecified order is
+   a number nobody can reproduce. The ceiling term lands inside
+   `shop.believable_ceiling`, the one function that computes it.
+   Both are inert unless the address carries a vacancy, and the
+   founding address never can (item 7), so flag-off arithmetic is
+   untouched by construction.
+
+10. **Defenders become address-local.** *Current behaviour.*
+    `raids.incoming_raid` uses `state.crew()` for both the strength
+    calculation and the injury draw (`rng.choice(defenders)`).
+    *Ruling:* both read `shop_defense(state, target).defenders`.
+    *Consequences.* With one address and the whole roster assigned to
+    it the list is identical in content AND ORDER, so `rng.choice`
+    consumes the same draw and returns the same person — again an
+    identity claim about a released path, again MEASURED rather than
+    assumed. With two addresses the crew that is not there does not
+    defend, which is the whole mechanic.
+
+11. **Partner adopts the existing heat teeth at unchanged
+    constants.** *Current behaviour.* `models.district_heat_policy`
+    returns the cool policy unless `state.branch == "war"`; the red
+    and amber bands, their multipliers and both decay rates are
+    war-only today. *Governing text:* rev. 29 item 7. *Ruling:* the
+    branch test reads a canonical `models.HEAT_TEETH_BRANCHES =
+    frozenset({"war", "partner"})` — one home for "which chairs feel
+    the weather" — and **not one constant of the policy changes**.
+    *The meaningful alternative* — Partner-specific bands — is
+    rejected: it would be a second heat policy wearing the first
+    one's name, and rev. 29 item 7 says unchanged constants in terms.
+    *Consequences.* Code: one frozenset, one membership test
+    replacing one string comparison. Mechanics: a Partner run's
+    covert usefulness is now gated per district, which is the
+    two-front pressure the PR is named for. Balance: this is a real
+    difficulty increase on an unreleased branch and its effect is a
+    P4b.5 battery question, not a P4b.3 one. Released behaviour:
+    none — `"straight"`, `"quiet_sale"` and stand-pat still take the
+    cool branch, and flag-off `state.branch` is `None`.
+
+12. **The one NEW constant this revision asks for, flagged for a
+    ruling.** §2.4.2 promises that after you open on an owned
+    district "their counterplay intensifies in that district
+    thereafter", and gives no magnitude. Every other number in this
+    packet already exists in canon or in the tree; this one does not.
+    *Recommendation:* a §6.3-class placeholder
+    `TURF_INTRUSION_MULT = 1.25` applied to the owning rival's
+    `act_chance` inside `rival_policy` — the one place rival
+    aggression is derived — and **only while that rival is alive and
+    the player actually holds an open address in their district**, so
+    a dead owner produces no response (§2.4.2, and `Rival.alive`
+    already gates `rival_phase`). *The meaningful alternative* is
+    reusing an existing multiplier such as `war.OPPORTUNIST_MULT`,
+    which is rejected as a FALSE single home: it would tie two
+    unrelated facts to one number and a later tuning of either would
+    silently move the other. *Consequences.* Mechanics and balance:
+    the turf cards acquire the ongoing consequence canon promises
+    rather than a one-off relation hit. Story: the owner's actions
+    read as a response to the intrusion. **I am not spelling this
+    number in code until it is ruled** — inventing a constant is
+    exactly what the falsification workflow exists to prevent, and
+    the alternative to a ruling is to ship the branch with the
+    "intensifies thereafter" clause unimplemented and recorded as
+    such.
+
+13. **Story treatment: the address is named by its DISTRICT, and the
+    golden decides where it may be said.** The game has never given
+    a shop a proper name and this revision does not mint one — a new
+    naming authority with no canon behind it would be a second
+    identity beside the key. *Ruling:* player-facing text names an
+    address by its district label
+    (`data.DISTRICTS[dk]["label"]`), never by key, and every
+    consequence line says where it landed: the telegraph names where
+    the cars are idling, the raid names the room it hits, the tip
+    names the block the patrol crawls, the tribute note names the
+    door it was slid under, the vacancy says which shop is running
+    under Carmine's nephew and what that costs, and the opportunity
+    says who is eligible and what happens if nobody is chosen.
+    Nothing narrates a fact the player has not been shown, and
+    nothing contradicts a fact they have — the telegraph's address
+    and the arriving raid's address are the same record read twice,
+    which is what makes that impossible rather than merely unlikely.
+    **The hard constraint:** every menu PROMPT and OPTION string is
+    golden. Addressed phrasing therefore lands in `con.say` /
+    `con.bullet` freely, and in a prompt or option **only** under a
+    condition that cannot hold flag-off — more than one address. The
+    incoming raid's menu is the specific case to watch: its prompt
+    and its three options are golden strings today.
+
+14. **RNG, stated as a decision rather than left to be discovered.**
+    P4b.3 **draws no new randomness and claims no new stream.** The
+    targeting policy is a total order; the manager machine is player
+    choice and deterministic transitions; the tribute keeps its
+    existing `randrange`; the tip keeps its existing draws. The
+    `sitdown` and `war` reserved streams remain undrawn where they
+    are undrawn today, and the fork streams stay provably undrawn
+    flag-off. Any later temptation to break a targeting tie by dice
+    is refused by item 1.
+
+15. **The two acceptance matrices rev. 30 item 3 requires, enumerated
+    as rows.** *The address-pressure matrix* — invariant: a target is
+    selected ONCE by identity, persisted wherever the consequence is
+    delayed, and every consequence resolves against THAT identity.
+    Rows: staffing-driven selection (moving crew changes which
+    address is chosen); list-order independence (reversing
+    `state.shops` and `state.wagons` changes no answer); the warning
+    surviving save and load without retargeting; the tribute demand
+    surviving save and load without retargeting; the informant tip's
+    heat landing on the addressed district; each raid consequence
+    landing on the named shop — coupon days, the guard bonus, damage
+    days, stash seizure, reputation loss, heat raised, and the law
+    phase's own search; construction sites excluded from targeting
+    entirely; and a dead owner producing no retaliatory response.
+    *The manager-transition matrix* — invariant: every route into and
+    out of the post goes through the one transition authority, and
+    the opportunity is state rather than timing. Rows: initial
+    vacancy; arrest; poach; firing; resignation; reassignment; the
+    automatic opportunity surfacing before that address's next
+    service; appoint, decline and exhaust as three distinct outcomes
+    with three distinct successor states; and save/load continuity in
+    both directions — a reload neither restores a spent opportunity
+    nor consumes a held one. Every row in either matrix is invisible
+    at a single address or a single manager, so **no gate proves any
+    of them**, which is why rev. 30 item 3 exists.
+
+16. **Gate character, and the three released paths.** P4b.3 is a
+    CONTAINMENT PR under rev. 30 item 1 — it adds branch-local
+    behaviour behind an unreleased chair. But items 6, 10 and 11
+    edit code that flag-off and released branches execute, on an
+    identity-preserving basis, and item 8 adds a menu arm to a golden
+    surface behind a condition. So the containment reading does not
+    license a moved digit here: **both identity gates and both
+    battery depths are the evidence, and any movement in them is a
+    refactor defect to be fixed rather than a result to be
+    recorded.** Stated because "containment" is precisely the word
+    that would otherwise excuse it.
+
+17. **Implementation sequence, inside the one bounded pass.** Ordered
+    so each commit is separately attributable: (a) `ShopDefenseView`
+    and the targeting total order, with the released-path identity
+    measured; (b) the three residues — tip district, address-local
+    defenders, typed tribute with its schema-union migration;
+    (c) the heat-teeth membership; (d) the manager schema, the two
+    authority functions and the bypass-proof validator; (e) the
+    morning opportunity surface and the reassignment verb, both
+    gated; (f) the two matrices; (g) FINDINGS. The turf-intrusion
+    multiplier of item 12 is NOT in this sequence and joins it only
+    on a ruling.
+
+**Revision 34** records the consolidated review's disposition on
+revision 33 and the six corrections it carries. Items 1–7, 9–11 and
+13–17 of revision 33 are ACCEPTED subject to these; item 8 is
+APPROVED with a specified surface; item 12 is REJECTED. Paper first:
+this revision lands before the mechanics it authorizes, and amends
+§2.4.2 and §7 in place rather than living only here.
+
+**Item 8, approved, and what the surface must actually do.**
+Reassignment is required — without it the defense-allocation mechanic
+is decorative. The staff surface: appears **only when multiple
+addresses exist**; lists destinations in **stable-key order** while
+speaking **only district labels**; permits staffing a **construction
+site**, through `addresses_allowing(state, "staffing")`, which is one
+of the two capabilities a site under construction has; routes a
+manager's reassignment **through the vacancy authority BEFORE the
+assignment changes**, so the post is never left pointing at someone
+who has already moved; shows **every employee's current district
+assignment**; and shows **each address's defender count and defense
+strength from `ShopDefenseView`, including whether the guard
+contributes**. That last clause is the point of the screen: the
+player must be able to SEE that reallocating staff changed the
+result, and must not be asked to reverse-engineer `max(nerve) + 4`
+from outcomes.
+
+**Item 12, rejected, and the prose corrected.** `TURF_INTRUSION_MULT`
+is not added. The −25 relation delta **already has** the ongoing
+mechanical consequence the design promised: `rival_policy` derives
+`grudge` from relation and feeds it into `act_chance`, so a living
+owner whose turf you took comes more often for as long as the
+relation stays there. A second multiplier would price the same
+territorial offense twice before P4b.5 has measured it even once.
+§2.4.2 now says the intensification is that delta, through that
+authority, and adds the half revision 33 left unsaid: **the offended
+owner is not obliged to hit the room that provoked them** — their
+actions still go to the softest address, which is coherent story
+rather than a bookkeeping exception. P4b.5 may propose a separate
+multiplier later, and only if measurement falsifies the −25 response.
+
+1. **One typed `ManagerPost`, not three loose fields.** Revision 33
+   put `manager_key`, `manager_vacancy_day` and
+   `manager_opportunity` on `Shop` as three independently writable
+   fields. That is the disagreement class `RaidWarning` and
+   `TributeDemand` exist to prevent, and putting it back one PR after
+   removing it from tribute would have been the respell rule broken
+   in the same commit that cites it. **One frozen `ManagerPost`
+   value, replaced atomically by the transition authorities.** Valid
+   shapes, exhaustively: *staffed* (manager key present, vacancy day
+   absent, opportunity `none`); *vacant/pending*, *vacant/declined*,
+   *vacant/exhausted* (no manager, an exact vacancy day, the matching
+   opportunity). Anything else is refused at construction. **The
+   founding address has no post; a Partner non-founding address must
+   have one** — both directions validated, because a missing post
+   where canon requires one is as wrong as a post where canon forbids
+   it.
+
+   **Two predicates, and revision 33 could not have had one.** It
+   said holding the post survives injury while also asking validation
+   to enforce appointment eligibility — which includes not being
+   injured — so an injured manager would have been simultaneously
+   legitimate and refused. Corrected: *appointable* is hired, aware,
+   assigned there, not arrested, **not injured**; *valid holder* is
+   hired, aware, assigned there, not arrested. Validation binds the
+   HOLDER; the appointment screen offers the APPOINTABLE.
+
+   **Migration, on P4b.2's absence discipline.** A pre-P4b.3 payload
+   carries no post at all. At the **founding address** absence
+   migrates to **no post**, which is what every existing save means.
+   At **Partner's second address** absence migrates to the **initial
+   pending vacancy, dated from that address's persisted acceptance
+   day** — the opportunity was canonically owed from the moment the
+   deal was struck, and no prior engine could have consumed it, so
+   restoring it invents nothing and withholding it would silently rob
+   a loaded run of a window canon grants. **Present-but-malformed
+   refuses**, and the load → serialize → reload chain is pinned with
+   a stable second serialization, exactly as revision 32's arrest day
+   is.
+
+   **`shop_defense` takes an identity, not a loose record.** It
+   accepts a stable shop key, or canonicalizes a supplied `Shop`
+   through `models.canonical_shop` before reading it. A detached copy
+   carrying a real key must not contribute fictional defenders or a
+   fictional guard upgrade to a targeting decision — the same defect
+   `canonical_shop` was built for at the six morning surfaces.
+
+2. **The manager-loss inventory was incomplete, and the opportunity's
+   timing was wrong.** The complete set of routes that empty the
+   post: **route arrest, poach, firing, resignation, reassignment,
+   and paid witness settlement / severance through
+   `evidence.settle_witness`.** The settlement path was missing from
+   revision 33 and is genuinely reachable — Partner joined
+   remediation in P4b.2, so settling a witness who happens to manage
+   shop 2 removes them from the roster (`e.hired = False`) with no
+   fired-knowing-everything record, and would have left a ghost
+   manager behind. **Initial vacancy is the STARTING STATE, not a
+   sixth mutation caller** — nothing transitions into it, which is
+   why revision 33 listing it beside the others was a category error.
+
+   **Timing:** pending opportunities drain through **one automatic
+   boundary immediately before service, after all morning staff
+   choices**. Revision 33's "next morning" trigger was wrong in a way
+   that matters: firing or reassigning a manager happens *during* the
+   morning, so that address would serve once — earning, laundering
+   and taking its full kitchen capacity — before the promised
+   opportunity ever arrived. **A pending opportunity must not reach
+   an actual service unresolved.** The full vacancy penalty applies
+   only after decline or exhaustion; appointment clears it first. The
+   same boundary delivers construction's initial opportunity and any
+   vacancy created during the previous service or night, so there is
+   one trigger and not a family of them. **Settlement and
+   same-morning firing/reassignment are added as rows to the
+   manager-transition matrix.**
+
+3. **The typed tribute's address must be OPERATIONAL, not flavour.**
+   A standing `TributeDemand` is recurring protection attached to an
+   address. Exactly: `_extort` **selects the target once and persists
+   it**; if that rival later raises a warning **while the demand
+   stands**, the warning uses **the demand's stored address** rather
+   than retargeting — the man collecting protection on your Meadows
+   room does not threaten a different room; if a demand and a warning
+   both exist, **cross-state validation requires their addresses to
+   agree**; **paying averts the current warning but preserves the
+   standing weekly demand**, matching current behaviour exactly;
+   **truce and the ledger lean clear the demand**, as they clear the
+   scalar today; and **with no standing demand the existing $1,500
+   payment stays tied to the warning's address and creates no
+   demand** — paying a shakedown that was never demanded must not
+   enrol you in one.
+
+   *Legacy migration, and the one case that must refuse:* a scalar
+   **zero** becomes **no demand**; a **positive scalar with exactly
+   one address** may infer that address, because there was only one
+   it could have meant; a **positive scalar with several addresses
+   REFUSES** — its target is unrecoverable and must never default
+   home, which is the same ruling `save._rival_from` already makes
+   for an untargeted countdown. Canonical and legacy fields remain an
+   **exact schema union**: one or the other, never both, never
+   neither.
+
+4. **The address-pressure matrix's categories were wrong.** Revision
+   33 described coupon days and the law sweep as raid consequences.
+   They are not, and a matrix that mislabels which authority owns a
+   row proves the wrong thing. Corrected, by owner:
+   - **Price war** — the selected address receives **coupon days**.
+   - **Informant tip** — the selected address's **district receives
+     heat**.
+   - **Warning** — **freezes** its selected address.
+   - **Incoming raid** — that **warning's** address supplies the
+     guard, the defenders, the damage days, the stash taken, the
+     reputation lost and the raid's heat.
+   - **Law** — sweeps **every law-targetable address
+     independently**, each against **its own district's heat and its
+     own stash**, and **must not consult the rival target at all**.
+     The law is not a rival; a sweep that read the raid's target
+     would make the police an instrument of Sal's grudge.
+
+5. **The story contract is tighter than "prompts and options."**
+   Partner's multi-address narration names districts and explains why
+   a pressure or a vacancy matters. But **all one-address released
+   narration is preserved byte-for-byte — not merely the prompts and
+   options the golden happens to digest.** The golden's blind spots
+   are not permission to rewrite released prose; `con.say` and
+   `con.bullet` lines on a one-address path are as frozen in practice
+   as a menu string, and the fact that a gate would not catch a
+   change there is the reason to be careful, not a licence. The staff
+   screen must make allocation legible, and the warning, the tribute
+   note, the tip, the raid, the manager opportunity and the nephew
+   penalty must each identify the affected district. Raw keys never
+   appear in player-facing text.
+
+6. **The gate statement was too narrow.** Revision 33 named items 6,
+   10 and 11 as "the three released paths". That undercounts: this
+   pass also changes shared `Rival` persistence, shared `Shop`
+   persistence and projection, `raid_target`, raid defense and
+   `_staff_menu`. **The rule replaces the enumeration: every shared
+   model, save, menu and phase edit in this PR is under strict
+   one-address equivalence.** At the PR boundary: both exhaustive
+   matrices driven through real production paths; the save/load and
+   present-malformed persistence cases; the full suite on 3.11, 3.12
+   and 3.13; ruff and mypy; both identity gates on all three
+   interpreters; the 150- and 500-seed batteries diffed against fresh
+   merged-main output. **No golden regeneration**, and any released
+   movement is a defect to fix rather than a result to record.

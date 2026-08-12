@@ -28,8 +28,8 @@ from dataclasses import dataclass
 
 from .models import (CASE_FLOOR, DORMANT_FACTOR, DORMANT_MORALE,
                      REMEDIATION_CAP, BranchState, Employee, Evidence,
-                     State, dormant_relief, remediation_disposition,
-                     witness_status)
+                     State, dormant_relief, release_from_posts,
+                     remediation_disposition, witness_status)
 from .ui import Console, money
 
 COUNSEL_FEE = 150               # $/day, clean (§2.3)
@@ -322,6 +322,10 @@ def settle_witness(state: State, e: Employee, con: Console) -> None:
     if e.hired:
         e.hired = False
         e.resignation_pending = False
+        # Settling a witness who manages an address empties that post
+        # (rev. 34 item 2). Reachable since Partner joined
+        # remediation, and the route revision 33 missed.
+        release_from_posts(state, e, "settled")
     bs.settled_witnesses.append(e.key)
     # paid_parts: what full permanence would still remove per record,
     # beyond tonight's free cut (half the magnitude minus the cut).

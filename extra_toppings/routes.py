@@ -672,6 +672,7 @@ def _bust(state: State, plan: dict, con: Console, rng: random.Random,
         arrest_odds = 0.35 if plan["ride_along"] else 0.6
         if rng.random() < arrest_odds:
             driver.arrested = True
+            models.release_from_posts(state, driver, "arrest")
             report["lines"].append(f"{driver.name} is booked for possession.")
             con.say(f"  They take {driver.name} in. The wagon gets towed.")
     report["busted"] = True
@@ -699,6 +700,7 @@ def _auto_drops(state: State, home_shop, plan: dict, drops: int,
             # them home — the defect this correction exists for.
             seized = seize_cargo(plan)
             driver.arrested = True
+            models.release_from_posts(state, driver, "arrest")
             state.add_heat(dk, 18)
             evidence = 10 if driver.aware else 4
             # Physical, not witness: the record is dominated by the

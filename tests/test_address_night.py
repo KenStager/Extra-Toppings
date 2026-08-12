@@ -100,17 +100,18 @@ class TestTheTargetAuthority(unittest.TestCase):
         self.assertEqual(models.raid_target(state, "vinnie"),
                          HOME_SHOP_KEY)
 
-    def test_several_addresses_are_refused_not_picked_by_position(self):
-        # P4b owns the "softer shop" policy (rev. 27 item 4). Choosing
-        # one here would be choosing by LIST POSITION — reversing
-        # state.shops would move the raid — so P4a fails closed.
+    def test_several_addresses_are_answered_not_refused(self):
+        # SUPERSEDED, deliberately and in place: P4a failed closed
+        # here because choosing would have been choosing by LIST
+        # POSITION. P4b.3 supplies the policy (rev. 33 item 1), so
+        # the refusal is replaced by an answer — and the property the
+        # old pin was really protecting, that list order decides
+        # nothing, is asserted here rather than dropped with it. The
+        # exhaustive matrix lives in tests/test_pressure.py.
         state, _home, _second = two_addresses()
-        with self.assertRaises(ValueError) as caught:
-            models.raid_target(state, "vinnie")
-        self.assertIn("no targeting policy", str(caught.exception))
+        chosen = models.raid_target(state, "vinnie")
         state.shops.reverse()
-        with self.assertRaises(ValueError):
-            models.raid_target(state, "vinnie")
+        self.assertEqual(models.raid_target(state, "vinnie"), chosen)
 
     def test_no_address_is_refused_not_defaulted(self):
         state = new_state()
