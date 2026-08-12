@@ -2168,3 +2168,82 @@ holds back - the board's call.
 Session F totals: 40 gens ledgered + ~15 MCP-estimated (12 prior +
 3 re-rolls); expected balance ~4,052 by estimate; dashboard the
 authority.
+
+## University Hill: the paper (2026-08-12 session F cont.; location
+## proposal + neighbor briefs, 0 gens - AWAITING THE RULING)
+
+THE DATA GROUNDS THE LOCATION (data.py): University Hill is
+"students, all-nighters, cash-poor and hungry" - the city's HIGHEST
+traffic (1.3), second-highest underground (1.4), no rival, truffle
+bias 0.5 against oregano 1.4 / mushrooms 1.3. The district that
+orders the most pizza and pays the least per pie. PROPOSAL: the
+block anchors THE CAMPUS-GATE STRIP - the late-night commercial
+face where the university meets the city, DiNapoli's highest-volume
+delivery zone. Scene role: delivery destination; the street that is
+awake at 2am.
+
+SLOTS AND NAMES (censused against the tree and the glyph set;
+rejections recorded):
+- CENTER: **CAMPUS BOOKS** (the institutional anchor - a university
+  bookstore; tall pale-slate front, stacked spines in the windows
+  via the code-goods route, the register's cold voice at its
+  fullest). Rejected: THE STACKS (reads as a bar), HILLSIDE BOOKS
+  (place-name collides with no district name - weaker than the
+  plain institutional read).
+- WEST FLANK: **COMMON GROUNDS** (coffee house - the all-nighters'
+  fuel; the block's one warm-adjacent note, kept modest: warm light
+  BEHIND cool glass per the glass law, chalkboard menu as code).
+  Rejected: THE PERCOLATOR (gadget-cute against the theme).
+- EAST FLANK: **QUICK COPY** (copy shop - deeply 1990s campus:
+  fluorescent pale glass, taped posters in the window tying into
+  the decal class's poster lineage). Rejected: COPY KING (crown
+  iconography implies an emblem nobody ruled).
+DRESSING LAWS: no awnings (Moretti's signature stays his);
+UNIVERSITY DECAL ROSTER = decals: [] RECORDED (pristine BY DESIGN,
+not unconsidered - the grading law's fourth reading); the accent
+slate-cyan stays off signage per the institutional-cyan
+reservation... the register's own accent tiers carry the trim.
+Extras: the kid and man_cream walk here naturally; a student
+wardrobe variant is the crowd round's future item, not this
+block's blocker.
+
+BUILD SHAPE when ruled: staging-v3 instance + the generic composer
+(0 new mechanisms); facades = the LS-neighbor recipe chain
+(textured scaffold, no_background=False, register strip, @120, 2
+seeds each, ~6 gens); Godot proof rides with promotion per
+precedent. AWAITING: the location ruling and the three names.
+
+## Promoted; the street proven alive; the set completed
+## (2026-08-12 session F cont.; board: "Proceed"; 4 gens + 1 MCP)
+
+THE PROMOTION (provenance e16_animation_promotion_2026-08-12.json):
+approved/animations/ is the single home - 8 clips (6 walks + 2
+seated idles), poses + curated frames + the manifest with
+approved-relative paths, re-hashed and VALIDATOR-BOUND at promotion.
+WOMAN_PALE HELD BACK by delegated call, stated plainly: promoting a
+known-weak identity contradicts quality-first.
+
+THE HOLD PAID OFF - her arc completed the full loop: re-pose with
+coverage language (s17223: the blouse landed at 21% of visible px -
+and the strip's pale ALSO claimed her face and h32 canvas-fill);
+squash+repair to h28 with face guidance (s17225); curation 8 face
+px pale -> skin (recorded in pose_finishing.py - the recipe rebuilds
+her too); cycle v2 (s17323/job a3459f38) - the blouse HOLDS across
+all frames, validators clean (f0 exact, alpha binary, baseline 30
+flat, loop 115 vs mean 56). 9/9 clips now read. Her pose + clip are
+CANDIDATES at the board - one word joins her to approved/animations.
+
+THE STREET PROVEN ALIVE, engine-real: a new capture project
+(godot_preview_anim/, main.gd driving poses DETERMINISTICALLY -
+one capture per posed frame, no timers) played two PROMOTED cycles
+on the staged hero block: man_cream westbound native-facing, the
+elder eastbound via flip_h (the mirror law in the engine's own
+hands). 16 live viewport captures -> street_alive_demo.gif. The
+crowds are no longer statues, and the proof is Godot's, not the
+compositor's.
+
+UNIVERSITY HILL PAPER is above, awaiting the location ruling and
+the three names (CAMPUS BOOKS / COMMON GROUNDS / QUICK COPY).
+
+Session F totals: 44 gens ledgered + ~16 MCP-estimated; expected
+balance ~4,047 by estimate; dashboard the authority.
