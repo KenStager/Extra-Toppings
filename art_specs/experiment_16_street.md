@@ -1398,3 +1398,33 @@ the proof reference is UNTOUCHED - the staging swaps (hero block
 bags/booth, Vinnie's crates), the builder re-run and the byte-check
 await the board's word. Session C spend 105, ledger-verified;
 expected balance ~4,122.
+
+## The natives promoted; the proof re-run and an incident recorded
+## (2026-08-11 session C cont.; board: "1.) Approved 2.) Approved.
+## Proceed"; 0 gens)
+
+bags_native / crates_native / booth_native entered approved/
+(sha256s in e16_native_props_promotion_2026-08-11.json); the hero
+block and Vinnie's stagings swapped to them (validators PASS; the
+crates moved to x435 to clear the tree's curb slot - the x-slot law
+holds even during promotions). The interim assets are retired to
+the archive; NO staging references doubled Omega props anymore -
+the donor-grain debt on the standing boards is CLOSED.
+
+THE PROOF INCIDENT, recorded at full price: the first v22 capture
+deviated 3,107/230,400 - almost exactly the two new sprites' area.
+My first hypothesis (partial-alpha fringes violating the
+binary-alpha contract) was REFUTED by census: all three natives are
+alpha-binary. The actual cause was operational: Godot's runner does
+not re-import changed source PNGs, so the capture rendered stale
+textures. OPERATIONAL LAW, now standing beside "headless cannot
+capture": after ANY asset change, `godot --headless --import
+--path .` BEFORE the windowed capture run. After re-import:
+**0 / 230,400.** The reference hash changes BY DESIGN (the staged
+scene changed by sanctioned ruling); the new sha and its provenance
+are recorded. Moretti's block still composes byte-identical -
+untouched by any of this, as it should be.
+
+Boards: hybrid_dinapoli_block_board_v22 (the hero block, all-native
+props), vinnies_block_v5 (native crates and bags). Session C spend
+unchanged at 105; expected balance ~4,122.
