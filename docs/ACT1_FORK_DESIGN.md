@@ -921,12 +921,24 @@ earned — keeping the operational tier and the arrears status as two
 separate readings, because they are two independent questions and the
 terminal id is not the grade.
 
-*Every consumer reads the VIEW, not its arithmetic* (rev. 36 item 4).
-The card, the grade, the day-30 epilogue header, the tier arm and
-every later study consume `PartnerGradeView`. The epilogue's header
-prints raw `State.net_worth()` today, which DISAGREES with combined
-net whenever arrears stand — so an On-the-Hook run would head its own
-ending with a number its grade never used.
+*Every consumer reads the VIEW, not its arithmetic* (rev. 36 item 4),
+**and the view's net is the DAY-30 GRADE'S net — nothing else's**
+(rev. 37 item 3). The card, `partner.grade`, the day-30 epilogue
+header for `operation` and `on_the_hook`, the tier arm and every
+later study consume `PartnerGradeView`. Arrest, foreclosure and
+insolvency keep `State.net_worth()`: they are not graded, they
+interrupt, and subtracting arrears from a foreclosed run's position
+reports a number no rule ever computed — a real day-25 foreclosure
+with $360 in hand and $5,500 outstanding printed **−$5,140**.
+Combined-net-less-arrears answers "did the month work"; a run that
+ended early was never asked that question.
+
+*The tier's prose names the room the tier MEASURED* (rev. 37 item 4).
+The restaurant term reads ONE meter — the non-founding room's — so a
+text saying "both rooms are loved" claims a fact about the founding
+room the grade never looked at, and a home room at negative
+reputation would receive it. The grade is unchanged; the sentences
+name the second room.
 
 *The restaurant term names its address by IDENTITY*: it is **the
 non-founding address**, resolved through `founding_shop`, never
@@ -1212,7 +1224,20 @@ Failing closed on an UNKNOWN id was not enough — a KNOWN id on the
 wrong branch still prints somebody else's story, and `partner` +
 `straight_exit` is the case that proves it. The check runs **before
 the epilogue header**, so a refusal emits no partial ending: half an
-epilogue is worse than none, because it reads as a real one.
+epilogue is worse than none, because it reads as a real one. **And
+the preflight covers RENDERER PRESENCE and every terminal's own
+prerequisites, not only the registry** (rev. 37 item 2) — an id whose
+arm was never written, and a Partner terminal whose branch state is
+missing, both printed a header and a net line before failing.
+Whatever the epilogue needs, it proves it has BEFORE it says a
+word.
+
+**A TRUNCATED RUN IS NOT A GRADED RUN** (rev. 37 item 1). The
+harness stops a game early to observe it; stopping early is an
+observation cutoff, not an in-world day 30. A run cut at day 20 has
+no terminal, gets no epilogue, and is returned live — and
+`day_thirty_grade` REFUSES to grade a calendar that has not reached
+day 31, so the run loop cannot ask the question by accident.
 
 *Partner's day-30 pair, exactly:* `operation` requires **zero
 arrears**; `on_the_hook` requires **arrears outstanding**; both are
@@ -6038,3 +6063,77 @@ Partner-flavoured text on the existing `arrested` id. Item 8's
 exclusions stand — §2.7's neglect bar is P4b.5's measurement
 contract, both thresholds remain §6.3 placeholders, and P4b.4 must
 not tune toward either.
+
+**Revision 37** records the disposition on PR #30 at `c24c471`: five
+open contracts, four of them mechanical and one of them a false claim
+in a commit message. Paper first. It amends §2.4.2 and §2.5 in place.
+
+1. **A truncated run is not a graded run.** `game.run(max_days=N)`
+   grades whatever the loop stops on, so a real Partner continuation
+   cut at day 20 wrote `operation` on day 21 and was then refused by
+   the validator built one commit earlier — the two halves of this PR
+   disagreeing with each other. *Ruling:* `max_days` is an
+   **observation cutoff**, not an in-world terminal. A truncated run
+   returns LIVE: no terminal, no epilogue. And `day_thirty_grade`
+   itself **refuses before day 31**, so the door cannot be opened by
+   accident from a caller that does not know better. *Both* pins go
+   through `game.run` — a truncated Partner run and a full-calendar
+   one — because `TestTheDayThirtyDispatch` tested the extracted
+   helper and never the door, which is the third instance in three
+   PRs of proving an authority and missing its caller.
+
+2. **The preflight was too narrow: it proved the registry and not the
+   render.** Two refusals still emitted a header and a net line
+   first — a registered id with no arm, and `branch="partner"` with
+   `branch_state=None`, which passes `validate_terminal` and then
+   raises inside `grade_view`. *Ruling:* the epilogue proves
+   **renderer presence and every terminal prerequisite** before its
+   first output; both pins assert `con.lines == []`. Half an epilogue
+   reads as a real one, and this is the second time that rule needed
+   widening rather than restating.
+
+   *And a skip is not a pass.* `test_an_arrest_that_night_suppresses_
+   it` ends in `skipTest` when no seed closes the file. If the
+   production path that reaches it ever disappears, the contract goes
+   **green by skip** — a silent loss of coverage, which is the
+   vacuous-proof class with better manners. It fails instead.
+
+3. **The grading net is scoped to the grade.** `PartnerGradeView.net`
+   was applied to every Partner ending. A real day-25 foreclosure
+   holding $360 against $5,500 outstanding reported **−$5,140** — a
+   number no rule computes. *Ruling:* only `operation` and
+   `on_the_hook` use the view's net; **arrest, foreclosure and
+   insolvency keep `State.net_worth()`**. Combined-net-less-arrears
+   answers "did the month work"; a run that ended early was never
+   asked that question.
+
+4. **Two ending lines claim a fact the grade never measured.** The
+   reputation-only arm says *"Both rooms are loved"* and `healthy`
+   says *"Both rooms are real"*, while the restaurant term reads only
+   the NON-FOUNDING room's meter — a founding room at negative
+   reputation receives either text. *Ruling:* the settled grade
+   stands; the prose names the **second room**, in canon and in
+   implementation together, so §2.4.2 and the text cannot drift
+   apart.
+
+5. **`AGENTS.md` is removed from this PR, and the commit message that
+   hid it is the finding.** Commit `1f53fb1` states *"documentation-
+   only: `git diff --name-only` names `docs/ACT1_FORK_DESIGN.md`
+   alone"*. The commit contains **two** files. The claim was not a
+   lie told knowingly and it was not a typo: **`git diff` cannot see
+   untracked files.** The check was run before `git add -A`, it
+   reported truthfully on what it could see, and the file it could
+   not see was swept in by the very next command. *An instrument
+   blind to the thing being asserted proved the assertion.* The rule,
+   written down so it is checkable: **a documentation-only boundary
+   is proved with `git status --porcelain` — or with
+   `git diff --name-only --cached` AFTER staging — never with a bare
+   `git diff`, which reports only tracked changes.**
+
+   On the file's merits, independent of how it arrived: it duplicates
+   `CLAUDE.md`, creating **two protocol homes** for one protocol —
+   the single-authority rule broken in the file that restates the
+   single-authority rule — and it instructs a reviewer to sign
+   commits with an attribution none of this PR's commits uses. If
+   Codex discovery is wanted it is a separate, reviewed change: a
+   short pointer to the one canonical protocol, never a copy of it.
