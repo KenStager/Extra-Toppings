@@ -173,6 +173,12 @@ def _price_war(state: State, key: str, spec: dict, con: Console) -> None:
     # The blitz papers ONE neighbourhood: the address the rival moved
     # against, through the same target authority the raid uses.
     hit = state.shop_by_key(models.raid_target(state, key))
+    if models.multi_address(state):
+        # WHICH neighborhood, said out loud (P4b.3 review): with two
+        # rooms, "the neighborhood" names neither of them.
+        con.bullet(f"  The {models.address_label(state, hit.key)} "
+                   f"neighborhood, specifically. That order book is "
+                   f"the one that thins.")
     hit.coupon_days = max(hit.coupon_days, 3)
 
 

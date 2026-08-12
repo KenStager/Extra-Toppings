@@ -2824,6 +2824,70 @@ battery question, not a P4b.3 one. Both gate figures remain
 containment checks from P4b.1b onward and say nothing about whether
 the branch plays.
 
+**The round-17 correction pass** (five bounded contracts, at
+`8dfa288`). The design stood; five seams did not, and three of them
+were holes I had left in my own proof.
+
+*The appointment authority had side entrances.* It canonicalized the
+ADDRESS and not the PERSON — so a detached clone that was on its feet
+could appoint its canonical twin who was in hospital, reading
+availability off one object and writing the key of another. That is
+the mixed-boundary defect `canonical_shop` exists for, reachable from
+a direction nobody had closed. `canonical_employee` is now the
+roster's twin of it. The authority also wrote over `declined`,
+`exhausted` and already-staffed posts, which handed back a spent
+window and replaced a manager without the transition that empties
+one. It now requires the post to be exactly vacant/pending, and every
+refusal mutates nothing — pinned in all four directions plus the
+positive control, so the refusals are not proved by an authority that
+refuses everything.
+
+*The policy's inputs were not bound, and the policy is now a ruler.*
+Reputation and nerve were display and arithmetic before P4b.3; the
+targeting order COMPARES them, so `reputation="bad"` loaded and then
+raised TypeError inside a rival's decision, `reputation=NaN` loaded
+and made "softest" an artefact of iteration order (every NaN
+comparison is False), and `nerve="9"` loaded and raised mid-raid.
+Bound at the boundary to the domains the engine already produces —
+no balance clamp invented — along with exact booleans for
+`hired`/`aware`/`arrested` and a whole non-negative `injured_days`.
+A second address accepted on day 14 also loaded with a vacancy dated
+day 1; the post's day now has to fall inside its own address's span.
+That check initially MASKED the points anchor's refusal, so it moved
+to the end of `validate_cross_state`: a vacancy day measured against
+an acceptance day needs that acceptance day validated first, which is
+the same counterfeit-ruler discipline the calendar already uses.
+
+*The vacancy penalty was half proved.* One test asserted the kitchen
+and was NAMED as though it asserted the ceiling too. Renamed, and the
+ceiling now has its own cases at `total_believable_ceiling` — the
+boundary the night actually launders through — with exact per-address
+deltas, the founding room's ceiling proved unchanged, and a pending
+window proved to have thinned nothing yet. Writing them I produced
+two assertions comparing a value to ITSELF and caught them before
+they landed; they are recorded here because the round already has one
+vacuous-proof finding and a second near-miss belongs beside it. The
+frozen-post pin's `assertRaises(Exception)` became
+`FrozenInstanceError`.
+
+*Four player-facing lines did not tell the truth.* Reassignment is
+live for the same evening's service and raid and said "from
+tomorrow". "Leave the post empty for now" spent the only opportunity
+permanently while promising reversibility. The price war papers one
+neighbourhood and named none. The raid header said "your shop" with
+two of them standing. All four corrected and pinned as complete
+strings, with a leak test asserting no shop key reaches the player
+anywhere — and one-address prose pinned byte-for-byte in the other
+direction, because a gate's blind spot is a reason for care rather
+than a licence.
+
+*And this record contradicted itself.* The current-position bullet
+said P4b.2 awaited review in the same breath as recording that its PR
+had merged, and named two different "next" phases. Rewritten as one
+current truth — which is the stale-record-read-as-current failure
+this project keeps catching in code, found here in the file whose
+whole job is to be current.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2853,30 +2917,38 @@ the branch plays.
   whole P4 paper: design revisions 21–26 (PR #16) and 28–30 (PR #21),
   plus `CLAUDE.md` (PR #22). **P4a is merged** in its three sequential
   PRs (#18, #19, #20) — the retrospective record is round 12 above.
-- **The current position, exactly.** **P4b.1a is MERGED** (PR #23,
-  approved at 2df2ae6; round 12) and so is the **seizure correction**
-  (PR #24, approved at d444389; round 13 — reachability measured
-  before anything changed, so the golden was not regenerated).
-  **P4b.1b is MERGED** (PR #25, approved at 416fa36 → merge b2a31ac;
-  round 14), with design revision 31 as its paper. **P4b.2 is
-  complete and awaiting review** (rounds 15 and 16) on PR #27, after
-  the incident recorded in the round-15 coda; design revision 32 carries its
-  paper, and its shape and frozen allow-list were both ruled and
-  approved (revision 32's ruling coda). The server-side ruleset
-  safeguard is **now MET** — `Restrict updates` active, KenStager the
-  sole bypass actor scoped for pull requests only — and PR #27 merged
-  at exactly `77cafa7`. **P4b.3 is complete and awaiting review**
-  (round 17), on design revisions 33 and 34. Next: **P4b.4 — the
-  grade and the endings**, then P4b.5 (which owns the P4 full
-  pairwise battery, per §7), then activation as a separate seventh
-  act. Nothing preceded it: the points schema was already ruled by revision 29
-  item 1, and round 14's claim that a ruling was owed misread
-  revision 28's superseded judgment call. Next: **P4b.3 — the
-  manager, the vacancy and the two-front pressure**, which owes TWO
-  matrices (rev. 30 item 3), then P4b.4 and P4b.5, with activation
-  as a separate seventh act. The **P4 full-battery item** (the
-  pairwise eight-component vectors) is **P4b.5's**, exactly as §7
-  assigns it — paper, execution and results alike.
+- **The current position, exactly.** Rewritten as ONE current truth
+  (P4b.3 review): this bullet had accreted three "next" clauses and
+  said P4b.2 was awaiting review in the same breath as recording that
+  its PR had merged, which is the stale-record-read-as-current
+  failure this project keeps catching elsewhere.
+
+  **MERGED:** P4b.1a (PR #23, approved at 2df2ae6; round 12); the
+  **seizure correction** (PR #24, approved at d444389; round 13 —
+  reachability measured before anything changed, so the golden was
+  not regenerated); P4b.1b (PR #25, approved at 416fa36 → merge
+  b2a31ac; round 14, design revision 31); the **restoration** (PR
+  #26, after the incident recorded in the round-15 coda); and
+  **P4b.2 — the points ledger** (PR #27, rounds 15–16, design
+  revision 32 and its ruling coda, approved and merged at exactly
+  `77cafa7`). Nothing preceded P4b.2: the points schema was already
+  ruled by revision 29 item 1, and round 14's claim that a ruling was
+  owed misread revision 28's superseded judgment call.
+
+  **The server-side ruleset safeguard is MET** — `Restrict updates`
+  active, KenStager the sole bypass actor scoped for pull requests
+  only. It was an independent merge prerequisite for two rounds and
+  is no longer one.
+
+  **AWAITING REVIEW: P4b.3** — the manager, the vacancy and the
+  two-front pressure — as **PR #28**, round 17, on design revisions
+  33 and 34, carrying both matrices rev. 30 item 3 requires.
+
+  **NEXT, after P4b.3 merges:** P4b.4 (the grade and the endings),
+  then P4b.5, then activation as a separate seventh act. The **P4
+  full-battery item** (the pairwise eight-component vectors) is
+  **P4b.5's**, exactly as §7 assigns it — paper, execution and
+  results alike.
 - The Quiet Sale's human-play verdict is untaken: *sold well* was never
   reached by any bot (the clean number must be earned by the month, not
   the week — the branch's thesis). Whether that is fun is a seeds

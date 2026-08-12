@@ -1985,23 +1985,75 @@ def appointable(state: "State", shop: "Shop") -> list:
             if valid_holder(state, shop, e.key) and e.available]
 
 
+def canonical_employee(state: "State", employee) -> "Employee":
+    """THE person-REFERENCE authority (P4b.3 review), the roster's
+    twin of `canonical_shop`.
+
+    An `Employee` is a mutable record, not an identity. A detached
+    clone carrying a real key answers every question with ITS OWN
+    fields — so a copy that is on its feet could hand the post to the
+    canonical person who is in hospital, and the appointment would be
+    recorded by key against a body that cannot hold it. Refused,
+    never redirected: substituting the canonical object would repair
+    the call while leaving whatever the caller already read off the
+    copy sourced from somewhere else.
+
+    `routes.validate_route_plan` already refuses the same thing for a
+    driver; this is that rule, made an authority instead of a local
+    check."""
+    for e in state.employees:
+        if e.key != employee.key:
+            continue
+        if e is not employee:
+            raise ValueError(
+                f"{employee.name} is a detached copy of {e.key!r}, "
+                f"not this world's roster entry — a record is not an "
+                f"identity")
+        return e
+    raise ValueError(f"no employee with key {employee.key!r}")
+
+
 def appoint_manager(state: "State", shop: "Shop", employee) -> None:
     """THE appointment half of the one transition authority. Replaces
     the whole post value; the vacancy day and the outstanding
     opportunity go with it, because a post that recorded an
     appointment while keeping yesterday's vacancy day is exactly the
-    disagreement `ManagerPost` exists to make unrepresentable."""
+    disagreement `ManagerPost` exists to make unrepresentable.
+
+    BOTH identities are resolved before anything is read (P4b.3
+    review): the address through `canonical_shop`, the person through
+    `canonical_employee`. Checking a clone's availability and then
+    recording the canonical key is the mixed-boundary defect —
+    circumstances read from one object, consequences written against
+    another.
+
+    And the post must be EXACTLY vacant/pending. Appointing over a
+    `declined` or `exhausted` window would hand back an opportunity
+    the player has already spent, which is the save/load rule broken
+    by another door; appointing over a staffed post would replace a
+    manager without the transition that empties one. Every refusal
+    here mutates nothing."""
     at = canonical_shop(state, shop)
+    who = canonical_employee(state, employee)
     if not address_needs_manager(state, at):
         raise ValueError(
             f"{at.key!r} is the founding address and carries no "
             f"management post")
-    if not valid_holder(state, at, employee.key) or not employee.available:
+    post = at.manager_post
+    if post is None or not post.vacant:
         raise ValueError(
-            f"{employee.name} cannot take the post at {at.key!r} — "
+            f"the post at {at.key!r} is not empty — a manager is "
+            f"replaced by vacating the post, not by writing over it")
+    if post.opportunity != "pending":
+        raise ValueError(
+            f"the management opportunity at {at.key!r} is already "
+            f"{post.opportunity!r}; a spent window is not handed back")
+    if not valid_holder(state, at, who.key) or not who.available:
+        raise ValueError(
+            f"{who.name} cannot take the post at {at.key!r} — "
             f"the post is held by somebody hired, read in, assigned "
             f"there, out of custody and on their feet")
-    at.manager_post = ManagerPost(manager_key=employee.key)
+    at.manager_post = ManagerPost(manager_key=who.key)
 
 
 def vacate_manager(state: "State", shop: "Shop", reason: str) -> None:
@@ -2213,6 +2265,22 @@ def validate_addresses(state: "State") -> None:
         if s.district not in data.DISTRICTS:
             raise ValueError(f"shops[{i}]: unknown district "
                              f"{s.district!r}")
+        # REPUTATION IS A RULER NOW (P4b.3 review). It was display and
+        # arithmetic; the targeting order compares it, so a payload
+        # carrying `"bad"` loads and then raises TypeError deep inside
+        # a rival's decision, and NaN loads and silently makes the
+        # comparison meaningless — every NaN comparison is False, so
+        # the "softest" answer becomes an artefact of iteration order.
+        # A bool is refused for the reason `type(...) is int` is used
+        # everywhere else here: True is not a reputation of 1. No
+        # clamp is imposed — the domain is what the engine already
+        # produces (0..100 through `max`/`min`), and this refuses only
+        # what it never could.
+        if type(s.reputation) not in (int, float) \
+                or not is_finite_number(s.reputation):
+            raise ValueError(
+                f"shops[{i}]: reputation is a finite number, got "
+                f"{s.reputation!r}")
         # The lifecycle dates bind together (§2.4.2, rev. 29 item 4):
         # both or neither, whole calendar days (a bool is not a day —
         # `type(...) is int`, the save layer's own rule), the recorded
@@ -2332,6 +2400,27 @@ def validate_addresses(state: "State") -> None:
         if e.shop_key not in seen:
             raise ValueError(f"employees[{i}] ({e.key}): assigned to "
                              f"unknown address {e.shop_key!r}")
+        # THE DEFENSE FORMULA'S INPUTS (P4b.3 review). `max(nerve)`
+        # and the availability predicate are read by the targeting
+        # order and by the raid that arrives, so a payload carrying
+        # `nerve="9"` loads and then raises TypeError mid-raid, and a
+        # truthy non-bool `hired` quietly answers a question the
+        # engine believes is boolean. Exact types, refused rather
+        # than coerced — the same rule the calendar fields use, for
+        # the same reason: these are rulers now.
+        if type(e.nerve) is not int:
+            raise ValueError(
+                f"employees[{i}] ({e.key}): nerve is a whole number, "
+                f"got {e.nerve!r}")
+        for flag in ("hired", "aware", "arrested"):
+            if type(getattr(e, flag)) is not bool:
+                raise ValueError(
+                    f"employees[{i}] ({e.key}): {flag} is true or "
+                    f"false, got {getattr(e, flag)!r}")
+        if type(e.injured_days) is not int or e.injured_days < 0:
+            raise ValueError(
+                f"employees[{i}] ({e.key}): injured days is a whole "
+                f"count of days, got {e.injured_days!r}")
     # A telegraphed raid names an address that exists — a warning
     # pointing nowhere could never be resolved, and reloading must not
     # be able to retarget one already on the board (rev. 23 item 2).
@@ -2355,7 +2444,6 @@ def validate_addresses(state: "State") -> None:
                 f"rival {key!r}: collecting on "
                 f"{rv.tribute.shop_key!r} and threatening "
                 f"{rv.warning.shop_key!r} — one man, two rooms")
-    validate_manager_posts(state)
 
 
 def validate_manager_posts(state: "State") -> None:
@@ -2396,12 +2484,19 @@ def validate_manager_posts(state: "State") -> None:
                 f"nephew, never unrecorded")
         if post is None:
             continue
-        if post.vacancy_day is not None \
-                and not 1 <= post.vacancy_day <= state.day:
-            raise ValueError(
-                f"address {at.key!r}: the post emptied on day "
-                f"{post.vacancy_day}, outside the calendar the run "
-                f"has reached (day {state.day})")
+        if post.vacancy_day is not None:
+            # The post cannot have emptied before the address it
+            # belongs to was accepted (P4b.3 review): a second room
+            # struck on day 14 loading with a vacancy dated day 1 is
+            # a window opened before the deal, and the chronology is
+            # checkable from the record rather than assumed.
+            earliest = at.acceptance_day or 1
+            if not earliest <= post.vacancy_day <= state.day:
+                raise ValueError(
+                    f"address {at.key!r}: the post emptied on day "
+                    f"{post.vacancy_day}, outside the span this "
+                    f"address has existed (accepted day {earliest}, "
+                    f"today day {state.day})")
         if post.manager_key is None:
             continue
         if not valid_holder(state, at, post.manager_key):
@@ -2455,6 +2550,12 @@ def validate_cross_state(state: "State") -> None:
     validate_sitdown_snapshot(state)
     validate_points_schedule(state)
     _validate_witnesses_and_campaigns(state)
+    # THE POSTS LAST, for the reason the snapshot comes first: a
+    # post's vacancy day is measured against its ADDRESS'S acceptance
+    # day, so an acceptance day that disagrees with the deal must
+    # produce its own refusal before it is used as a ruler here
+    # (P4b.3 review — this check was masking the anchor's).
+    validate_manager_posts(state)
 
 
 def validate_calendar(state: "State") -> None:

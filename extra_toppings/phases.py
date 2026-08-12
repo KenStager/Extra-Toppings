@@ -1070,8 +1070,13 @@ def _reassign(state: State, con: Console) -> None:
     models.release_from_posts(state, who, "reassigned")
     who.shop_key = to.key
     who.familiarity = {}
+    # TONIGHT, not tomorrow: the move is live for this evening's
+    # service and for any raid that arrives, because the defense view
+    # reads the roster as it stands (P4b.3 review — the line promised
+    # a delay the mechanics do not have).
     con.say(f"  {who.name} works the {models.address_label(state, to.key)} "
-            f"room from tomorrow. The regulars there do not know them yet.")
+            f"room from tonight. The regulars there do not know them "
+            f"yet — and neither does anyone else who comes looking.")
 
 
 def _staff_menu(state: State, con: Console, rng: random.Random) -> None:
@@ -1283,13 +1288,14 @@ def _management_boundary(state: State, con: Console) -> None:
         # The safe fallback LAST: declining destroys nothing, and an
         # exhausted script must never be able to hand somebody the
         # keys by accident.
-        options.append("Leave the post empty for now")
+        options.append("Leave it to Carmine's nephew — he keeps the keys")
         pick = con.menu(f"Who runs the {where} room?", options)
         if pick == len(candidates):
             at.manager_post = models.ManagerPost(
                 vacancy_day=post.vacancy_day, opportunity="declined")
             con.say(f"  You leave it. The nephew is already behind the "
-                    f"{where} counter, and he is not in a hurry.")
+                    f"{where} counter, and he is not in a hurry — and "
+                    f"you will not be asked about this room again.")
             continue
         chosen = candidates[pick]
         models.appoint_manager(state, at, chosen)

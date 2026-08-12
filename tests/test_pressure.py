@@ -189,6 +189,8 @@ class TestSelectionIsByIdentity(unittest.TestCase):
         state, _home, second = two_open()
         second.acceptance_day = state.day             # still being built
         second.opening_day = state.day + models.CONSTRUCTION_DAYS
+        second.manager_post = models.ManagerPost(
+            vacancy_day=state.day, opportunity="declined")
         self.assertEqual(models.raid_target(state, "vinnie"), HOME_SHOP_KEY)
         # Even when it would obviously be the softest thing standing.
         post(state, "Angelo", HOME_SHOP_KEY, nerve=9)
@@ -445,6 +447,9 @@ class TestTheLawSweepsIndependently(unittest.TestCase):
         state, _home, second = two_open()
         second.acceptance_day = state.day
         second.opening_day = state.day + models.CONSTRUCTION_DAYS
+        # The post's vacancy day belongs to the address's own span.
+        second.manager_post = models.ManagerPost(
+            vacancy_day=state.day, opportunity="declined")
         second.stash = {"mushrooms": 8}
         state.districts["university"].heat = 100.0
         for seed in range(40):

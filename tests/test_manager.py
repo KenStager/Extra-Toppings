@@ -16,11 +16,13 @@ severance. `vacate_manager` is never called directly where a player
 path exists.
 """
 
+import copy
 import random
 import unittest
+from dataclasses import FrozenInstanceError
 
-from extra_toppings import (evidence, market, models, partner, phases,
-                            rivals, routes, save, sitdown)
+from extra_toppings import (data, evidence, market, models, partner,
+                            phases, rivals, routes, save, shop, sitdown)
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (HOME_SHOP_KEY, ManagerPost,
                                    SitdownSnapshot, new_state)
@@ -136,7 +138,10 @@ class TestThePostIsOneValue(unittest.TestCase):
             ManagerPost(vacancy_day=3, opportunity="deferred")
 
     def test_it_is_frozen(self):
-        with self.assertRaises(Exception):
+        # The EXACT failure, not any failure: a broad `Exception`
+        # assertion blesses whatever goes wrong, which this project
+        # has already ruled against once.
+        with self.assertRaises(FrozenInstanceError):
             ManagerPost(manager_key="e0").manager_key = "e1"  # type: ignore
 
     def test_pending_is_not_yet_penalised(self):
@@ -333,6 +338,174 @@ class TestEveryRouteOutOfThePost(unittest.TestCase):
         self.assertEqual(second(state).manager_post, spent)
 
 
+# ══ THE APPOINTMENT AUTHORITY HAS NO SIDE ENTRANCE ═══════════════
+
+class TestAppointmentRefusesEveryOtherDoor(unittest.TestCase):
+    """P4b.3 review: the authority canonicalized the ADDRESS and not
+    the PERSON, and it wrote over any post it was handed. Each
+    refusal below must also mutate NOTHING."""
+
+    def test_a_detached_clone_cannot_appoint_its_canonical_twin(self):
+        # The reproduction exactly: the real body is in hospital, the
+        # copy is on its feet, and the copy's availability was what
+        # the authority read while the canonical KEY was what it
+        # wrote.
+        state = seated()
+        real = staff(state, "Angelo", second(state).key)
+        real.injured_days = 3
+        clone = copy.deepcopy(real)
+        clone.injured_days = 0
+        before = second(state).manager_post
+        with self.assertRaises(ValueError) as caught:
+            models.appoint_manager(state, second(state), clone)
+        self.assertIn("detached copy", str(caught.exception))
+        self.assertEqual(second(state).manager_post, before)
+
+    def test_a_stranger_is_refused(self):
+        state = seated()
+        outsider = copy.deepcopy(
+            next(e for e in state.employees if "Angelo" in e.name))
+        outsider.key = "ghost"
+        with self.assertRaises(ValueError):
+            models.appoint_manager(state, second(state), outsider)
+
+    def test_a_spent_window_is_not_handed_back(self):
+        for spent in ("declined", "exhausted"):
+            with self.subTest(spent=spent):
+                state = seated()
+                who = staff(state, "Angelo", second(state).key)
+                at = second(state)
+                at.manager_post = ManagerPost(
+                    vacancy_day=at.acceptance_day, opportunity=spent)
+                before = at.manager_post
+                with self.assertRaises(ValueError) as caught:
+                    models.appoint_manager(state, at, who)
+                self.assertIn("spent window", str(caught.exception))
+                self.assertEqual(at.manager_post, before)
+
+    def test_an_occupied_post_is_not_written_over(self):
+        state = seated()
+        sitting = install(state)
+        challenger = staff(state, "Marcus", second(state).key)
+        before = second(state).manager_post
+        with self.assertRaises(ValueError) as caught:
+            models.appoint_manager(state, second(state), challenger)
+        self.assertIn("not empty", str(caught.exception))
+        self.assertEqual(second(state).manager_post, before)
+        self.assertEqual(before.manager_key, sitting.key)
+
+    def test_the_pending_transition_still_works(self):
+        # The positive control, so the four refusals above are not
+        # proved by an authority that refuses everything.
+        state = seated()
+        who = staff(state, "Angelo", second(state).key)
+        self.assertEqual(second(state).manager_post.opportunity, "pending")
+        models.appoint_manager(state, second(state), who)
+        self.assertEqual(second(state).manager_post,
+                         ManagerPost(manager_key=who.key))
+
+
+class TestThePolicyInputsAreBound(unittest.TestCase):
+    """P4b.3 review: the targeting order and the defense formula READ
+    these fields, so a payload validation admits must never make the
+    policy throw or answer arbitrarily. Each doctored save is proved
+    against a pristine baseline that round-trips."""
+
+    def _baseline(self):
+        state = seated()
+        staff(state, "Angelo", second(state).key)
+        save.state_from_dict(save.state_to_dict(state))    # it loads
+        return state
+
+    def test_a_reputation_that_cannot_be_compared_is_refused(self):
+        for bad in ("bad", None, True, False, float("nan"),
+                    float("inf"), float("-inf")):
+            with self.subTest(bad=bad):
+                state = self._baseline()
+                payload = save.state_to_dict(state)
+                payload["shops"][0]["reputation"] = bad
+                with self.assertRaises(ValueError) as caught:
+                    save.state_from_dict(payload)
+                self.assertIn("reputation", str(caught.exception))
+
+    def test_the_reachable_reputations_still_load(self):
+        # No balance clamp was invented: the domain refuses only what
+        # the engine can never produce.
+        for good in (0, 0.0, 20.0, 50, 100.0):
+            with self.subTest(good=good):
+                state = self._baseline()
+                payload = save.state_to_dict(state)
+                payload["shops"][0]["reputation"] = good
+                save.state_from_dict(payload)
+
+    def test_a_nerve_that_cannot_be_added_is_refused(self):
+        for bad in ("9", 9.0, None, True):
+            with self.subTest(bad=bad):
+                state = self._baseline()
+                payload = save.state_to_dict(state)
+                payload["employees"][0]["nerve"] = bad
+                with self.assertRaises(ValueError) as caught:
+                    save.state_from_dict(payload)
+                self.assertIn("nerve", str(caught.exception))
+
+    def test_a_truthy_roster_flag_is_refused(self):
+        for flag in ("hired", "aware", "arrested"):
+            for bad in (1, 0, "yes", None):
+                with self.subTest(flag=flag, bad=bad):
+                    state = self._baseline()
+                    payload = save.state_to_dict(state)
+                    payload["employees"][0][flag] = bad
+                    with self.assertRaises(ValueError) as caught:
+                        save.state_from_dict(payload)
+                    self.assertIn(flag, str(caught.exception))
+
+    def test_an_impossible_injury_count_is_refused(self):
+        for bad in (-1, 2.0, True, "2"):
+            with self.subTest(bad=bad):
+                state = self._baseline()
+                payload = save.state_to_dict(state)
+                payload["employees"][0]["injured_days"] = bad
+                with self.assertRaises(ValueError) as caught:
+                    save.state_from_dict(payload)
+                self.assertIn("injured days", str(caught.exception))
+
+    def test_the_targeting_order_is_total_over_what_loads(self):
+        # The consequence the domain exists for: whatever survives
+        # the boundary, the policy answers without throwing.
+        state = self._baseline()
+        for reputation in (0.0, 50.0, 100.0):
+            for nerve in (0, 5, 10):
+                payload = save.state_to_dict(state)
+                payload["shops"][0]["reputation"] = reputation
+                payload["employees"][0]["nerve"] = nerve
+                back = save.state_from_dict(payload)
+                self.assertIn(models.raid_target(back, "sal"),
+                              {s.key for s in back.shops})
+
+
+class TestThePostBelongsToItsAddressSpan(unittest.TestCase):
+    def test_a_vacancy_before_the_address_existed_is_refused(self):
+        # A second room struck on day 14 cannot have emptied on day 1.
+        state = seated()
+        at = second(state)
+        self.assertEqual(at.acceptance_day, 14)
+        at.manager_post = ManagerPost(vacancy_day=1, opportunity="pending")
+        with self.assertRaises(ValueError) as caught:
+            save.state_from_dict(save.state_to_dict(state))
+        self.assertIn("outside the span this address has existed",
+                      str(caught.exception))
+
+    def test_the_acceptance_day_itself_is_allowed(self):
+        state = seated()
+        at = second(state)
+        at.manager_post = ManagerPost(vacancy_day=at.acceptance_day,
+                                      opportunity="pending")
+        save.state_from_dict(save.state_to_dict(state))
+        at.manager_post = ManagerPost(vacancy_day=state.day,
+                                      opportunity="pending")
+        save.state_from_dict(save.state_to_dict(state))
+
+
 # ══ THE GHOST GUARD: the authority cannot be bypassed quietly ═════
 
 class TestAGhostManagerIsRefused(unittest.TestCase):
@@ -371,7 +544,8 @@ class TestAGhostManagerIsRefused(unittest.TestCase):
             vacancy_day=state.day + 1, opportunity="pending")
         with self.assertRaises(ValueError) as caught:
             save.state_from_dict(save.state_to_dict(state))
-        self.assertIn("outside the calendar", str(caught.exception))
+        self.assertIn("outside the span this address has existed",
+                      str(caught.exception))
 
 
 # ══ THE ONE BOUNDARY: appoint / decline / exhaust ════════════════
@@ -486,7 +660,11 @@ class TestNoServiceRunsPastAPendingWindow(unittest.TestCase):
         self.assertIsNotNone(second(state).manager_post.manager_key)
         self.assertFalse(second(state).unmanaged)
 
-    def test_a_declined_window_halves_the_kitchen_and_the_ceiling(self):
+    def test_a_declined_window_halves_the_kitchen(self):
+        # RENAMED (P4b.3 review): it only ever asserted the kitchen,
+        # and a name claiming the ceiling too would have blessed an
+        # unasserted half of the contract. The ceiling has its own
+        # case below, driven through the laundering boundary.
         state = seated()
         state.day = second(state).opening_day + 1
         at = second(state)
@@ -504,6 +682,70 @@ class TestNoServiceRunsPastAPendingWindow(unittest.TestCase):
         self._service(state, Listening([1]))
         self.assertEqual(home.kitchen_cap, before)
 
+
+class TestTheNephewThinsTheBooks(unittest.TestCase):
+    """The ceiling half of §2.4.2's penalty, at the boundary the
+    night actually launders through — `total_believable_ceiling` is
+    what the player's allowance is computed from, so proving the
+    per-shop helper alone would prove the wrong function."""
+
+    def _earning(self):
+        state = seated()
+        state.day = second(state).opening_day + 1
+        home = state.shop_by_key(HOME_SHOP_KEY)
+        at = second(state)
+        home.legit_revenue_today = 800
+        at.legit_revenue_today = 800
+        return state, home, at
+
+    def test_the_unmanaged_room_contributes_exactly_half(self):
+        state, home, at = self._earning()
+        staff(state, "Angelo", at.key)
+        managed = shop.total_believable_ceiling(state)
+        alone = shop.believable_ceiling(state, at, at.legit_revenue_today)
+        phases._management_boundary(state, Listening([1]))   # declined
+        self.assertTrue(at.unmanaged)
+        thinned = shop.total_believable_ceiling(state)
+        # EXACT deltas on the thing that should move, and on the
+        # thing that must not.
+        self.assertEqual(managed - thinned, alone - alone // 2)
+        self.assertEqual(
+            shop.believable_ceiling(state, at, at.legit_revenue_today),
+            alone // 2)
+        self.assertEqual(
+            shop.believable_ceiling(state, home, home.legit_revenue_today),
+            int(home.legit_revenue_today * data.LAUNDER_FACTOR))
+
+    def test_the_founding_room_s_books_never_thin(self):
+        state, home, at = self._earning()
+        before = shop.believable_ceiling(state, home,
+                                         home.legit_revenue_today)
+        phases._management_boundary(state, Listening([1]))
+        self.assertTrue(at.unmanaged)
+        self.assertIsNone(home.manager_post)
+        self.assertEqual(
+            shop.believable_ceiling(state, home, home.legit_revenue_today),
+            before)
+
+    def test_appointing_leaves_the_books_whole(self):
+        state, _home, at = self._earning()
+        staff(state, "Angelo", at.key)
+        full = shop.total_believable_ceiling(state)
+        phases._management_boundary(state, Listening([0]))   # appointed
+        self.assertFalse(at.unmanaged)
+        self.assertEqual(shop.total_believable_ceiling(state), full)
+
+    def test_a_pending_window_has_not_yet_thinned_anything(self):
+        state, _home, at = self._earning()
+        self.assertEqual(at.manager_post.opportunity, "pending")
+        staff(state, "Angelo", at.key)
+        self.assertFalse(at.unmanaged)
+        self.assertEqual(
+            shop.believable_ceiling(state, at, at.legit_revenue_today),
+            int(at.legit_revenue_today * data.LAUNDER_FACTOR))
+        whole = shop.total_believable_ceiling(state)
+        phases._management_boundary(state, Listening([1]))
+        self.assertLess(shop.total_believable_ceiling(state), whole)
 
 # ══ save / load continuity, both directions ══════════════════════
 
@@ -588,6 +830,116 @@ class TestTheMigration(unittest.TestCase):
         self.assertEqual(save.state_to_dict(reloaded), again)
         self.assertEqual(second(reloaded).manager_post,
                          second(loaded).manager_post)
+
+
+# ══ the lines the player actually reads ══════════════════════════
+
+class TestTheStoryTellsTheMechanicsTruth(unittest.TestCase):
+    """P4b.3 review, item 4: four lines promised something the engine
+    does not do. Complete strings are pinned, and no raw key leaks."""
+
+    def test_reassignment_says_tonight_because_it_means_tonight(self):
+        state = seated()
+        state.day = second(state).opening_day
+        who = staff(state, "Angelo", HOME_SHOP_KEY, nerve=9)
+        crew = state.hired()
+        con = Listening([4, crew.index(who), 0, 5])
+        phases._staff_menu(state, con, random.Random(1))
+        line = next(ln for ln in con.lines if who.name in ln
+                    and "works the" in ln)
+        self.assertIn("from tonight", line)
+        self.assertNotIn("tomorrow", line)
+        # …and it IS tonight: the move is live for the defense the
+        # very next question anybody asks.
+        self.assertEqual(models.raid_target(state, "sal"), HOME_SHOP_KEY)
+
+    def test_declining_does_not_promise_it_can_be_undone(self):
+        state = seated()
+        staff(state, "Angelo", second(state).key)
+        con = Listening([1])
+        phases._management_boundary(state, con)
+        _prompt, options = next((p, o) for p, o in con.menus
+                                if "Who runs" in p)
+        self.assertEqual(options[-1],
+                         "Leave it to Carmine's nephew — he keeps the keys")
+        self.assertNotIn("for now", options[-1])
+        # The window really is gone, which is what the option now says.
+        again = Listening([0])
+        phases._management_boundary(state, again)
+        self.assertIsNone(again.offered("Who runs the"))
+
+    def test_the_price_war_names_the_neighbourhood_it_papers(self):
+        state = seated()
+        state.day = second(state).opening_day + 1
+        staff(state, "Angelo", HOME_SHOP_KEY, nerve=9)   # second is soft
+        con = Listening()
+        rivals._price_war(state, "vinnie", {"short": "Vinnie"}, con)
+        self.assertTrue(con.said("University Hill neighborhood"))
+        self.assertEqual(second(state).coupon_days, 3)
+        self.assertEqual(state.shop_by_key(HOME_SHOP_KEY).coupon_days, 0)
+
+    def test_the_arriving_raid_names_the_room(self):
+        state = seated()
+        state.day = second(state).opening_day + 1
+        state.rivals["vinnie"].warning = models.RaidWarning(
+            1, second(state).key)
+        state.rivals["sal"].strength = 0
+        con = Listening([0])
+        phases.night(state, {"routes": {}, "raid": None},
+                     {"wagons": phases.WagonNight(state)}, con, Streams(11))
+        self.assertTrue(con.said("The University Hill room."))
+
+    def test_no_raw_key_reaches_the_player_anywhere(self):
+        state = seated()
+        state.day = second(state).opening_day + 1
+        staff(state, "Angelo", second(state).key)
+        con = Listening([0])
+        phases._management_boundary(state, con)
+        phases._staff_menu(state, Listening([5]), random.Random(1))
+        rivals._price_war(state, "vinnie", {"short": "Vinnie"}, con)
+        rivals._plant(state, state.rivals["sal"], {"short": "Sal"},
+                      con, random.Random(3))
+        spoken = con.lines + [p for p, _o in con.menus] \
+            + [o for _p, opts in con.menus for o in opts]
+        for line in spoken:
+            for key in (s.key for s in state.shops):
+                self.assertNotIn(key, line, line)
+
+
+class TestOneAddressProseIsUntouched(unittest.TestCase):
+    """Rev. 34 item 5: released narration is frozen byte-for-byte,
+    not merely the strings the golden digests."""
+
+    def test_the_raid_header_gains_no_address_line(self):
+        state = new_state()
+        state.day = 6
+        state.clean, state.dirty = 4000, 400
+        state.rivals["vinnie"].warning = models.RaidWarning(
+            1, HOME_SHOP_KEY)
+        state.rivals["sal"].strength = 0
+        con = Listening([0])
+        phases.night(state, {"routes": {}, "raid": None},
+                     {"wagons": phases.WagonNight(state)}, con, Streams(11))
+        self.assertFalse(con.said("room. They have known"))
+
+    def test_the_price_war_says_only_what_it_always_said(self):
+        state = new_state()
+        con = Listening()
+        rivals._price_war(state, "vinnie", {"short": "Vinnie"}, con)
+        self.assertEqual(
+            con.lines,
+            ["• Vinnie papers the neighborhood with two-for-one "
+             "coupons. Expect thin order books for a few days."])
+
+    def test_the_tip_says_only_what_it_always_said(self):
+        state = new_state()
+        con = Listening()
+        rivals._plant(state, state.rivals["sal"], {"short": "Sal"},
+                      con, random.Random(3))
+        self.assertEqual(
+            con.lines,
+            ["• An anonymous tip sends a patrol crawling past your "
+             "block all night."])
 
 
 # ══ the allocation lever, and what it shows ══════════════════════

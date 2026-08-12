@@ -362,6 +362,12 @@ def incoming_raid(state: State, rival_key: str, con: Console,
                          f"the board")
     target = state.shop_by_key(rival.warning.shop_key)
     con.header(f"THEY'RE COMING — {rspec['short']}'s crew hits your shop tonight")
+    if models.multi_address(state):
+        # WHICH shop (rev. 34 item 5). The header is a released
+        # string and stays exactly what it was; the address is said
+        # beneath it, and only where there is more than one.
+        con.say(f"  The {models.address_label(state, target.key)} room. "
+                f"They have known which one for days.")
 
     damage_before = target.damage_days
     fatal_ground = state.branch == "war" and damage_before > 0
