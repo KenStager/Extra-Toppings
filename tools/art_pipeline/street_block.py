@@ -449,6 +449,33 @@ def curb_corner_anchor(orientation: str = "se") -> Image.Image:
     return im
 
 
+def asphalt_field(w: int, h: int, ramp: "list[RGB] | None" = None) -> Image.Image:
+    """Aperiodic asphalt: the board's 2026-08-12 note ("the road now
+    feels brick") convicted the A2 donor fill's diagonal lattice, and
+    the hybrid ruling licenses selective upgrade with cause.
+
+    A full-band field, not a tile: tier-1 base with white-mix hash
+    speckle in the other tiers (dark pores 8%, mid grain 8%, pale
+    flecks 1.5%), so there is NO period to read — aperiodicity by
+    construction, deterministic in world coordinates, register-aware
+    via `ramp` (defaults to Old Harbor's ASPHALT_RAMP; districts pass
+    their own road ramp).
+    """
+    tones = ramp or ASPHALT_RAMP
+    im = Image.new("RGBA", (w, h), (*tones[1], 255))
+    for y in range(h):
+        for x in range(w):
+            hsh = ((x * 73856093) ^ (y * 19349663)) & 0x7FFFFFFF
+            r = hsh % 1000
+            if r < 80:
+                im.putpixel((x, y), (*tones[0], 255))
+            elif r < 160:
+                im.putpixel((x, y), (*tones[2], 255))
+            elif r < 175:
+                im.putpixel((x, y), (*tones[3], 255))
+    return im
+
+
 # ------------------------------------------------- the decal class
 # Grime, cracks and patches are TRANSLUCENT overlays — the class the
 # oil stains, contact shadows and yellow curb founded: alpha layers

@@ -279,6 +279,29 @@ class CurbCutTests(unittest.TestCase):
             curb_vertical_cut(30, road_side="north")
 
 
+class AsphaltFieldTests(unittest.TestCase):
+    def test_field_is_deterministic_and_register_bound(self) -> None:
+        from tools.art_pipeline.street_block import asphalt_field
+
+        a = asphalt_field(64, 32)
+        b = asphalt_field(64, 32)
+        self.assertEqual(list(a.getdata()), list(b.getdata()))
+        seen = {a.getpixel((x, y))[:3] for y in range(32) for x in range(64)}
+        self.assertLessEqual(seen, set(ASPHALT_RAMP))
+        meadows = asphalt_field(8, 8, DISTRICT_REGISTERS["meadows"]["road"])
+        seen_m = {meadows.getpixel((x, y))[:3] for y in range(8) for x in range(8)}
+        self.assertLessEqual(seen_m, set(DISTRICT_REGISTERS["meadows"]["road"]))
+
+    def test_field_has_no_16px_period(self) -> None:
+        # the whole point: the A2 lattice repeated every 16px; the
+        # field must not
+        from tools.art_pipeline.street_block import asphalt_field
+
+        im = asphalt_field(64, 4)
+        row = [im.getpixel((x, 1))[:3] for x in range(64)]
+        self.assertNotEqual(row[:48], row[16:])
+
+
 class DecalClassTests(unittest.TestCase):
     """Grime/crack decals: translucent, deterministic, register-safe."""
 

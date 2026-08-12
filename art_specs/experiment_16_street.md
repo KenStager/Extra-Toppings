@@ -1629,3 +1629,48 @@ above); then the Meadows/LS rosters, more crack anchors (each its
 own seed), and the wall-streak ruling. Session D+E spend: 10 gens
 total (4 drift + 4 corners + 2 crack probe); expected balance
 ~4,112, ledger-verified.
+
+## The road de-bricked; the manhole laid flat (2026-08-12, board:
+## "the road now feels brick... regenerate the manhole to better fit
+## the view"; 2 gens)
+
+Both notes measured real and fixed candidate-first:
+
+1. **THE ROAD.** The A2 donor fill's diagonal lattice reads as
+   brickwork — always latent (the LS lattice note, v5's
+   flatten-the-ramp round), surfaced now because the pale crossing
+   sits beside it. The hybrid ruling's selective-upgrade-with-cause
+   clause fires: **asphalt_field** (street_block.py, test-pinned:
+   deterministic, register-bound, provably no 16px period) — a
+   full-band aperiodic field, tier-1 base with white-mix hash
+   speckle (dark pores 8% / mid grain 8% / pale flecks 1.5%),
+   register-aware via the ramp parameter so every district inherits
+   it on promotion. The builder takes it as a STAGING PARAMETER
+   (`road_fill`: "a2_donor" default | "asphalt_field") — the
+   approved scene re-bakes byte-identical (bc8c1e0a...), the A/B
+   swatch shows the lattice dead. District composer adoption rides
+   with promotion.
+2. **THE MANHOLE.** s16322 is a flat-on circle on a foreshortened
+   ground. Resize-by-regen on the repair mechanism: the approved
+   cover's OWN pixels squashed non-integer 26x26 -> 26x19 (the
+   ground compression), pixflux @150 under its censused 3-tone
+   strip, 2 seeds (s16961/s16962, both 0 off-strip, 63/66% genuine
+   redraw at the GIVEN proportion). **s16961 picked** (clean
+   concentric double ring; s16962's rim breaks, stray fleck).
+   y_top unchanged — old and new content centers match. Provenance
+   e16_manhole_regen.json.
+
+IN-SCENE: hero **v25 CANDIDATE** (candidates/street_block_staging_
+v25_road_manhole.json = the v24 decal roster + asphalt_field +
+manhole s16961). **Godot proof 0/230,400**; approved v23 restored
+and re-proven **0/230,400**, reference sha unchanged. The read: the
+brick is gone, the pressure-dark asphalt strengthens the thesis
+contrast at the curb, the decals and vehicles pop, and the cover
+finally LIES on the road.
+
+Suite 141 -> 143. AWAITING THE BOARD: v25 (which now carries v24's
+decal roster — one word can rule the stack); the far-line flag;
+then the district-composer adoption of asphalt_field, Meadows/LS
+decal rosters, wall-streak ruling. Session spend: 12 gens total
+(4 drift + 4 corners + 2 crack + 2 manhole); expected balance
+~4,110, ledger-verified.
