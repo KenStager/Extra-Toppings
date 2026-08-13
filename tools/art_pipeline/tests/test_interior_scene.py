@@ -97,6 +97,26 @@ class InteriorLaws(unittest.TestCase):
             prep={"asset": "prep", "span": [90, 130], "line": "wall"}),
             "overlaps another wall fixture")
 
+    def test_wall_mounted_may_share_a_floor_fixture_slot(self):
+        s = copy.deepcopy(lawful())
+        s["fixtures"]["hood"] = {"asset": "hood", "span": [40, 103],
+                                 "line": "wall_mounted", "y_top": 60}
+        self.assertEqual(validate_interior_staging(s), [])
+
+    def test_wall_mounted_needs_y_top_above_work_floor(self):
+        self._refused(lambda s: s["fixtures"].update(
+            hood={"asset": "hood", "span": [40, 103],
+                  "line": "wall_mounted", "y_top": 200}),
+            "y_top above the work floor")
+
+    def test_mounted_fixtures_exclude_their_own_slots(self):
+        def mutate(s):
+            s["fixtures"]["hood"] = {"asset": "hood", "span": [40, 103],
+                                     "line": "wall_mounted", "y_top": 60}
+            s["fixtures"]["shelf"] = {"asset": "shelf", "span": [90, 140],
+                                      "line": "wall_mounted", "y_top": 70}
+        self._refused(mutate, "overlaps another mounted fixture")
+
     def test_entry_corridor_is_figure_wide(self):
         self._refused(lambda s: s["corridors"].update(entry=[440, 450]),
                       "entry corridor")

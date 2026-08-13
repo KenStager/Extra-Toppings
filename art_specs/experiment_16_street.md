@@ -3170,3 +3170,60 @@ FLAGGED FOR THE BOARD, loudly:
    is staged DATA; one key swaps it if the board wants warmer.
 4. The bespoke queue stands priced (register ~1-2 gens, prep table
    ~2, cooler ~2); none of it blocked the scene standing.
+
+## The pizza-shop reckoning: the room rebuilt around the dough's
+## journey (2026-08-12 session H; board: the interior critique +
+## "Generate all necessary assets" + "high quality generated assets
+## over code"; 26 work gens)
+
+THE CRITIQUE, owned in full: the board named everything missing
+(prep line, register, box shelves, walk-in, soda fountain, the
+arcade cabinet, the empty space, the counters) and the failure
+underneath - my three-distance protocol tested pixel lawfulness and
+never asked "does this FEEL like a pizza place?" The 10-step
+sequential reflection reorganized the room around THE DOUGH'S
+JOURNEY: walk-in -> makeline -> oven -> counter -> customer, plus
+the 90s icons on the floor.
+
+THE CHAIR ERRATUM, censused: the profile chair assets face OPPOSITE
+their names (chair_profile_east_32's back post sits on its EAST
+columns -> it faces WEST); the seated profiles are correctly named.
+The board's eye caught in one look what three of my renders did
+not. Composer swapped; the E15 staging file's parentheticals carry
+the same inversion and stay untouched pending their own ruling.
+
+THE GENERATION CAMPAIGN (26 gens, all ledgered, all 0 off-strip):
+- r1 (8 gens, final-tone anchors @140) measured the RAW-IN LAW on
+  props: the register changed 12 px - final-tone anchors are
+  "tonally done" and the model grains them.
+- r2 (18 gens, raw-shifted mottled anchors @120, per the board's
+  generated-over-code ruling): NINE fixtures - makeline, register,
+  fountain, arcade, walk-in door, vent hood, box shelves, back-bar,
+  trash bin. The repaint fired (real steel wear, door grime, box
+  texture). walkin s17652 recorded as the alpha-carve class.
+- Picks + finishing (pizzashop_props_finish.py): makeline s17642
+  with its six pan wells RE-ASSERTED from the anchor (the pans are
+  the makeline's soul; the cornice-re-assert precedent); register
+  s17643, fountain s17646, arcade s17648, walkin s17651, hood
+  s17653, shelves s17655, backbar s17658, trash s17659.
+
+THE LOOP (r4/r5): the build-out staging put shelves into the
+CEILING band and the register's canvas covered Bee - the
+anchor-by-content law collected its second payment in one build;
+r5 seats the shelves in the wall band, Bee beside her register,
+pendants re-hung. VALIDATOR: the wall_mounted fixture class landed
+(hood/shelves/fountain hang over floor fixtures BY DESIGN, x-slot
+exclusive among mounted only); suite 175 -> 178, ruff clean.
+
+STANDING CANDIDATE: dinapoli_interior v2 in three states; boards
+interior_v2_states_board + kitchen/counter/service-east 4x crops.
+The pizza-place question passes at all three distances: the kitchen
+works, Bee rings the register, the fountain pours, the arcade glows
+in the corner. NOTHING promoted.
+
+FLAGS: the N-FACING STANDING POSE now blocks THREE reads (queue,
+arcade player, Tony at the line) - graduated to next-round
+priority; night lights-out stays decision-5 class; a counter-mid
+piece (to kill the main-main seam) is a priced option. Session H
+spend: 30 gens ledgered (4 drift + 26 props); expected balance
+~3,997 by estimate; vendor dashboard the authority.

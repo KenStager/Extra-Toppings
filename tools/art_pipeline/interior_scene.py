@@ -108,19 +108,36 @@ def validate_interior_staging(staging: dict) -> list[str]:
             if _spans_overlap(gap, span):
                 errs.append("pass_gap is covered by a counter piece")
 
-    # ---- wall-line fixtures (x-slot exclusion, the street's law)
-    fixture_spans = []
+    # ---- fixtures: two classes (the pizza-shop build-out ruling,
+    # 2026-08-12). "wall" stands on the wall line, x-slot exclusive
+    # among floor fixtures; "wall_mounted" hangs on the wall (y_top
+    # anchored above the work floor), x-slot exclusive among mounted
+    # fixtures ONLY - a hood hangs above its oven, shelves above the
+    # makeline, BY DESIGN.
+    floor_spans: list = []
+    mounted_spans: list = []
     for name, fx in staging.get("fixtures", {}).items():
-        if fx.get("line") != "wall":
-            errs.append(f"fixture {name}: only the wall line exists for fixtures")
+        line = fx.get("line")
         span = fx.get("span")
         if not _span_ok(span):
             errs.append(f"fixture {name}: invalid span")
             continue
-        for prior in fixture_spans:
-            if _spans_overlap(span, prior):
-                errs.append(f"fixture {name}: overlaps another wall fixture")
-        fixture_spans.append(span)
+        if line == "wall":
+            for prior in floor_spans:
+                if _spans_overlap(span, prior):
+                    errs.append(f"fixture {name}: overlaps another wall fixture")
+            floor_spans.append(span)
+        elif line == "wall_mounted":
+            y_top = fx.get("y_top")
+            if not (isinstance(y_top, int) and 0 <= y_top < wf[0]):
+                errs.append(f"fixture {name}: wall_mounted needs y_top above "
+                            "the work floor")
+            for prior in mounted_spans:
+                if _spans_overlap(span, prior):
+                    errs.append(f"fixture {name}: overlaps another mounted fixture")
+            mounted_spans.append(span)
+        else:
+            errs.append(f"fixture {name}: line must be wall or wall_mounted")
 
     # ---- corridors: the loop's geometry
     corridors = staging.get("corridors", {})
