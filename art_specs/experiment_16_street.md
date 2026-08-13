@@ -3441,3 +3441,27 @@ counter - a cashier, not a periscope; the queue reads face-level.
 **GODOT PROOF 0/230,400** re-run. Applied to the approved scene
 AND the npose candidate. Session H spend: 55 gens ledgered;
 expected balance ~3,972; vendor dashboard the authority.
+
+## The scale cemented (2026-08-12 session H; board: "Great. Work to
+## further cement the scale"; 2 gens)
+
+Cement, in this house's three forms:
+1. **LAW IN CODE**: interior_scene.py carries PERSON_CONTENT_H=30
+   and FIXTURE_SCALE_MAX (upright 1.5x / deep_top 1.4x / hand_prop
+   0.6x) with fixture_scale_verdict(); the pins prove the scaled
+   set lawful and the recorded oversized heights REFUSED. Suite
+   178 -> 181, ruff clean. The scale census joins the pick-time
+   checklist beside the alpha census.
+2. **THE SINGLE HOME**: the scaled finals PROMOTED into
+   approved/interior_props (counter, oven lit+cold, walkin, arcade,
+   shelves, fountain, backbar, trash, hood + the stragglers); the
+   oversized set archived; the SCALED: prefix retired from both
+   stagings; the composer reads approved names only.
+3. **THE STRAGGLERS**: the census swept the new hand_prop class and
+   convicted three the batch missed - the register (26px = 0.87x
+   person!) regenerated at 13x14 from behind, the display pie at
+   18x17, the code phone redrawn 8x12. Nothing interactive remains
+   above its class limit.
+**GODOT PROOF 0/230,400** re-run on the cemented scene. Session H
+spend: 57 gens ledgered; expected balance ~3,970; dashboard the
+authority.

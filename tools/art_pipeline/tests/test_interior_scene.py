@@ -155,3 +155,28 @@ class InteriorLaws(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InteriorScaleLaw(unittest.TestCase):
+    """Pins for the scale law (session H reckoning): the recorded
+    pre-batch heights REFUSE, the scaled set's heights pass."""
+
+    def test_scaled_set_is_lawful(self):
+        from tools.art_pipeline.interior_scene import fixture_scale_verdict
+        for h, kind in [(37, "deep_top"), (44, "upright"), (40, "upright"),
+                        (34, "upright"), (39, "upright"), (22, "upright"),
+                        (31, "deep_top"), (20, "upright"), (28, "upright"),
+                        (40, "deep_top")]:  # makeline, measured lawful
+            self.assertEqual(fixture_scale_verdict(h, kind), "OK", (h, kind))
+
+    def test_the_oversized_class_refuses(self):
+        from tools.art_pipeline.interior_scene import fixture_scale_verdict
+        for h, kind in [(56, "deep_top"), (100, "upright"), (61, "upright"),
+                        (60, "upright"), (56, "upright"),
+                        (26, "hand_prop"), (24, "hand_prop")]:
+            self.assertEqual(fixture_scale_verdict(h, kind), "OVERSIZED",
+                             (h, kind))
+
+    def test_person_canon_is_thirty(self):
+        from tools.art_pipeline.interior_scene import PERSON_CONTENT_H
+        self.assertEqual(PERSON_CONTENT_H, 30)

@@ -38,6 +38,28 @@ OVEN_STATES = frozenset({"lit", "cold"})
 FIGURE_CLEAR = 24
 QUEUE_SPACING_MIN = 20
 
+# ---------------------------------------------- the interior scale law
+# Ruled 2026-08-12 (session H, the too-small reckoning): ARCHITECTURE
+# runs dollhouse-big (bands, walls - the street's 96px storefronts);
+# INTERACTIVE FIXTURES track the person. Anchors, all measured: the
+# 30px person canon, the E15 table convergence (1.07x, WITH sitters),
+# the vehicle lane law (~1:1 cars), the street's ~1.3x doors. Content
+# heights, not canvases; the census runs at PICK time (with the
+# alpha-hole census) before any prop enters a final/ set.
+PERSON_CONTENT_H = 30
+FIXTURE_SCALE_MAX = {
+    # class -> max lawful content height as a multiple of the person
+    "upright": 1.5,     # doors, cabinets, machines, cans, ovens
+    "deep_top": 1.4,    # counters, tables (foreshortened-top inflation)
+    "hand_prop": 0.6,   # registers, pies, phones - things hands use
+}
+
+
+def fixture_scale_verdict(content_h: int, kind: str) -> str:
+    """OK or OVERSIZED under the interior scale law."""
+    limit = FIXTURE_SCALE_MAX[kind] * PERSON_CONTENT_H
+    return "OK" if content_h <= limit else "OVERSIZED"
+
 
 def _spans_overlap(a, b) -> bool:
     return not (a[1] < b[0] or b[1] < a[0])
