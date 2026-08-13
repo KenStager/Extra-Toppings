@@ -2987,3 +2987,121 @@ its top-swapped sneaker accents read as white 90s sneakers - the
 measured lucky read). Census: diff vs uh_v5 = 795 px confined to
 the four walker zones. Validator PASS; nothing promoted - the v6
 staging remains the candidate awaiting the board's word.
+
+## UH v6 promoted; an operational incident recorded (2026-08-12
+## session H; board: "Approved! Continue forward"; 0 gens)
+
+THE PROMOTION (provenance e16_uh_students_promotion_2026-08-12
+.json): approved/university_block_staging.json IS the v6 stack —
+four walkers in four gray undertones (woman_heather x120 /
+student_gray skin-shifted x300 / student_pale x470 / kid_sage x560);
+the four staged renders entered godot_preview/assets/scene;
+candidate retired (one writable authority). The unstaged roster
+stock (slate/heather/sage/oat students) stays in candidates/,
+rebuilt deterministically by recipes/uh_student_wardrobe.py.
+Byte-check: the approved re-render is BYTE-IDENTICAL to the
+presented candidate (board uh_v6). **GODOT PROOF university
+0/230,400** (import law observed). Standing boards: hero v28,
+morettis_v9, vinnies_v9, **uh_v6**.
+
+OPERATIONAL INCIDENT, recorded: the session scratchpad (worktree
+included) was CLEANED between turns — git lost nothing (both
+session-H commits were already pushed), .private_art was untouched,
+and the worktree was pruned + recreated with the suite re-run (157
+OK) before any further step. The fresh-worktree law and
+commit-as-you-go are why the incident cost one recovery round and
+zero work.
+
+## THE HORIZON — THE SERVICE-COUNTER INTERIOR: the paper
+## (2026-08-12 session H; 0 gens — AWAITING THE RULING)
+
+The game's core loop surface (morning/service/night — customers
+enter, queue, order, receive; Tony at the oven, Bee at the counter)
+gets its scene unit: **the street template's indoor sibling.** Same
+grammar carried verbatim: flat-on, native 32, content-bottom
+anchoring, painter order by base row, content-bbox contact shadows,
+staging AS DATA with a validator that REFUSES, code for regular
+forms / generation for organic wear.
+
+THE INVENTORY, censused first (everything below is APPROVED and on
+disk; the existing godot_preview layout is a showcase board, not a
+designed scene — the unit does not exist yet):
+oven_deck 64x64 (cold + lit states), counter_main 96x64 +
+counter_end 48x64, three 32px floors (terracotta / checker_cream /
+parquet), booth bay (bench 64x40 + table 64x26 + rear bench, with
+booth_bay_staging.json) and the four-top (table_sq 48x40 + four
+chair orientations, fourtop_staging.json — the staging-as-data
+precedents that founded decision 3), the full cast (tony 56x56,
+bee 60x60, all nine), seated extras, flour/cut decals, box stacks,
+peel, pizzas.
+
+THE INTERIOR BAND LAW (proposed, 360 rows):
+**48 ceiling+frieze / 104 back wall / 8 wall base seam / 64 work
+floor / 16 counter run / 120 customer floor.** Two attachment
+lines, the street's analog: the **WALL LINE** (base ~176 — oven,
+prep, box stacks, shelving, the wall phone: fixtures that belong
+to the building) and the **COUNTER LINE** (base ~240 — the counter
+run IS the unit's curb: the service boundary the whole loop
+negotiates; Bee north of it, customers south). Floors are DATA:
+terracotta behind the counter (the kitchen's), checker_cream in
+front (the pizzeria classic); the parquet stays available for
+rival-interior registers.
+
+SCHEMA v1 (interior_staging, the street schema's sibling): bands;
+both line base_y values; floor assignment per zone; fixtures
+(wall-line, content-bottom); counter_run pieces WITH A PASS GAP
+(staff must reach the floor — the gap is data, doorway-class);
+furniture (booth bays + four-tops BY REFERENCE to their existing
+staging files); **corridors as first-class data**: an ENTRY
+corridor from the south frame edge and an ordered list of QUEUE
+SLOTS (x, base_y) running south from the register — queueing was
+ruled scene choreography (class C, engine staging over idle loops),
+so the queue's geometry is the staging's job, not pixels'; decals
+(the grading analog: the WORK floor wears flour, the customer
+floor stays swept); actors per scene state.
+
+VALIDATOR (validate_interior_staging, refuses): bands sum to 360;
+lines inside their bands; fixtures only on lines; corridors and the
+pass gap clear of every fixture, furniture span and counter piece
+(the crosswalk-corridor refusal, indoors); floor assets named;
+queue slots south of the counter line, ordered, figure-spaced.
+
+ENTRY CONVENTION (flagged judgment #1): the camera faces the back
+wall; the street door lives on the facade BEHIND this camera.
+Proposal: customers enter from the SOUTH FRAME EDGE via the entry
+corridor (actors enter street scenes from frame edges already);
+the Phase-D door-open strip stays a FACADE animation on the street
+scene. Alternative if the board wants a visible interior door: a
+side-wall door is an ugly profile read at 32px flat-on — not
+recommended.
+
+SCENE STATES (flagged judgment #2): one staging, three actor
+rosters — MORNING (Tony prepping, chairs down, no customers),
+SERVICE (the full loop: queue populated, seated diners), NIGHT
+(empty floor, oven cold state, Lena's hour). The states share
+every staged surface; only actors, oven state and lamp warmth
+vary. This is the morning/service/night loop as DATA.
+
+CODE-VS-GENERATION, priced:
+- 0 gens: back-wall band (plaster + wainscot, the band-law analog),
+  menu boards (SIGN-SURFACE LAW: smooth board + pale line
+  suggestions, no glyphs below 12px), pendant lamps (the diner's
+  silhouette precedent), wall phone (the pressure's indoor end),
+  framed family photos as dark frames + suggestion content (thirty
+  years of neighborhood on the wall), the composer + validator +
+  tests, the whole scene from approved assets.
+- Priced bespoke, each awaiting its slot: cash register (~1-2 gens,
+  anchor + wear), prep/work table (~2), drink cooler (~2, deeply
+  90s). None blocks the scene standing.
+- Phase C animation lands AFTER the scene stands: Tony's oven loop
+  (the theme's signature), Bee's counter idle, holding poses
+  (~4-8 MCP est). Phase D code strips (facade door, phone-ring
+  blink) any time.
+
+BUILD SHAPE when ruled: (1) schema + validator + tests (suite
+grows, 0 gens); (2) interior_compose.py on the block_compose shape
++ the DiNapoli instance staging; (3) boards at all three distances,
+A/B against the showcase; (4) Godot proof per the district
+precedent; (5) the bespoke queue and Phase C/D in this scene's
+context. AWAITING: the band law, both flagged judgments, the
+floor assignment, and the bespoke queue's appetite.
