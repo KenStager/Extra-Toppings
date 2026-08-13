@@ -2790,3 +2790,46 @@ inventing), UH student wardrobe (paper first), then THE HORIZON:
 the service-counter interior PAPER. Session G spend: 12 gens (4
 drift + 2 groceries + 4 commons + 2 loaves); expected balance
 ~4,027 by estimate.
+
+## Both rulings delegated and taken; session G closes (2026-08-12;
+## board: "Proceed with the following... you rule which stands...
+## stage it, adjust it, or decline it"; 0 gens)
+
+DECISIONS UNDER DELEGATION, recorded loudly, cheap to reverse
+(provenance e16_crust_streaks_promotion_2026-08-12.json):
+1. **THE CRUST STANDS.** The cream read WAS the flag's defect - the
+   loaves were indistinguishable from register cream; golden crust
+   delivers the bakery read and is the theme made literal (thirty
+   years of oven warmth, in the bakery window). Promoted:
+   approved/palermo_bakery_facade.png = the s17521 final
+   (f674e495...). Byte-check: morettis v7 -> v8 diff 554 px, ALL
+   inside the palermo window footprint (554 < the facade's 702 -
+   tree-crown occlusion accounts for the difference exactly).
+2. **THE STREAKS STAGE, unadjusted.** Law-backed mechanism
+   (validator + pinned tests + proven-inert composer), correctly
+   restrained for a translucent tint class, and the grading law
+   says the Meadows shows its neglect. The four streak decals
+   entered approved/vinnies_block_staging.json; the candidate
+   staging file RETIRED (one writable authority). Byte-check:
+   vinnies_v9 BYTE-IDENTICAL to the presented candidate board.
+
+PROOFS: **Moretti's 0/230,400; Vinnie's 0/230,400** (self-checks
+byte-exact). STANDING BOARDS at session close: hero v28 (reference
+22686e22...), morettis_v8, vinnies_v9, uh_v5.
+
+SESSION G CLOSES. Totals: 12 gens (4 drift + 2 groceries + 4
+commons + 2 loaves), ledger-verified; expected balance ~4,027 by
+estimate; vendor dashboard the authority. Suite 157, ruff clean.
+Laws paid this session: the raw-in law re-paid twice (strip-tone
+scaffolds refuse); the VARIETY COROLLARY; the RHYTHM CENSUS
+instrument (organic < 0.55 / fabric < 0.90); the three-distance
+protocol; GLINT-MARKS-THE-GLASS; glints are not surrendered to a
+repaint; the streak decal law (building-rows-only + no-door);
+census-over-eyeball re-proven three more times (the suite miscount,
+the crate tones, the navy-glass misread). STILL OPEN: the Meadows
+black-window item (survey finding 3, unruled); the hero diner door
+(unglinted, stays); hero-builder streak support (rides with any
+hero streak staging); LS upper band own-register round; the
+off-machine backup and the PixelLab support query. NEXT SESSION
+(H): LS interims -> UH student wardrobe (paper first) -> the
+service-counter interior PAPER.
