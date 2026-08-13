@@ -18,12 +18,13 @@ import json
 import random
 import statistics
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar
 
 from extra_toppings import (data, escrow, evidence, market, models, phases,
                             raids, routes)
 from extra_toppings import partner as partner_mod
+from extra_toppings import shop as shop_mod
 from extra_toppings import war as war_mod
 from extra_toppings.bot import (BOTS, CooldownRaiderBot, CounselOnlyBot,
                                 CrimeHeavyBot, EscrowBot, GreedyBot,
@@ -1463,11 +1464,19 @@ class DayMoney:
     events, each booked by the wrapper around the authority that
     actually moved it rather than inferred from a total."""
     covert: int = 0        # route cash resolved — component 3
-    wages: int = 0         # payroll paid, less the warehouse rent
+    wages: int = 0         # payroll paid, less EVERY rent that authority pays
     settlements: int = 0   # §2.7 counts settlements in STAFF spend
     counsel: int = 0       # retainer DOLLARS — component 6
     tribute: int = 0       # raid-time tribute — component 7
-    defense: int = 0       # incoming raids, however they ended
+    # INCOMING RAIDS THAT ACTUALLY DAMAGED AN ADDRESS (rev. 40 item 4).
+    # The first spelling counted every `incoming_raid` CALL, so an
+    # averted or repelled raid — the two outcomes where the address was
+    # NOT damaged — inflated the incident component.
+    raid_damage: int = 0
+    # Per-address instrumentation for the neglect proof (rev. 40 item
+    # 4): SPEND, not the inventory left standing at the end.
+    pantry_spend: dict = field(default_factory=dict)
+    cover_stops: dict = field(default_factory=dict)
 
 
 class ProfileProbe:
@@ -1485,9 +1494,10 @@ class ProfileProbe:
                ("phases", "_payroll_and_rent"),
                ("evidence", "settle_witness"),
                ("evidence", "counsel_nightly"),
-               ("raids", "incoming_raid"))
+               ("raids", "incoming_raid"),
+               ("shop", "stock_pantry"))
     MODULES = {"routes": routes, "phases": phases,
-               "evidence": evidence, "raids": raids}
+               "evidence": evidence, "raids": raids, "shop": shop_mod}
 
     def __init__(self) -> None:
         self.days: dict = defaultdict(DayMoney)
@@ -1524,8 +1534,28 @@ class ProfileProbe:
                 # NEVER a `state.dirty` delta — dirty also moves for
                 # tribute, purchases and laundering.
                 row.covert += int(result.get("cash", 0))
+                plan = a[0] if a else k.get("plan", {})
+                origin = plan.get("origin_shop")
+                if origin is not None:
+                    row.cover_stops[origin] = row.cover_stops.get(
+                        origin, 0) + int(plan.get("legit", 0))
+            elif fn_name == "stock_pantry":
+                # PANTRY SPEND, by address. `stock_pantry(state, shop,
+                # units)` is the authority; the price is the address's
+                # own purchasing policy.
+                target, units = a[0], a[1]
+                cost = data.INGREDIENT_COST[target.quality] * int(units)
+                row.pantry_spend[target.key] = row.pantry_spend.get(
+                    target.key, 0) + cost
             elif fn_name == "_payroll_and_rent":
-                rent = data.WAREHOUSE_RENT if state.warehouse is not None else 0
+                # EVERY RENT THIS AUTHORITY PAYS comes out (rev. 40
+                # item 4). Subtracting only the warehouse left every
+                # address's restaurant rent booked as wages — and
+                # Partner carries TWO. Clamped at zero.
+                rent = data.RENT_PER_DAY * len(
+                    models.addresses_allowing(state, "rent"))
+                if state.warehouse is not None:
+                    rent += data.WAREHOUSE_RENT
                 row.wages += max(0, spent - rent)
             elif fn_name == "settle_witness":
                 row.settlements += spent
@@ -1540,7 +1570,8 @@ class ProfileProbe:
                 # engine's own condition. The other cash move here is
                 # raiders GRABBING dirty money, which must never be
                 # booked as an obligation the player chose to meet.
-                row.defense += 1
+                if getattr(result, "damage_added", 0) > 0:
+                    row.raid_damage += 1
                 if getattr(result, "outcome", None) == "averted":
                     row.tribute += spent
             return result
@@ -1572,7 +1603,8 @@ def _state_digest(state) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:12]
 
 
-def _profile_run(seed: int, bot_cls, config, entered_attr: str) -> dict:
+def _profile_run(seed: int, bot_cls, config, entered_attr: str,
+                 target_branch: str) -> dict:
     """One instrumented run, returning every typed quantity the P4b.5
     letters and the pairwise battery read. Nothing here is parsed out
     of narration (rev. 39 item 6)."""
@@ -1581,6 +1613,7 @@ def _profile_run(seed: int, bot_cls, config, entered_attr: str) -> dict:
     hashes: dict = {}
     war_pay: dict = {}
     incidents: dict = {}
+    dirty: dict = {}
 
     def on_night(state, streams):
         # `night()` has already advanced the calendar: the completed
@@ -1589,13 +1622,20 @@ def _profile_run(seed: int, bot_cls, config, entered_attr: str) -> dict:
         nightly[done] = state.combined_legit_revenue_today()
         hashes[done] = _state_digest(state)
         bs = state.branch_state
+        dirty[done] = state.dirty
         war_pay[done] = getattr(bs, "war_pay_paid", 0) if bs else 0
         incidents[done] = getattr(bs, "escrow_incidents", 0) if bs else 0
 
     with ProfileProbe() as probe:
         s = run(seed, bot, config=config, on_night=on_night)
 
-    entered = getattr(bot, entered_attr, False) or s.branch is not None
+    # ENTRY IS THE TARGET BRANCH (rev. 40 item 1). Asking
+    # `s.branch is not None` counted STAND-PAT runs as entries into
+    # whichever chair the fleet was measuring — at 150 seeds that put
+    # 11 stand-pat runs into Partner's 80, and every rate, band and
+    # ablation drop divided by it was wrong.
+    entered = (getattr(bot, entered_attr, False)
+               or s.branch == target_branch)
     snap = s.sitdown_snapshot
     fork_day = snap.payoff_day + 1 if snap else None
     played = sorted(nightly)
@@ -1604,6 +1644,10 @@ def _profile_run(seed: int, bot_cls, config, entered_attr: str) -> dict:
         "seed": seed, "entered": entered, "ending": s.game_over,
         "branch": s.branch, "fork_day": fork_day,
         "pre_chair_hash": hashes.get(snap.payoff_day) if snap else None,
+        # The stash CARRIED IN, read on the pre-chair night — not what
+        # is left at the end, which is a different question (rev. 40
+        # item 5).
+        "dirty_at_fork": dirty.get(snap.payoff_day) if snap else None,
         "post_days": len(post), "last_day": played[-1] if played else None,
         "nightly": nightly, "post": post, "probe": probe.days,
         "route_days": len({r.day for r in s.route_log
@@ -1611,12 +1655,35 @@ def _profile_run(seed: int, bot_cls, config, entered_attr: str) -> dict:
         "raid_days": len({r.day for r in s.raid_log
                           if fork_day is not None and r.day >= fork_day}),
         "war_pay": max(war_pay.values()) if war_pay else 0,
-        "incidents": max(incidents.values()) if incidents else 0,
+        # ESCROW INCIDENT INCREMENTS, not a final maximum (rev. 40
+        # item 4): a collapse destroys the branch state, and the last
+        # reading then loses incidents that really happened.
+        "incidents": _increments(incidents),
+        # WAR "defense" DAMAGE RECORDS — the third ruled source, which
+        # the first spelling never read at all.
+        "defense_records": sum(
+            1 for c in (s.branch_state.campaigns if s.branch_state else [])
+            for d in c.damage
+            if d.channel == "defense"
+            and fork_day is not None and d.day >= fork_day),
         "points_paid": sum(c.bill for c in s.branch_state.points_cycles
                            if c.paid) if s.branch_state else 0,
         "cycles": list(s.branch_state.points_cycles) if s.branch_state else [],
         "state": s,
     }
+
+
+def _increments(by_day: dict) -> int:
+    """The SUM OF INCREASES in a cumulative counter, read night by
+    night — never its final value, which a collapse can reset."""
+    total = 0
+    previous = 0
+    for day in sorted(by_day):
+        value = by_day[day]
+        if value > previous:
+            total += value - previous
+        previous = value
+    return total
 
 
 def _components(r: dict) -> list | None:
@@ -1634,7 +1701,9 @@ def _components(r: dict) -> list | None:
                    if d in post)
     staff = total("wages") + total("settlements") + r["war_pay"]
     obligation = r["points_paid"] + total("tribute")
-    incidents = total("defense") + r["incidents"]
+    # THE THREE RULED SOURCES, exactly (rev. 40 item 4).
+    incidents = (total("raid_damage") + r["incidents"]
+                 + r["defense_records"])
     return [
         r["route_days"] / days,
         r["raid_days"] / days,
@@ -1686,10 +1755,12 @@ def _fork_partner(seeds: int) -> tuple:
                       ("no-covert", NoCovertPartnerBot),
                       ("neglect", NeglectPartnerBot)):
         fleets[name] = {seed: _profile_run(seed, cls, PARTNER_ON,
-                                           "_entered_partner")
+                                           "_entered_partner", "partner")
                         for seed in range(seeds)}
+    # The control STANDS PAT, so its "entered" flag is meaningfully
+    # False; it is paired for its pre-chair state and its revenue.
     control = {seed: _profile_run(seed, PartnerBot, STANDPAT_ON,
-                                  "_entered_partner")
+                                  "_entered_partner", models.STAND_PAT)
                for seed in range(seeds)}
 
     complete = fleets["partner"]
@@ -1742,16 +1813,30 @@ def _fork_partner(seeds: int) -> tuple:
               f"{(good - rate) * 100:.0f} points ({note})")
 
     # ── the neglect fleet must have neglected BOTH rooms ────────────
+    # SPEND, by address, not the inventory left standing at the end
+    # (rev. 40 item 4) — a room can finish full because nobody ate
+    # there. Cover is the legit delivery stops the routes actually
+    # ran, out of the typed plan. Both fleets print, so each is the
+    # other's positive control: a zero that only ever appears beside
+    # another zero proves nothing.
     for name in ("partner", "neglect"):
-        spend: dict = {}
+        pantry: dict = {}
+        cover: dict = {}
         for r in fleets[name].values():
-            st = r["state"]
             if not r["entered"]:
                 continue
-            for sh in st.shops:
-                spend[sh.key] = spend.get(sh.key, 0) + sh.ingredients
-        print(f"  pantry stock carried at end, {name}, by address: "
-              f"{dict(sorted(spend.items()))}")
+            post = set(r["post"])
+            for day, row in r["probe"].items():
+                if day not in post:
+                    continue
+                for key, amount in row.pantry_spend.items():
+                    pantry[key] = pantry.get(key, 0) + amount
+                for key, stops in row.cover_stops.items():
+                    cover[key] = cover.get(key, 0) + stops
+        print(f"  post-fork PANTRY SPEND by address, {name}: "
+              f"{ {k: f'${v:,}' for k, v in sorted(pantry.items())} }")
+        print(f"  post-fork COVER STOPS by address, {name}: "
+              f"{dict(sorted(cover.items()))}")
 
     # ── points on schedule (rev. 39 item 5) ─────────────────────────
     billed = [r for r in entered if r["cycles"]]
@@ -1765,16 +1850,22 @@ def _fork_partner(seeds: int) -> tuple:
           f"{len(no_bill)} ({Counter(r['ending'] for r in no_bill)})")
 
     # ── the paired legit-revenue letter (rev. 39 item 1) ────────────
-    ratios, diffs, invalid, truncated, widths = [], [], [], 0, []
+    ratios, diffs, invalid, widths = [], [], [], []
+    trunc_widths: list = []
     for seed in range(seeds):
         a, b = complete[seed], control[seed]
         if not a["entered"] or a["fork_day"] is None:
             continue
         lo = a["fork_day"]
         hi = min(lo + 8, data.DEBT_DUE_DAY)
+        width = hi - lo + 1
+        widths.append(width)
         if lo + 8 > data.DEBT_DUE_DAY:
-            truncated += 1
-        widths.append(hi - lo + 1)
+            # THE TRUNCATED WINDOWS KEEP THEIR OWN LIST (rev. 40 item
+            # 5). Taking the median over ALL windows reported a median
+            # width of 9 for 8 truncated ones, which is impossible —
+            # the untruncated majority was answering for them.
+            trunc_widths.append(width)
         # BOTH ARMS, THE SAME CALENDAR WINDOW. A day an arm did not
         # play contributes ZERO — the pair is never shortened to the
         # survivor's length, because shortening it erases exactly the
@@ -1790,21 +1881,28 @@ def _fork_partner(seeds: int) -> tuple:
     print(f"combined legit revenue, fork..min(fork+8, day "
           f"{data.DEBT_DUE_DAY}), paired: median per-seed ratio "
           f"{med:.2f} over {len(ratios)} valid pairs (bar >= 1.5); "
-          f"median absolute difference "
-          f"${statistics.median(diffs) if diffs else 0:,.0f}")
-    print(f"  truncated windows: {truncated} (median width "
-          f"{statistics.median(widths) if widths else 0:.0f} days)")
+          f"median PARTNER MINUS CONTROL "
+          f"${statistics.median(diffs) if diffs else 0:,.0f} (signed — "
+          f"an absolute difference cannot be negative)")
+    print(f"  truncated windows: {len(trunc_widths)} (median width of "
+          f"the TRUNCATED ones "
+          f"{statistics.median(trunc_widths) if trunc_widths else 0:.0f} "
+          f"days; all windows {statistics.median(widths) if widths else 0:.0f})")
     print(f"  INVALID pairs (zero stand-pat total — not infinity, not "
           f"1.0, not dropped): {len(invalid)}"
           + (f"; absolute differences {[d for _s, d in invalid[:8]]}"
              if invalid else ""))
 
     # ── the inherited-dirty confound, reported as its own line ──────
-    inherited = [r["state"].dirty for r in fleets["no-covert"].values()
-                 if r["entered"]]
-    print(f"  no-covert fleet, dirty cash still held at end: median "
-          f"${statistics.median(inherited) if inherited else 0:,.0f} "
-          f"— pre-fork stash is not a post-fork crime, and paying an "
+    at_fork = [r["dirty_at_fork"] for r in fleets["no-covert"].values()
+               if r["entered"] and r["dirty_at_fork"] is not None]
+    at_end = [r["state"].dirty for r in fleets["no-covert"].values()
+              if r["entered"]]
+    print(f"  no-covert fleet, dirty cash INHERITED AT THE FORK: median "
+          f"${statistics.median(at_fork) if at_fork else 0:,.0f}; still "
+          f"held at the end: "
+          f"${statistics.median(at_end) if at_end else 0:,.0f} — a "
+          f"pre-fork stash is not a post-fork crime, and paying an "
           f"early bill from it is the confound rev. 22 item 10 named")
 
     # ── both grading-threshold distributions, ALWAYS (rev. 38 item 5)
@@ -1857,12 +1955,15 @@ def _pairwise(seeds: int, binding: bool) -> None:
         "quiet_sale": (EscrowBot, "quiet_sale", "_entered_escrow"),
     }
     raw: dict = {}
+    hashes: dict = {}
     for name, (cls, branch, attr) in fleets.items():
         cfg = GameConfig(fork_enabled=True,
                          enabled_branches=frozenset({branch}))
         rows, no_entry, no_days = [], 0, 0
+        hashes[name] = {}
         for seed in range(seeds):
-            r = _profile_run(seed, cls, cfg, attr)
+            r = _profile_run(seed, cls, cfg, attr, branch)
+            hashes[name][seed] = r["pre_chair_hash"]
             if not r["entered"]:
                 no_entry += 1
                 continue
@@ -1875,10 +1976,31 @@ def _pairwise(seeds: int, binding: bool) -> None:
         print(f"  {name}: {len(rows)} profiled; non-entry {no_entry}, "
               f"entered-with-zero-post-fork-days {no_days}")
 
-    pooled = [row for rows in raw.values() for row in rows]
-    if not pooled:
-        print("pairwise: no profiled runs — study inconclusive")
+    # THE FOUR-FLEET IDENTITY PROOF (rev. 39 item 4, implemented by
+    # rev. 40 item 2). Every complete fleet must reach the table from
+    # the same month; entered flags may differ because the chair gates
+    # differ by design, but a divergent PRE-CHAIR STATE means the
+    # fleets are not comparable and the verdict below is void.
+    bad = 0
+    for seed in range(seeds):
+        seen = {h[seed] for h in hashes.values() if h[seed] is not None}
+        if len(seen) > 1:
+            bad += 1
+    print(f"  four-fleet pre-chair identity: {bad} divergent seeds "
+          f"(bar 0)")
+    if bad:
+        print("pairwise: INVALID — the fleets did not reach the table "
+              "from the same month, so no separation figure below "
+              "means anything")
         return
+
+    complete = [n for n, rows in raw.items() if rows]
+    if len(complete) < 4:
+        print(f"pairwise: INCONCLUSIVE — {len(complete)} of 4 fleets "
+              f"produced a profile; the six-pair verdict needs all "
+              f"four")
+        return
+    pooled = [row for rows in raw.values() for row in rows]
     # ONE pooled min-max per component, fitted once. No clipping and
     # no winsorizing: an outlier is a fact about the branch, and
     # trimming it is tuning the instrument.
@@ -1912,8 +2034,9 @@ def _pairwise(seeds: int, binding: bool) -> None:
         print(f"    {name:11} " + " ".join(f"{v:5.2f}" for v in norm))
 
     names = sorted(profile)
-    failures = 0
+    pairs = failures = 0
     for a, b in itertools.combinations(names, 2):
+        pairs += 1
         pa, pb = profile[a][0], profile[b][0]
         seps = [(COMPONENTS[i], abs(pa[i] - pb[i]))
                 for i in range(len(COMPONENTS))]
@@ -1925,8 +2048,8 @@ def _pairwise(seeds: int, binding: bool) -> None:
         for comp, d in sorted(seps, key=lambda s: -s[1]):
             print(f"      {comp:26} {d:5.2f}"
                   + ("  <=" if d >= 0.25 else ""))
-    print(f"pairwise verdict [{tag}]: {6 - failures}/6 pairs separate "
-          f"on at least two components")
+    print(f"pairwise verdict [{tag}]: {pairs - failures}/{pairs} pairs "
+          f"separate on at least two components")
 
 
 def main() -> None:
