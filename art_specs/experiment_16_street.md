@@ -3105,3 +3105,68 @@ A/B against the showcase; (4) Godot proof per the district
 precedent; (5) the bespoke queue and Phase C/D in this scene's
 context. AWAITING: the band law, both flagged judgments, the
 floor assignment, and the bespoke queue's appetite.
+
+## The horizon built: the interior unit stands in three states
+## (2026-08-12 session H; board: "Proceed with the horizon...
+## render, reflect, revise, re-render. This is a loop. Look at all
+## of our generated assets"; 0 gens - laws, composer, and the loop)
+
+INVENTORY FIRST, per the directive: every interior-relevant approved
+asset censused and eyes-judged on a contact board before one pixel
+composed - oven (cold/lit), counters, three floors, booth bay and
+fourtop with their 2026-08-11 staging rulings (the unit offsets are
+read from those APPROVED files, single authority), chairs in four
+orientations, the cast, seated bases, flour/cut decals. The interior
+palette is censused from the assets themselves (counter cream/tan,
+booth burgundy/red, wood, ember browns, fire amber) - the composer
+mints nothing.
+
+THE LAWS LANDED (git): tools/art_pipeline/interior_scene.py - the
+six-band row law (48 ceiling / 104 back wall / 8 seam / 64 work
+floor / 16 counter run / 120 customer floor), the wall line and the
+COUNTER LINE, and the loop's geometry as first-class refused data
+(entry corridor, ordered queue slots, counter pass gap, furniture
+that may not block either). test_interior_scene.py pins the lawful
+instance and EVERY violation class: **suite 157 -> 175, ruff clean.**
+
+THE COMPOSER (recipes/interior_compose.py): back wall with frieze,
+wainscot and plaster whisper-mottle (white-mix hash); MENU BOARD on
+the sign-surface law (dark board, red header, cream line suggestions
+- no glyphs); framed photos as suggestion content; the wall phone
+(the pressure's indoor end); pendant lamps; floors tiled per staging;
+fixtures on the wall line; counter run with pass gap and east
+return; furniture units assembled from the approved E15 stagings;
+scene states morning / service / night over one staging.
+
+THE LOOP, three rounds recorded honestly:
+- r1 convicted itself on six counts (Bee buried behind the 64-tall
+  counter with two visible rows; the pizza floating on the back
+  edge; the counter dying mid-room; an empty south third; floating
+  fourtop; mid-floor booth).
+- r2 fixed six and Bee was STILL invisible - the census named it:
+  **cast_bee's content is 16x30 in a 60x60 canvas** (bbox
+  (24,16)-(40,46)); 14 px leaked through the counter's transparent
+  top margin. LAW: CAST SPRITES ANCHOR BY CONTENT, NOT CANVAS.
+- r3 landed her (base 190: 205 visible px, head+torso above the
+  counter) - and paid a second census-over-eyeball: my "the counter
+  floats / floor shows through the display glass" reflection was
+  REFUTED by alpha census (counter_main is opaque rows 4-55; the
+  speckled cream display front had read as terracotta at 4x).
+
+STANDING CANDIDATE: candidates/dinapoli_interior_staging.json
+(validator PASS at every revision) + boards interior_states_board
+(morning/service/night), interior_counter4x, interior_dining4x.
+NOTHING promoted.
+
+FLAGGED FOR THE BOARD, loudly:
+1. **The N-facing standing pose gap**: queue customers face the
+   camera - the animation slate already routed direction poses to
+   the interiors round; a north-facing standing extra base is the
+   priced ask (~2 gens, + cycles when the queue animates).
+2. **Night lighting**: the night state keeps lit pendants and menu
+   board; a true lights-out interior is decision-5 class (recorded
+   recolor over the composed scene), not this round's scope.
+3. The checker dining floor reads cool beside the terracotta - it
+   is staged DATA; one key swaps it if the board wants warmer.
+4. The bespoke queue stands priced (register ~1-2 gens, prep table
+   ~2, cooler ~2); none of it blocked the scene standing.
