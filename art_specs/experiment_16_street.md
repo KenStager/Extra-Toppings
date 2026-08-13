@@ -3277,3 +3277,32 @@ r3 pick; the placement math held unchanged (same content box,
 verified before re-render). Board r9_register5x: Bee behind the
 machine, its display toward the queue. Session H spend: 32 gens
 ledgered; expected balance ~3,995 by estimate.
+
+## The designated can and the solid cabinet (2026-08-12 session H;
+## board: "a designated trash can... not this counter top thing" +
+## "the base of the arcade cabinet is translucent"; 2 gens)
+
+Two catches, two mechanisms:
+1. **THE TRAY-RETURN TRASH CABINET** (r4, 2 gens, pick s17663): the
+   r2 bin read as a countertop item; the designated 90s pizza-shop
+   object is the tall tray-return cabinet - wood body in the
+   counter's family, dark push-flap opening with swing door, tray
+   ledge on top. Stationed between the entry corridor and the booth
+   where leaving customers pass it (the first placement hit the
+   booth's SE corner and was caught before rendering - the
+   never-open-floor law now has a corollary: check what already
+   OWNS the corner). The r2 bin stays in candidates as kitchen
+   stock.
+2. **THE ARCADE'S TRANSLUCENT BASE**: 457 carved alpha px censused
+   inside the anchor silhouette - the no_background class, measured
+   on its fourth appearance (Anchor Diner, LS r1, walkin s17652,
+   now this). Backfilled from the final-tone anchor at finishing
+   (the register-mapped-scaffold law); zero holes after. LESSON
+   SHARPENED: the alpha-hole census joins the PICK checklist -
+   every generated prop is checked against its anchor silhouette
+   BEFORE entering final/, not after the board sees the floor
+   through it.
+
+Both verified dead at 5x (r10 boards). Session H spend: 34 gens
+ledgered; expected balance ~3,993 by estimate; vendor dashboard
+the authority.
