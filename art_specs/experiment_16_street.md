@@ -3369,3 +3369,18 @@ The elder's back pose is the batch's next item (he still queues
 S-facing). Boards: ab_interior_npose + three 4x crops. AWAITING
 THE WORD on the npose swap. Session H spend: 45 gens ledgered;
 expected balance ~3,982; vendor dashboard the authority.
+
+## The counter-end retires (2026-08-12 session H; board: "Get rid
+## of the stupid trash can next to the counter. The cabinet one";
+## 0 gens)
+
+Named at last: the counter_end piece's dark hatch - flagged as "a
+mounted dark box" at r3, kept as "symmetric niches" at my own
+judgment - had been reading as a built-in trash cabinet all along.
+The board's eye ends it: the piece is RETIRED from both stagings
+(the approved scene by sanctioned ruling + the npose candidate);
+the counter ends clean at main2's finished edge; the pass gap
+re-centers [412,444]; the barrel by the soda machine stands as the
+room's one trash object. Godot proof re-run: **0/230,400**. The
+lesson joins the reckoning's ledger: a detail I explained away
+twice ("acceptable at 1x") was a wrong read wearing an excuse.
