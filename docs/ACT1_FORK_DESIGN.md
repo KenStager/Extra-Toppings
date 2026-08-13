@@ -6468,3 +6468,133 @@ most to gain from breaking it.
    `NotImplementedError` stays regardless as the defensive invariant
    for any future chair, and the P1 probe test that pins it is
    retargeted rather than deleted.
+
+**Revision 39 — the constraints on revision 38, and the source table
+that keeps the numbers out of the prose.** Revision 38 is approved at
+`8828298` with the constraints below. Paper only; implementation
+follows without a further disposition. Every item here binds P4b.5.
+
+1. **THE WINDOW (rev. 38 item 3(a)), approved as proposed and
+   sharpened.** `fork_day … min(fork_day + 8, DEBT_DUE_DAY)`,
+   inclusive, and **both paired arms keep that same calendar window**.
+   *If one arm ends early — foreclosed, arrested, sold, insolvent —
+   its remaining days contribute ZERO revenue.* The pair is NOT
+   shortened to the survivor's length: shortening it would erase the
+   consequence, which is precisely the thing the ratio is supposed to
+   see. **A zero stand-pat total makes that pair's ratio row INVALID**
+   — not infinity, not 1.0, and not a silently excluded seed. Invalid
+   pairs are counted, listed, and reported with their **absolute
+   dollar differences**, which remain meaningful when the ratio does
+   not. §2.7 amended.
+
+2. **THE COMBINED-REVENUE AUTHORITY (rev. 38 item 3(b)), approved with
+   time made explicit.** `State.combined_legit_revenue_today() -> int`
+   — a method, beside `total_stock_units()` and `net_worth()`, named
+   for the day it measures so no reader mistakes it for a cumulative
+   total. **This is the ONLY sanctioned behaviour-free model addition
+   in P4b.5.** The harness CONSUMES it and never sums locally; a
+   second spelling in the study is the two-homes defect this document
+   opens with. Three properties are pinned:
+
+   - **one-address equivalence** — on a one-shop state it equals
+     `State.legit_revenue_today`, the alias it does not replace;
+   - **two-address summation** — with a second room open it equals
+     the sum of both shops' `legit_revenue_today`;
+   - **shop-order invariance** — reordering `state.shops` does not
+     change it, because a total that depends on list position is the
+     positional coupling P4a exists to have removed.
+
+3. **THE PAIRWISE BATTERY (rev. 38 item 6), approved and bounded.**
+   - **Binding at 500 seeds; the 150-seed run is DIAGNOSTIC** and is
+     printed as such.
+   - **Pool only the four COMPLETE branch fleets** — the ablation
+     fleets and the stand-pat control are excluded from the
+     normalizer, because a scale fitted partly on deliberately
+     crippled policies is not the scale the four branches are being
+     compared on.
+   - **Population: entered runs with at least one PLAYED post-fork
+     day.** A run that entered and ended the same night has no
+     profile and contributes none.
+   - **One pooled min–max scale per component, fitted once. No
+     clipping, no winsorizing** — an outlier is a fact about the
+     branch, and trimming it is tuning the instrument.
+   - Branch statistic: the **median normalized per-run value**.
+   - **Printed in full:** the pooled bounds per component, the RAW
+     branch medians (before normalization), the normalized 4 × 8
+     matrix, all six pair tables, and every degenerate component.
+
+4. **THE ENTRY-IDENTITY PROOF IS EXTENDED.** Rev. 15's ruling covered
+   ablations; it did not cover the control or the cross-branch pool,
+   and an unproved control is an unproved ratio.
+   - *Complete Partner vs each ablation:* as revision 38 wrote it —
+     identical pre-fork state hash AND entered flag, **bar 0**.
+   - *Complete Partner vs its stand-pat revenue control:* identical
+     **pre-chair state hash and fork day**, **bar 0**. The pair is the
+     unit of the ≥ 1.5 ratio, and a pair whose arms entered from
+     different months measures the month, not the chair.
+   - *All four complete branch fleets:* identical **pre-chair state
+     hash per seed**. Their **entered flags need NOT match** — the
+     chair gates differ by design and §2.1 gates them deliberately —
+     but **entry and non-entry counts are reported per fleet**, so a
+     branch thin on entries cannot look like a branch with a thin
+     profile.
+
+5. **DENOMINATORS, TIGHTENED.**
+   - *Points on schedule* requires **at least one actual
+     `PointsCycleRecord`**, not merely reaching the calendar date. A
+     run arrested on a due night **before the cycle was processed**
+     never had a bill to miss; it is excluded and **reported**. The
+     old wording ("reaches at least one due date") would have counted
+     it as a clean run that paid nothing.
+   - *Threshold distributions* report the **count AND terminal
+     breakdown** of entered runs excluded for not reaching day 31 —
+     the distribution is over survivors, and which endings removed the
+     rest is part of reading it.
+   - *Pairwise* reports **non-entry and zero-post-fork-day counts per
+     fleet**.
+
+6. **THE SOURCE TABLE — and the rule it exists to enforce.**
+   **NUMERIC STUDY RESULTS ARE NEVER RECONSTRUCTED FROM
+   `con.say`/`con.bullet`.** Prose stays valid for exactly three
+   things: **bot decisions** (a bot reading the board a human reads),
+   **telegraph checks**, and **narration assertions**. The straight
+   study's transcript-tallied `covert_by_day` is the pattern being
+   retired here: a regex over narration is an instrument that a
+   reworded sentence silently breaks, and this document has already
+   catalogued what a blind instrument does to a claim.
+
+   Where no typed source exists, **analysis-side typed instrumentation
+   is added** — a probe in `analysis/` that wraps the authoritative
+   engine call and records typed per-day rows. **No persisted
+   accounting ledger is added to the engine without returning to
+   review**; the probe lives in the harness and persists nothing.
+
+   All eight components share one **day denominator: post-fork days
+   PLAYED** — `fork_day` through the run's last played day inclusive,
+   never the nominal 30, so a run that ended on day 19 is not divided
+   by days it never saw.
+
+   | # | component | numerator | source |
+   |---|---|---|---|
+   | 1 | route-day % | distinct post-fork days carrying ≥ 1 route record | `State.route_log` — typed `RouteExecutionRecord.day` |
+   | 2 | raid-day % | distinct post-fork days carrying ≥ 1 raid record | `State.raid_log` — typed `RaidAttemptRecord.day` |
+   | 3 | covert $/day | route cash resolved on post-fork days | **probe** on the route-resolution return (`report["cash"]`), the same resolution that appends the route record — never `state.dirty` deltas, which also move for tribute, purchases and laundering |
+   | 4 | legit $/day | Σ nightly `combined_legit_revenue_today()` | the item-2 authority, sampled in `on_night` |
+   | 5 | staff spend $/day | wages actually paid + settlements + war pay | **probe** on `phases._payroll_and_rent` (cash before/less warehouse rent/after — arithmetic on observed cash, NOT a second spelling of the wage sum) + **probe** on the witness-settlement cost + `BranchState.war_pay_paid` deltas (typed) |
+   | 6 | remediation spend $/day | counsel retainer fees paid | **probe** on the counsel-retainer charge. `BranchState.remediation_used` is Case POINTS, not dollars, and is reported separately |
+   | 7 | obligation outflow $/day | points bills paid + tribute paid | `PointsCycleRecord` where `paid` (typed: `bill`, `paid_day`) + **probe** on the raid-time tribute payment |
+   | 8 | incident/defense events per day | escrow incidents + war defense damage + rival acts that damage an address | `BranchState.escrow_incidents` deltas (typed) + `DamageRecord` with channel `"defense"` (typed: `day`) + **probe** on the rival act that sets `damage_days` |
+
+   *Two placements are stated here so they cannot drift.* A **witness
+   settlement** is both a staff act and a remediation act; §2.7 lists
+   it under **staff spend**, and that is where it is counted — never
+   both. The **$1,000 peace envelope** is a peace offering, not
+   tribute; it is reported as its own diagnostic line and is **not**
+   in component 7.
+
+7. **UNCHANGED, and restated because this is the PR that will be
+   tempted.** Thresholds, mechanics, released bots and activation are
+   untouched. The released-bot retrofit is approved as an omission and
+   **no side PR is opened for it now**. Every miss returns as a
+   finding — decomposed in FINDINGS, argued at review, never tuned
+   away inside the PR that measured it.
