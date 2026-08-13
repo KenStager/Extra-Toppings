@@ -13,6 +13,8 @@ route out: a test that wants a departed route asks this one function,
 and production still departs only from `_commit_route`.
 """
 
+import copy
+
 from extra_toppings import routes, save
 
 
@@ -30,6 +32,8 @@ def deep_snapshot(state) -> dict:
     known prices, rivals, campaigns and every other mutable field. A
     refusal that quietly moved one of those would have passed. This
     reads the save boundary, which is the one authority that already
-    has to see everything.
+    has to see everything — and DEEP-COPIES it, because
+    `state_to_dict` keeps `state.prices` BY REFERENCE, so a snapshot
+    taken before a refusal quietly changed when the world did.
     """
-    return save.state_to_dict(state)
+    return copy.deepcopy(save.state_to_dict(state))

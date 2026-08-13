@@ -28,7 +28,9 @@ service-time revalidation (rev. 14 item 5): a correctness correction,
 not a new rule.
 """
 
+import ast
 import dataclasses
+import pathlib
 import random
 import unittest
 
@@ -235,26 +237,27 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
         routes.resolve_route(departure, Quiet(), random.Random(3))
         self.assertEqual(len(state.route_log), 1)
 
-    def test_no_caller_can_supply_a_market_at_all(self):
-        """The forgeries that worked against the second correction are
-        now unreachable BY CONSTRUCTION rather than by validation: the
-        market is derived from the bound state, so neither another
-        district's view nor ANOTHER WORLD's can be handed in. A cool
-        Meadows view from state B attached to an amber Meadows route
-        in state A resolved and logged cool."""
+    def test_a_departure_cannot_be_constructed_at_all(self):
+        """A module-level token was not factory control: it was
+        reachable as `routes._DEPARTURE_TOKEN`, and
+        `RouteDeparture(state=s, plan=p, token=that)` built one. Every
+        field is `init=False` now, so there is no constructor to
+        call."""
         state, drivers = _two_route_world(NEAR_RED)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
-        elsewhere = market.route_market(state, OTHER_DISTRICT)
+        self.assertFalse(
+            [f.name for f in dataclasses.fields(routes.RouteDeparture)
+             if f.init],
+            "a departure still has an init field somebody can pass")
         with self.assertRaises(TypeError):
-            routes.RouteDeparture(state=state, plan=plan,
-                                  token=routes._DEPARTURE_TOKEN,
-                                  market=elsewhere)
+            routes.RouteDeparture(state=state, plan=plan)
+        with self.assertRaises(ValueError):
+            routes.RouteDeparture()
         # …and a departure that IS made always carries its own
         # district, read from the state it is bound to.
         departure = departed(state, plan)
         self.assertEqual(departure.market,
                          market.route_market(state, DISTRICT))
-        self.assertEqual(departure.market.district, DISTRICT)
 
     def test_a_cool_view_from_another_world_cannot_be_smuggled_in(self):
         """The exact second reproduction. Two worlds, same district,
@@ -331,6 +334,64 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
         with self.assertRaises(ValueError):
             routes.depart_at_commit(state, plan)
 
+    def test_the_guard_matches_a_PATH_and_a_FUNCTION_not_a_filename(self):
+        """A basename guard is not a scope. Code compiled as
+        `/tmp/route_support.py` carried that `__file__` straight
+        through the first version, and any function in any `phases.py`
+        could call the production maker."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        for path, func in (("/tmp/route_support.py", "departed"),
+                           ("/tmp/phases.py", "_commit_route")):
+            src = ("def departed(state, plan, routes):\n"
+                   "    return routes.record_departure_for_probe("
+                   "state, plan)\n"
+                   "def _commit_route(state, plan, routes):\n"
+                   "    return routes.depart_at_commit(state, plan)\n")
+            ns: dict = {"__file__": path}
+            exec(compile(src, path, "exec"), ns)
+            with self.assertRaises(ValueError):
+                ns[func](state, plan, routes)
+        # And the real seam, from its real home, still works.
+        self.assertIsNotNone(departed(state, plan))
+
+    def test_no_other_call_site_exists_anywhere_in_the_tree(self):
+        """The AST call-site guard: the two makers are named in
+        exactly the sanctioned functions and nowhere else, checked
+        against the SOURCE rather than against whatever ran today."""
+        allowed = {
+            "depart_at_commit": {("extra_toppings/phases.py",
+                                  "_commit_route")},
+            "record_departure_for_probe": {
+                ("analysis/experiments.py", "_heat_exposure_probe"),
+                ("tests/route_support.py", "departed"),
+            },
+        }
+        root = pathlib.Path(__file__).resolve().parent.parent
+        found: dict = {name: set() for name in allowed}
+        for path in root.rglob("*.py"):
+            if path.name == pathlib.Path(__file__).name:
+                continue
+            rel = path.relative_to(root).as_posix()
+            tree = ast.parse(path.read_text())
+            # TOP-LEVEL functions only, and calls anywhere inside them
+            # — a sanctioned function may make the call from a closure
+            # of its own, which the analysis probe does.
+            for node in tree.body:
+                if not isinstance(node, (ast.FunctionDef,
+                                         ast.AsyncFunctionDef)):
+                    continue
+                for inner in ast.walk(node):
+                    if not isinstance(inner, ast.Call):
+                        continue
+                    fn = inner.func
+                    name = getattr(fn, "attr", getattr(fn, "id", None))
+                    if name in allowed:
+                        found[name].add((rel, node.name))
+        for name, sites in allowed.items():
+            self.assertEqual(found[name], sites,
+                             f"{name} is called somewhere new")
+
     def test_a_red_district_cannot_produce_a_departure_at_all(self):
         state, drivers = _two_route_world(RED_HEAT)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
@@ -357,6 +418,69 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
         self.assertIs(departure.plan, plan)
         self.assertEqual(departure.market,
                          market.route_market(state, DISTRICT))
+
+    def test_the_committed_load_is_fingerprinted_too(self):
+        """Identity is not enough. With district, origin, wagon and
+        driver all untouched, raising `manifest.legit` from 0 to 2
+        after departure moved clean cash 2000 → 2032."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = routes.RoutePlan(
+            district=DISTRICT, driver=drivers[0], ride_along=False,
+            manifest=routes.RouteManifest(cargo={}, legit=0),
+            origin_shop=HOME_SHOP_KEY, wagon_key=HOME_WAGON_KEY)
+        state.clean = 2000
+        departure = departed(state, plan)
+        plan["legit"] = 2
+        before = _snapshot(state)
+        with self.assertRaises(ValueError) as caught:
+            routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertIn("changed after it departed", str(caught.exception))
+        self.assertEqual(_snapshot(state), before)
+
+    def test_an_in_place_cargo_edit_is_caught(self):
+        # The cargo MAP is fingerprinted item by item, so an edit that
+        # leaves the length alone cannot slip past.
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        departure = departed(state, plan)
+        plan["cargo"]["mushrooms"] = 1
+        before = _snapshot(state)
+        with self.assertRaises(ValueError):
+            routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertEqual(_snapshot(state), before)
+
+    def test_a_departure_resolves_exactly_once(self):
+        """A wagon goes out once. Resolving one empty-cargo, two-cover
+        departure twice moved clean 2000 → 2032 → 2064, revenue
+        0 → 32 → 64, and wrote two log rows for one night."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = routes.RoutePlan(
+            district=DISTRICT, driver=drivers[0], ride_along=False,
+            manifest=routes.RouteManifest(cargo={}, legit=2),
+            origin_shop=HOME_SHOP_KEY, wagon_key=HOME_WAGON_KEY)
+        state.clean = 2000
+        departure = departed(state, plan)
+        routes.resolve_route(departure, Quiet(), random.Random(3))
+        after_one = _snapshot(state)
+        self.assertEqual(len(state.route_log), 1)
+        with self.assertRaises(ValueError) as caught:
+            routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertIn("already ran tonight", str(caught.exception))
+        self.assertEqual(_snapshot(state), after_one)
+        self.assertEqual(len(state.route_log), 1)
+
+    def test_the_snapshot_is_actually_deep(self):
+        # `state_to_dict` keeps `state.prices` BY REFERENCE, so the
+        # hand-rolled version changed under its own feet.
+        state, _drivers = _two_route_world(NEAR_RED)
+        # Prices are rolled by the morning, not by `new_state`.
+        market.roll_prices(state, random.Random(3))
+        before = _snapshot(state)
+        district = next(iter(state.prices))
+        good = next(iter(state.prices[district]))
+        state.prices[district][good] += 999
+        self.assertEqual(before["prices"][district][good],
+                         _snapshot(state)["prices"][district][good] - 999)
 
     def test_recording_a_departure_mutates_nothing(self):
         # The morning plan stays an intention: the departure is a

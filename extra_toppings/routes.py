@@ -1,5 +1,6 @@
 """Delivery routes: legit pizzas up front, coded orders in the warmer bag."""
 
+import os
 import random
 import sys
 from dataclasses import dataclass, field
@@ -456,32 +457,71 @@ def _stop_risk(state: State, plan: "RoutePlan | dict") -> float:
     return min(0.75, risk)
 
 
-# The token that makes a departure. Held by this module alone, so a
-# `RouteDeparture(...)` built anywhere else refuses: the value means
-# "this route left", and only the code that sends routes out may say
-# so.
-_DEPARTURE_TOKEN = object()
-
 # The plan fields that say WHICH ROUTE THIS IS. Anything here changing
 # after departure means the wagon that left is not the wagon being
 # resolved.
 _IDENTITY_FIELDS = ("district", "origin_shop", "wagon_key",
                     "ride_along", "disposal")
 
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_PACKAGE_DIR)
+
+# EXACT RESOLVED PATHS AND FUNCTION NAMES, not filenames. A basename
+# guard is not a scope: code compiled as `/tmp/route_support.py`
+# carried that `__file__` straight through the first version, and any
+# function in any `phases.py` could call the production maker.
+_COMMIT_CALLER = (os.path.join(_PACKAGE_DIR, "phases.py"), "_commit_route")
+_PROBE_CALLERS = frozenset({
+    (os.path.join(_REPO_ROOT, "analysis", "experiments.py"),
+     "_heat_exposure_probe"),
+    (os.path.join(_REPO_ROOT, "tests", "route_support.py"), "departed"),
+})
+
+
+def _within(allowed: frozenset) -> bool:
+    """Is this call inside the dynamic extent of a sanctioned
+    function, in the sanctioned FILE? Walks the stack rather than
+    reading one frame, because a sanctioned function may make the call
+    from a closure of its own — the analysis probe does — and because
+    matching a lone frame's basename is what let `/tmp/route_support.py`
+    through. Bounded, so an unrelated deep stack cannot wander into a
+    match."""
+    for depth in range(2, 8):
+        try:
+            frame = sys._getframe(depth)
+        except ValueError:
+            return False
+        here = (os.path.abspath(frame.f_globals.get("__file__", "")),
+                frame.f_code.co_name)
+        if here in allowed:
+            return True
+    return False
+
+
+def _caller() -> tuple:
+    frame = sys._getframe(2)
+    return (os.path.abspath(frame.f_globals.get("__file__", "")),
+            frame.f_code.co_name)
+
 
 def _fingerprint(plan) -> tuple:
-    """The identity of a route, frozen at departure. `RouteDeparture`
-    is frozen but its PLAN is not: a caller could record a Meadows
-    departure, set `plan.district` to University Hill and resolve —
-    execution updated University Hill while the ledger recorded
-    Meadows. The driver is fingerprinted BY IDENTITY, not by key,
-    because a look-alike carrying a real key is the substitution
-    `validate_route_plan` already refuses elsewhere."""
+    """WHICH ROUTE THIS IS AND WHAT IT CARRIES, frozen at departure.
+    `RouteDeparture` is frozen but its PLAN is not: a caller could
+    record a Meadows departure, set `plan.district` to University Hill
+    and resolve — execution updated University Hill while the ledger
+    recorded Meadows — or leave the identity alone and raise
+    `manifest.legit` from 0 to 2, which moved clean cash 2000 → 2032.
+
+    The COMMITTED LOAD is part of it, cargo map included item by item
+    so an in-place edit cannot slip past a length check. The driver is
+    fingerprinted BY IDENTITY, not by key, because a look-alike
+    carrying a real key is the substitution `validate_route_plan`
+    already refuses elsewhere."""
     driver = plan["driver"]
-    # `.get`: a legacy dict plan may omit `disposal` entirely, and an
-    # absent flag is a legitimate False rather than a malformed route.
+    cargo = plan["cargo"]
     return (tuple(plan.get(f) for f in _IDENTITY_FIELDS),
-            id(driver), getattr(driver, "key", None))
+            id(driver), getattr(driver, "key", None),
+            tuple(sorted(cargo.items())), plan["legit"])
 
 
 @dataclass(frozen=True)
@@ -508,70 +548,74 @@ class RouteDeparture:
     Its own contract is checked at construction: the market must
     describe THIS plan's district, and its band must be one a route
     can execute under. A red band cannot become a departure at all."""
-    state: State
+    # EVERY FIELD IS `init=False`, so there is no constructor to call
+    # at all. A module-level token was not enough: it was reachable
+    # from outside as `routes._DEPARTURE_TOKEN`, and passing it built
+    # a departure. The factory below allocates the object itself and
+    # fills these in directly.
+    state: State = field(init=False)
     # `RoutePlan` or a legacy dict plan — both answer `plan["field"]`,
     # which is the only thing this value asks of it.
-    plan: "RoutePlan | dict"
-    token: object
+    plan: "RoutePlan | dict" = field(init=False)
     # DERIVED, never supplied. A caller who could hand in a market
     # could hand in ANOTHER WORLD'S: a cool Meadows view from state B
     # attached to an amber Meadows route in state A resolved and
-    # logged cool. Deriving it from the bound state is the only
-    # spelling that cannot be lied to.
+    # logged cool.
     market: "market.RouteMarket" = field(init=False)
     identity: tuple = field(init=False)
+    # A ONE-ELEMENT BOX, because the value is frozen and the fact it
+    # records is not: a wagon goes out once. Resolving one empty-cargo,
+    # two-cover departure twice moved clean 2000 → 2032 → 2064 and
+    # wrote two log rows for one night.
+    spent: list = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.token is not _DEPARTURE_TOKEN:
-            raise ValueError(
-                "a departure is made by the route that left, not "
-                "constructed: use the commit path")
-        view = market.route_market(self.state, self.plan["district"])
-        if view.heat.band not in models.ROUTE_EXECUTED_BANDS:
-            raise ValueError(
-                f"a route cannot depart under {view.heat.band!r}")
-        object.__setattr__(self, "market", view)
-        object.__setattr__(self, "identity", _fingerprint(self.plan))
+        raise ValueError(
+            "a departure is made by the route that left, not "
+            "constructed: it comes from the commit path")
 
     def check_unchanged(self) -> None:
-        """The route being resolved is the route that left. Called
-        BEFORE any mutation."""
+        """The route being resolved is the route that left, carrying
+        what it left with. Called BEFORE any mutation."""
         if _fingerprint(self.plan) != self.identity:
             raise ValueError(
                 "this route changed after it departed — the wagon "
                 "that left is not the one being resolved")
 
+    def consume(self) -> None:
+        """A wagon goes out once. Marked BEFORE any mutation, so a
+        second resolution refuses with the world untouched."""
+        if self.spent[0]:
+            raise ValueError(
+                "this route already ran tonight — a departure "
+                "resolves once")
+        self.spent[0] = True
+
 
 def _make_departure(state: State, plan) -> "RouteDeparture":
-    """THE one construction. Validates the plan, so a malformed route
-    never becomes a departure."""
+    """THE one construction, and the only code that can make one.
+    Validates the plan, so a malformed route never becomes a
+    departure, and refuses a band no route can execute under."""
     validate_route_plan(state, plan)
-    return RouteDeparture(state=state, plan=plan, token=_DEPARTURE_TOKEN)
-
-
-def _caller_file() -> str:
-    """The calling module's FILE, not its `__name__`. Under
-    `python -m analysis.experiments` the module's own `__name__` is
-    `__main__`, so a guard keyed on the name refused the very probe it
-    was written to admit — and the battery stopped mid-run."""
-    import os
-    return os.path.basename(
-        sys._getframe(2).f_globals.get("__file__", ""))
+    view = market.route_market(state, plan["district"])
+    if view.heat.band not in models.ROUTE_EXECUTED_BANDS:
+        raise ValueError(f"a route cannot depart under "
+                         f"{view.heat.band!r}")
+    departure = object.__new__(RouteDeparture)
+    for name, value in (("state", state), ("plan", plan),
+                        ("market", view),
+                        ("identity", _fingerprint(plan)),
+                        ("spent", [False])):
+        object.__setattr__(departure, name, value)
+    return departure
 
 
 def depart_at_commit(state: State, plan) -> "RouteDeparture":
     """THE production maker, callable only from the commit path."""
-    if _caller_file() != "phases.py":
+    if not _within(frozenset({_COMMIT_CALLER})):
         raise ValueError(
             "routes depart from `_commit_route` and nowhere else")
     return _make_departure(state, plan)
-
-
-# The synthetic-probe seam: the controlled analysis experiment and the
-# centralised test support drive routes that never met a wagon
-# authority. It is deliberately NOT a second general gameplay maker —
-# the scope guard is the difference.
-_PROBE_CALLERS = frozenset({"experiments.py", "route_support.py"})
 
 
 def record_departure_for_probe(state: State, plan) -> "RouteDeparture":
@@ -595,11 +639,12 @@ def record_departure_for_probe(state: State, plan) -> "RouteDeparture":
     The plan is validated here, so a malformed route cannot become a
     departure, and `RouteDeparture` refuses a red band — neither a
     broken plan nor a burning district produces one."""
-    caller = _caller_file()
-    if caller not in _PROBE_CALLERS:
+    caller = _caller()
+    if not _within(_PROBE_CALLERS):
         raise ValueError(
             f"the probe departure seam is for the analysis probe and "
-            f"centralised test support, not {caller!r}")
+            f"the centralised test support, not {caller[1]!r} in "
+            f"{caller[0]!r}")
     return _make_departure(state, plan)
 
 
@@ -619,7 +664,10 @@ def resolve_route(departure: "RouteDeparture", con: Console,
         raise ValueError(
             "a route resolves from the departure it made, never from "
             "a plan or a market view handed in on its own")
+    # BOTH CHECKS BEFORE ANYTHING MOVES: the route is the one that
+    # left, carrying what it left with, and it has not run already.
     departure.check_unchanged()
+    departure.consume()
     state, plan = departure.state, departure.plan
     # THE canonical contract, FIRST — before revenue, familiarity or
     # the execution ledger. Without it a route missing its wagon
@@ -650,10 +698,13 @@ def resolve_route(departure: "RouteDeparture", con: Console,
             origin_shop.reputation = max(0.0, origin_shop.reputation - 3)
             report["lines"].append("Pizzas ran late around the extra stops. Two refunds, one review.")
 
-    # THE route-market view (rev. 15 item 5): every territorial factor
-    # composes in market.route_market, and this resolution consumes
-    # the view and nothing else. The view is the one RECORDED AT
-    # DEPARTURE —
+    # THE route-market view (rev. 15 item 5): the RouteMarket's
+    # territorial-demand factors compose in `market.route_market`, and
+    # this resolution consumes the departure's view for them. Narrowed
+    # deliberately (review of the second correction): raw stop risk
+    # still reads LIVE heat at resolution, so "every territorial
+    # factor" promised more than this correction implements. The view
+    # is the one RECORDED AT DEPARTURE —
     # the typed record below carries its band and multiplier so no
     # study samples exposure at the wrong time (rev. 18 item 4).
     #

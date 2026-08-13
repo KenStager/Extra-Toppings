@@ -1222,7 +1222,6 @@ class TestRevision17Instruments(unittest.TestCase):
                 "ride_along": False, "legit": 0,
                 "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY,
                            "wagon_key": models_mod.HOME_WAGON_KEY}
-        departed(state, plan)
         departure = departed(state, plan)
         report = routes.resolve_route(departure, Quiet(),
                                       _random.Random(4))

@@ -3290,21 +3290,42 @@ typed value helped and did not close the boundary:
   world**: a cool Meadows view from state B attached to an amber
   Meadows route in state A resolved and logged **cool**.
 
+**And targeted review found four more execution-authority defects
+after that, all of which the sixteen passing pins walked straight
+past.** The token was module-reachable, so
+`RouteDeparture(state=s, plan=p, token=routes._DEPARTURE_TOKEN)`
+constructed one. The **committed load** was not fingerprinted: with
+district, origin, wagon and driver untouched, raising `manifest.legit`
+from 0 to 2 after departure moved clean **2000 → 2032**. A departure
+could resolve **repeatedly** — twice gave clean 2000 → 2032 → 2064,
+revenue 0 → 32 → 64, and two log rows for one night. And the scope
+guard **matched filenames, not scopes**: code compiled as
+`/tmp/route_support.py` carried that `__file__` through, and any
+function in any `phases.py` could call the production maker.
+
 **Execution truth is out of the morning plan entirely, and the
 departure is factory-controlled.** `RoutePlan` has no such field.
-`RouteDeparture` takes a **private token** — constructing one anywhere
-else refuses — and **derives** its market from the bound state rather
+`RouteDeparture` has **no constructor at all** — every field is
+`init=False` and the private factory allocates and fills the object
+itself — and it **derives** its market from the bound state rather
 than accepting one, which is the only spelling that cannot be handed
-another world's view. It fingerprints the identity-bearing fields at
-departure (district, origin, wagon, driver **by identity**, ride-along,
-disposal) and **`check_unchanged` runs before any mutation**, so a plan
+another world's view. It fingerprints the identity-bearing fields at departure (district,
+origin, wagon, driver **by identity**, ride-along, disposal) **and the
+committed load** — cargo item by item, so an in-place edit cannot slip
+past a length check, plus the cover count — and it is **consumed
+once**. Both `check_unchanged` and `consume` run **before any
+mutation**, so a plan
 edited after departure refuses rather than executing as one route and
 logging another. `depart_at_commit` is callable only from
-`_commit_route`; `record_departure_for_probe` is a scope-guarded seam
-admitting only the analysis probe and one centralised test-support
-module. The guard keys on the module FILE, not `__name__` — under
-`python -m analysis.experiments` the name is `__main__`, and a
-name-keyed guard refused the very probe it was written to admit.
+`_commit_route`; `record_departure_for_probe` is a scope-guarded seam admitting only
+the analysis probe and one centralised test-support module. The guard
+matches an **exact resolved path AND function name**, walking the
+stack so a sanctioned function may call from its own closure, and an
+**AST call-site guard** pins the sanctioned functions against the
+source of the whole tree rather than against whatever ran today. Two
+earlier spellings failed: keying on `__name__` refused the probe under
+`python -m` (where the name is `__main__`), and keying on the basename
+admitted anything compiled with that filename.
 
 **Released reachability, MEASURED rather than inferred from shared
 code.** Before touching production, departure and current-resolution
@@ -3338,18 +3359,26 @@ the two orders draw the same seeds in a different sequence. And
 `RouteExecutionRecord`'s docstring now says DEPARTURE-time rather than
 execution-time, which is what it has always recorded.
 
-**What was measured.** 1,204 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+**What was measured.** 1,210 tests on 3.11 / 3.12 / 3.13; ruff 0.15
 and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
 all three; golden `7a62b2af…` untouched; both fork batteries
 byte-identical to `origin/main` at `c6912b04…` and `b74cc15f…`.
-Regression against the previous attempt (`2e3f6aa`): **36 rows** fail
-— 35 errors and 1 failure. Some are structural, from the changed
-construction path; the ones carrying the weight are behavioural: the
-plan edited after departure, the cross-world market, and the refusals
-compared against a **deep serialised snapshot**. That snapshot replaced
-a hand-listed "complete" one which omitted employees, known prices,
-rivals and campaigns — a list that cannot keep the promise its name
+Regression against the previous attempt (`c7f3942`): **5 rows** fail, all behavioural failures rather than import errors. The
+weight-bearing ones are behavioural: the constructed departure, the
+edited load, the second resolution, and the path-and-function guard.
+The refusals compare a **deep serialised snapshot** — `state_to_dict`
+keeps `state.prices` by reference, so even that had to be
+`deepcopy`ed before it could be called deep, and a later price
+mutation is pinned not to reach it. The snapshot replaced a
+hand-listed "complete" one which omitted employees, known prices,
+rivals and campaigns: a list that cannot keep the promise its name
 makes.
+
+**One claim was narrowed rather than defended.** The resolution
+comment said "every territorial factor" composes in the departure
+view. Raw stop risk still reads LIVE heat at resolution, so it now
+says the RouteMarket's territorial-DEMAND factors — the correction
+implements less than the sentence promised.
 
 ## Still open (carried to the next design pass)
 
