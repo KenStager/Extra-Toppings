@@ -172,6 +172,53 @@ class TestTheAblationsActuallyAblate(unittest.TestCase):
         self.assertEqual(hashes["complete"], hashes["neglect"])
 
 
+class TestActOneIsUntouchedByTheBotItself(unittest.TestCase):
+    """Design rev. 39 item 4, implemented by rev. 40 item 2. Revision
+    38's bot applied its one-ride-a-night rule from DAY 1, so
+    replanning a one-address route changed Act I: 45 of 150 seeds
+    reached the table from a different month, and seed 5's payoff
+    moved from day 5 to day 6. That is rev. 15's defect class, in a
+    bot whose own docstring cites rev. 15."""
+
+    def test_the_one_ride_rule_is_silent_before_the_branch(self):
+        bot = PartnerBot(random.Random(1))
+        self.assertFalse(bot._in_branch)
+        # Act I: the smart bot's answer, every time, however often the
+        # route is replanned.
+        for _ in range(4):
+            self.assertTrue(bot.confirm("Ride along yourself?"))
+
+    def test_it_binds_once_the_branch_is_open(self):
+        bot = PartnerBot(random.Random(1))
+        bot._in_branch = True
+        self.assertTrue(bot.confirm("Ride along yourself?"))
+        self.assertFalse(bot.confirm("Ride along yourself?"))
+
+    def test_the_four_complete_fleets_share_a_pre_chair_month(self):
+        # The bar the study prints, asserted on a slice of seeds so a
+        # regression fails HERE rather than in a battery nobody reran.
+        from extra_toppings import save
+        from extra_toppings.bot import EscrowBot, StraightBot, WarBot
+        fleets = (("straight", StraightBot), ("partner", PartnerBot),
+                  ("war", WarBot), ("quiet_sale", EscrowBot))
+        for seed in range(6):
+            seen = set()
+            for branch, cls in fleets:
+                nights: dict = {}
+
+                def on_night(state, streams, nights=nights):
+                    nights[state.day - 1] = repr(save.state_to_dict(state))
+                state = run(seed, cls(random.Random(seed)),
+                            config=GameConfig(
+                                fork_enabled=True,
+                                enabled_branches=frozenset({branch})),
+                            on_night=on_night)
+                snap = state.sitdown_snapshot
+                if snap is not None:
+                    seen.add(nights[snap.payoff_day])
+            self.assertLessEqual(len(seen), 1, f"seed {seed} diverged")
+
+
 class TestTheProbeBooksMoneyToTheRightAuthority(unittest.TestCase):
     """Design rev. 39 item 6. The probe is the instrument that
     replaced transcript tallying, so the thing to pin is that it
@@ -201,6 +248,7 @@ class TestTheProbeBooksMoneyToTheRightAuthority(unittest.TestCase):
 
         class Grabbed:
             outcome = "landed"
+            damage_added = 2
 
         def fake(st, *a, **k):
             st.dirty -= 900          # raiders take it
@@ -208,7 +256,8 @@ class TestTheProbeBooksMoneyToTheRightAuthority(unittest.TestCase):
         wrapped = probe._wrap("incoming_raid", fake)
         wrapped(state)
         self.assertEqual(probe.days[7].tribute, 0)
-        self.assertEqual(probe.days[7].defense, 1)
+        # A LANDED raid damaged the address, so it IS an incident.
+        self.assertEqual(probe.days[7].raid_damage, 1)
 
     def test_an_averted_raid_books_its_tribute(self):
         # The positive control: the same authority, the same cash
@@ -220,35 +269,71 @@ class TestTheProbeBooksMoneyToTheRightAuthority(unittest.TestCase):
 
         class Averted:
             outcome = "averted"
+            damage_added = 0
 
         def fake(st, *a, **k):
             st.dirty -= 900
             return Averted()
         probe._wrap("incoming_raid", fake)(state)
         self.assertEqual(probe.days[7].tribute, 900)
-        self.assertEqual(probe.days[7].defense, 1)
+        # …and an AVERTED raid damaged nothing, so it is not an
+        # incident (rev. 40 item 4). Counting every call inflated the
+        # component with the two outcomes where the address survived
+        # untouched.
+        self.assertEqual(probe.days[7].raid_damage, 0)
 
-    def test_wages_exclude_the_warehouse_rent(self):
+    def test_wages_exclude_EVERY_rent_the_authority_pays(self):
         # §2.7's staff component is wages, raises, settlements and war
-        # pay — the warehouse rent is not staff spend, and the same
-        # authority pays both.
+        # pay. Rent is not staff spend, and `_payroll_and_rent` pays
+        # BOTH kinds: `RENT_PER_DAY` per rent-charged address and the
+        # warehouse. Subtracting only the warehouse booked every
+        # restaurant rent as wages (rev. 40 item 4).
         probe = ProfileProbe()
         state = new_state()
         state.day = 9
         state.clean = 10_000
         state.warehouse = {"mushrooms": 1}
+        rent = data.RENT_PER_DAY * len(
+            models.addresses_allowing(state, "rent"))
 
         def fake(st, *a, **k):
-            st.clean -= 500 + data.WAREHOUSE_RENT
+            st.clean -= 500 + rent + data.WAREHOUSE_RENT
             return False
         probe._wrap("_payroll_and_rent", fake)(state)
         self.assertEqual(probe.days[9].wages, 500)
 
+    def test_a_second_address_carries_a_second_rent(self):
+        # THE case the correction exists for: Partner pays two
+        # restaurant rents, and the first spelling booked the second
+        # one as wages every single night.
+        from extra_toppings.models import Shop
+        probe = ProfileProbe()
+        state = new_state()
+        state.day = 16
+        state.clean = 10_000
+        state.shops.append(Shop(key="shop2", district="university",
+                                acceptance_day=14, opening_day=16))
+        charged = len(models.addresses_allowing(state, "rent"))
+        self.assertEqual(charged, 2)
+
+        def fake(st, *a, **k):
+            st.clean -= 500 + data.RENT_PER_DAY * charged
+            return False
+        probe._wrap("_payroll_and_rent", fake)(state)
+        self.assertEqual(probe.days[16].wages, 500)
+
     def test_a_day_row_starts_at_zero_on_every_field(self):
+        row = DayMoney()
         self.assertEqual(
-            [DayMoney().covert, DayMoney().wages, DayMoney().settlements,
-             DayMoney().counsel, DayMoney().tribute, DayMoney().defense],
+            [row.covert, row.wages, row.settlements, row.counsel,
+             row.tribute, row.raid_damage],
             [0, 0, 0, 0, 0, 0])
+        # The per-address rows start empty and are NOT shared between
+        # instances — a mutable default would have every day of every
+        # run booking into one dict.
+        self.assertEqual((row.pantry_spend, row.cover_stops), ({}, {}))
+        row.pantry_spend["shop1"] = 5
+        self.assertEqual(DayMoney().pantry_spend, {})
 
 
 if __name__ == "__main__":

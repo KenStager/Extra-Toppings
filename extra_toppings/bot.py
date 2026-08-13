@@ -935,8 +935,12 @@ class PartnerBot(MarketBot):
         self._tried_chair = False
         self._in_branch = False
         self._rode_today = False
+        self._planning_origin: str | None = None
         self._hires = 0
         self._hired_cooks: list[str] = []
+        self._read_in_site = False
+        self._hire_tried = False
+        self._read_tried = False
         self._moved_site = False
         self._staff_visits_today = 0
         self._stocked_site_today = False
@@ -948,8 +952,18 @@ class PartnerBot(MarketBot):
         # analysis-side probe; nothing here is tallied for a result.
         if "— MORNING" in text:
             self._rode_today = False
+            self._planning_origin = None
             self._stocked_site_today = False
             self._staff_visits_today = 0
+        if "needs somebody to run it" in text:
+            # A LATER VACANCY, not just the opening window (rev. 40
+            # item 3): the post can be lost to a resignation, an
+            # arrest or a reassignment, and the bot re-staffs rather
+            # than leaving the nephew behind the counter for the rest
+            # of the month.
+            self._moved_site = False
+            self._read_in_site = False
+            self._read_tried = False
         if text.strip().startswith("CARMINE'S PARTNER"):
             self._in_branch = True
             self._entered_partner = True     # latched for the harness
@@ -958,14 +972,35 @@ class PartnerBot(MarketBot):
     def confirm(self, prompt: str) -> bool:
         # ONE BOSS, ONE WAGON A NIGHT. `route_schedule` refuses two
         # ride-alongs on the same night — correctly: there is one of
-        # you. Every released bot plays a ONE-ADDRESS world where a
-        # second route cannot exist, so this policy lives HERE rather
-        # than on `StrategyBot`: a counter on the shared base would be
-        # behaviour-identical by argument and would still need proving
-        # against three merged batteries, and Partner is the only
-        # branch that opens a second address (§6.4 keeps war capture
-        # out of it).
+        # you.
+        #
+        # GATED TO THE BRANCH, and this is the correction that matters
+        # (rev. 40 item 2). The first spelling applied from day 1, so
+        # REPLANNING a one-address route in ACT I answered differently
+        # the second time and moved the month: 45 of 150 seeds
+        # diverged from the other fleets' pre-chair state, and seed 5's
+        # payoff moved from day 5 to day 6. That is rev. 15's defect
+        # class — an ablation entering the fork from a different month
+        # — reintroduced by a bot whose own docstring cites rev. 15.
+        #
+        # REPLACEMENT-AWARE. A route replanned for the SAME origin is
+        # the same route being reconsidered, not a second wagon, so it
+        # keeps the rider it already has. Only a DIFFERENT origin is
+        # refused once somebody is riding.
         if prompt.startswith("Ride along"):
+            if not self._in_branch:
+                return super().confirm(prompt)
+            # A HARD ONE-A-NIGHT CAP, and the replacement refinement
+            # was attempted and BACKED OUT. Keying the grant on the
+            # planning origin let two rides through, because
+            # `choose_address` is SILENT when only one address is
+            # eligible: the founding room drops out of the list the
+            # moment its wagon is spoken for, the engine plans the new
+            # room, and a console cannot see that it happened. An
+            # origin a Console cannot observe is not a key to make a
+            # rule out of. The cost is that replanning forfeits the
+            # rider for that night; the cost of the other version was
+            # a crash.
             if self._rode_today:
                 return False
             self._rode_today = self.ride_along
@@ -1024,6 +1059,27 @@ class PartnerBot(MarketBot):
 
     def _special_menu(self, prompt: str, options: list[str]) -> int | None:
         if self._in_branch:
+            if prompt.startswith("Who runs the "):
+                # THE APPOINTMENT (rev. 38 item 1, completed by rev. 40
+                # item 3). Prefer the cook this bot read in and moved,
+                # BY NAME; otherwise any real candidate. The nephew is
+                # the LAST option and is taken only when there is
+                # genuinely nobody — an unmanaged address runs at half
+                # kitchen and half believable ceiling, permanently.
+                for i, o in enumerate(options[:-1]):
+                    if any(o.startswith(n) for n in self._hired_cooks):
+                        return i
+                return 0 if len(options) > 1 else len(options) - 1
+            if prompt.startswith("Read in whom?"):
+                # The person who will hold the post must be AWARE:
+                # `valid_holder` wants hired, aware, assigned there and
+                # not arrested. Reading nobody in is why all 69
+                # opportunities ended `exhausted`.
+                for i, o in enumerate(options[:-1]):
+                    if any(o.startswith(n) for n in self._hired_cooks):
+                        self._read_in_site = True
+                        return i
+                return len(options) - 1
             if prompt.startswith("Staff:"):
                 # ONE VISIT A DAY. "Staff" is not in MENU_PREFS — it is
                 # in the smart bot's AVOID list — so `menu()` never
@@ -1038,10 +1094,27 @@ class PartnerBot(MarketBot):
                 # that simply returns its preferred verb spins here
                 # forever; the first version of this did, and hung the
                 # study rather than failing it.
-                if not self._hired_cooks:
+                # The menu RE-ENTERS after every verb, so one visit
+                # runs the whole sequence: hire a cook, read that cook
+                # in, move them to the new room. All three must land
+                # before the service boundary drains the appointment
+                # window.
+                # EACH VERB IS BOUNDED BY ITS DISPATCH, never by its
+                # success. Bounding on success spins forever the first
+                # time the submenu has nobody to offer — no cook in the
+                # applicant pool, nobody left to read in — because the
+                # Staff menu re-enters and the same verb is chosen
+                # again. That hung the suite twice before it worked.
+                if not self._hire_tried:
                     hire = self._prefix(options, "Hire")
                     if hire is not None:
+                        self._hire_tried = True
                         return hire
+                if not self._read_tried:
+                    read = self._prefix(options, "Read someone in")
+                    if read is not None:
+                        self._read_tried = True
+                        return read
                 if not self._moved_site:
                     moved = self._prefix(options, "Move somebody")
                     if moved is not None:
@@ -1076,8 +1149,14 @@ class PartnerBot(MarketBot):
                 return len(options) - 1
             if prompt.startswith("Move ") and "where?" in prompt:
                 here = self._contains(options[:-1], self._site_label)
-                return here if here is not None else 0
+                # FAIL CLOSED to "Back" rather than slot 0: a
+                # destination list that stopped naming the new room is
+                # a changed surface, and moving the cook somewhere
+                # unnamed would look like a staffed room in the study.
+                return here if here is not None else len(options) - 1
             if prompt.startswith("Deliver where?"):
+                # Remembered so the ride-along rule can tell a REPLAN
+                # of this origin from a second wagon somewhere else.
                 # COVERT CARGO LEAVES THE FOUNDING ROOM. A route whose
                 # contraband outnumbers its legit stops runs the
                 # deliveries late and costs its ORIGIN 3 reputation,
@@ -1087,11 +1166,20 @@ class PartnerBot(MarketBot):
                 # one is §2.4.2's two-front tension played rather than
                 # merely survived — and it is named by district, not
                 # by slot.
-                home = self._contains(
-                    options, self._data.DISTRICTS[
-                        self._data.HOME_DISTRICT]["label"])
-                if home is not None:
-                    return home
+                home_label = self._data.DISTRICTS[
+                    self._data.HOME_DISTRICT]["label"]
+                home = self._contains(options, home_label)
+                # THE ORIGIN PICKER HAS NO "Back": every option is a
+                # real address, so there is no fail-closed slot here
+                # and the honest move is to record what was ACTUALLY
+                # chosen. Recording an intended origin instead is what
+                # let two ride-alongs through — the founding room drops
+                # out of the list once its wagon is spoken for, the
+                # pick landed on the new room, and the rider rule was
+                # still comparing against a stale "Old Harbor".
+                pick = home if home is not None else 0
+                self._planning_origin = options[pick]
+                return pick
             if prompt.startswith(("Stock which pantry?", "Whose kitchen?")):
                 # The new room first — it opens with an EMPTY pantry
                 # and no regulars, and the founding room already has
@@ -1101,7 +1189,12 @@ class PartnerBot(MarketBot):
                     if here is not None:
                         self._stocked_site_today = True
                         return here
-                return 0
+                home = self._contains(
+                    options,
+                    self._data.DISTRICTS[self._data.HOME_DISTRICT]["label"])
+                # Both rooms by NAME, and no positional fallback: the
+                # reordering pins have to exercise the real prompts.
+                return home if home is not None else len(options) - 1
         return super()._special_menu(prompt, options)
 
     @staticmethod
@@ -1120,12 +1213,17 @@ class PartnerBot(MarketBot):
 
     # ── in-branch policy ─────────────────────────────────────────
     def _score(self, label: str) -> float:
-        if self._in_branch and label.startswith("Staff") \
-                and self.keep_cover:
+        if self._in_branch and label.startswith("Staff"):
             # Worth exactly one visit a day: the roster IS the second
             # room's kitchen, and the smart bot's AVOID list would
             # never open it. Bounded by the visit counter, not by
             # `_done_today`, which never learns about this label.
+            #
+            # NOT conditioned on `keep_cover` (rev. 40 item 3). It was,
+            # which made `NeglectPartnerBot` a no-staff, no-manager
+            # fleet as well as a no-cover one — a second ablation
+            # smuggled into a row §2.7 defines as cover and pantry care
+            # ONLY. Both fleets carry this policy.
             return 7.5 if self._staff_visits_today == 0 else -5
         if self._in_branch and not self.keep_cover and (
                 "Buy ingredients" in label or "Kitchen policy" in label):
