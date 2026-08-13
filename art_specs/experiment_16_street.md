@@ -3322,3 +3322,23 @@ fixture against the back wall beside the fountain's back-bar. The
 cabinet retires to candidates stock. Boards: r11_soda_trash4x,
 interior_r11_service. Session H spend: 36 gens ledgered; expected
 balance ~3,991; vendor dashboard the authority.
+
+## The interior PROMOTED; the proof catches a bake defect
+## (2026-08-12 session H; board: "This looks great. Proceed"; 0 gens)
+
+THE PROMOTION (provenance e16_interior_promotion_2026-08-12.json):
+approved/dinapoli_interior_staging.json IS the r11 stack; the nine
+generated fixtures entered approved/interior_props/; candidate
+retired; composer re-pointed. Byte-check green against the
+presented r11 board.
+
+THE PROOF EARNED ITS KEEP: the first Godot run deviated 624/230,400
+and the census traced EVERY pixel to one cause - the counter's
+base shadow strip was raw-drawn at alpha 70 (ImageDraw writes raw
+RGBA) and survived into the bake as semi-transparent pixels. The
+hero law (translucent layers FLATTEN at bake) now holds in the
+interior composer; re-render diff exactly the strip (599 visible +
+25 under actors); **GODOT PROOF 0/230,400**. FLAGGED JUDGMENT,
+loudly: this is the FLAT proof (one texture); the LAYERED
+sprite-sink export on the district precedent is riding work before
+engine integration. Standing boards: interior_v1 three states.
