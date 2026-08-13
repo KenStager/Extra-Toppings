@@ -332,7 +332,9 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
     def test_the_named_address_books_the_cover_revenue(self):
         from extra_toppings import routes
         state, home, second, driver = self._world()
-        routes.resolve_route(state, self._plan(driver, "shop2"),
+        departed = self._plan(driver, "shop2")
+        routes.record_departure(state, departed)
+        routes.resolve_route(state, departed,
                              ScriptedConsole(), random.Random(3))
         self.assertGreater(second.legit_revenue_today, 0)
         self.assertEqual(home.legit_revenue_today, 0)

@@ -79,6 +79,7 @@ class TestRoutes(unittest.TestCase):
             plan = {"district": "university", "driver": driver,
                     "ride_along": False, "cargo": {"mushrooms": 10}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
+            routes.record_departure(state, plan)
             report = routes.resolve_route(state, plan, BotConsole(random.Random(seed)), rng)
             if report["busted"]:
                 outcomes.add("busted")

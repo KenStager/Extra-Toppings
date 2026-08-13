@@ -1423,11 +1423,20 @@ def _commit_route(state: State, plan: dict, con: Console,
     if not pol.plannable:
         # Service-time revalidation of the RED-heat refusal (rev. 14
         # item 5): the district may have caught fire since the plan
-        # was made. Nothing has committed yet, so nothing is lost.
+        # was made. Nothing has committed yet, so nothing is lost —
+        # no wagon claimed, no pantry or stash spent, no log written.
         con.bullet(f"Tonight's route is scrubbed — "
                    f"{data.DISTRICTS[plan['district']]['label']} is "
                    f"{pol.note}.")
         return False
+    # DEPARTURE IS WHERE THE MARKET IS FIXED (the route-departure
+    # correction). The band has just been revalidated and accepted, so
+    # THIS is the view the night runs under: derived once, immutable,
+    # and carried to resolution rather than rebuilt there. Two routes
+    # leaving the same night both depart under the district as it
+    # stood at departure, and the first one's own consequences cannot
+    # retroactively reclassify the second.
+    #
     # Rev. 18 item 1: the PLANNED manifest is validated BEFORE any
     # state mutation — an illegal plan is refused with the stash and
     # pantry untouched, never discovered mid-deduction.
@@ -1463,6 +1472,10 @@ def _commit_route(state: State, plan: dict, con: Console,
     if not spent.claimed:
         con.bullet(f"Tonight's route is scrubbed. {spent.sentence}.")
         return False
+    # THE MARKET IS FIXED HERE, on the far side of every refusal and
+    # at the same instant the wagon is claimed. A route that scrubbed
+    # never records one, because it never departed.
+    routes.record_departure(state, plan)
     for g, take in committed.cargo.items():
         origin.stash[g] = origin.stash.get(g, 0) - take
     origin.ingredients -= committed.legit

@@ -1180,6 +1180,9 @@ def _heat_exposure_probe(trials: int = 400) -> None:
                     "origin_shop": models.HOME_SHOP_KEY,
                     "wagon_key": models.HOME_WAGON_KEY}
             _routes.validate_route_plan(state, plan)
+            # The controlled probe drives a synthetic route, so it
+            # records the departure the service phase would have.
+            _routes.record_departure(state, plan)
             report = _routes.resolve_route(state, plan, _Sell(),
                                            random.Random(seed))
             camp = state.branch_state.campaigns[0]

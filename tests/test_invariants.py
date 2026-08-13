@@ -367,6 +367,7 @@ class TestSharedCapacity(unittest.TestCase):
                 "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
         with self.assertRaises(ValueError):
+            routes.record_departure(state, plan)
             routes.resolve_route(state, plan, ScriptedConsole([]), rng)
 
     def test_the_manifest_counts_bulk_not_units(self):
@@ -433,6 +434,7 @@ class TestMoneySeparation(unittest.TestCase):
                 "cargo": {"mushrooms": 8}, "legit": 0,
                 "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
+        routes.record_departure(state, plan)
         routes.resolve_route(state, plan, ScriptedConsole(), rng)
         self.assertEqual(state.clean, clean_before)
 

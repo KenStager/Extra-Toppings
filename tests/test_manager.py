@@ -312,7 +312,9 @@ class TestEveryRouteOutOfThePost(unittest.TestCase):
             # the route resolution directly, so it rolls them here
             # through the same authority rather than posing a price.
             market.roll_prices(probe, random.Random(seed))
-            routes.resolve_route(probe, {**plan, "driver": driver},
+            departed = {**plan, "driver": driver}
+            routes.record_departure(probe, departed)
+            routes.resolve_route(probe, departed,
                                  Listening(), random.Random(seed))
             if driver.arrested:
                 booked = True

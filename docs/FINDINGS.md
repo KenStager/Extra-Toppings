@@ -3231,6 +3231,73 @@ reviewed head `2c983d6`: **13 fail** (12 failures, 1 error — the
 `IndexError` arm, which raises the wrong exception type rather than
 none).
 
+## Route-departure correctness correction (between P4b.4 and P4b.5)
+
+A route runs under the district as it stood WHEN IT LEFT. Recorded as
+a correctness correction, not a design change: canon already said
+commit is departure and the red refusal binds at service-time
+revalidation (rev. 14 item 5). No numbered revision.
+
+**What actually happened**, from a Partner run at seed 72 during
+P4b.5's sweep. Two addresses each sent a wagon into The Meadows the
+same night. Both passed the service-time red revalidation at heat
+**71.45**, and both wagons were claimed. The first route resolved and
+its own corner damage pushed the district to **96.6** — red. The
+second route then REBUILT its market view from the mutated state,
+classified an already-departed wagon as red, and
+`RouteExecutionRecord` refused it. The run crashed.
+
+**My first reading was wrong** and is worth keeping. I reported this
+as "a route planned under amber can execute under red" — a
+plan-versus-execute race. It is not: both routes were still inside
+the same service phase, and the second one had already departed. The
+divergence was caused by its SIBLING, not by the clock.
+
+**Why an abort at resolution would have been the wrong fix.** It
+would make two simultaneous routes depend on iteration order — which
+address sorts first decides who runs — and it would strand inventory
+the departure had already spent, since stash and pantry come out at
+commit. A route that "never happened" would still have eaten them.
+
+**The correction.** `routes.record_departure` is the one authority
+that fixes a route's market, called by `_commit_route` on the far side
+of every refusal and at the instant the wagon is claimed. The view is
+`market.route_market`'s, immutable, written once — a second write
+raises, because a wagon departs once. `resolve_route` and the
+interactive drops both read it through one reader and **fail closed**
+without one, so a caller that never departed cannot resolve under
+whatever the district happens to say now. That was the side entrance.
+
+**Released reachability, MEASURED rather than inferred from shared
+code.** Before touching production, departure and current-resolution
+bands were compared across every route in the 300 gates and the
+released battery fleets:
+
+| Population | Departures | Band diverged | Red at resolution |
+|---|---|---|---|
+| The 300 gates (both, all bots) | 9,327 | **0** | 0 |
+| Released fleets @150 | 12,268 | **0** | 0 |
+| Released fleets @500 | 42,772 | **0** | 0 |
+| **Total** | **52,099** | **0** | **0** |
+
+So the defect is Partner multi-route behaviour alone, and the fix is
+behaviour-neutral everywhere released — which the boundary then
+confirmed rather than assumed: both fork batteries came back
+**byte-identical** at `c6912b04…` and `b74cc15f…`, and the golden was
+not regenerated.
+
+**What was measured.** 1,195 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
+all three; golden `7a62b2af…` untouched; both batteries byte-identical
+to `origin/main`. Regression: 25 rows fail without the production
+change, and they are **honestly weaker than behavioural pins** —
+most fail because `record_departure` does not exist rather than
+because a result moved. The behavioural proof is the seed-72
+reproduction itself and the deterministic two-route pin that replaces
+it, which asserts both routes log `amber` after the first pushes the
+district red, and that reversing the filing order changes neither
+result.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and

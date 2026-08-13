@@ -238,6 +238,7 @@ class TestDisposalRuns(unittest.TestCase):
         report = None
         for _ in range(20):                      # find a selling night
             trial = dict(plan, cargo={"mushrooms": 8})
+            phases.routes.record_departure(state, trial)
             report = phases.routes.resolve_route(state, trial, con,
                                                  streams.routes)
             if report["sold"]:
@@ -595,6 +596,7 @@ class TestDisposalVoice(unittest.TestCase):
         if disposal:
             plan["disposal"] = True
         con = CaptureConsole([0] * 40)        # sell at every stop
+        phases.routes.record_departure(state, plan)
         phases.routes.resolve_route(state, plan, con, Streams(4).routes)
         return con
 

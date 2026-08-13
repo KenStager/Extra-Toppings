@@ -133,6 +133,22 @@ class RoutePlan:
     # the plan chose rather than re-picking one by address.
     wagon_key: str
     disposal: bool = False
+    # THE DEPARTURE-TIME MARKET VIEW (the route-departure correction).
+    # Derived ONCE when `_commit_route` accepts the departure and
+    # carried here, immutable, to resolution. `None` until the route
+    # commits — a plan is an intention, and an intention has not
+    # departed under any band.
+    #
+    # It exists because resolution used to REBUILD the view from
+    # whatever the state said at the time, which made two simultaneous
+    # routes depend on iteration order: both passed the service-time
+    # check at heat 71.45, the first resolved and pushed the district
+    # to 96.6, and the second then read a red band for a wagon that
+    # had already left — and the typed record refused it. Aborting
+    # there would have been worse than the crash: it would strand
+    # inventory already spent at departure and make the outcome depend
+    # on which address sorts first.
+    market_view: "market.RouteMarket | None" = None
 
     @property
     def cargo(self) -> dict:
@@ -143,7 +159,7 @@ class RoutePlan:
         return self.manifest.legit
 
     _KEYS = ("district", "driver", "ride_along", "cargo", "legit",
-             "disposal", "origin_shop", "wagon_key")
+             "disposal", "origin_shop", "wagon_key", "market_view")
 
     def __getitem__(self, key):
         if key in self._KEYS:
@@ -161,6 +177,14 @@ class RoutePlan:
             self.manifest.legit = value
         elif key == "disposal":
             self.disposal = value
+        elif key == "market_view":
+            # WRITTEN ONCE, at departure. A second write would be a
+            # second departure for one wagon.
+            if self.market_view is not None:
+                raise ValueError(
+                    "this route already departed under a recorded "
+                    "market; a route departs once")
+            self.market_view = value
         else:
             raise KeyError(f"route plan field {key!r} is not writable")
 
@@ -455,6 +479,27 @@ def _stop_risk(state: State, plan: dict) -> float:
     return min(0.75, risk)
 
 
+def record_departure(state: State, plan) -> "market.RouteMarket":
+    """THE departure-time market authority, and its only writer.
+
+    A route's band and every territorial factor are fixed at the
+    moment it departs — after the service-time red revalidation has
+    accepted it and at the instant its wagon is claimed — and
+    resolution consumes exactly this view. Rebuilding it at
+    resolution made two simultaneous routes depend on iteration
+    order: both departed at heat 71.45, the first pushed the district
+    to 96.6, and the second was then classified red for a wagon that
+    had already left.
+
+    One home for the write, so a caller that wants a departed route
+    asks for a DEPARTURE rather than assembling a market view of its
+    own — the alternative is the second spelling this project treats
+    as a defect class."""
+    view = market.route_market(state, plan["district"])
+    plan["market_view"] = view
+    return view
+
+
 def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
     # THE canonical contract, FIRST — before revenue, familiarity or
     # the execution ledger. Without it a route missing its wagon
@@ -487,10 +532,20 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
 
     # THE route-market view (rev. 15 item 5): every territorial factor
     # composes in market.route_market, and this resolution consumes
-    # the view and nothing else. The view is read HERE, at execution —
+    # the view and nothing else. The view is the one RECORDED AT
+    # DEPARTURE —
     # the typed record below carries its band and multiplier so no
     # study samples exposure at the wrong time (rev. 18 item 4).
-    rm = market.route_market(state, dk)
+    #
+    # FAIL CLOSED WITHOUT ONE. Synthesising the view here is exactly
+    # the side entrance the correction closes: a caller who never
+    # departed would resolve under whatever the district happens to
+    # read now, which is how an already-departed route came to be
+    # classified red by a sibling route's own heat.
+    # Through the one reader: a legacy dict plan carries no such key
+    # at all, and it must fail closed with the REASON rather than
+    # with a KeyError that reads like a typo.
+    rm = _departed_market(plan)
 
     if not cargo:
         state.districts[dk].known_price_age = 0 if plan["ride_along"] else 1
@@ -539,6 +594,19 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     return report
 
 
+def _departed_market(plan) -> "market.RouteMarket":
+    """The view this route LEFT under, or a refusal. Every consumer
+    inside the night reads it through here, so none of them can
+    quietly rebuild one from a district that has moved since."""
+    view = plan.get("market_view")
+    if view is None:
+        raise ValueError(
+            "this route has no departure-time market: a route "
+            "resolves under the view recorded when it departed, "
+            "never one rebuilt from later state")
+    return view
+
+
 def _sell(state: State, dk: str, good: str, units: int, price_mult: float,
           report: dict) -> None:
     price = int(state.prices[dk][good] * price_mult)
@@ -572,7 +640,7 @@ def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
                            straight.DISPOSAL_HAIRCUT_HI) \
             if plan.get("disposal") else rng.uniform(0.85, 1.2)
         offer = int(base_price * mult)
-        top_want = market.route_market(state, dk).top_want()
+        top_want = _departed_market(plan).top_want()
         want = min(cargo[g], rng.randint(1, top_want))
         choice = con.menu(
             voice["stop"].format(n=stop + 1, want=want, label=spec["label"],

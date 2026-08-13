@@ -1494,6 +1494,7 @@ class TestExecutionIsNotADoorOfItsOwn(unittest.TestCase):
         state, _home, driver = self._world()
         plan = self._plan(state, driver, drop=("wagon_key",))
         with self.assertRaises(ValueError):
+            routes.record_departure(state, plan)
             routes.resolve_route(state, plan, Listening(),
                                  random.Random(3))
         self.assertEqual(state.route_log, [])
@@ -1509,6 +1510,7 @@ class TestExecutionIsNotADoorOfItsOwn(unittest.TestCase):
         self.assertEqual(wagons.claims,
                          {models.HOME_WAGON_KEY: "route"})
         self.assertEqual(home.stash["mushrooms"], 2)
+        routes.record_departure(state, plan)
         routes.resolve_route(state, plan, Listening(),
                              random.Random(3))
         self.assertEqual(len(state.route_log), 1)
