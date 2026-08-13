@@ -3227,3 +3227,32 @@ priority; night lights-out stays decision-5 class; a counter-mid
 piece (to kill the main-main seam) is a priced option. Session H
 spend: 30 gens ledgered (4 drift + 26 props); expected balance
 ~3,997 by estimate; vendor dashboard the authority.
+
+## The float-and-askew loop: placement becomes arithmetic
+## (2026-08-12 session H; board: "the arcade machine is floating...
+## the pizza is askew of the counter, same with the register. Begin
+## the loop again"; 0 gens - rounds 6-8)
+
+The board's three catches were all the same defect: placement by
+eyeball where the world demands measurement. THE ROUNDS:
+- **r6, measurement first**: the counter's cream top surface was
+  CENSUSED - scene rows 182-207, 26 rows deep, my third eyeball
+  underestimate of this build. The pizza now LIES fully within the
+  surface; the register's base sits IN the surface with its body
+  rising past the back edge (how a standing object reads in this
+  projection); the arcade went CONTENT-FLUSH to the west frame edge
+  on the booth's east-edge precedent - sprite furniture gained
+  content-span semantics (the counter-piece law generalized).
+- **r7**: the trash bin - the last object standing in open floor -
+  tucked to the SE corner by the booth.
+- **r8**: the 4x pass caught the register straddling the main2/end
+  piece boundary, overhanging the end's surface - moved fully onto
+  main2; Bee steps west of it.
+
+LAW RECORDED: **ON-SURFACE PLACEMENT IS ARITHMETIC** - census the
+surface rows, measure the item's content box; lying objects sit
+fully within the surface, standing objects base-in-surface with
+body over the back edge; floor objects anchor to a wall, a frame
+edge, or another mass - NEVER open floor. Boards:
+interior_v3_states_board + r8_countertop4x. The candidate stands;
+nothing promoted.
