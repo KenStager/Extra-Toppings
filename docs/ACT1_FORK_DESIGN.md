@@ -1232,12 +1232,48 @@ missing, both printed a header and a net line before failing.
 Whatever the epilogue needs, it proves it has BEFORE it says a
 word.
 
+**THE PREFLIGHT'S ORDER, exactly** (rev. 37 item 2, clarified). It
+runs three checks, in this order:
+
+1. **The chair's whole payload**, through the SHARED COMPLETE
+   validator `models.validate_branch_state(branch, branch_state,
+   game_over)` — the same authority that binds at branch transitions
+   and at save/load, CONSUMED here rather than respelled. Presence,
+   branch fit and per-branch structure are its statement of the rule;
+   the epilogue is a third caller of it, never a fourth spelling.
+2. **The terminal's own prerequisites**, through
+   `models.validate_terminal` — the id is registered, it is owned by
+   the chair that reached it, and Partner's day-30 pair additionally
+   reconciles against the ledger and the calendar.
+3. **Renderer ownership** — `game.RENDERED_TERMINALS` names an arm
+   that actually renders this id, and that set is asserted equal to
+   the registry so the two cannot drift.
+
+Payload first is deliberate. A chair reading a payload no authority
+had looked at is exactly the condition under which the later checks
+PASS and the arm FAILS — which is how `quiet_sale` + `sold` with no
+branch state rendered a complete, false sale ending with every
+registry check saying yes. This is **structural validation, not
+branch grading policy**: no released branch's matrix is reopened by
+it.
+
 **A TRUNCATED RUN IS NOT A GRADED RUN** (rev. 37 item 1). The
 harness stops a game early to observe it; stopping early is an
-observation cutoff, not an in-world day 30. A run cut at day 20 has
-no terminal, gets no epilogue, and is returned live — and
-`day_thirty_grade` REFUSES to grade a calendar that has not reached
-day 31, so the run loop cannot ask the question by accident.
+observation cutoff, not an in-world day 30. A **still-live** run cut
+at day 20 has no terminal, gets no epilogue, and is returned live —
+and `day_thirty_grade` REFUSES to grade a calendar that has not
+reached day 31, so the run loop cannot ask the question by accident.
+
+**STILL-LIVE is the load-bearing word, and the cutoff tests for it.**
+A run that already carries a terminal was not truncated — it ENDED,
+and it renders its epilogue before the cutoff is consulted. Arrest,
+the sale's closing, foreclosure, insolvency and burnout all land
+before day 30, and a cutoff written on the calendar alone silences
+every one of them: the run loop asks
+`not state.game_over and state.day <= DEBT_DUE_DAY`, never the day by
+itself. An ending that HAPPENED is graded; a month that did not
+finish is not. The two questions are independent and the condition
+must ask both.
 
 *Partner's day-30 pair, exactly:* `operation` requires **zero
 arrears**; `on_the_hook` requires **arrears outstanding**; both are
@@ -6082,6 +6118,14 @@ in a commit message. Paper first. It amends §2.4.2 and §2.5 in place.
    helper and never the door, which is the third instance in three
    PRs of proving an authority and missing its caller.
 
+   *Clarified in the second correction pass:* **truncated means
+   STILL-LIVE.** The first implementation of this ruling tested the
+   calendar alone and so silenced every genuine EARLY ending too — a
+   real day-24 foreclosure returned with `game_over` set and printed
+   nothing. A run already carrying a terminal was not truncated; it
+   ENDED, and it renders its epilogue before the cutoff is consulted.
+   §2.5 carries the corrected statement.
+
 2. **The preflight was too narrow: it proved the registry and not the
    render.** Two refusals still emitted a header and a net line
    first — a registered id with no arm, and `branch="partner"` with
@@ -6091,6 +6135,17 @@ in a commit message. Paper first. It amends §2.4.2 and §2.5 in place.
    first output; both pins assert `con.lines == []`. Half an epilogue
    reads as a real one, and this is the second time that rule needed
    widening rather than restating.
+
+   *Clarified in the second correction pass:* the preflight
+   **consumes the shared complete branch-state validator FIRST**, and
+   only then validates terminal prerequisites and renderer ownership
+   — the order §2.4.2 now states exactly. The first implementation
+   proved presence for Partner's graded pair alone, by respelling it
+   locally, so the other three chairs still read an unvalidated
+   payload: `quiet_sale` + `sold` rendered a complete FALSE ending,
+   `war` + `harbor_yours` raised after the header, `straight` +
+   `half_measures` raised after three lines. Structural clarification,
+   not new policy: no branch's grading matrix is reopened.
 
    *And a skip is not a pass.* `test_an_arrest_that_night_suppresses_
    it` ends in `skipTest` when no seed closes the file. If the

@@ -3128,7 +3128,21 @@ that HAPPENED is graded, a month that did not finish is not. Three
 pins go through `game.run` — the door, not the helper — one per shape
 that reaches the cutoff with a terminal in hand: the foreclosure
 (falls out of the loop condition), the signed sale (`break`s out of
-it), and the arrest latch (set by `_check_endings`).
+it), and an arrest already latched at entry.
+
+*A correction to this record, made in the merge coda.* The third pin
+was first described here and in the PR body as the latch "set by
+`_check_endings`". **It is not.** `State.add_case` latches at ACCRUAL
+TIME — the arrest is already on the state before `game.run` is
+called, `_check_endings` fires **zero** times, and the loop body
+never runs at all. Instrumented and counted rather than reasoned
+about: `_check_endings called 0 times`. The test is valid and is in
+fact the purest of the three controls — a terminal in hand, day 20,
+nothing in between the `while` condition and the cutoff — but its
+stated mechanism was not its actual one, which is its own small
+instance of the class this record catalogues: **a proof whose
+description nobody re-derived.** The comment and both documents now
+say what the test does.
 
 **This is the fourth consecutive instance of proving an authority and
 missing its door** — `release_from_posts`, the day-30 dispatch,

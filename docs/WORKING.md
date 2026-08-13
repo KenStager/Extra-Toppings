@@ -85,6 +85,21 @@ runbook (single home). What the gates prove:
   the fork is provably inert unless entered. Branch-side prompts and
   behavior (gated on `state.branch`) may change freely; flag-off and
   stand-pat surfaces may not.
+- **WHAT THE GATES AND BATTERIES DO NOT COVER: NARRATION.** They read
+  decisions, prompt strings and projected state — `menu`, `ask_int`,
+  `confirm` and `scene_menu` — and nothing that reaches the player
+  through `con.say` or `con.bullet`. Prose has never been on the
+  instrument. **Byte identity therefore does not certify epilogue or
+  narrative output**, and a green board is not evidence that a player
+  saw anything: narration needs DIRECT PINS on the lines themselves.
+  Measured, not supposed — during P4b.4 a defect suppressed the
+  ENTIRE ending text of **10 of 300** flag-off runs while gate 1 read
+  300/300 identical, the golden hash held, and both fork batteries
+  stayed byte-identical at 150 and 500 seeds (FINDINGS round 18
+  correction pass 2). This is the gates' documented scope, not a gate
+  defect — but it is the scope, and it cuts the other way too: the
+  same blindness is what lets transcript-only `con.say`/`con.bullet`
+  additions land on flag-off paths without regenerating a golden.
 
 ## Engine invariants worth re-reading before touching anything
 

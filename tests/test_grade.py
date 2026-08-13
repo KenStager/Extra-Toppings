@@ -703,8 +703,19 @@ class TestATruncatedRunIsNotAGradedRun(unittest.TestCase):
         self.assertIn("ENDING: Sold", con.ending())
 
     def test_the_arrest_latch_mid_month_still_gets_its_epilogue(self):
-        # The third shape: the latch, which ends the run through
-        # `_check_endings` rather than a phase or a break.
+        # The third shape: a run that is ALREADY TERMINAL AT ENTRY.
+        # `State.add_case` latches the arrest AT ACCRUAL TIME, so
+        # `game_over` is set on the line above `game.run`, not inside
+        # it: `_check_endings` fires ZERO times here and the loop body
+        # never runs at all — the run walks straight from the `while`
+        # condition to the cutoff. That makes this the purest control
+        # of the three: a terminal in hand, day 20, nothing between.
+        #
+        # The first version of this comment credited `_check_endings`
+        # with setting it. It did not, and the error is the kind that
+        # matters: a test whose stated mechanism is not its actual one
+        # is proving something nobody is tracking. Counted, not
+        # reasoned about — `_check_endings called 0 times`.
         state = seated(day=20)
         state.add_case(100.0, "the file closes", kind="physical")
         con = Listening([0] * 400)
