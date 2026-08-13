@@ -1,6 +1,7 @@
 """Game orchestration: the 30-day run and its endings."""
 
-from . import data, escrow, models, phases, sitdown, straight, war
+from . import (data, escrow, models, partner, phases, sitdown,
+               straight, war)
 from .config import GameConfig
 from .models import State, new_state
 from .rng import Streams
@@ -62,18 +63,63 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
         if on_night is not None:
             on_night(state, streams)
 
+    if not state.game_over and state.day <= data.DEBT_DUE_DAY:
+        # A TRUNCATED RUN IS NOT A GRADED RUN (design rev. 37 item 1).
+        # `max_days` is the harness's observation cutoff, not an
+        # in-world day 30: the month did not end, it was stopped being
+        # watched. Grading it wrote a day-30 terminal onto day 21 and
+        # was then refused by the validator — this engine disagreeing
+        # with itself. The state comes back LIVE, with no terminal and
+        # no epilogue to print about a run that has not finished.
+        #
+        # ONLY A STILL-LIVE RUN. The first spelling of this cutoff
+        # read the calendar alone, and so it swallowed every genuine
+        # EARLY ending too: a real day-24 foreclosure came back with
+        # `game_over` set and nothing printed — no header, no ENDING
+        # line. Arrest, the sale's closing, insolvency and burnout all
+        # end before day 30 and all went silent the same way. An
+        # ending that happened is graded; a month that did not finish
+        # is not.
+        return state
     if not state.game_over:
-        if state.branch == "straight":
-            # §2.5 precedence 5: the branch's own day-30 matrix.
-            state.game_over = straight.grade(state)
-        elif state.branch == "war":
-            # Campaign-count matrix (rev. 14 item 9); both broken lands
-            # on the existing Syndicate text through "survived".
-            state.game_over = war.grade(state)
-        else:
-            state.game_over = "survived" if state.debt <= 0 else "kneecaps"
+        state.game_over = day_thirty_grade(state)
     epilogue(state, con)
     return state
+
+
+def day_thirty_grade(state: State) -> str:
+    """§2.5 PRECEDENCE 5, as one authority: anything still standing on
+    day 30 is graded by its branch's own matrix.
+
+    A named function rather than an if/elif inside the run loop,
+    because it is a decision the design states in a table and because
+    a matrix buried in a loop can only be tested by playing a whole
+    month — which is how the Partner arm would have gone unexercised
+    while `partner.grade` was tested directly beside it (P4b.4).
+
+    It REFUSES a calendar that has not reached day 31 (rev. 37 item
+    1). The run loop already declines to ask on a truncated run, and
+    this is the same rule stated where it cannot be skipped by a
+    caller who does not know it: a day-30 matrix applied to day 21
+    grades a month that has not happened."""
+    if state.day <= data.DEBT_DUE_DAY:
+        raise ValueError(
+            f"day {state.day} has not reached the end of the month — "
+            f"the day-{data.DEBT_DUE_DAY} matrix grades a calendar "
+            f"that has been played out, never one that was stopped")
+    if state.branch == "straight":
+        return straight.grade(state)
+    if state.branch == "war":
+        # Campaign-count matrix (rev. 14 item 9); both broken lands on
+        # the explicit Syndicate terminal.
+        return war.grade(state)
+    if state.branch == "partner":
+        # §2.5: the discriminator is ARREARS, not the strike count.
+        # Both shops are open by tested invariant, so the matrix
+        # really is the points ledger alone.
+        return partner.grade(state)
+    # No chair, or the escrow's revert to stand-pat.
+    return "survived" if state.debt <= 0 else "kneecaps"
 
 
 def _check_endings(state: State) -> None:
@@ -88,9 +134,77 @@ def _check_endings(state: State) -> None:
         state.game_over = "broke"
 
 
+def _room_name(state: State) -> str:
+    """The second address as the player knows it — its district, never
+    its key (rev. 33 item 13)."""
+    return models.address_label(state, partner.the_restaurant(state).key)
+
+
+# THE ids this module can actually render. Asserted against the
+# registry by the suite, so an id added to one and not the other
+# fails there rather than in a player's epilogue.
+RENDERED_TERMINALS = frozenset({
+    "sold", "straight_exit", "almost_out", "half_measures", "arrested",
+    "kneecaps", "syndicate", "burned_out", "harbor_yours", "long_war",
+    models.FORECLOSURE_ENDING, models.OPERATION_ENDING,
+    models.ON_THE_HOOK_ENDING, "broke", "survived",
+})
+# The two graded terminals — the only ones whose header reads the
+# grading view's net (rev. 37 item 3).
+_GRADED_TERMINALS = frozenset({models.OPERATION_ENDING,
+                               models.ON_THE_HOOK_ENDING})
+
+
+def _epilogue_preflight(state: State):
+    """Prove everything the epilogue needs before it prints a word,
+    and return the grading view when the ending is a graded one.
+
+    Three things, in order: the chair's own payload is structurally
+    whole; the terminal is registered and belongs to this chair; and
+    an arm exists that renders it.
+
+    THE PAYLOAD CHECK IS THE SHARED AUTHORITY, not a local respelling
+    of it. Proving `branch_state is not None` for Partner's graded
+    pair alone left every other chair reading a payload nobody had
+    checked, and the three arms failed three different ways:
+    `quiet_sale` + `sold` printed a COMPLETE, false sale ending off
+    `severance_outcome or "pending"`; `war` + `harbor_yours` emitted
+    the header and then raised `IndexError` on the broken-rival list;
+    `straight` + `half_measures` printed three lines and then raised.
+    `validate_branch_state` already states presence, branch fit and
+    per-branch structure in one place and binds at transitions and at
+    save/load; consuming it here is structural validation, not a
+    reopening of any released branch's grading policy."""
+    models.validate_branch_state(state.branch, state.branch_state,
+                                 state.game_over)
+    models.validate_terminal(state)
+    ending = state.game_over
+    if ending not in RENDERED_TERMINALS:
+        raise ValueError(
+            f"no epilogue arm renders {ending!r} — an outcome matrix "
+            f"must not depend on generic epilogue ordering (§2.5)")
+    if ending not in _GRADED_TERMINALS:
+        return None
+    return partner.grade_view(state)
+
+
 def epilogue(state: State, con: Console) -> None:
+    # THE COMPLETE PREFLIGHT, BEFORE THE FIRST WORD (design rev. 36
+    # item 3, widened by rev. 37 item 2). A refusal that has already
+    # emitted a header has emitted half an ending, and half an ending
+    # reads as a real one — so everything this function needs is
+    # proved BEFORE it says anything: the id is registered and owned
+    # by this chair, an arm exists to render it, and whatever that
+    # arm depends on is present. Checking the registry alone left two
+    # refusals still printing a header first.
+    grade_view = _epilogue_preflight(state)
     con.header("EPILOGUE")
-    net = state.net_worth()
+    # The DAY-30 GRADE alone prints the grade's net (rev. 37 item 3).
+    # Arrest, foreclosure and insolvency are interruptions, not
+    # grades: subtracting arrears from a foreclosed run reports a
+    # position no rule ever computed — a real day-25 foreclosure
+    # holding $360 against $5,500 outstanding printed -$5,140.
+    net = grade_view.net if grade_view is not None else state.net_worth()
     con.say(f"  Day {min(state.day, data.DEBT_DUE_DAY)}. "
             f"Net position {money(net)} | laundered {money(state.total_laundered)} "
             f"| case file {state.case:.0f}/100")
@@ -187,6 +301,17 @@ def epilogue(state: State, con: Console) -> None:
   your own register tapes. You won the war. The verdict goes the other
   way. Both things stay true.
   ENDING: The Case closed — on you. (Won the war. Lost the verdict.)""")
+        elif state.branch == "partner":
+            # A text arm on the existing id, never a new one — the
+            # Won-the-War-Lost-the-Verdict precedent (§2.4.2).
+            con.say("""
+  They come at 6 a.m., politely, with a warrant that cites your own
+  register tapes. The pizza was never the problem. The paperwork was.
+  Carmine is not in the report. Carmine is never in the report. He is
+  embarrassed, which is a thing that happens to other people around
+  him, and by Friday there are two rooms with his cousin's name on the
+  lease and nobody left who remembers yours.
+  ENDING: The Case closed — on you.""")
         else:
             con.say("""
   They come at 6 a.m., politely, with a warrant that cites your own
@@ -295,7 +420,52 @@ def epilogue(state: State, con: Console) -> None:
   Empty pantry, empty safe, empty dining room. You lock the door from
   the outside and drop the key through the mail slot.
   ENDING: The oven went cold.""")
-    else:  # survived — grade the exit
+    elif e == models.OPERATION_ENDING:
+        v = grade_view
+        con.say("""
+  Day thirty, and Carmine is paid to the cent. Two rooms, two ovens,
+  two sets of books that survive being read — and a partner who
+  already knows what he wants next.""")
+        # The card shows its work here too: the player is told which
+        # half earned the grade, in the same terms the nightly track
+        # used all month.
+        con.say(f"  Combined net {money(v.net)} against "
+                f"{money(v.net_required)}; {_room_name(state)} "
+                f"reputation {v.reputation:.0f} against "
+                f"{v.reputation_required:.0f}.")
+        if v.tier == "healthy":
+            con.say("""
+  The new room is real. It has regulars who have never heard of the
+  first one, the file is a file and not a case, and when Carmine says
+  "next month" he means a third address.
+  ENDING: The Operation — two ovens, and a partner with plans.""")
+        elif v.tier == "working" and v.net_met:
+            con.say("""
+  The books are fat and the dining rooms are empty. What you own is a
+  laundry with a pizza sign on it, and the man who fronted the money
+  can read a room better than a ledger.
+  ENDING: The Operation — money without a room.""")
+        elif v.tier == "working":
+            con.say("""
+  The new room is loved and the tills are thin. Carmine's schedule is
+  the only thing keeping you honest, and honesty at these margins is
+  a month from being a decision again.
+  ENDING: The Operation — a room without money.""")
+        else:
+            con.say("""
+  Carmine is paid on time, every time, and you own two addresses that
+  are ash inside: no regulars, no reserve, no reason. You did not
+  build an operation. You built a payment schedule with ovens.
+  ENDING: The Operation — hollow.""")
+    elif e == models.ON_THE_HOOK_ENDING:
+        v = grade_view
+        con.say(f"""
+  Day thirty with {money(v.arrears)} still owed, and the vig on it
+  compounding while you read this. Both ovens are lit. Neither of them
+  is yours in the way you thought it was in week two — Carmine owns
+  your schedule now, and a schedule is the only thing he ever wanted.
+  ENDING: On the Hook. The month ended; the debt did not.""")
+    elif e == "survived":  # the stand-pat grades
         rivals_alive = sum(1 for r in state.rivals.values() if r.alive)
         if state.case < 30 and net > 20000:
             con.say("""
@@ -308,7 +478,7 @@ def epilogue(state: State, con: Console) -> None:
   Moretti's is a mattress store now. Vinnie's is a parking lot. Every
   warmer bag in the city rides in one of your wagons.
   ENDING: The syndicate. Nothing moves without extra toppings.""")
-        elif net > 8000:
+        elif net > models.OPERATION_NET_THRESHOLD:
             con.say("""
   Carmine is paid. The shop turns a profit both ways. Rivals call before
   they cross the harbor. It isn't safe — it will never be safe — but it's
@@ -320,6 +490,21 @@ def epilogue(state: State, con: Console) -> None:
   rush. There's almost nothing left over — except the shop, the wagon,
   the crew, and everything you now know about this city after dark.
   ENDING: Debt-free, dead broke, dangerous.""")
+    else:
+        # FAIL CLOSED (rev. 35 item 1). The chain used to end in a
+        # generic `else` that graded whatever reached it as
+        # `survived`, so a terminal with no arm did not crash — it
+        # printed SOMEBODY ELSE'S ENDING. Measured before the fix:
+        # `operation` rendered "The legitimate exit".
+        #
+        # The preflight refuses before a word is printed, so this is
+        # the belt behind the braces: reaching here means
+        # RENDERED_TERMINALS names an id this chain does not actually
+        # handle, which is a defect to fix rather than a text to
+        # improvise.
+        raise ValueError(
+            f"no epilogue arm renders {e!r} — an outcome matrix must "
+            f"not depend on generic epilogue ordering (§2.5)")
 
     if state.case_flags:
         con.say("")

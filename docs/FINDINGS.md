@@ -2926,6 +2926,311 @@ through a real landed raid rather than asserted from a literal — no
 clamp was added, because the validator refuses only what cannot be
 compared.
 
+## Round 18 — P4b.4: the ending that was never printed
+
+The branch's grade and its two day-30 terminals, on two consolidated
+paper commits (design revisions 35 and 36).
+
+**The reading pass found a defect in RELEASED code, and it was
+measured before it was argued.** `game.epilogue` is an if/elif chain
+ending in `else: # survived — grade the exit`. On merged main, a
+state carrying `game_over = "operation"` printed **"ENDING: The
+legitimate exit. The rarest pie on the menu."** — the Straight Path's
+rarest outcome, on a Partner run that never went straight.
+
+What makes that worth a FINDINGS entry rather than a line in a commit
+message is its history. *"An outcome matrix must not depend on
+generic epilogue ordering"* was ruled at **revision 15 item 4**,
+promoting The Syndicate from an upgraded text to an explicit id, and
+again at **revision 22 item 3**, giving Partner three ids of its own.
+Both rulings were correct and both were obeyed. **Both times the
+remedy was a new id, and the MECHANISM that punishes a missing arm
+was left standing.** The dispatcher now fails closed, `survived` is
+an explicit arm, and an id with no text raises.
+
+**And failing closed on unknown ids was not enough.** A KNOWN id on
+the wrong chair still prints somebody else's story: `partner` with
+`straight_exit` renders the Straight Path's earned exit with every id
+in the table. One canonical registry now names each terminal AND the
+chairs that may reach it, consumed by validation and by the epilogue
+alike, checked BEFORE the header prints — a refusal that has already
+emitted a header has emitted half an ending, and half an ending reads
+as a real one.
+
+**A superseded item read as live, for the third time — and this one
+was mine, twice over.** Revision 35 item 5 proposed one home for
+$8,000 read with two comparators, arguing that revision 24 item 1's
+"≥ $8,000" was live and the released grade's `>` was frozen beside
+it. **Revision 25 item 2 had already superseded that**, and canonical
+§2.4.2 said *"strictly greater than $8,000"* in plain sight. Worse,
+revision 25 item 2 does not merely answer differently: it anticipates
+the exact argument revision 35 made — *"a silent contract change
+dressed as a promotion to a named home"* — and declines the inclusive
+boundary explicitly. The proposal was the thing already refused, in
+the words it was refused in.
+
+This is the third occurrence: round 14's points-schema claim,
+revision 32's flag (marked superseded where it stood for precisely
+this reason), and now this — **cited by this session in revision 32's
+own ruling coda, then committed anyway two revisions later.** The
+mechanism was reading §8 forward from revision 24 and stopping at the
+first item that answered the question. The rule is written into
+revision 36 item 1 so it can be checked rather than intended: **read
+§8 forward to the END of the record before quoting it, and prefer the
+canonical section over the revision that introduced it.**
+`OPERATION_NET_THRESHOLD` carries no comparator in its name for the
+same reason — a `_MIN` suffix would smuggle the rejected boundary
+back as an inference.
+
+**Three more corrections came from review, all real.** The card was
+proposed beside the points bill, where `partner.night_obligation`
+runs — before the rival and law phases, which can still seize the
+stash, freeze cash or close the file. A card there is derived
+consistently and is STALE, which is the same class of wrong as an
+inconsistent one and harder to see; it renders after both phases now.
+The epilogue header printed gross `net_worth`, which disagrees with
+combined net whenever arrears stand, so an On-the-Hook run would have
+headed its own ending with a number its grade never used. And
+revision 35's day-30 pair needed the calendar bound as well as the
+ledger, with mid-month arrears explicitly requiring no terminal —
+owing Carmine on day 20 is an ordinary state, and demanding an ending
+for it would refuse saves reached by playing correctly.
+
+**The probe sweep changed the DESIGN this round, not only the
+tests.** Thirteen probes, eleven killed rows, two killed nothing.
+The fail-closed epilogue tail was **unreachable** — `validate_terminal`
+catches unregistered ids first, so the `raise` could only be reached
+by a registered id with no arm, which no test created; the coverage
+contract is now pinned by patching the registry, so an id added
+tomorrow without a text fails in the suite rather than borrowing an
+arm. And the Partner **day-30 dispatch** was never exercised at all:
+`partner.grade` was tested directly while the run loop's `if/elif`
+that reaches it was not — the same "test the authority, miss the
+door" shape as P4b.3's `release_from_posts`, one PR later. It became
+`game.day_thirty_grade`, a named §2.5-precedence-5 authority instead
+of a matrix buried in a loop reachable only by playing a whole month.
+
+**The generalisation, now twice earned:** a probe per row does not
+merely audit the tests. Twice it has revealed that production code
+had no door a test could reach, and the honest fix was to give the
+authority a name rather than to write a cleverer assertion.
+
+**Fixtures are driven, not posed.** The Partner fixture takes the
+chair through the real sit-down scene and winds forward through REAL
+NIGHTS; the arrears state comes from starving the till before a due
+day — a genuinely missed bill, never an appended record saying one
+was missed. Building it that way immediately caught two fixtures that
+validated while describing a month that could not have happened.
+
+**What was measured.** 1,171 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
+all three; the golden untouched; both fork batteries byte-identical
+by `diff` against a fresh merged-main worktree run at 150 and 500
+seeds. Regression against the paper commit: 39 fail.
+
+**What P4b.4 does NOT carry**, recorded rather than left to be
+noticed: §2.7's neglect bar becoming binding at ≥ 15 points at 500
+seeds is P4b.5's measurement contract and this PR tuned nothing
+toward it; both grading thresholds remain §6.3 placeholders; and the
+arrest's Partner flavour is a text arm on the existing `arrested` id,
+never a new terminal.
+
+**The round-18 correction pass** (five contracts, at `c24c471`).
+Four were mechanical. The fifth was a false claim in a commit message
+of mine, and it is the one worth keeping.
+
+*Two halves of the same PR disagreeing.* `game.run(max_days=N)`
+grades whatever the loop stops on, so a real Partner continuation cut
+at day 20 wrote `operation` on day 21 — and was then refused by the
+`validate_terminal` built one commit earlier. `max_days` is an
+**observation cutoff**, not an in-world day 30: a truncated run now
+returns live, with no terminal and no epilogue, and
+`day_thirty_grade` refuses before day 31 so no caller can open that
+door by accident. Both pins go through `game.run` itself, because
+`TestTheDayThirtyDispatch` tested the extracted helper and never its
+caller — **the third instance in three PRs of proving an authority
+and missing its door** (P4b.3's `release_from_posts`, P4b.4's day-30
+dispatch, and now `game.run`).
+
+*Half an epilogue, twice more.* The preflight proved the REGISTRY and
+not the RENDER: a registered id with no arm, and a Partner grade with
+`branch_state=None` — which passes `validate_terminal` and raises
+inside `grade_view` — both printed a header and a net line before
+failing. Everything the epilogue needs is proved before its first
+word now, and both pins assert `con.lines == []`. And a `skipTest` on
+a lost production path became a failure: a contract that goes green
+by skipping is the vacuous-proof class with better manners.
+
+*A number no rule computes.* The grading view's net was applied to
+every Partner ending rather than to the day-30 grade it belongs to. A
+real day-25 foreclosure holding $360 against $5,500 outstanding
+reported **−$5,140**. Combined-net-less-arrears answers "did the
+month work"; arrest, foreclosure and insolvency are interruptions
+that were never asked.
+
+*Prose claiming what the grade never read.* Two ending arms said
+"Both rooms are loved" and "Both rooms are real" while the restaurant
+term reads only the non-founding room's meter — a founding room at
+negative reputation received either text. The grade is unchanged; the
+sentences name the second room, amended in canon and implementation
+together so they cannot drift.
+
+**And the finding that is about verification rather than code.**
+Commit `1f53fb1` states *"documentation-only: `git diff --name-only`
+names `docs/ACT1_FORK_DESIGN.md` alone"*. The commit contains two
+files: it also added an `AGENTS.md` this session did not write. The
+claim was neither a lie nor a typo. **`git diff` cannot see untracked
+files.** The check ran before `git add -A`, reported truthfully on
+everything it was capable of seeing, and the one file it could not
+see was swept in by the next command. *An instrument blind to the
+thing being asserted proved the assertion* — which is exactly the
+defect class this record has been cataloguing all along (a test that
+inspects instead of executing; a matrix row that reads a view instead
+of running the raid), turned on my own verification instead of on the
+code. The rule, written into revision 37 so it is checkable: **prove
+a documentation-only boundary with `git status --porcelain`, or with
+`git diff --name-only --cached` AFTER staging — never with a bare
+`git diff`.**
+
+The file was wrong on its merits too, independent of how it arrived:
+it duplicated `CLAUDE.md`, creating two protocol homes for one
+protocol — the single-authority rule broken inside a file that
+restates the single-authority rule — and it instructed a reviewer to
+sign commits with an attribution none of this PR's commits uses. It
+is removed. If Codex discovery is wanted it is a separate reviewed
+change: a pointer to the one canonical protocol, never a copy.
+
+### Round 18 correction pass 2 (re-review — two mechanical seams)
+
+The review closed items 3–5 and held two seams **against revision 37
+itself**: the correction pass had, in each case, written the rule
+slightly wider than the rule. Both were reproduced here before either
+was touched, and both reproductions matched the reviewer's exactly.
+
+*The cutoff that swallowed real endings.* Revision 37 item 1 says a
+TRUNCATED run is not a graded run. The code said a run **on or before
+day 30** is not a graded run — a calendar test with no mention of
+whether the month actually ended. So every genuine EARLY ending fell
+through it. Reproduced on a live Partner run entering day 24 carrying
+one strike, where the day-24 bill is the second miss:
+
+```text
+after run: day 25, foreclosure
+EPILOGUE: absent
+ENDING: absent
+```
+
+The state was correct; the player was simply never told. Arrest, the
+sale's closing, insolvency and burnout all end before day 30 and all
+went silent the same way. The condition now reads
+`not state.game_over and state.day <= data.DEBT_DUE_DAY`: an ending
+that HAPPENED is graded, a month that did not finish is not. Three
+pins go through `game.run` — the door, not the helper — one per shape
+that reaches the cutoff with a terminal in hand: the foreclosure
+(falls out of the loop condition), the signed sale (`break`s out of
+it), and an arrest already latched at entry.
+
+*A correction to this record, made in the merge coda.* The third pin
+was first described here and in the PR body as the latch "set by
+`_check_endings`". **It is not.** `State.add_case` latches at ACCRUAL
+TIME — the arrest is already on the state before `game.run` is
+called, `_check_endings` fires **zero** times, and the loop body
+never runs at all. Instrumented and counted rather than reasoned
+about: `_check_endings called 0 times`. The test is valid and is in
+fact the purest of the three controls — a terminal in hand, day 20,
+nothing in between the `while` condition and the cutoff — but its
+stated mechanism was not its actual one, which is its own small
+instance of the class this record catalogues: **a proof whose
+description nobody re-derived.** The comment and both documents now
+say what the test does.
+
+**This is the fourth consecutive instance of proving an authority and
+missing its door** — `release_from_posts`, the day-30 dispatch,
+`game.run` in the first correction pass, and `game.run` again here.
+The first pass DID pin `game.run`; it pinned the arm it had just
+written and never the arm it had just broken.
+
+**And the instrument could not see it — measured, not asserted.** At
+the reviewed head `2c983d6`, the flag-off golden gate reads
+**300/300 runs identical** while **10 of those 300 runs print no
+ending at all**:
+
+| | epilogues rendered | of which early (day ≤ 30) | gate 1 |
+|---|---|---|---|
+| head `2c983d6` | 290 / 300 | 0 | 300/300 identical |
+| corrected | 300 / 300 | 10 | 300/300 identical |
+
+The trace both gates digest records `menu`, `ask_int`, `confirm` and
+`scene_menu` — DECISIONS. The epilogue is entirely `con.say`, so
+prose has never been on the instrument at all: the whole ending text
+of one flag-off run in thirty could vanish and every gate, every
+battery and every hash would hold. That is not a gate defect; it is
+the gates' documented scope, and it is now written down where the
+next session will read it before trusting a green board. It also
+means the byte-identical batteries below prove STATE identity and
+nothing about what a player reads. The corrected behaviour is
+`origin/main`'s: `91bfc824` calls `epilogue` unconditionally, so this
+restores the released surface rather than changing it, and the only
+surviving departure is revision 37 item 1's sanctioned one.
+
+*The preflight that checked one chair's homework.* Revision 37 item 2
+says everything the epilogue needs is proved before its first word.
+The code proved structural prerequisites only for **Partner's graded
+pair**, so the other three chairs read a payload no authority had
+looked at, and each failed differently:
+
+| chair + terminal | before | after |
+|---|---|---|
+| `quiet_sale` + `sold` | 4 lines — a **complete, false** sale ending | refuses, 0 lines |
+| `war` + `harbor_yours` | 2 lines, then `IndexError` | refuses, 0 lines |
+| `straight` + `half_measures` | 3 lines, then `ValueError` | refuses, 0 lines |
+
+The sale is the worst of the three: `severance_outcome` read through
+an `or "pending"` fallback, so a missing payload rendered a fully
+formed ending about envelopes nobody ever paid. `_epilogue_preflight`
+now consumes the SHARED AUTHORITY — `models.validate_branch_state`,
+which already states presence, branch fit and per-branch structure in
+one place and binds at transitions and at save/load — instead of
+respelling presence locally. The local respelling is deleted; two
+homes for one rule is the defect class this record opens with. The
+pins are a seven-row table across all four chairs, each row asserting
+`con.lines == []`, each preceded by a POSITIVE CONTROL that renders
+the same ending from a whole payload, so the door is not proved by
+one that refuses everybody. Structure is pinned separately from
+presence (a second war front declared before the first one broke),
+and one row proves the refusal mutates nothing.
+
+*What the widened preflight caught on the way in — three fixtures
+that were posing.* Making the epilogue ask the shared authority broke
+three rows of the terminal-coverage sweep, and each was a payload no
+player could reach: a `sold` run whose severance was still `pending`;
+a second war campaign declared on day 15 when the first broke on day
+31 — one front at a time, refused everywhere in the engine except
+here; and a `foreclosure` on a ledger carrying **zero** strikes. The
+epilogue had been the one door in the tree that rendered them. All
+three are now DRIVEN: the closing signed through
+`escrow.diligence_morning`, the second front opened through
+`war.declare` in calendar order, the two misses produced by starving
+the till before the due days. Fixtures driven, not posed — the same
+rule that caught two impossible months in the first pass, catching
+three more the moment a real authority was asked.
+
+**The probe sweep.** Each production behaviour reverted alone:
+reverting the cutoff to the calendar alone kills 3 rows (the three
+`game.run` shapes); dropping the shared authority and restoring the
+old Partner-only respelling in its place kills 10 rows across all
+four chairs. No behaviour is unpinned and no new row is redundant.
+
+**What was measured.** 1,188 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs
+(schema v1) on all three; the golden
+`7a62b2af…` untouched; both fork batteries byte-identical by `diff`
+against a fresh `origin/main` (`91bfc824`) worktree run at 150
+(`c6912b04…`) and 500 (`b74cc15f…`) seeds. Regression against the
+reviewed head `2c983d6`: **13 fail** (12 failures, 1 error — the
+`IndexError` arm, which raises the wrong exception type rather than
+none).
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
@@ -2978,12 +3283,16 @@ compared.
   only. It was an independent merge prerequisite for two rounds and
   is no longer one.
 
-  **AWAITING REVIEW: P4b.3** — the manager, the vacancy and the
-  two-front pressure — as **PR #28**, round 17, on design revisions
-  33 and 34, carrying both matrices rev. 30 item 3 requires.
+  **P4b.3** — the manager, the vacancy and the two-front pressure —
+  is **MERGED** (PR #28, approved at exact head `6aca3ab`, merged
+  `91bfc824`; round 17), carrying both matrices rev. 30 item 3
+  requires.
 
-  **NEXT, after P4b.3 merges:** P4b.4 (the grade and the endings),
-  then P4b.5, then activation as a separate seventh act. The **P4
+  **AWAITING REVIEW: P4b.4** — the grade and the endings — round 18,
+  on design revisions 35 and 36.
+
+  **NEXT, after P4b.4 merges:** P4b.5, then activation as a separate
+  seventh act. The **P4
   full-battery item** (the pairwise eight-component vectors) is
   **P4b.5's**, exactly as §7 assigns it — paper, execution and
   results alike.

@@ -1718,6 +1718,13 @@ def night(state: State, plans: dict, service_report: dict, con: Console,
 
     rivals.rival_phase(state, con, streams.rivals)
     _law_phase(state, con, streams)
+    # THE day-30 card, AFTER the night is settled (design rev. 36
+    # item 2). It cannot sit beside the points bill above: the two
+    # phases just run can seize the stash, freeze clean cash or close
+    # the file, and a card rendered before them would be derived
+    # consistently and still be stale. It suppresses itself on a run
+    # that just ended.
+    partner.day_thirty_card(state, con)
 
     if state.branch == "straight":
         straight.exit_readout(state, con)
