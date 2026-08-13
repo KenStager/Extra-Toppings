@@ -2833,3 +2833,123 @@ hero streak staging); LS upper band own-register round; the
 off-machine backup and the PixelLab support query. NEXT SESSION
 (H): LS interims -> UH student wardrobe (paper first) -> the
 service-counter interior PAPER.
+
+## Session H opens: the LS interims retired and promoted (2026-08-12
+## session H; drift Tier B; 4 drift gens, 0 work gens)
+
+Session H opened per protocol (fresh worktree at 1aac197, stale
+session-G worktree removed; drift 4/4 Tier B, bitforge probe Tier A
+byte-identical; suite 157, ruff clean; composer regression FIRST:
+all three approved stagings reproduce their standing boards
+BYTE-IDENTICALLY — morettis_v8, vinnies_v9, uh_v5).
+
+THE ROUND (candidate-first, 0 gens — all code and exact-color):
+
+- **CHAIN VALIDATION before any render**: all three existing scene
+  extras reproduce BYTE-IDENTICALLY from approved bases +
+  wardrobe_variant, and the exact params were recovered and recorded
+  (man_cream = top cream + bottom GRAY; woman_burgundy = top
+  burgundy + skin_shift; elder_oxblood = top oxblood). The machinery
+  is sound and its conventions are now measured facts.
+- **THE ls_kept BAND** (ls_upper_band in block_compose.py, the
+  meadows_upper_band precedent): the kept district's census in one
+  band — warm LS stucco on the white-mix hash, twelve tall windows
+  with open Sicilian louvered shutters, deterministic assignment:
+  shutters closed {2,9} / sky-catch {5,10} / lace half-curtain
+  {0,4,7} (the De Luca hem precedent at band scale, hash-hung dips)
+  / plain cool glass with a small sky-catch pane elsewhere. Cool
+  glass per the citywide band law (midnight/slate, facade v2's
+  vocabulary). NO OXBLOOD — the accent's widest surface stays
+  Moretti's awning; the band does not compete. Palette censused: 7
+  unique colors, zero off-register. THE LOOP PAID ONE ROUND BEFORE
+  THE BOARD SAW IT: the first mottle (3% dark pores) read as
+  CONFETTI at 4x — SF[1] on SF[2] is a far bigger luminance jump
+  than the asphalt field's close road tiers, so the same density
+  law does not transfer; refined to 1% pores / 2% pale flecks.
+  Three-distance protocol observed (4x, 1x, census).
+- **LS WARDROBE EXTRAS** (interim (b), DISTRICT_WARDROBES
+  [little_sicily] = cream/oxblood/pale/burgundy): Moretti's walked
+  the HERO'S EXACT PAIR (man_cream + woman_burgundy, both staged on
+  other blocks). Swapped: **extra_elder_oxblood** (the EXISTING
+  verified render — the neighborhood elder in the district's name
+  color, walking nowhere else on the street) + **NEW
+  extra_woman_cream** (top=cream, hair=black, no skin shift —
+  distinct on every axis from the hero's woman; her 6 residual
+  #680828 px are the base's own shoes/cuffs below HEAD_REGION,
+  correct region scoping, LS-legal burgundy). Recipe
+  ls_wardrobe_extras.py; renders deterministic.
+- CENSUSES: diff vs v8 = 31,511 px — 31,067 in band rows 0-55, 444
+  in the extras zones (rows 175-205, cols 248-401), ZERO elsewhere.
+  Composer inertness after the edit: all three approved boards
+  re-render byte-identical. Validator PASS. Provenance
+  e16_ls_interims_2026-08-12.json.
+
+THE PROMOTION (board: "Great work! Push forward, proceed" — the
+session-F precedent read as promoting the standing candidate,
+interpretation recorded; provenance
+e16_ls_interims_promotion_2026-08-12.json):
+approved/morettis_block_staging.json IS the v9 stack; woman_cream
+entered godot_preview/assets/scene and the staging re-pointed;
+candidate staging retired (one writable authority). Byte-check: the
+approved re-render is BYTE-IDENTICAL to the presented candidate
+board (morettis_v9). **GODOT PROOF 0/230,400** (import law
+observed; self-check byte-exact). Standing boards: hero v28
+(ref 22686e22...), **morettis_v9**, vinnies_v9, uh_v5.
+
+Session H spend: 4 gens (drift only); expected balance ~4,023 by
+estimate; vendor dashboard the authority.
+
+## UH STUDENT WARDROBE — THE PAPER (2026-08-12 session H; 0 gens —
+## AWAITING THE RULING)
+
+THE DATA GROUNDS IT: University Hill is "students, all-nighters,
+cash-poor and hungry" — and the campus-gate strip walks the GENERIC
+set (man_cream + kid_pale + woman_pale), the UH paper's recorded
+future item ("a student wardrobe variant is the crowd round's
+future item"). The crowd round is here.
+
+THE FOUND ASSET, censused before anything was invented (the
+handoff's own directive): **extra_student_32 is ALREADY APPROVED**
+(2026-08-10 type-class picks, seed 10111, experiment_10) — a hooded
+figure in the standard wardrobe zones (slate BASE_TOP hoodie, ink
+BASE_BOTTOM), a gray hood/strap element at the chest, standard skin
+ramp. The base was built for exactly this and has never walked.
+
+THE MEASURED TRAP (census, this session): the student's HAIR is ink
+#303B5A — the SAME VALUE as BASE_BOTTOM — so wardrobe_variant's
+global bottom swap would dye his hair with his trousers. PROPOSED
+LAW: **student variants vary TOPS ONLY (+ skin shifts); bottoms
+stay ink (UH-legal); an ink TOP is banned on the student** (hair +
+top + bottom would merge into one silhouette mass). No machinery
+change needed — the constraint is roster data, test-pinnable.
+
+THE PROPOSED ROSTER (all 0 gens, exact-color, UH register slate/
+gray/ink/pale): student_slate (the base as-is), student_gray
+(top=gray), student_pale (top=pale), each with optional skin_shift
+— up to six distinct students from one approved base. STAGING
+PROPOSAL for the campus strip: man_cream retires from UH (he
+already walks the hero block); TWO students walk the strip
+(different tops, one skin-shifted); kid_pale and woman_pale stay
+(campus streets carry more than students by day). Case blue stays
+RESERVED (sworn institutions only); nothing minted.
+
+OPEN QUESTIONS FOR THE BOARD, priced:
+1. **A female student base?** None exists — a generation item (~2
+   gens, the extras recipe chain: free generation + register strip,
+   the profile-pose lessons apply), plus her pose/cycle later if
+   she animates. Recommended IF the campus read matters at
+   crowd-density; the three-variant male roster carries the strip
+   without her today.
+2. **Animation**: the student has NO pose/cycle. He joins the
+   Phase-B chain (west pose + 8-frame cycle, ~2-3 MCP-estimated)
+   when the campus strip animates; static staging is lawful today
+   (every block stages static extras; cycles are their own approved
+   class).
+3. **Props**: the hood/strap element already carries the student
+   read at 32px; no standalone backpack prop is proposed (below
+   readable-icon threshold at this scale, the pictogram lesson).
+
+BUILD SHAPE when ruled: recipe uh_student_wardrobe.py (deterministic
+variant renders + byte-checks), university staging candidate
+swapping the actor roster, A/B + censuses + validator, promotion =
+approved swap + re-render byte-check + Godot proof per precedent.
