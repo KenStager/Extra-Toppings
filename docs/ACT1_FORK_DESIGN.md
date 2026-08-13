@@ -1426,7 +1426,18 @@ seeds 24/39/8 remains the test of fun.
      against the same seed's stand-pat control; the **median per-seed
      ratio must be ≥ 1.5**, and the absolute dollar difference is
      reported alongside so a ratio inflated by a tiny denominator
-     cannot pass unnoticed. **Points on schedule** — defined as
+     cannot pass unnoticed. **The window, defined (rev. 38 item 3):**
+     the fork day is `sitdown_snapshot.payoff_day + 1`, and the window
+     runs from it through `min(fork_day + 8, DEBT_DUE_DAY)` inclusive
+     — `fork + 8` can fall past the end of the month, and a payoff on
+     day 26 leaves four days, not nine. **Both arms of a pair are
+     measured over identical days**, so a truncated window shortens
+     numerator and denominator together and the ratio keeps its
+     meaning; truncated seeds are reported as their own line with
+     their count and median window length, never dropped. The
+     combined number reads **both addresses** through one authority —
+     `State.legit_revenue_today` is a single-address alias that
+     refuses on a two-shop state by construction. **Points on schedule** — defined as
      **zero missed cycles**, in ≥ 80% of entered runs that reach at
      least one due date (runs foreclosed, arrested or ended before a
      first due date are excluded from the denominator and reported
@@ -1460,7 +1471,20 @@ seeds 24/39/8 remains the test of fun.
      $/day, obligation outflow $/day (points + tribute), and
      incident/defense events per day — normalized per component across
      all runs; every branch pair must differ by ≥ 0.25 in at least **two**
-     components.
+     components. **The normalizer and the per-branch statistic, frozen
+     (rev. 38 item 6)** — the sentence above named neither, and the two
+     natural readings give different numbers. Normalization is
+     per-component **min–max over the pooled set of all runs from all
+     four branch fleets**, computed once so every branch sits on one
+     shared scale; a component whose pooled range is zero normalizes to
+     0 everywhere and is reported as DEGENERATE rather than silently
+     contributing separation. The branch profile is the **median** of
+     each component's normalized per-run value — median rather than
+     mean because these distributions are skewed and one runaway seed
+     must not define a branch. Separation on a component is an absolute
+     difference ≥ 0.25. The full 4 × 8 profile matrix and all six
+     pair-by-pair component tables are printed, not only the verdict:
+     the bar is two components, and WHICH two is the finding.
    - *Ledger transparency:* every night, displayed Case equals the sum of
      visible evidence records (§2.3) — asserted by every bot in every run.
    - *Telegraphy, split by gate type (rev. 3):* for every
@@ -1490,7 +1514,11 @@ seeds 24/39/8 remains the test of fun.
    ablations, and they prove opposite halves of the hybrid** (rev. 23
    item 1): a bot that takes **no post-fork covert revenue** (rev. 22
    item 10, replacing "pays points from pizza margins only") proves the
-   criminal half is load-bearing, and a matched **restaurant-neglect**
+   criminal half is load-bearing **and carries this criterion's own
+   ≥ 20-point magnitude** (rev. 38 item 2 states the two side by side,
+   because the ≥ 20 lives in this criterion's opening sentence while
+   the ≥ 15 below is stated inline, and a reader who found one first
+   could take it for both); and a matched **restaurant-neglect**
    bot — no cover spend, no pantry care, at either address — must
    reduce **healthy-`operation`** outcomes by **≥ 15 points, binding at
    500 seeds** (rev. 24 item 1 makes the bar binding rather than
@@ -2113,6 +2141,18 @@ Ordered roughly by blast radius, smallest first:
     assumed.
   - *P4b.5 — bots, battery and study.* The Partner bot, both
     ablations, the §2.7 letters measured, FINDINGS, and human play.
+    Carries rev. 38: every strategic bot choice — the chair, the
+    site, every address — resolved BY IDENTITY and never by menu
+    position; both ablations proved to enter the fork from
+    state-hash-identical months (rev. 15's precedent, bar 0 divergent
+    pairs) and the neglect fleet proved to have neglected BOTH rooms;
+    the paired legit-revenue window defined through the end of the
+    month; the full pairwise battery with its normalizer and
+    per-branch statistic frozen; and BOTH grading-threshold
+    distributions reported unconditionally, including when the bars
+    hold. **It changes no mechanic, no threshold and no released
+    bot** — a miss is a finding that returns to review, never a
+    retune inside the PR that measured it.
 
   Both identity gates and all three merged batteries stay binding at
   every P4b boundary, and **the golden is not regenerated in P4b
@@ -4185,6 +4225,11 @@ once item 2's split is ruled.
     of runs**; the criterion-5 ablation — a bot that pays points from
     pizza margins only — must drop the branch-good rate by **≥ 20
     points**, or the trap is decorative and the branch fails review.
+    *(The ABLATION'S DEFINITION here is SUPERSEDED by rev. 22 item
+    10: "pays points from pizza margins only" was mechanically
+    ambiguous and was replaced by **no post-fork covert revenue**.
+    The ≥ 20-point magnitude stands and is restated at rev. 38 item
+    2. Read §8 forward to the end before quoting any of it.)*
     Plus the standing rows: the branch-good band 25–70%, ledger
     transparency asserted nightly, telegraphy, crash-freedom (a
     `ChaosPartner` fleet answering chair index 1, per `BRANCH_ORDER`),
@@ -6192,3 +6237,234 @@ in a commit message. Paper first. It amends §2.4.2 and §2.5 in place.
    commits with an attribution none of this PR's commits uses. If
    Codex discovery is wanted it is a separate, reviewed change: a
    short pointer to the one canonical protocol, never a copy of it.
+
+**Revision 38 — P4b.5: the instruments, and the schema frozen before
+the first number.** P4b.4 is merged (PR #30, approved head
+`9125afe`, merge `2b37878`). P4b.5 is the last implementation PR of
+P4b: the Partner bot, its two ablations, the §2.7 letters measured,
+the full pairwise battery, FINDINGS and human play. It changes NO
+mechanics, NO thresholds and NO released bot. Paper first, as one
+packet; it amends §2.7 and §7 in place.
+
+The governing rule of this PR, stated before anything else because
+every item below is subordinate to it: **bots are instruments, never
+tuning targets, and a miss is a finding.** If a bar fails, the
+decomposition goes into FINDINGS and comes back to review. Nothing in
+`extra_toppings/` moves to make a number pass — not a mechanic, not a
+threshold, not a bot policy. This is the rule the war study's rev. 15
+invalidation was written to protect, and P4b.5 is the PR with the
+most to gain from breaking it.
+
+1. **THE PARTNER BOT, AND EVERY STRATEGIC CHOICE RESOLVED BY
+   IDENTITY.** `PartnerBot(MarketBot)` takes Carmine's chair, opens
+   the second room on **University Hill BY NAME**, appoints a manager
+   to the room it is not standing in, keeps both pantries and both
+   covers, runs covert routes where the district still pays, and
+   holds clean cash against the points cycle. It reads the same
+   transcript a human reads.
+
+   *Resolution is by identity everywhere, per rev. 33 item 2 and the
+   standing rule that menu position must never decide strategy.* The
+   chair is `models.BRANCH_ORDER.index("partner")`, never the literal
+   `1`. The site is found by matching `partner.site_label("university")`
+   against the offered options, never `SITE_DISTRICTS[0]` and never a
+   menu index. Address choices inside the shared morning and night
+   menus resolve through `models.address_label`, never position. A
+   later menu reorder must change what a player reads and nothing
+   this study measures.
+
+   *The released bots are NOT retrofitted.* `WarBot` answers chair
+   `2` and `EscrowBot` chair `3` as literals today. Rewriting them to
+   resolve by identity is behaviour-neutral in principle and is
+   exactly the kind of "obviously safe" edit that moves three merged
+   batteries; they are left alone, and the identity rule binds the
+   bot this PR writes. **Flagged** — if the reviewer wants the
+   released bots converted it is its own PR with its own battery
+   proof, never a rider on this one.
+
+2. **THE TWO ABLATIONS, AND THE ENTRY-IDENTITY CONTRACT THAT MAKES
+   THEM MEAN ANYTHING.** Partner carries two, and they prove opposite
+   halves of the hybrid (§2.7 criterion 5, rev. 23 item 1):
+
+   - `NoCovertPartnerBot` — **no post-fork covert revenue**: plans no
+     covert route and takes no dirty income after the fork (rev. 22
+     item 10, which replaced the mechanically ambiguous "pays points
+     from pizza margins only"). Bar: it must drop **branch-good** by
+     **≥ 20 points** — criterion 5's magnitude, restated here because
+     the earlier statement of this row at revision 28 still carries
+     the superseded wording.
+   - `NeglectPartnerBot` — **no cover spend, no pantry care, at
+     EITHER ADDRESS**. Bar: it must reduce **healthy-`operation`**
+     outcomes by **≥ 15 points, binding at 500 seeds** (rev. 24 item
+     1). The war's rev. 17 restaurant-neglect row is the precedent —
+     the same hollow-restaurant question asked of the other branch.
+
+   *Both bars are on the healthy tier read from `partner.grade_view`,
+   never on the `operation` id*, and the id-level rate is reported
+   beside each so the gap between "paid the man" and "built the
+   business" stays visible (rev. 23 item 1).
+
+   **EVERY ABLATION KNOB IS CONSUMED IN-BRANCH ONLY, and the study
+   PROVES it rather than intending it.** This is rev. 15's ruling,
+   which invalidated a whole round-10 war study because `cover_stops`
+   changed Act I and the fleets entered the fork from different
+   months. The contract, executable: for every seed, each ablation
+   fleet's **pre-fork state hash** and **entered flag** must equal the
+   complete bot's, and the study prints the count of divergent
+   `(fleet, seed)` pairs with **bar 0**. A non-zero count invalidates
+   the comparison and is reported as such — it is not a rounding
+   error to note in passing.
+
+   **And the neglect ablation must be proved to have neglected BOTH
+   rooms.** "At either address" is the whole point of the row: a
+   neglect run that quietly kept the second pantry stocked is the
+   complete bot wearing the ablation's name. The study reports
+   per-address cover and pantry spend for both fleets, and a neglect
+   fleet showing non-zero spend at either address is a defect in the
+   instrument, not a result.
+
+3. **THE STUDY SCHEMA, FROZEN HERE — and the window canon does not
+   define.** §2.7's Partner letter measures **cumulative combined
+   legit revenue from the fork through fork+8, paired against the
+   same seed's stand-pat control, median per-seed ratio ≥ 1.5**, with
+   the absolute dollar difference reported alongside so a ratio
+   inflated by a tiny denominator cannot pass unnoticed.
+
+   *The fork day* is `sitdown_snapshot.payoff_day + 1` — the
+   authority `_fork_straight` already uses, reused rather than
+   respelled.
+
+   *THE GAP.* `fork + 8` can exceed day 30. The documented payoff
+   boundaries run to day 26, so a fork day of 27 gives a window of
+   four days, not nine, and canon says nothing about it. Canon is
+   silent here rather than self-contradictory, so this packet
+   RESOLVES it and flags the resolution rather than opening a
+   question round:
+
+   > The window is days `fork_day` through
+   > `min(fork_day + 8, DEBT_DUE_DAY)`, inclusive, and **both arms of
+   > a pair use the same window** — the Partner run and its stand-pat
+   > control are measured over identical days, so a truncated window
+   > shortens both numerator and denominator and the ratio stays
+   > meaningful. Truncated seeds are reported as their own line: how
+   > many, and the median window length.
+
+   *The alternative was considered and is rejected:* excluding
+   late-payoff seeds would silently drop the hardest months from the
+   headline number, which is the "never silently dropped" rule this
+   document applies to every other denominator. **Flagged for the
+   reviewer's word** — this is a measurement definition, and the
+   ratio's meaning depends on it.
+
+   *One authority for the combined number.* `State.legit_revenue_today`
+   is a single-address alias that **REFUSES on a two-shop state** by
+   construction (`exactly_one_shop`), which is P4a working exactly as
+   designed — and it means the Partner study cannot read the quantity
+   it is named after. **Flagged, with a recommendation:** a pure,
+   read-only `models.combined_legit_revenue(state)` summing the
+   per-shop field, in `models` where the field lives, so the number
+   has one home. The alternative — the study summing locally — puts a
+   second spelling of a model fact in the harness, which is the
+   two-homes class. It adds no behaviour and moves no gate; it is
+   flagged because P4b.5 was scoped as a study PR and this is a line
+   of engine code.
+
+4. **DENOMINATORS, NAMED — and never silently dropped.**
+   - *Entered* is latched the escrow way: the bot's own transcript
+     sniff (`_entered_partner`) OR `state.branch == "partner"`, because
+     a collapse can revert before the first night hook would see the
+     branch, and state inspection alone undercounts.
+   - *Points on schedule* — **zero missed cycles** — is measured over
+     entered runs that **reach at least one due date**. Runs
+     foreclosed, arrested or ended before a first due date are
+     excluded from that denominator **and reported separately, never
+     silently dropped** (§2.7's own words). Bar: ≥ 80%.
+   - *Branch-good* is the healthy `operation` tier from the grading
+     view, in the 25–70% band, with the id-level rate beside it.
+   - *Dirty cash inherited from before the fork* is its own reported
+     line in the no-covert fleet, since a bot can pay early points
+     from a pre-fork stash without committing a post-fork crime — the
+     confound rev. 22 item 10 named explicitly.
+
+5. **BOTH GRADING-THRESHOLD DISTRIBUTIONS, REPORTED UNCONDITIONALLY
+   — including when the thresholds hold.** `OPERATION_NET_THRESHOLD`
+   ($8,000, compared **strictly greater**) and
+   `PARTNER_REPUTATION_THRESHOLD` (35.0, compared **inclusive**) are
+   §6.3-class placeholders. The study reports, over entered runs that
+   reach day 31:
+
+   - the distribution of `grade_view.net` — min, Q1, median, Q3, max
+     — and the share strictly above and at-or-below $8,000;
+   - the distribution of the restaurant's reputation, the same five
+     numbers, and the share at-or-above and below 35.0.
+
+   Reported **even when both bars pass**, because a bar that passes
+   with every run's mass sitting a dollar from the line is a
+   different fact from one that passes comfortably, and only the
+   distribution distinguishes them. **The study MOVES NEITHER
+   CONSTANT.** If the distributions argue for a different number that
+   is a falsification finding, written up and returned to review —
+   the recorded workflow every other constant in this project moves
+   through, and never a quiet retune inside the PR that measured it.
+
+6. **THE FULL PAIRWISE EIGHT-COMPONENT BATTERY, and the two
+   definitions §2.7 leaves open.** All four branches, post-fork days
+   only, the eight components exactly as §2.7 names them: route-day
+   %, raid-day %, covert $/day, legit $/day, staff spend $/day (wages
+   + raises + settlements + war pay), remediation spend $/day,
+   obligation outflow $/day (points + tribute), and incident/defense
+   events per day. Six pairs; **every pair must differ by ≥ 0.25 in
+   at least two components.**
+
+   §2.7 says "normalized per component across all runs" and names
+   neither the normalizer nor the per-branch statistic, and the two
+   natural readings give different numbers. **Frozen here, flagged
+   for the reviewer's word:**
+
+   > **Normalizer:** per-component **min–max over the pooled set of
+   > all runs from all four branch fleets**, computed once, so every
+   > branch is placed on one shared scale. A component whose pooled
+   > range is zero normalizes to 0 for every run and is reported as
+   > degenerate rather than silently contributing separation.
+   > **Per-branch statistic:** the **median** of each component's
+   > normalized per-run value — median rather than mean because these
+   > distributions are skewed and one runaway seed must not define a
+   > branch's profile.
+   > **Distance:** the absolute difference per component; a pair
+   > separates on a component when that difference is ≥ 0.25.
+
+   The full 4 × 8 normalized profile matrix and all six pair-by-pair
+   component tables are printed, not just the pass/fail — the bar is
+   two components, and which two is the interesting part.
+   Obligation outflow only becomes non-trivial with Partner in the
+   tree, which is why §7 assigns this row to P4b.5 alone.
+
+7. **THE STANDING ROWS, unchanged and rerun with all P4b code in the
+   tree.** Crash-freedom via a `ChaosPartner` fleet answering the
+   partner chair — resolved by identity, per item 1. Ledger
+   transparency asserted nightly. Telegraphy. Reachability unchanged.
+   Both identity gates 300/300 with 79/79, **containment checks, not
+   proof**. The three merged batteries byte-identical at both depths.
+   The golden is **not** regenerated. Human play on seeds 24/39/8,
+   written up honestly — the Quiet Sale's untaken human verdict rides
+   along with it.
+
+8. **A SUPERSEDED DESCRIPTION, pointed at rather than rewritten.**
+   Revision 28's statement of this row still describes the criterion-5
+   ablation as *"a bot that pays points from pizza margins only"*.
+   **Revision 22 item 10 replaced that wording** with "no post-fork
+   covert revenue" precisely because the old phrasing was
+   mechanically ambiguous. The revision record keeps what was ruled;
+   a pointer is added there, and item 2 above is the live statement.
+   This is the fourth time this document has had to mark a superseded
+   item, and the standing rule applies: **read §8 forward to the END,
+   and prefer the canonical section over the revision that introduced
+   a rule.**
+
+9. **ACTIVATION IS NOT IN THIS PR.** Adding `partner` to
+   `RELEASED_BRANCHES` is a separate SEVENTH act on the reviewer's
+   explicit word, never a side effect of P4b.5 — the P2 and P3
+   precedent, now kept three times. `sitdown.py`'s
+   `NotImplementedError` stays regardless as the defensive invariant
+   for any future chair, and the P1 probe test that pins it is
+   retargeted rather than deleted.
