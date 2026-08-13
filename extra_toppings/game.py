@@ -63,7 +63,7 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
         if on_night is not None:
             on_night(state, streams)
 
-    if state.day <= data.DEBT_DUE_DAY:
+    if not state.game_over and state.day <= data.DEBT_DUE_DAY:
         # A TRUNCATED RUN IS NOT A GRADED RUN (design rev. 37 item 1).
         # `max_days` is the harness's observation cutoff, not an
         # in-world day 30: the month did not end, it was stopped being
@@ -71,6 +71,15 @@ def run(seed: int | None, con: Console, max_days: int | None = None,
         # was then refused by the validator — this engine disagreeing
         # with itself. The state comes back LIVE, with no terminal and
         # no epilogue to print about a run that has not finished.
+        #
+        # ONLY A STILL-LIVE RUN. The first spelling of this cutoff
+        # read the calendar alone, and so it swallowed every genuine
+        # EARLY ending too: a real day-24 foreclosure came back with
+        # `game_over` set and nothing printed — no header, no ENDING
+        # line. Arrest, the sale's closing, insolvency and burnout all
+        # end before day 30 and all went silent the same way. An
+        # ending that happened is graded; a month that did not finish
+        # is not.
         return state
     if not state.game_over:
         state.game_over = day_thirty_grade(state)
@@ -150,11 +159,24 @@ def _epilogue_preflight(state: State):
     """Prove everything the epilogue needs before it prints a word,
     and return the grading view when the ending is a graded one.
 
-    Three things, in order: the terminal is registered and belongs to
-    this chair; an arm exists that renders it; and that arm's
-    prerequisites are present — `branch_state=None` on a Partner
-    grade passes the registry and then raises inside `grade_view`,
-    which used to happen two lines after the header had printed."""
+    Three things, in order: the chair's own payload is structurally
+    whole; the terminal is registered and belongs to this chair; and
+    an arm exists that renders it.
+
+    THE PAYLOAD CHECK IS THE SHARED AUTHORITY, not a local respelling
+    of it. Proving `branch_state is not None` for Partner's graded
+    pair alone left every other chair reading a payload nobody had
+    checked, and the three arms failed three different ways:
+    `quiet_sale` + `sold` printed a COMPLETE, false sale ending off
+    `severance_outcome or "pending"`; `war` + `harbor_yours` emitted
+    the header and then raised `IndexError` on the broken-rival list;
+    `straight` + `half_measures` printed three lines and then raised.
+    `validate_branch_state` already states presence, branch fit and
+    per-branch structure in one place and binds at transitions and at
+    save/load; consuming it here is structural validation, not a
+    reopening of any released branch's grading policy."""
+    models.validate_branch_state(state.branch, state.branch_state,
+                                 state.game_over)
     models.validate_terminal(state)
     ending = state.game_over
     if ending not in RENDERED_TERMINALS:
@@ -163,10 +185,6 @@ def _epilogue_preflight(state: State):
             f"must not depend on generic epilogue ordering (§2.5)")
     if ending not in _GRADED_TERMINALS:
         return None
-    if state.branch_state is None:
-        raise ValueError(
-            f"the {ending!r} grade reads a points ledger and this run "
-            f"carries no branch state")
     return partner.grade_view(state)
 
 

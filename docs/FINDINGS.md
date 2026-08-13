@@ -3100,6 +3100,123 @@ sign commits with an attribution none of this PR's commits uses. It
 is removed. If Codex discovery is wanted it is a separate reviewed
 change: a pointer to the one canonical protocol, never a copy.
 
+### Round 18 correction pass 2 (re-review — two mechanical seams)
+
+The review closed items 3–5 and held two seams **against revision 37
+itself**: the correction pass had, in each case, written the rule
+slightly wider than the rule. Both were reproduced here before either
+was touched, and both reproductions matched the reviewer's exactly.
+
+*The cutoff that swallowed real endings.* Revision 37 item 1 says a
+TRUNCATED run is not a graded run. The code said a run **on or before
+day 30** is not a graded run — a calendar test with no mention of
+whether the month actually ended. So every genuine EARLY ending fell
+through it. Reproduced on a live Partner run entering day 24 carrying
+one strike, where the day-24 bill is the second miss:
+
+```text
+after run: day 25, foreclosure
+EPILOGUE: absent
+ENDING: absent
+```
+
+The state was correct; the player was simply never told. Arrest, the
+sale's closing, insolvency and burnout all end before day 30 and all
+went silent the same way. The condition now reads
+`not state.game_over and state.day <= data.DEBT_DUE_DAY`: an ending
+that HAPPENED is graded, a month that did not finish is not. Three
+pins go through `game.run` — the door, not the helper — one per shape
+that reaches the cutoff with a terminal in hand: the foreclosure
+(falls out of the loop condition), the signed sale (`break`s out of
+it), and the arrest latch (set by `_check_endings`).
+
+**This is the fourth consecutive instance of proving an authority and
+missing its door** — `release_from_posts`, the day-30 dispatch,
+`game.run` in the first correction pass, and `game.run` again here.
+The first pass DID pin `game.run`; it pinned the arm it had just
+written and never the arm it had just broken.
+
+**And the instrument could not see it — measured, not asserted.** At
+the reviewed head `2c983d6`, the flag-off golden gate reads
+**300/300 runs identical** while **10 of those 300 runs print no
+ending at all**:
+
+| | epilogues rendered | of which early (day ≤ 30) | gate 1 |
+|---|---|---|---|
+| head `2c983d6` | 290 / 300 | 0 | 300/300 identical |
+| corrected | 300 / 300 | 10 | 300/300 identical |
+
+The trace both gates digest records `menu`, `ask_int`, `confirm` and
+`scene_menu` — DECISIONS. The epilogue is entirely `con.say`, so
+prose has never been on the instrument at all: the whole ending text
+of one flag-off run in thirty could vanish and every gate, every
+battery and every hash would hold. That is not a gate defect; it is
+the gates' documented scope, and it is now written down where the
+next session will read it before trusting a green board. It also
+means the byte-identical batteries below prove STATE identity and
+nothing about what a player reads. The corrected behaviour is
+`origin/main`'s: `91bfc824` calls `epilogue` unconditionally, so this
+restores the released surface rather than changing it, and the only
+surviving departure is revision 37 item 1's sanctioned one.
+
+*The preflight that checked one chair's homework.* Revision 37 item 2
+says everything the epilogue needs is proved before its first word.
+The code proved structural prerequisites only for **Partner's graded
+pair**, so the other three chairs read a payload no authority had
+looked at, and each failed differently:
+
+| chair + terminal | before | after |
+|---|---|---|
+| `quiet_sale` + `sold` | 4 lines — a **complete, false** sale ending | refuses, 0 lines |
+| `war` + `harbor_yours` | 2 lines, then `IndexError` | refuses, 0 lines |
+| `straight` + `half_measures` | 3 lines, then `ValueError` | refuses, 0 lines |
+
+The sale is the worst of the three: `severance_outcome` read through
+an `or "pending"` fallback, so a missing payload rendered a fully
+formed ending about envelopes nobody ever paid. `_epilogue_preflight`
+now consumes the SHARED AUTHORITY — `models.validate_branch_state`,
+which already states presence, branch fit and per-branch structure in
+one place and binds at transitions and at save/load — instead of
+respelling presence locally. The local respelling is deleted; two
+homes for one rule is the defect class this record opens with. The
+pins are a seven-row table across all four chairs, each row asserting
+`con.lines == []`, each preceded by a POSITIVE CONTROL that renders
+the same ending from a whole payload, so the door is not proved by
+one that refuses everybody. Structure is pinned separately from
+presence (a second war front declared before the first one broke),
+and one row proves the refusal mutates nothing.
+
+*What the widened preflight caught on the way in — three fixtures
+that were posing.* Making the epilogue ask the shared authority broke
+three rows of the terminal-coverage sweep, and each was a payload no
+player could reach: a `sold` run whose severance was still `pending`;
+a second war campaign declared on day 15 when the first broke on day
+31 — one front at a time, refused everywhere in the engine except
+here; and a `foreclosure` on a ledger carrying **zero** strikes. The
+epilogue had been the one door in the tree that rendered them. All
+three are now DRIVEN: the closing signed through
+`escrow.diligence_morning`, the second front opened through
+`war.declare` in calendar order, the two misses produced by starving
+the till before the due days. Fixtures driven, not posed — the same
+rule that caught two impossible months in the first pass, catching
+three more the moment a real authority was asked.
+
+**The probe sweep.** Each production behaviour reverted alone:
+reverting the cutoff to the calendar alone kills 3 rows (the three
+`game.run` shapes); dropping the shared authority and restoring the
+old Partner-only respelling in its place kills 10 rows across all
+four chairs. No behaviour is unpinned and no new row is redundant.
+
+**What was measured.** 1,188 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs
+(schema v1) on all three; the golden
+`7a62b2af…` untouched; both fork batteries byte-identical by `diff`
+against a fresh `origin/main` (`91bfc824`) worktree run at 150
+(`c6912b04…`) and 500 (`b74cc15f…`) seeds. Regression against the
+reviewed head `2c983d6`: **13 fail** (12 failures, 1 error — the
+`IndexError` arm, which raises the wrong exception type rather than
+none).
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and

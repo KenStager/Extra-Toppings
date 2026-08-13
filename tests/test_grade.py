@@ -20,13 +20,14 @@ everywhere below.
 import unittest
 from unittest import mock
 
-from extra_toppings import (data, game, models, partner, phases, save,
-                            sitdown)
+from extra_toppings import (data, escrow, game, models, partner, phases,
+                            save, sitdown, war)
 from extra_toppings.config import GameConfig
 from extra_toppings.models import (HOME_SHOP_KEY, PointsCycleRecord,
                                    SitdownSnapshot, new_state)
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
+from test_quiet_sale import CaptureConsole, at_closing
 
 PARTNER_ON = GameConfig(fork_enabled=True,
                         enabled_branches=frozenset({"partner"}))
@@ -189,15 +190,37 @@ class TestTheTerminalRegistry(unittest.TestCase):
 
 
 def _rendering_state(ending: str, chair):
-    """A state that can legitimately render `ending`, built through
-    real constructors rather than posed where a real path exists."""
+    """A state that can legitimately render `ending` — LEGITIMATELY
+    being the load-bearing word since rev. 37's correction pass.
+
+    The epilogue's preflight now consumes `validate_branch_state`, so
+    a coverage fixture that poses a payload no player could reach is
+    refused before the arm runs. Three of these were exactly that,
+    and each was a different lie: a `sold` run whose severance was
+    still `pending`, a second war campaign declared six days before
+    the first one broke, and a `foreclosure` on a ledger carrying
+    zero strikes. Each is now DRIVEN — the closing signed through
+    `escrow.diligence_morning`, the second front opened through
+    `war.declare`, the misses produced by starving the till."""
+    if chair == "quiet_sale" and ending == "sold":
+        # THE REAL CLOSING, signed: the outcome and the headcount are
+        # whatever the sale actually paid.
+        state = at_closing(rep=40.0)
+        escrow.diligence_morning(state, CaptureConsole([1, 1]),
+                                 Streams(3))
+        if state.game_over != "sold":
+            raise AssertionError("the closing did not sign")
+        return state
     if chair == "partner":
-        state = seated()
-        if ending == models.ON_THE_HOOK_ENDING:
-            state.branch_state.points_cycles = [
-                PointsCycleRecord(due_day=19, bill=POINTS, vig=0,
-                                  paid=False)]
-            state.branch_state.points_due_day = 24
+        if ending == models.FORECLOSURE_ENDING:
+            # Starved from day 19, so the day-19 and day-24 bills both
+            # miss and the second strike forecloses that night.
+            state = seated(day=26, starve_from=19)
+            if state.game_over != models.FORECLOSURE_ENDING:
+                raise AssertionError("the second strike did not land")
+            return state
+        state = hooked() if ending == models.ON_THE_HOOK_ENDING \
+            else seated()
         state.game_over = ending
         return state
     state = new_state()
@@ -223,13 +246,17 @@ def _rendering_state(ending: str, chair):
         # These render FROM the campaign ledger, so the capture has to
         # be RECORDED — a rival at strength 0 with no `broken_day` is
         # not a captured campaign, and the epilogue would print
-        # nothing. Driven through the real damage authority.
+        # nothing. Driven through the real damage authority, and now
+        # IN CALENDAR ORDER: one front at a time (rev. 14), so the
+        # second name goes on the table through `war.declare` on a day
+        # at or after the first campaign broke.
+        state.day = 20
         models.apply_rival_damage(state, "sal", "jobs", 999.0)
         if ending == "syndicate":
-            state.branch_state.campaigns.append(models.WarCampaignState(
-                rival_key="vinnie", declared_day=15,
-                starting_hundredths=7000))
+            war.declare(state, "vinnie", Listening())
+            state.day = 26
             models.apply_rival_damage(state, "vinnie", "jobs", 999.0)
+        state.day = data.DEBT_DUE_DAY + 1
     state.game_over = ending
     return state
 
@@ -642,6 +669,50 @@ class TestATruncatedRunIsNotAGradedRun(unittest.TestCase):
             game.day_thirty_grade(state)
         self.assertIn("played out", str(caught.exception))
 
+    # ── and the other half of the same sentence ────────────────────
+    # The first spelling of the cutoff read the CALENDAR ALONE, so it
+    # swallowed every genuine early ending with it: a real day-24
+    # foreclosure came out of `game.run` with `game_over` set and not
+    # one word printed. A truncated run is not a graded run; an ending
+    # that HAPPENED is not a truncated run.
+
+    def test_an_early_foreclosure_still_gets_its_epilogue(self):
+        # Live, pre-terminal, one strike standing: the day-24 bill is
+        # the second miss and it forecloses that night — inside the
+        # loop, on day 24 of 30.
+        state = seated(day=24, starve_from=19)
+        self.assertIsNone(state.game_over)
+        con = Listening([0] * 400)
+        out = game.run(3, con, state=state)
+        self.assertEqual(out.game_over, models.FORECLOSURE_ENDING)
+        self.assertLessEqual(out.day, data.DEBT_DUE_DAY)
+        self.assertTrue(con.said("EPILOGUE"))
+        self.assertIn("Foreclosed", con.ending())
+
+    def test_an_early_sale_still_gets_its_epilogue(self):
+        # THE OTHER BREAK PATH: the closing signs and `break`s out of
+        # the loop rather than falling out of its condition, so it is
+        # a separate way to reach the cutoff with an ending in hand.
+        state = at_closing(rep=40.0)
+        self.assertIsNone(state.game_over)
+        con = Listening([1, 1] + [0] * 400)
+        out = game.run(3, con, state=state)
+        self.assertEqual(out.game_over, "sold")
+        self.assertLessEqual(out.day, data.DEBT_DUE_DAY)
+        self.assertTrue(con.said("EPILOGUE"))
+        self.assertIn("ENDING: Sold", con.ending())
+
+    def test_the_arrest_latch_mid_month_still_gets_its_epilogue(self):
+        # The third shape: the latch, which ends the run through
+        # `_check_endings` rather than a phase or a break.
+        state = seated(day=20)
+        state.add_case(100.0, "the file closes", kind="physical")
+        con = Listening([0] * 400)
+        out = game.run(3, con, state=state)
+        self.assertEqual(out.game_over, "arrested")
+        self.assertLessEqual(out.day, data.DEBT_DUE_DAY)
+        self.assertIn("The Case closed", con.ending())
+
 
 class TestTheEpilogueSaysNothingBeforeItIsSure(unittest.TestCase):
     """Rev. 37 item 2: the preflight covers renderer presence and the
@@ -661,15 +732,69 @@ class TestTheEpilogueSaysNothingBeforeItIsSure(unittest.TestCase):
 
     def test_a_grade_with_no_ledger_prints_nothing(self):
         # Passes `validate_terminal`, then used to raise inside
-        # `grade_view` — two lines after the header had printed.
+        # `grade_view` — two lines after the header had printed. The
+        # message is the SHARED AUTHORITY's now: the preflight asks
+        # `validate_branch_state` rather than respelling presence.
         state = seated()
         state.game_over = models.OPERATION_ENDING
         state.branch_state = None
         con = Listening()
         with self.assertRaises(ValueError) as caught:
             game.epilogue(state, con)
-        self.assertIn("carries no branch state", str(caught.exception))
+        self.assertIn("requires a BranchState", str(caught.exception))
         self.assertEqual(con.lines, [])
+
+    def test_no_chair_renders_a_payload_nobody_checked(self):
+        """The correction rev. 37 item 2 did not finish: proving
+        presence for PARTNER'S GRADED PAIR ALONE left every other
+        chair reading a payload no authority had looked at, and each
+        arm failed differently — a complete false sale, an IndexError
+        after the header, three lines and a raise. The shared
+        authority covers all four chairs and prints nothing."""
+        for chair, ending in (("quiet_sale", "sold"),
+                              ("war", "harbor_yours"),
+                              ("war", "syndicate"),
+                              ("straight", "half_measures"),
+                              ("straight", "straight_exit"),
+                              ("partner", models.FORECLOSURE_ENDING),
+                              ("partner", models.ON_THE_HOOK_ENDING)):
+            with self.subTest(chair=chair, ending=ending):
+                # POSITIVE CONTROL FIRST — the same fixture renders a
+                # real ending, so the refusal below is the missing
+                # payload and not a door that refuses everybody.
+                whole = _rendering_state(ending, chair)
+                good = Listening()
+                game.epilogue(whole, good)
+                self.assertIn("ENDING:", "".join(good.lines))
+
+                whole.branch_state = None
+                con = Listening()
+                with self.assertRaises(ValueError) as caught:
+                    game.epilogue(whole, con)
+                self.assertIn("requires a BranchState",
+                              str(caught.exception))
+                self.assertEqual(con.lines, [])
+
+    def test_a_structurally_broken_payload_prints_nothing_either(self):
+        # Presence is not structure. A war run whose second front was
+        # declared before the first one broke is a payload validation
+        # already refuses everywhere else; the epilogue is no longer
+        # the one door that renders it.
+        state = _rendering_state("syndicate", "war")
+        state.branch_state.campaigns[1].declared_day = 15
+        con = Listening()
+        with self.assertRaises(ValueError) as caught:
+            game.epilogue(state, con)
+        self.assertIn("one front at a time", str(caught.exception))
+        self.assertEqual(con.lines, [])
+
+    def test_the_refusal_mutates_nothing(self):
+        state = _rendering_state("sold", "quiet_sale")
+        state.branch_state = None
+        before = save.state_to_dict(state)
+        with self.assertRaises(ValueError):
+            game.epilogue(state, Listening())
+        self.assertEqual(save.state_to_dict(state), before)
 
     def test_the_rendered_set_and_the_registry_agree(self):
         self.assertEqual(set(models.TERMINAL_OWNERS),
