@@ -3342,3 +3342,30 @@ interior composer; re-render diff exactly the strip (599 visible +
 loudly: this is the FLAT proof (one texture); the LAYERED
 sprite-sink export on the district precedent is riding work before
 engine integration. Standing boards: interior_v1 three states.
+
+## The room turns around: the N-pose round (2026-08-12 session H;
+## board: "Proceed"; 9 gens)
+
+The graduated flag paid: back-view standing poses for the three
+blocking reads. THE LADDER, recorded honestly: the free route under
+each base's own strip (the profile-pose recipe) landed the MAN
+first pass (s17672, stature within 1); the KID invented a seated
+pose in one seed and refused smallness in the other (h28 vs h23);
+TONY canvas-filled (~h50 vs h28). The squash+repair mechanism then
+delivered Tony EXACTLY 20x28 (s17678) - and the kid refused a THIRD
+time (the squash repair re-invented width, 22 vs 11) before landing
+at @140 with narrowness language (s17679, 11x22, within 1). The
+kid's record stands: language never buys his stature, and even the
+squash pays double.
+
+FINISHING (npose_finishing.py): the wardrobe chain works on N-bases
+unchanged - man recolored cream/gray, kid pale, Tony in cast
+colors. CANDIDATE STAGING (dinapoli_interior_staging_npose.json,
+validator PASS, the approved file untouched): Tony faces his
+makeline in both working states, the queue head faces Bee, the kid
+stands IN FRONT of the arcade drawn over its plinth - playing.
+Diff vs the promoted v1: 928 px, the three turned actors exactly.
+The elder's back pose is the batch's next item (he still queues
+S-facing). Boards: ab_interior_npose + three 4x crops. AWAITING
+THE WORD on the npose swap. Session H spend: 45 gens ledgered;
+expected balance ~3,982; vendor dashboard the authority.
