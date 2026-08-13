@@ -3278,14 +3278,33 @@ it partway through resolution. Review broke both halves:
   typed plan reached `_commit_route`, claimed `wagon1`, then raised on
   the second write — leaving the wagon authority spent.
 
-**Execution truth is now out of the morning plan entirely.**
-`RouteDeparture` is a frozen value that binds the originating state
-**by identity**, the plan, and the exact `RouteMarket`; it validates at
-construction that the market names THIS plan's district and that its
-band is executable, so a red district cannot produce one at all. It is
-returned by `_commit_route` on the far side of every refusal, it is the
-**only** input `resolve_route` accepts, and it is checked **before any
-mutation**. `record_departure` returns it and mutates nothing.
+**And the SECOND version was wrong too — three more splits.** The
+typed value helped and did not close the boundary:
+
+* `market_view` was removed from mapping access but **survived as a
+  public dataclass field on `RoutePlan`**. Removed from the model now.
+* `RouteDeparture` was frozen, **its plan was not.** A Meadows
+  departure whose `plan.district` was then set to University Hill
+  executed against University Hill while the ledger recorded Meadows.
+* Its constructor **accepted a same-district market from another
+  world**: a cool Meadows view from state B attached to an amber
+  Meadows route in state A resolved and logged **cool**.
+
+**Execution truth is out of the morning plan entirely, and the
+departure is factory-controlled.** `RoutePlan` has no such field.
+`RouteDeparture` takes a **private token** — constructing one anywhere
+else refuses — and **derives** its market from the bound state rather
+than accepting one, which is the only spelling that cannot be handed
+another world's view. It fingerprints the identity-bearing fields at
+departure (district, origin, wagon, driver **by identity**, ride-along,
+disposal) and **`check_unchanged` runs before any mutation**, so a plan
+edited after departure refuses rather than executing as one route and
+logging another. `depart_at_commit` is callable only from
+`_commit_route`; `record_departure_for_probe` is a scope-guarded seam
+admitting only the analysis probe and one centralised test-support
+module. The guard keys on the module FILE, not `__name__` — under
+`python -m analysis.experiments` the name is `__main__`, and a
+name-keyed guard refused the very probe it was written to admit.
 
 **Released reachability, MEASURED rather than inferred from shared
 code.** Before touching production, departure and current-resolution
@@ -3319,15 +3338,18 @@ the two orders draw the same seeds in a different sequence. And
 `RouteExecutionRecord`'s docstring now says DEPARTURE-time rather than
 execution-time, which is what it has always recorded.
 
-**What was measured.** 1,199 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+**What was measured.** 1,204 tests on 3.11 / 3.12 / 3.13; ruff 0.15
 and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
 all three; golden `7a62b2af…` untouched; both fork batteries
 byte-identical to `origin/main` at `c6912b04…` and `b74cc15f…`.
-Regression against the first attempt (`c038790`): **31 rows** fail —
-27 errors and 4 failures. Some are structural (a changed signature),
-but the ones that carry the weight are behavioural: the forged
-cross-district departure, the plan-alone resolution that used to move
-money before raising, and the complete-snapshot refusals.
+Regression against the previous attempt (`2e3f6aa`): **36 rows** fail
+— 35 errors and 1 failure. Some are structural, from the changed
+construction path; the ones carrying the weight are behavioural: the
+plan edited after departure, the cross-world market, and the refusals
+compared against a **deep serialised snapshot**. That snapshot replaced
+a hand-listed "complete" one which omitted employees, known prices,
+rivals and campaigns — a list that cannot keep the promise its name
+makes.
 
 ## Still open (carried to the next design pass)
 

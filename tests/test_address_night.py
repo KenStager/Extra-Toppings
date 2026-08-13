@@ -14,6 +14,7 @@ from extra_toppings.models import (HOME_SHOP_KEY, HOME_WAGON_KEY,
                                    RaidWarning, RouteExecutionRecord,
                                    Shop, Wagon, new_state)
 from extra_toppings.ui import ScriptedConsole
+from route_support import departed
 
 
 def two_addresses():
@@ -314,7 +315,7 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
         state, home, second, driver = self._world()
         with self.assertRaises(KeyError):
             routes.resolve_route(
-                routes.record_departure(state, self._plan(driver, "shop9")),
+                departed(state, self._plan(driver, "shop9")),
                 ScriptedConsole(), random.Random(3))
         for s in (home, second):
             self.assertEqual(s.legit_revenue_today, 0)
@@ -326,7 +327,7 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
         # a malformed plan (ValueError), not a lookup miss.
         with self.assertRaises(ValueError):
             routes.resolve_route(
-                routes.record_departure(state, self._plan(driver, None)),
+                departed(state, self._plan(driver, None)),
                 ScriptedConsole(), random.Random(3))
         for s in (home, second):
             self.assertEqual(s.legit_revenue_today, 0)
@@ -334,8 +335,8 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
     def test_the_named_address_books_the_cover_revenue(self):
         from extra_toppings import routes
         state, home, second, driver = self._world()
-        departed = self._plan(driver, "shop2")
-        departure = routes.record_departure(state, departed)
+        tonight = self._plan(driver, "shop2")
+        departure = departed(state, tonight)
         routes.resolve_route(departure,
                              ScriptedConsole(), random.Random(3))
         self.assertGreater(second.legit_revenue_today, 0)

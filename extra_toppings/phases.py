@@ -1506,7 +1506,7 @@ def _commit_route(state: State, plan: dict, con: Console,
     # THE DEPARTURE, made on the far side of every refusal and at the
     # same instant the wagon is claimed. A scrubbed route never gets
     # one, because it never left.
-    return routes.record_departure(state, plan)
+    return routes.depart_at_commit(state, plan)
 
 
 # ══ NIGHT ═════════════════════════════════════════════════════════

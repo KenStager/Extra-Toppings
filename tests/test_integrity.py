@@ -10,6 +10,7 @@ from extra_toppings import (market, models, phases, raids, rivals,
 from extra_toppings.models import new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
+from route_support import departed
 
 def _wag(state, **report):
     """Every direct `night` call needs the assignment authority the
@@ -68,7 +69,7 @@ class TestCompleteLegitLedger(unittest.TestCase):
         plan = {"district": "university", "driver": rosa, "ride_along": False,
                 "cargo": {}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
-        departure = routes.record_departure(state, plan)
+        departure = departed(state, plan)
         routes.resolve_route(departure, ScriptedConsole(), rng)
         self.assertGreater(state.legit_revenue_today, before)
         self.assertGreater(shop.believable_ceiling(state, state.shop, state.legit_revenue_today),

@@ -1,6 +1,7 @@
 """Delivery routes: legit pizzas up front, coded orders in the warmer bag."""
 
 import random
+import sys
 from dataclasses import dataclass, field
 
 from . import data, market, models, straight, war
@@ -133,22 +134,6 @@ class RoutePlan:
     # the plan chose rather than re-picking one by address.
     wagon_key: str
     disposal: bool = False
-    # THE DEPARTURE-TIME MARKET VIEW (the route-departure correction).
-    # Derived ONCE when `_commit_route` accepts the departure and
-    # carried here, immutable, to resolution. `None` until the route
-    # commits — a plan is an intention, and an intention has not
-    # departed under any band.
-    #
-    # It exists because resolution used to REBUILD the view from
-    # whatever the state said at the time, which made two simultaneous
-    # routes depend on iteration order: both passed the service-time
-    # check at heat 71.45, the first resolved and pushed the district
-    # to 96.6, and the second then read a red band for a wagon that
-    # had already left — and the typed record refused it. Aborting
-    # there would have been worse than the crash: it would strand
-    # inventory already spent at departure and make the outcome depend
-    # on which address sorts first.
-    market_view: "market.RouteMarket | None" = None
 
     @property
     def cargo(self) -> dict:
@@ -471,6 +456,34 @@ def _stop_risk(state: State, plan: "RoutePlan | dict") -> float:
     return min(0.75, risk)
 
 
+# The token that makes a departure. Held by this module alone, so a
+# `RouteDeparture(...)` built anywhere else refuses: the value means
+# "this route left", and only the code that sends routes out may say
+# so.
+_DEPARTURE_TOKEN = object()
+
+# The plan fields that say WHICH ROUTE THIS IS. Anything here changing
+# after departure means the wagon that left is not the wagon being
+# resolved.
+_IDENTITY_FIELDS = ("district", "origin_shop", "wagon_key",
+                    "ride_along", "disposal")
+
+
+def _fingerprint(plan) -> tuple:
+    """The identity of a route, frozen at departure. `RouteDeparture`
+    is frozen but its PLAN is not: a caller could record a Meadows
+    departure, set `plan.district` to University Hill and resolve —
+    execution updated University Hill while the ledger recorded
+    Meadows. The driver is fingerprinted BY IDENTITY, not by key,
+    because a look-alike carrying a real key is the substitution
+    `validate_route_plan` already refuses elsewhere."""
+    driver = plan["driver"]
+    # `.get`: a legacy dict plan may omit `disposal` entirely, and an
+    # absent flag is a legitimate False rather than a malformed route.
+    return (tuple(plan.get(f) for f in _IDENTITY_FIELDS),
+            id(driver), getattr(driver, "key", None))
+
+
 @dataclass(frozen=True)
 class RouteDeparture:
     """A ROUTE THAT LEFT. The only thing `resolve_route` accepts.
@@ -499,22 +512,69 @@ class RouteDeparture:
     # `RoutePlan` or a legacy dict plan — both answer `plan["field"]`,
     # which is the only thing this value asks of it.
     plan: "RoutePlan | dict"
-    market: "market.RouteMarket"
+    token: object
+    # DERIVED, never supplied. A caller who could hand in a market
+    # could hand in ANOTHER WORLD'S: a cool Meadows view from state B
+    # attached to an amber Meadows route in state A resolved and
+    # logged cool. Deriving it from the bound state is the only
+    # spelling that cannot be lied to.
+    market: "market.RouteMarket" = field(init=False)
+    identity: tuple = field(init=False)
 
     def __post_init__(self) -> None:
-        district = self.plan["district"]
-        if self.market.district != district:
+        if self.token is not _DEPARTURE_TOKEN:
             raise ValueError(
-                f"this departure carries {self.market.district!r}'s "
-                f"market and the route runs {district!r} — a route "
-                f"departs under its OWN district")
-        if self.market.heat.band not in models.ROUTE_EXECUTED_BANDS:
+                "a departure is made by the route that left, not "
+                "constructed: use the commit path")
+        view = market.route_market(self.state, self.plan["district"])
+        if view.heat.band not in models.ROUTE_EXECUTED_BANDS:
             raise ValueError(
-                f"a route cannot depart under "
-                f"{self.market.heat.band!r}")
+                f"a route cannot depart under {view.heat.band!r}")
+        object.__setattr__(self, "market", view)
+        object.__setattr__(self, "identity", _fingerprint(self.plan))
+
+    def check_unchanged(self) -> None:
+        """The route being resolved is the route that left. Called
+        BEFORE any mutation."""
+        if _fingerprint(self.plan) != self.identity:
+            raise ValueError(
+                "this route changed after it departed — the wagon "
+                "that left is not the one being resolved")
 
 
-def record_departure(state: State, plan) -> "RouteDeparture":
+def _make_departure(state: State, plan) -> "RouteDeparture":
+    """THE one construction. Validates the plan, so a malformed route
+    never becomes a departure."""
+    validate_route_plan(state, plan)
+    return RouteDeparture(state=state, plan=plan, token=_DEPARTURE_TOKEN)
+
+
+def _caller_file() -> str:
+    """The calling module's FILE, not its `__name__`. Under
+    `python -m analysis.experiments` the module's own `__name__` is
+    `__main__`, so a guard keyed on the name refused the very probe it
+    was written to admit — and the battery stopped mid-run."""
+    import os
+    return os.path.basename(
+        sys._getframe(2).f_globals.get("__file__", ""))
+
+
+def depart_at_commit(state: State, plan) -> "RouteDeparture":
+    """THE production maker, callable only from the commit path."""
+    if _caller_file() != "phases.py":
+        raise ValueError(
+            "routes depart from `_commit_route` and nowhere else")
+    return _make_departure(state, plan)
+
+
+# The synthetic-probe seam: the controlled analysis experiment and the
+# centralised test support drive routes that never met a wagon
+# authority. It is deliberately NOT a second general gameplay maker —
+# the scope guard is the difference.
+_PROBE_CALLERS = frozenset({"experiments.py", "route_support.py"})
+
+
+def record_departure_for_probe(state: State, plan) -> "RouteDeparture":
     """THE departure-time market authority, and its only writer.
 
     A route's band and every territorial factor are fixed at the
@@ -535,10 +595,12 @@ def record_departure(state: State, plan) -> "RouteDeparture":
     The plan is validated here, so a malformed route cannot become a
     departure, and `RouteDeparture` refuses a red band — neither a
     broken plan nor a burning district produces one."""
-    validate_route_plan(state, plan)
-    return RouteDeparture(state=state, plan=plan,
-                          market=market.route_market(
-                              state, plan["district"]))
+    caller = _caller_file()
+    if caller not in _PROBE_CALLERS:
+        raise ValueError(
+            f"the probe departure seam is for the analysis probe and "
+            f"centralised test support, not {caller!r}")
+    return _make_departure(state, plan)
 
 
 def resolve_route(departure: "RouteDeparture", con: Console,
@@ -557,6 +619,7 @@ def resolve_route(departure: "RouteDeparture", con: Console,
         raise ValueError(
             "a route resolves from the departure it made, never from "
             "a plan or a market view handed in on its own")
+    departure.check_unchanged()
     state, plan = departure.state, departure.plan
     # THE canonical contract, FIRST — before revenue, familiarity or
     # the execution ledger. Without it a route missing its wagon

@@ -1182,7 +1182,7 @@ def _heat_exposure_probe(trials: int = 400) -> None:
             # The controlled probe drives a synthetic route, so it
             # makes the departure the service phase would have made —
             # which validates the plan on the way through.
-            departure = _routes.record_departure(state, plan)
+            departure = _routes.record_departure_for_probe(state, plan)
             report = _routes.resolve_route(departure, _Sell(),
                                            random.Random(seed))
             camp = state.branch_state.campaigns[0]

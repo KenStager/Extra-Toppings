@@ -15,6 +15,7 @@ from extra_toppings.models import (CASE_FLOOR, REMEDIATION_CAP, BranchState,
 from extra_toppings.models import remediation_disposition as models_disposition
 from extra_toppings.rng import Streams
 from extra_toppings.ui import Console
+from route_support import departed
 
 
 class Quiet(Console):
@@ -663,7 +664,7 @@ class TestWitnessStatusMatrix(unittest.TestCase):
                     "legit": 0, "disposal": True,
                     "origin_shop": models.HOME_SHOP_KEY,
                     "wagon_key": models.HOME_WAGON_KEY}
-            departure = routes.record_departure(state, plan)
+            departure = departed(state, plan)
             routes.resolve_route(departure, Quiet(),
                                  random.Random(seed))
             if rosa.arrested:

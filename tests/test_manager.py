@@ -28,6 +28,7 @@ from extra_toppings.models import (HOME_SHOP_KEY, ManagerPost,
                                    SitdownSnapshot, new_state)
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
+from route_support import departed
 
 PARTNER_ON = GameConfig(fork_enabled=True,
                         enabled_branches=frozenset({"partner"}))
@@ -312,10 +313,10 @@ class TestEveryRouteOutOfThePost(unittest.TestCase):
             # the route resolution directly, so it rolls them here
             # through the same authority rather than posing a price.
             market.roll_prices(probe, random.Random(seed))
-            departed = {**plan, "driver": driver}
-            departure = routes.record_departure(probe, departed)
-            routes.resolve_route(departure,
-                                 Listening(), random.Random(seed))
+            tonight = {**plan, "driver": driver}
+            departure = departed(probe, tonight)
+            routes.resolve_route(departure, Listening(),
+                                 random.Random(seed))
             if driver.arrested:
                 booked = True
                 self.assertTrue(self._vacated(probe))

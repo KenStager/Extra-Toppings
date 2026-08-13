@@ -28,6 +28,7 @@ service-time revalidation (rev. 14 item 5): a correctness correction,
 not a new rule.
 """
 
+import dataclasses
 import random
 import unittest
 
@@ -35,6 +36,7 @@ from extra_toppings import market, models, phases, routes
 from extra_toppings.models import (HOME_SHOP_KEY, HOME_WAGON_KEY, Shop,
                                    Wagon, new_state)
 from extra_toppings.ui import ScriptedConsole
+from route_support import deep_snapshot, departed
 
 
 class Quiet(ScriptedConsole):
@@ -101,19 +103,14 @@ def _both_plans(drivers):
 
 
 def _snapshot(state):
-    """Everything a resolution could move. A pin that inspects only
-    `route_log` blesses a refusal that took the money on its way out —
-    which is exactly what the first version of this file did."""
-    return {
-        "clean": state.clean, "dirty": state.dirty,
-        "warehouse_cash": state.warehouse_cash,
-        "route_log": len(state.route_log),
-        "shops": [(s.key, dict(s.stash), s.ingredients,
-                   s.legit_revenue_today, s.reputation)
-                  for s in state.shops],
-        "heat": {k: d.heat for k, d in state.districts.items()},
-        "case": state.case,
-    }
+    """THE WHOLE WORLD, serialised. A hand-listed "complete" snapshot
+    is a promise the list cannot keep: the first one here named cash,
+    stash, pantry, revenue, reputation, heat and the Case, and
+    silently omitted employees, known prices, rivals, campaigns and
+    every other mutable field — so a refusal that moved one of those
+    would have passed. This reads the save boundary, the one authority
+    that already has to see everything."""
+    return deep_snapshot(state)
 
 
 class TestTheMarketIsFixedAtDeparture(unittest.TestCase):
@@ -234,28 +231,111 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
         # that refuses everybody.
         state, drivers = _two_route_world(NEAR_RED)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
-        departure = routes.record_departure(state, plan)
+        departure = departed(state, plan)
         routes.resolve_route(departure, Quiet(), random.Random(3))
         self.assertEqual(len(state.route_log), 1)
 
-    def test_a_departure_cannot_carry_another_districts_market(self):
-        """The forgery that actually worked against the first
-        correction: University Hill's view attached to a Meadows plan
-        resolved and logged University Hill."""
+    def test_no_caller_can_supply_a_market_at_all(self):
+        """The forgeries that worked against the second correction are
+        now unreachable BY CONSTRUCTION rather than by validation: the
+        market is derived from the bound state, so neither another
+        district's view nor ANOTHER WORLD's can be handed in. A cool
+        Meadows view from state B attached to an amber Meadows route
+        in state A resolved and logged cool."""
         state, drivers = _two_route_world(NEAR_RED)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
         elsewhere = market.route_market(state, OTHER_DISTRICT)
+        with self.assertRaises(TypeError):
+            routes.RouteDeparture(state=state, plan=plan,
+                                  token=routes._DEPARTURE_TOKEN,
+                                  market=elsewhere)
+        # …and a departure that IS made always carries its own
+        # district, read from the state it is bound to.
+        departure = departed(state, plan)
+        self.assertEqual(departure.market,
+                         market.route_market(state, DISTRICT))
+        self.assertEqual(departure.market.district, DISTRICT)
+
+    def test_a_cool_view_from_another_world_cannot_be_smuggled_in(self):
+        """The exact second reproduction. Two worlds, same district,
+        different heat: the departure reads the world it is bound to
+        and nothing else."""
+        hot, drivers = _two_route_world(NEAR_RED)
+        cool, _other = _two_route_world(0.0)
+        self.assertEqual(
+            market.route_market(cool, DISTRICT).heat.band, "cool")
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        departure = departed(hot, plan)
+        self.assertIs(departure.state, hot)
+        self.assertEqual(departure.market.heat.band, "amber")
+        routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertEqual([r.heat_band for r in hot.route_log], ["amber"])
+
+    def test_a_plan_edited_after_departure_refuses_before_mutating(self):
+        """The exact first reproduction. `RouteDeparture` is frozen
+        but its PLAN is not: a Meadows departure whose `district` was
+        then set to University Hill executed against University Hill
+        while the ledger recorded Meadows."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        departure = departed(state, plan)
+        plan.district = OTHER_DISTRICT
+        before = _snapshot(state)
         with self.assertRaises(ValueError) as caught:
-            routes.RouteDeparture(state=state, plan=plan, market=elsewhere)
-        self.assertIn("departs under its OWN district",
-                      str(caught.exception))
-        self.assertEqual(state.route_log, [])
+            routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertIn("changed after it departed", str(caught.exception))
+        self.assertEqual(_snapshot(state), before)
+
+    def test_every_identity_field_is_fingerprinted(self):
+        # District, origin, wagon, driver, ride-along and disposal all
+        # say WHICH ROUTE THIS IS; an edit to any of them means the
+        # wagon that left is not the one being resolved.
+        edits = {"district": OTHER_DISTRICT, "origin_shop": "shop2",
+                 "wagon_key": "wagon2", "ride_along": True,
+                 "disposal": True}
+        for field_name, value in edits.items():
+            with self.subTest(field=field_name):
+                state, drivers = _two_route_world(NEAR_RED)
+                plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+                departure = departed(state, plan)
+                setattr(plan, field_name, value)
+                before = _snapshot(state)
+                with self.assertRaises(ValueError):
+                    routes.resolve_route(departure, Quiet(),
+                                         random.Random(3))
+                self.assertEqual(_snapshot(state), before)
+        # …and the driver, by identity.
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        departure = departed(state, plan)
+        plan.driver = drivers[1]
+        with self.assertRaises(ValueError):
+            routes.resolve_route(departure, Quiet(), random.Random(3))
+
+    def test_the_market_view_is_gone_from_the_plan_model(self):
+        # Removed from the MODEL, not merely from mapping access.
+        self.assertNotIn(
+            "market_view", {f.name for f in
+                            dataclasses.fields(routes.RoutePlan)})
+        self.assertNotIn("market_view", routes.RoutePlan._KEYS)
+
+    def test_the_probe_seam_is_scope_guarded(self):
+        # It is a sanctioned test/analysis seam, not a second general
+        # gameplay maker: this module is not on the list, and the call
+        # below is made from HERE rather than from `route_support`.
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        with self.assertRaises(ValueError) as caught:
+            routes.record_departure_for_probe(state, plan)
+        self.assertIn("centralised test support", str(caught.exception))
+        with self.assertRaises(ValueError):
+            routes.depart_at_commit(state, plan)
 
     def test_a_red_district_cannot_produce_a_departure_at_all(self):
         state, drivers = _two_route_world(RED_HEAT)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
         with self.assertRaises(ValueError) as caught:
-            routes.record_departure(state, plan)
+            departed(state, plan)
         self.assertIn("cannot depart under", str(caught.exception))
 
     def test_a_malformed_plan_cannot_produce_a_departure(self):
@@ -266,13 +346,13 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
         # authority rather than a ValueError — the point is that no
         # departure is produced, whichever refusal fires first.
         with self.assertRaises((ValueError, KeyError)):
-            routes.record_departure(state, plan)
+            departed(state, plan)
         self.assertEqual(_snapshot(state), before)
 
     def test_the_departure_binds_its_own_world_by_identity(self):
         state, drivers = _two_route_world(NEAR_RED)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
-        departure = routes.record_departure(state, plan)
+        departure = departed(state, plan)
         self.assertIs(departure.state, state)
         self.assertIs(departure.plan, plan)
         self.assertEqual(departure.market,
@@ -284,7 +364,7 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
         state, drivers = _two_route_world(NEAR_RED)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
         before = _snapshot(state)
-        routes.record_departure(state, plan)
+        departed(state, plan)
         self.assertEqual(_snapshot(state), before)
         self.assertNotIn("market_view", routes.RoutePlan._KEYS)
 

@@ -16,6 +16,7 @@ from extra_toppings.models import (BranchState, apply_rival_damage,
 from extra_toppings.rivals import rival_policy
 from extra_toppings.rng import Streams
 from extra_toppings.ui import Console
+from route_support import departed
 
 
 class Quiet(Console):
@@ -218,7 +219,7 @@ class TestTerritorialRoutes(unittest.TestCase):
         plan = {"district": dk, "driver": rosa, "ride_along": False,
                 "cargo": {"oregano": units}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
-        departure = routes.record_departure(state, plan)
+        departure = departed(state, plan)
         return routes.resolve_route(departure, Quiet(),
                                     Streams(seed).routes)
 
