@@ -238,8 +238,8 @@ class TestDisposalRuns(unittest.TestCase):
         report = None
         for _ in range(20):                      # find a selling night
             trial = dict(plan, cargo={"mushrooms": 8})
-            phases.routes.record_departure(state, trial)
-            report = phases.routes.resolve_route(state, trial, con,
+            departure = phases.routes.record_departure(state, trial)
+            report = phases.routes.resolve_route(departure, con,
                                                  streams.routes)
             if report["sold"]:
                 break
@@ -596,8 +596,8 @@ class TestDisposalVoice(unittest.TestCase):
         if disposal:
             plan["disposal"] = True
         con = CaptureConsole([0] * 40)        # sell at every stop
-        phases.routes.record_departure(state, plan)
-        phases.routes.resolve_route(state, plan, con, Streams(4).routes)
+        departure = phases.routes.record_departure(state, plan)
+        phases.routes.resolve_route(departure, con, Streams(4).routes)
         return con
 
     def test_the_burned_book_stays_burned(self):

@@ -218,8 +218,8 @@ class TestTerritorialRoutes(unittest.TestCase):
         plan = {"district": dk, "driver": rosa, "ride_along": False,
                 "cargo": {"oregano": units}, "legit": 0, "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
-        routes.record_departure(state, plan)
-        return routes.resolve_route(state, plan, Quiet(),
+        departure = routes.record_departure(state, plan)
+        return routes.resolve_route(departure, Quiet(),
                                     Streams(seed).routes)
 
     def test_corner_diversion_prices_the_night(self):

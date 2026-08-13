@@ -313,8 +313,9 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
         from extra_toppings import routes
         state, home, second, driver = self._world()
         with self.assertRaises(KeyError):
-            routes.resolve_route(state, self._plan(driver, "shop9"),
-                                 ScriptedConsole(), random.Random(3))
+            routes.resolve_route(
+                routes.record_departure(state, self._plan(driver, "shop9")),
+                ScriptedConsole(), random.Random(3))
         for s in (home, second):
             self.assertEqual(s.legit_revenue_today, 0)
 
@@ -324,8 +325,9 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
         # The canonical contract speaks first now: a missing field is
         # a malformed plan (ValueError), not a lookup miss.
         with self.assertRaises(ValueError):
-            routes.resolve_route(state, self._plan(driver, None),
-                                 ScriptedConsole(), random.Random(3))
+            routes.resolve_route(
+                routes.record_departure(state, self._plan(driver, None)),
+                ScriptedConsole(), random.Random(3))
         for s in (home, second):
             self.assertEqual(s.legit_revenue_today, 0)
 
@@ -333,8 +335,8 @@ class TestRouteResolutionReadsTheSameOrigin(unittest.TestCase):
         from extra_toppings import routes
         state, home, second, driver = self._world()
         departed = self._plan(driver, "shop2")
-        routes.record_departure(state, departed)
-        routes.resolve_route(state, departed,
+        departure = routes.record_departure(state, departed)
+        routes.resolve_route(departure,
                              ScriptedConsole(), random.Random(3))
         self.assertGreater(second.legit_revenue_today, 0)
         self.assertEqual(home.legit_revenue_today, 0)

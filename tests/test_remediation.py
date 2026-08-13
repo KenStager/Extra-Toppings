@@ -663,8 +663,8 @@ class TestWitnessStatusMatrix(unittest.TestCase):
                     "legit": 0, "disposal": True,
                     "origin_shop": models.HOME_SHOP_KEY,
                     "wagon_key": models.HOME_WAGON_KEY}
-            routes.record_departure(state, plan)
-            routes.resolve_route(state, plan, Quiet(),
+            departure = routes.record_departure(state, plan)
+            routes.resolve_route(departure, Quiet(),
                                  random.Random(seed))
             if rosa.arrested:
                 break

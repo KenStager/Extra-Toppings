@@ -159,7 +159,7 @@ class RoutePlan:
         return self.manifest.legit
 
     _KEYS = ("district", "driver", "ride_along", "cargo", "legit",
-             "disposal", "origin_shop", "wagon_key", "market_view")
+             "disposal", "origin_shop", "wagon_key")
 
     def __getitem__(self, key):
         if key in self._KEYS:
@@ -177,14 +177,6 @@ class RoutePlan:
             self.manifest.legit = value
         elif key == "disposal":
             self.disposal = value
-        elif key == "market_view":
-            # WRITTEN ONCE, at departure. A second write would be a
-            # second departure for one wagon.
-            if self.market_view is not None:
-                raise ValueError(
-                    "this route already departed under a recorded "
-                    "market; a route departs once")
-            self.market_view = value
         else:
             raise KeyError(f"route plan field {key!r} is not writable")
 
@@ -442,7 +434,7 @@ def _payoff_reachable_tonight(state: State, shop, dk: str,
 
 # ── resolution ────────────────────────────────────────────────────
 
-def _route_voice(plan: dict) -> dict:
+def _route_voice(plan: "RoutePlan | dict") -> dict:
     """THE route presentation, branch-aware in one place (rev. 10 item
     7): the burned coded-customer book stays burned — a disposal run
     speaks of cold buyers and one-use contacts, never a resurrected
@@ -466,7 +458,7 @@ def _route_voice(plan: dict) -> dict:
     }
 
 
-def _stop_risk(state: State, plan: dict) -> float:
+def _stop_risk(state: State, plan: "RoutePlan | dict") -> float:
     dk = plan["district"]
     susp = route_suspicion(sum(plan["cargo"].values()), plan["legit"])
     heat = state.heat(dk) / 100
@@ -479,7 +471,50 @@ def _stop_risk(state: State, plan: dict) -> float:
     return min(0.75, risk)
 
 
-def record_departure(state: State, plan) -> "market.RouteMarket":
+@dataclass(frozen=True)
+class RouteDeparture:
+    """A ROUTE THAT LEFT. The only thing `resolve_route` accepts.
+
+    A morning plan is an INTENTION and stays one: it carries no
+    execution truth, because a field on the plan is a field anybody
+    can set. The first version of this correction hung the market view
+    on `RoutePlan` and was forged three ways — the constructor took it
+    directly, dict plans bypassed the write-once guard entirely, and
+    the reader accepted any non-`None` object, so University Hill's
+    view attached to a Meadows plan resolved and logged University
+    Hill.
+
+    This value is produced ONLY by a departure that survived every
+    refusal, and it binds the three things that make it one:
+
+      * `state` BY IDENTITY — a departure cannot be replayed against
+        a different world;
+      * `plan`, the exact route;
+      * `market`, the district as it stood when the wagon left.
+
+    Its own contract is checked at construction: the market must
+    describe THIS plan's district, and its band must be one a route
+    can execute under. A red band cannot become a departure at all."""
+    state: State
+    # `RoutePlan` or a legacy dict plan — both answer `plan["field"]`,
+    # which is the only thing this value asks of it.
+    plan: "RoutePlan | dict"
+    market: "market.RouteMarket"
+
+    def __post_init__(self) -> None:
+        district = self.plan["district"]
+        if self.market.district != district:
+            raise ValueError(
+                f"this departure carries {self.market.district!r}'s "
+                f"market and the route runs {district!r} — a route "
+                f"departs under its OWN district")
+        if self.market.heat.band not in models.ROUTE_EXECUTED_BANDS:
+            raise ValueError(
+                f"a route cannot depart under "
+                f"{self.market.heat.band!r}")
+
+
+def record_departure(state: State, plan) -> "RouteDeparture":
     """THE departure-time market authority, and its only writer.
 
     A route's band and every territorial factor are fixed at the
@@ -491,16 +526,38 @@ def record_departure(state: State, plan) -> "market.RouteMarket":
     to 96.6, and the second was then classified red for a wagon that
     had already left.
 
-    One home for the write, so a caller that wants a departed route
-    asks for a DEPARTURE rather than assembling a market view of its
-    own — the alternative is the second spelling this project treats
-    as a defect class."""
-    view = market.route_market(state, plan["district"])
-    plan["market_view"] = view
-    return view
+    One home, so a caller that wants a departed route asks for a
+    DEPARTURE rather than assembling a market view of its own — the
+    alternative is the second spelling this project treats as a defect
+    class. It RETURNS the value and mutates nothing: the plan is still
+    the morning's intention when this is done.
+
+    The plan is validated here, so a malformed route cannot become a
+    departure, and `RouteDeparture` refuses a red band — neither a
+    broken plan nor a burning district produces one."""
+    validate_route_plan(state, plan)
+    return RouteDeparture(state=state, plan=plan,
+                          market=market.route_market(
+                              state, plan["district"]))
 
 
-def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
+def resolve_route(departure: "RouteDeparture", con: Console,
+                  rng: random.Random) -> dict:
+    """Run the route that departed, under the market it departed
+    under. The DEPARTURE is the only input: a plan alone cannot be
+    resolved, because a plan alone never left.
+
+    EVERYTHING IS CHECKED BEFORE ANYTHING MOVES. The first version of
+    this correction read the departure AFTER booking cover revenue and
+    docking reputation, so an undeparted route raised as designed and
+    still moved money on the way out — clean 2000 → 2032, address
+    revenue 0 → 32, reputation 50 → 47 — while a pin that only
+    inspected `route_log` called it clean."""
+    if not isinstance(departure, RouteDeparture):
+        raise ValueError(
+            "a route resolves from the departure it made, never from "
+            "a plan or a market view handed in on its own")
+    state, plan = departure.state, departure.plan
     # THE canonical contract, FIRST — before revenue, familiarity or
     # the execution ledger. Without it a route missing its wagon
     # completed and appended a RouteExecutionRecord: a wagonless
@@ -542,10 +599,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     # departed would resolve under whatever the district happens to
     # read now, which is how an already-departed route came to be
     # classified red by a sibling route's own heat.
-    # Through the one reader: a legacy dict plan carries no such key
-    # at all, and it must fail closed with the REASON rather than
-    # with a KeyError that reads like a typo.
-    rm = _departed_market(plan)
+    rm = departure.market
 
     if not cargo:
         state.districts[dk].known_price_age = 0 if plan["ride_along"] else 1
@@ -557,7 +611,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     drops = rm.drops(len(cargo))
 
     if plan["ride_along"]:
-        _interactive_drops(state, home_shop, plan, drops, con, rng,
+        _interactive_drops(departure, home_shop, drops, con, rng,
                            report)
         state.districts[dk].known_price_age = 0
     else:
@@ -594,19 +648,6 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     return report
 
 
-def _departed_market(plan) -> "market.RouteMarket":
-    """The view this route LEFT under, or a refusal. Every consumer
-    inside the night reads it through here, so none of them can
-    quietly rebuild one from a district that has moved since."""
-    view = plan.get("market_view")
-    if view is None:
-        raise ValueError(
-            "this route has no departure-time market: a route "
-            "resolves under the view recorded when it departed, "
-            "never one rebuilt from later state")
-    return view
-
-
 def _sell(state: State, dk: str, good: str, units: int, price_mult: float,
           report: dict) -> None:
     price = int(state.prices[dk][good] * price_mult)
@@ -617,9 +658,13 @@ def _sell(state: State, dk: str, good: str, units: int, price_mult: float,
     market.record_sales(state, dk, good, units)
 
 
-def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
-                 con: Console,
+def _interactive_drops(departure: "RouteDeparture", home_shop,
+                       drops: int, con: Console,
                        rng: random.Random, report: dict) -> None:
+    # The stops read the SAME departure view the resolution does — a
+    # second reader here would be a second answer to "what was this
+    # district like when the wagon left".
+    state, plan = departure.state, departure.plan
     dk = plan["district"]
     cargo = plan["cargo"]
     voice = _route_voice(plan)
@@ -640,7 +685,7 @@ def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
                            straight.DISPOSAL_HAIRCUT_HI) \
             if plan.get("disposal") else rng.uniform(0.85, 1.2)
         offer = int(base_price * mult)
-        top_want = _departed_market(plan).top_want()
+        top_want = departure.market.top_want()
         want = min(cargo[g], rng.randint(1, top_want))
         choice = con.menu(
             voice["stop"].format(n=stop + 1, want=want, label=spec["label"],
@@ -669,7 +714,7 @@ def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
             home_shop.stash[g] = home_shop.stash.get(g, 0) + u
 
 
-def _handle_police_stop(state: State, plan: dict, con: Console,
+def _handle_police_stop(state: State, plan: "RoutePlan | dict", con: Console,
                         rng: random.Random, report: dict) -> bool:
     """Blue lights in the mirror. Returns False if the route ends here."""
     driver = plan["driver"]
@@ -703,7 +748,7 @@ def _handle_police_stop(state: State, plan: dict, con: Console,
     return _bust(state, plan, con, rng, report, resisted=False)
 
 
-def seize_cargo(plan: dict) -> int:
+def seize_cargo(plan: "RoutePlan | dict") -> int:
     """THE seizure: count the units AND empty the manifest, in ONE
     call, returning what was taken.
 
@@ -723,7 +768,7 @@ def seize_cargo(plan: dict) -> int:
     return seized
 
 
-def _bust(state: State, plan: dict, con: Console, rng: random.Random,
+def _bust(state: State, plan: "RoutePlan | dict", con: Console, rng: random.Random,
           report: dict, resisted: bool) -> bool:
     seized_units = seize_cargo(plan)
     fine = min(state.dirty + state.clean, 500)
@@ -749,7 +794,7 @@ def _bust(state: State, plan: dict, con: Console, rng: random.Random,
     return False
 
 
-def _auto_drops(state: State, home_shop, plan: dict, drops: int,
+def _auto_drops(state: State, home_shop, plan: "RoutePlan | dict", drops: int,
                  con: Console,
                 rng: random.Random, report: dict) -> None:
     """Driver runs the route alone. One risk roll decides the night."""

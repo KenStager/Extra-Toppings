@@ -3224,9 +3224,12 @@ ROUTE_EXECUTED_BANDS = {"cool": 1.0, "amber": 0.5}
 @dataclass(frozen=True)
 class RouteExecutionRecord:
     """One route night, booked at RESOLUTION (rev. 18 item 4), bound
-    to the actual mechanical domains (rev. 19 item 2): the
-    execution-time district, its band with the band's OWN policy
-    multiplier, units a 24-space wagon can actually move, corner
+    to the actual mechanical domains (rev. 19 item 2): the district,
+    its DEPARTURE-TIME band with that band's OWN policy multiplier —
+    the route-departure correction: the band recorded here is the one
+    the wagon LEFT under, carried on the `RouteDeparture`, never
+    re-read at resolution where a simultaneous route's own damage
+    could reclassify it — units a 24-space wagon can actually move, corner
     damage under the mechanical cap, and a contested flag only a
     turf with an owner can carry. Prefer `of_market` — the record
     built from the authoritative RouteMarket view — so no study can

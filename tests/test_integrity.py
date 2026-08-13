@@ -68,8 +68,8 @@ class TestCompleteLegitLedger(unittest.TestCase):
         plan = {"district": "university", "driver": rosa, "ride_along": False,
                 "cargo": {}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
-        routes.record_departure(state, plan)
-        routes.resolve_route(state, plan, ScriptedConsole(), rng)
+        departure = routes.record_departure(state, plan)
+        routes.resolve_route(departure, ScriptedConsole(), rng)
         self.assertGreater(state.legit_revenue_today, before)
         self.assertGreater(shop.believable_ceiling(state, state.shop, state.legit_revenue_today),
                            shop.believable_ceiling(state, state.shop, before))

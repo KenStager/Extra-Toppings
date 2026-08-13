@@ -1222,8 +1222,8 @@ class TestRevision17Instruments(unittest.TestCase):
                 "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY,
                            "wagon_key": models_mod.HOME_WAGON_KEY}
         routes.record_departure(state, plan)
-        routes.record_departure(state, plan)
-        report = routes.resolve_route(state, plan, Quiet(),
+        departure = routes.record_departure(state, plan)
+        report = routes.resolve_route(departure, Quiet(),
                                       _random.Random(4))
         state.districts["little_sicily"].sold_yesterday["mushrooms"] = -8
         record = state.route_log[-1]
@@ -1242,8 +1242,8 @@ class TestRevision17Instruments(unittest.TestCase):
                 "ride_along": False, "legit": 0,
                 "cargo": {"mushrooms": 6}, "origin_shop": models_mod.HOME_SHOP_KEY,
                            "wagon_key": models_mod.HOME_WAGON_KEY}
-        routes.record_departure(state, plan)
-        routes.resolve_route(state, plan, Quiet(), _random.Random(4))
+        departure = routes.record_departure(state, plan)
+        routes.resolve_route(departure, Quiet(), _random.Random(4))
         state.districts["little_sicily"].heat = 0.0      # cools after
         record = state.route_log[-1]
         self.assertEqual(record.heat_band, "amber")

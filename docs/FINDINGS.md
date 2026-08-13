@@ -3259,14 +3259,33 @@ address sorts first decides who runs — and it would strand inventory
 the departure had already spent, since stash and pantry come out at
 commit. A route that "never happened" would still have eaten them.
 
-**The correction.** `routes.record_departure` is the one authority
-that fixes a route's market, called by `_commit_route` on the far side
-of every refusal and at the instant the wagon is claimed. The view is
-`market.route_market`'s, immutable, written once — a second write
-raises, because a wagon departs once. `resolve_route` and the
-interactive drops both read it through one reader and **fail closed**
-without one, so a caller that never departed cannot resolve under
-whatever the district happens to say now. That was the side entrance.
+**The correction, and its own first version was wrong twice.** The
+first attempt hung the market view on `RoutePlan` as a field and read
+it partway through resolution. Review broke both halves:
+
+* **It did not fail closed.** `resolve_route` booked cover revenue and
+  docked reputation BEFORE checking the departure, so an undeparted
+  route raised as designed and still moved money on the way out —
+  clean **2000 → 2032**, address revenue **0 → 32**, reputation
+  **50 → 47**. The pin inspected only `route_log`, so it blessed the
+  mutation.
+* **The "immutable, written-once" view could be forged.**
+  `market_view` was a public constructor field and directly
+  assignable; dict plans bypassed the write-once guard entirely; and
+  the reader accepted any non-`None` object without checking type,
+  state, district or band. University Hill's view attached to a
+  Meadows plan resolved and **logged University Hill**. A prefilled
+  typed plan reached `_commit_route`, claimed `wagon1`, then raised on
+  the second write — leaving the wagon authority spent.
+
+**Execution truth is now out of the morning plan entirely.**
+`RouteDeparture` is a frozen value that binds the originating state
+**by identity**, the plan, and the exact `RouteMarket`; it validates at
+construction that the market names THIS plan's district and that its
+band is executable, so a red district cannot produce one at all. It is
+returned by `_commit_route` on the far side of every refusal, it is the
+**only** input `resolve_route` accepts, and it is checked **before any
+mutation**. `record_departure` returns it and mutates nothing.
 
 **Released reachability, MEASURED rather than inferred from shared
 code.** Before touching production, departure and current-resolution
@@ -3286,17 +3305,29 @@ confirmed rather than assumed: both fork batteries came back
 **byte-identical** at `c6912b04…` and `b74cc15f…`, and the golden was
 not regenerated.
 
-**What was measured.** 1,195 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+**The pins, tightened in the same pass.** The two-route case now
+starts a point BELOW red and asserts the first route's own corner
+damage carries the district over, so the crossing is earned rather
+than assigned. Refusals are checked against a COMPLETE state snapshot
+— cash, per-address stash, pantry, revenue, reputation, district heat,
+the Case and the log — not against `route_log` alone. The
+red-before-departure case interrogates the ORIGINAL `WagonNight`,
+because a fresh one answers "nothing is claimed" whatever happened.
+The filing-order claim is narrowed to what the fixture establishes:
+**departure-band invariance**, not the full monetary outcome, since
+the two orders draw the same seeds in a different sequence. And
+`RouteExecutionRecord`'s docstring now says DEPARTURE-time rather than
+execution-time, which is what it has always recorded.
+
+**What was measured.** 1,199 tests on 3.11 / 3.12 / 3.13; ruff 0.15
 and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
-all three; golden `7a62b2af…` untouched; both batteries byte-identical
-to `origin/main`. Regression: 25 rows fail without the production
-change, and they are **honestly weaker than behavioural pins** —
-most fail because `record_departure` does not exist rather than
-because a result moved. The behavioural proof is the seed-72
-reproduction itself and the deterministic two-route pin that replaces
-it, which asserts both routes log `amber` after the first pushes the
-district red, and that reversing the filing order changes neither
-result.
+all three; golden `7a62b2af…` untouched; both fork batteries
+byte-identical to `origin/main` at `c6912b04…` and `b74cc15f…`.
+Regression against the first attempt (`c038790`): **31 rows** fail —
+27 errors and 4 failures. Some are structural (a changed signature),
+but the ones that carry the weight are behavioural: the forged
+cross-district departure, the plan-alone resolution that used to move
+money before raising, and the complete-snapshot refusals.
 
 ## Still open (carried to the next design pass)
 
