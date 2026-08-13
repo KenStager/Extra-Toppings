@@ -3408,3 +3408,36 @@ IDENTITY and stays; he returns with his back pose, hair handled
 then; the booth peek maps to a slate copy, and peek_asset is now
 staging data. Renders verified: zero shared tones among
 customer-floor walkers.
+
+## THE INTERIOR SCALE LAW: the fixtures come down to the people
+## (2026-08-12 session H; board: the too-small question -> "Pause
+## now for the reflect... Scale accordingly" + the bigger-people
+## question; 10 gens)
+
+THE REFLECTION (5 steps, recorded) bolstered the law on three
+measured anchors plus a fourth taken on demand: the person canon
+(30px), the E15 table convergence (1.07x, measured WITH sitters),
+the vehicle law (~1:1 cars), and the street's own doors (~1.3x,
+eyeballed against the facade at 6x). THE LAW: **ARCHITECTURE runs
+dollhouse-big; INTERACTIVE FIXTURES track the person.** The interior
+fixture class had been drawn at architecture scale - measured
+1.5-3.3x oversized, the walk-in door worst.
+
+THE DIRECTION RULING (the board's bigger-people-or-smaller-things
+question, answered by blast radius): everything-else-smaller. The
+30px person underwrites nine approved animation clips, the pose
+bases, the E15 seated convergence, every street crowd and the
+wardrobe machinery; the fixtures were ten generations old.
+
+THE BATCH (10 squash+repair gens @150, each under its own strip,
+holes strip-quantized at finishing; the E05 oven and E15-era
+counter ORIGINALS untouched - the interior takes scaled variants,
+interpretation recorded): counter 38, oven 44 lit+cold, walk-in 40,
+arcade 34, shelves 39, fountain 22 on backbar 31, barrel 20, hood
+28; the makeline measured lawful and stands unchanged. Placements
+re-derived by the arithmetic (counter top now rows 202-218).
+FUNCTIONAL CENSUSES PASS: Bee shows 128 px of head+torso above the
+counter - a cashier, not a periscope; the queue reads face-level.
+**GODOT PROOF 0/230,400** re-run. Applied to the approved scene
+AND the npose candidate. Session H spend: 55 gens ledgered;
+expected balance ~3,972; vendor dashboard the authority.
