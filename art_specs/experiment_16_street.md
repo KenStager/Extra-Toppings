@@ -2730,3 +2730,63 @@ AWAITING THE WORD on the extension (promotion = approved swaps +
 band code change + hero re-bake + district re-renders + all Godot
 proofs + by-design sha changes). Session G spend: 10 gens; expected
 balance ~4,029.
+
+## The extension promoted; the march continues - loaf crust and the
+## wall-streak ruling staged (2026-08-12 session G cont.; board:
+## "Great work. Now, what's next? Let's keep our march forward in
+## creating game ready durable assets and pipelines"; 2 gens)
+
+THE EXTENSION PROMOTED (provenance e16_citywide_coolglass_promotion
+_2026-08-12.json): four cool facades into approved/ (palermo
+9e9dec63..., quick_copy cdeed517..., deluca cb6b420e..., campus
+68df4687...); the band code change landed in street_block.py
+(upper_story_band glass -> midnight/slate) with the code-rendered
+band BYTE-IDENTICAL to the presented candidate; suite OK, ruff
+clean. Byte-checks: morettis_v7 == the presented cool candidate,
+uh_v5 == the presented cool candidate, and vinnies re-render ==
+vinnies_block_v8 (Meadows inertness proven). PROOFS ALL GREEN: hero
+reference 56dda0e7... -> **22686e22...** by sanctioned ruling,
+**GODOT 0/230,400**; **Moretti's 0/230,400**; **University
+0/230,400**. Standing boards: hero v28, morettis_v7, uh_v5,
+vinnies_block_v8.
+
+STREET SHELF (b) - THE LOAF CRUST (2 gens, recipes
+palermo_loafcrust_r1/_finish, provenance e16_palermo_loafcrust
+.json): raw-in done right the first time - 8 loaf components
+raw-shifted (tops to raw gold, undersides raw pale), strip = facade
+tones + the LS ACCENT's top tiers (158,62,50)/(196,96,74) + the
+lamppost amber, nothing minted. Both seeds 0 off-strip; **s17521
+PICKED** (s17522: the accent leaked RED onto the ladder, loaves
+blotchier). The model repainted the window glint and the finishing
+REDREW it at its censused position (glints are not surrendered to a
+repaint); door glint untouched, asserted. Surgical finish: diff 702
+px, window only. A/B stands against the promoted cream read - the
+board rules which stands.
+
+STREET SHELF (c) - THE WALL-STREAK RULING, STAGED DURABLY (0 gens):
+- **VALIDATOR LAW** (street_block.py, suite 154 -> 157, regression
+  pin proven 3/3 pre-fix failures): "streak" joins DECAL_TYPES with
+  its own placement law - BUILDING ROWS ONLY, and never on a
+  doorway (the no-door clause extends to dressing).
+- **COMPOSER SUPPORT** (block_compose.py): streak branch drawn
+  after facades; INERTNESS PROVEN - vinnies AND morettis re-render
+  byte-identical where staging carries no streaks.
+- **THE CANDIDATE** (vinnies_staging_streaks_candidate.json,
+  validator PASS): four streaks on the dirtiest register - Vinnie's
+  west pier, between his windows, under the Orchid's marquee
+  corner, under the east flank's window. 480 px of translucent
+  weather. Hero-builder streak support is FLAGGED to ride with any
+  future hero streak staging (the hero roster is OH-moderate; none
+  staged today).
+Boards: loafcrust_ab, wallstreak_inscene_ab, wallstreak_detail_ab.
+The detail crop also puts the STILL-UNRULED Meadows black-window
+item (survey finding 3) in front of the board.
+
+AWAITING THE WORDS: the loaf-crust A/B (crust vs cream) and the
+wall-streak ruling (stage the roster / adjust / decline). NEXT IN
+THE MARCH: LS interims (upper band in its own register + LS
+wardrobe extras - DISTRICT_WARDROBES exists, checked before
+inventing), UH student wardrobe (paper first), then THE HORIZON:
+the service-counter interior PAPER. Session G spend: 12 gens (4
+drift + 2 groceries + 4 commons + 2 loaves); expected balance
+~4,027 by estimate.

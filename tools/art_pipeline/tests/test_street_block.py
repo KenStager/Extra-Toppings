@@ -513,6 +513,27 @@ class DecalStagingTests(unittest.TestCase):
             "out of scene",
         )
 
+    def test_lawful_streak_passes(self) -> None:
+        from tools.art_pipeline.street_block import validate_scene_staging
+
+        data = _lawful_staging()
+        data["decals"] = [{"type": "streak", "x": 40, "y": 100, "w": 5, "h": 30}]
+        validate_scene_staging(data)
+
+    def test_streak_off_the_building_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(decals=[{"type": "streak", "x": 40, "y": 200,
+                                        "w": 5, "h": 30}]),
+            "building-rows-only",
+        )
+
+    def test_streak_on_doorway_refused(self) -> None:
+        self._refuses(
+            lambda d: d.update(decals=[{"type": "streak", "x": 300, "y": 100,
+                                        "w": 5, "h": 30}]),
+            "lands on doorway",
+        )
+
 
 class DistrictRegisterTests(unittest.TestCase):
     """Decision 2 laws (ratified 2026-08-11) over DISTRICT_REGISTERS."""

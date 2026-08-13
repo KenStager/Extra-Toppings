@@ -194,7 +194,9 @@ def upper_story_band(width: int = 640, height: int = 56) -> Image.Image:
     band that turned the block into a city (v9) for zero generations.
     """
     brick, brick_d, mortar = (96, 82, 68), (84, 70, 58), (108, 94, 78)
-    glass, glass_hi = (52, 48, 42), (74, 70, 62)
+    # glass tiers: facade v2's cool vocabulary (the citywide cool-glass
+    # ruling, 2026-08-12 session G) — midnight field, slate sky-catch
+    glass, glass_hi = (48, 59, 90), (78, 100, 114)
     frame, sill, cornice = (198, 182, 156), (150, 132, 110), (52, 44, 38)
     band = Image.new("RGBA", (width, height), (*brick, 255))
     d = ImageDraw.Draw(band)
@@ -758,8 +760,7 @@ def validate_scene_staging(data: dict) -> None:
                 raise ValueError(
                     f"wall prop {wname!r} and curb prop {cname!r} share an x-slot"
                 )
-    DECAL_TYPES = {"patch", "stain", "crack"}   # ground decals; wall
-    # streaks touch approved facade art and await their own ruling
+    DECAL_TYPES = {"patch", "stain", "crack", "streak"}
     for i, decal in enumerate(data.get("decals", [])):
         if decal.get("type") not in DECAL_TYPES:
             raise ValueError(f"decal {i} has unknown type {decal.get('type')!r}")
@@ -771,6 +772,19 @@ def validate_scene_staging(data: dict) -> None:
             road_bot = data["bands"].get("road_travel", road)[1]
             if not (road_top <= decal["y"] < road_bot):
                 raise ValueError(f"decal {i}: patches are road-only")
+        if decal["type"] == "streak":
+            # wall streaks are BUILDING decals (the facade-dressing
+            # ruling, 2026-08-12 session G): they live in the building
+            # rows and never land on a doorway - the no-door clause
+            # extends to dressing.
+            top = data["bands"]["upper_stories"][0]
+            bot = data["bands"]["buildings"][1]
+            if not (top <= decal["y"] and decal["y"] + decal["h"] <= bot + 1):
+                raise ValueError(f"decal {i}: streaks are building-rows-only")
+            span = [decal["x"], decal["x"] + decal.get("w", 5) - 1]
+            for door in data["doorways"]:
+                if _spans_overlap(span, door):
+                    raise ValueError(f"decal {i}: streak lands on doorway {door}")
     crosswalk = data.get("crosswalk")
     if crosswalk is not None:
         x0, x1 = crosswalk["x"]
