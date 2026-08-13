@@ -71,6 +71,68 @@ class TestTheAssetAuthoritiesSeeEveryRoom(unittest.TestCase):
         self.assertEqual(state.total_stock_units(), 3)
 
 
+class TestCombinedLegitRevenueToday(unittest.TestCase):
+    """Design rev. 39 item 2 — the ONE authority P4b.5's paired
+    legit-revenue letter reads, and the only sanctioned behaviour-free
+    model addition in that PR.
+
+    It exists because `State.legit_revenue_today` is a single-address
+    alias that REFUSES on a two-shop state (P4a working as designed),
+    which left the Partner study unable to read the quantity its own
+    §2.7 letter is named after. The three properties below are its
+    contract; the harness consumes it and never sums locally, because
+    a second spelling in the study is the two-homes defect."""
+
+    def test_one_address_equals_the_alias_it_does_not_replace(self):
+        state = new_state()
+        state.legit_revenue_today = 617
+        self.assertEqual(state.combined_legit_revenue_today(), 617)
+        self.assertEqual(state.combined_legit_revenue_today(),
+                         state.legit_revenue_today)
+
+    def test_two_addresses_sum(self):
+        state, home, second = two_addresses()
+        home.legit_revenue_today = 400
+        second.legit_revenue_today = 250
+        self.assertEqual(state.combined_legit_revenue_today(), 650)
+        # …and the alias still refuses, so nothing may creep back to it.
+        with self.assertRaises(ValueError):
+            state.legit_revenue_today
+
+    def test_the_second_room_is_not_silently_dropped(self):
+        # The failure this authority exists to prevent: banking the
+        # second address's takings in the first address's till, or
+        # simply not seeing them. A positive control on each side.
+        state, home, second = two_addresses()
+        home.legit_revenue_today = 0
+        second.legit_revenue_today = 900
+        self.assertEqual(state.combined_legit_revenue_today(), 900)
+        home.legit_revenue_today = 900
+        second.legit_revenue_today = 0
+        self.assertEqual(state.combined_legit_revenue_today(), 900)
+
+    def test_shop_order_invariance(self):
+        # A total that depends on list position is the positional
+        # coupling P4a exists to have removed. Asserted, not assumed.
+        state, home, second = two_addresses()
+        home.legit_revenue_today = 400
+        second.legit_revenue_today = 250
+        before = state.combined_legit_revenue_today()
+        state.shops.reverse()
+        self.assertEqual(state.combined_legit_revenue_today(), before)
+
+    def test_it_is_todays_number_not_a_running_total(self):
+        # Named for the day it measures: the service phase resets the
+        # per-shop field each day, and a study that sums it must sum
+        # it nightly. Driven through the real reset, not by assignment.
+        state, home, second = two_addresses()
+        home.legit_revenue_today = 400
+        second.legit_revenue_today = 250
+        self.assertEqual(state.combined_legit_revenue_today(), 650)
+        shop.roll_demand(state, random.Random(3))
+        self.assertEqual(state.combined_legit_revenue_today(), 0)
+
+
 class TestStorageNamesItsAddress(unittest.TestCase):
     def test_a_stash_is_reached_by_shop_key(self):
         state, home, second = two_addresses()

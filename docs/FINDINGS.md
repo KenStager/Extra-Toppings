@@ -3507,6 +3507,162 @@ the door is not proved by one that refuses everybody.
 
 **Regression against `5f44be4`:** both subtests fail behaviourally, the
 callback obtaining a real `RouteDeparture` in each.
+## Round 19 — P4b.5: the instrument that never pressed the button, and three misses
+
+P4b.4 is merged (`2b37878`). This round builds P4b.5's instruments and
+runs the battery. **Three §2.7 letters MISS.** They are reported here
+exactly as measured, decomposed, and returned to review: revision 39
+item 7 says a miss is a finding and never a retune, and this is the PR
+with the most to gain from breaking that rule.
+
+### The instrument had to be able to play the branch first
+
+The first complete-fleet run reported **healthy-`operation` in 0 of 40
+entered seeds** and **0-point drops for both ablations**. That is not
+a fact about Carmine's Partner. It is an instrument that never pressed
+the button, and it was three separate failures stacked:
+
+* The smart bot AVOIDs `Staff`, so the second room had **nobody
+  assigned**. `cooks_skill` floors at 2 for an unstaffed address, and
+  a standard pantry at standard prices scores `5 + 2/2 = 6` against an
+  expectation of 7 — **−0.8 reputation a night, from its opening 20,
+  forever**. The restaurant term could not have passed for ANY policy.
+* Given a `Staff` weight, the bot then moved **whoever the roster
+  listed first — Rosa, a driver**. Skill stayed at the floor. The
+  labels in `Move whom?` carry a name and a district and no role, so
+  the fix is to hire a cook BY ROLE off the applicant card (which does
+  carry it) and then move THAT NAME.
+* With a food-9 cook in the room the meter rose and then **plateaued
+  around 20–24**, knocked back 3 whenever covert cargo outnumbered the
+  legit stops on a route leaving that address. Routing the crime out
+  of the founding room and keeping the regulars at the new one is
+  §2.4.2's two-front tension played rather than merely survived.
+
+Two of those fixes hung the study before they worked, and both hangs
+are worth keeping: `Staff` is not in `MENU_PREFS`, so `menu()` never
+records it in `_done_today` and a positive score re-picked it from the
+morning menu forever; and the `Staff:` submenu re-enters itself after
+every verb, so a handler that simply returns its preferred verb spins
+there. Both are now bounded by their own counters.
+
+**Where the line was drawn.** The bot now hires a cook by role, moves
+that cook by name, stocks both pantries, and keeps covert cargo at the
+founding address. It was NOT tuned further. The reputation term is
+still missed, and going after it specifically would be tuning an
+instrument to clear a bar — the one thing revision 39 item 7 forbids.
+
+### What passes
+
+| Row | 150 seeds | 500 seeds (binding) | Bar |
+|---|---|---|---|
+| Entry | 80/150 (53%) | 259/500 (52%) | — |
+| Entry identity vs each ablation | **0** divergent | **0** divergent | 0 |
+| Entry identity vs the stand-pat control | **0** divergent | **0** divergent | 0 |
+| Points on schedule (zero missed cycles) | 61/69 = **88%** | 209/231 = **90%** | ≥ 80% |
+| Crash-freedom (`ChaosPartner`) | 150/150 | **500/500** | all |
+| Pairwise separation | 6/6 (diagnostic) | **6/6 (BINDING)** | ≥ 2 each |
+
+### The three misses, exactly as measured
+
+**1. Branch-good is 2%, and the band is 25–70%.** Healthy-`operation`
+lands in **2% of 80 entered runs** at 150 seeds and **2% of 259** at
+500, while the `operation` ID-level rate is **79%** and **82%**. That gap is the whole finding, and it is the gap rev. 23
+item 1 insisted on measuring: **runs pay Carmine and do not build the
+business.** The AND gate is doing exactly what it was designed to do;
+the tycoon half is what fails.
+
+**2. Both ablation drops are floor effects.** No-covert drops **1
+point** at 150 and **2** at 500 (bar ≥ 20); neglect drops **2 points**
+at both depths (bar ≥ 15, **binding at 500**). With the complete bot at 2%, there is almost nothing left to
+remove. **These two rows currently measure nothing**, and they cannot
+mean anything until row 1 moves. The neglect fleet IS ablating — it
+ends with **0 pantry units at the second address against the complete
+fleet's 3,511** — so the row is correctly wired and starved of signal,
+which is a different defect from a row that silently does nothing.
+
+**3. The paired legit-revenue ratio is 0.81/0.86, and the bar is
+≥ 1.5.** Median per-seed ratio **0.81** over 80 valid pairs at 150 and
+**0.86** over 259 at 500; median absolute difference **−$1,104** and
+**−$816**. The Partner arm earns *less* honest revenue
+than its own stand-pat control across `fork … min(fork+8, day 30)`.
+That window is almost exactly the construction period: **$13,000 of
+committed capital leaves immediately**, the room opens two mornings
+later at reputation 20 with an empty pantry, and the letter's nine-day
+window closes before it can repay any of that. 8 windows were
+truncated by the end of the month (median width 9 days); **0 pairs
+were invalid** (no stand-pat arm earned zero).
+
+### The distributions, reported because they hold as well as when they miss
+
+Over the 66 entered runs reaching day 31:
+
+* **Grading net**, 150 / 500 seeds — min −$1,280 / −$1,280; Q1 $9,581
+  / $10,097; median $20,026 / $18,126; Q3 $41,376 / $40,135; max
+  $94,626 / $172,548. **52/66 and 179/224 strictly above $8,000.** The
+  money term is not the constraint.
+* **Restaurant reputation** — min 0 / **−8**; Q1 0 / 0; median 5 / 7;
+  Q3 22 / 22; max 47 / 47. **2/66 and 9/224 at or above 35.0.** The
+  reputation term is the binding constraint, and the whole distribution
+  sits far below the line: the best run in 224 clears 35 by 12 points
+  and the median misses it by 28. (The −8 minimum is its own finding,
+  below.)
+* Excluded, entered but never reached day 31: 14 (11 `survived`, 3
+  `foreclosure`) and 35 (28 `survived`, 7 `foreclosure`).
+
+**Nothing here moves either constant.** Both are §6.3-class
+placeholders; the distributions are evidence for a future ruling and
+are recorded as such.
+
+### What the instruments now are
+
+`State.combined_legit_revenue_today()` is the sanctioned behaviour-free
+model addition — the study could not otherwise read its own quantity,
+because `State.legit_revenue_today` refuses on a two-shop state by
+construction. Pinned three ways: one-address equivalence with the alias
+it does not replace, two-address summation, and **shop-order
+invariance**.
+
+`ProfileProbe` is the analysis-side typed instrumentation revision 39
+item 6 sanctioned, and it retires transcript tallying for numbers. It
+wraps five authorities, persists nothing, and restores every patch even
+when the run raises. The attribution that mattered most: `incoming_raid`
+moves dirty money **twice** — the tribute the player chooses to pay and
+the cash the raiders grab — and the probe tells them apart by the TYPED
+outcome (`"averted"` is returned on exactly one path) rather than by
+re-testing the engine's own condition. Both directions are pinned.
+
+### A defect the 500-seed run found, in RELEASED code
+
+The reputation distribution at 500 seeds reports a **minimum of −8**.
+Reputation is a 0–100 meter and every other write in the engine clamps
+it: `shop.py` (drift, and the critic both ways), `routes.py` (the late
+-3), `escrow.py` (the incident −8), `straight.py` (the advertising
+gain). **`raids.py:449` and `raids.py:487` are the only two writes that
+do not** — `target.reputation -= 8` on a landed raid and `-= 12` on the
+worse one, straight off the record.
+
+So a raided address can carry a NEGATIVE reputation, which is a number
+no rule computes — the same class as P4b.4's −$5,140 foreclosure
+header, found from the other end. It reaches the Partner grading view,
+where the restaurant term compares `>= 35.0` against it, and it is
+reachable on **released** paths: Act I is raided, and so are the three
+released branches.
+
+**Not fixed here, deliberately.** P4b.5 touches no mechanic, and this
+one is released behaviour — clamping it would move the flag-off golden
+and all three merged batteries, which is a sanctioned-ruling change and
+not a study PR's call. Recorded and returned to review.
+
+### What was measured
+
+1,207 tests on 3.11 / 3.12 / 3.13; ruff 0.15 and mypy clean; both
+identity gates 300/300 with 79/79 sit-downs on all three; the golden
+`7a62b2af…` untouched. **The three merged batteries are byte-identical
+and P4b.5 only APPENDS** — `origin/main`'s 151-line fork output is an
+exact prefix of this head's 250 lines. Regression against merged main:
+6 errors, and they are honestly weaker than a behavioural pin — the new
+module fails to IMPORT without the production code rather than failing
+an assertion.
 
 ## Still open (carried to the next design pass)
 
