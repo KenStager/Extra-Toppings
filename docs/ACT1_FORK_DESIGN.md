@@ -6598,3 +6598,103 @@ follows without a further disposition. Every item here binds P4b.5.
    **no side PR is opened for it now**. Every miss returns as a
    finding — decomposed in FINDINGS, argued at review, never tuned
    away inside the PR that measured it.
+
+**Revision 40 — the corrected source definitions, and an instrument
+that counted the wrong population.** A coda on revisions 38-39, paper
+first. The review of `5ca8285` found that the study violated several
+approved contracts, so **its three reported misses are not findings
+yet** and are withdrawn until the corrected instrument has rerun. No
+new policy: every item here restates what 38-39 already ruled, in the
+terms the code must actually meet.
+
+1. **ENTRY IS THE TARGET BRANCH, never "some branch".** `_profile_run`
+   asked `state.branch is not None`, so a **stand-pat** run counted as
+   an entry into whatever chair the fleet was measuring. Measured at
+   150 seeds: Partner reported 80 entries against **69** actual (11
+   stand-pat runs included), War 85 against **77**, Quiet Sale 85
+   against **80**. Every rate, band and ablation drop divided by those
+   denominators is wrong. Entry is `latch OR state.branch ==
+   target_branch`, which is what the three released studies already
+   do.
+
+2. **THE FOUR-FLEET IDENTITY PROOF IS IMPLEMENTED, AND IT BINDS.**
+   Revision 39 item 4 required all four complete fleets to share a
+   pre-chair state hash per seed; the study never checked it, and it
+   FAILS — **45/150 seeds diverge**. `PartnerBot.confirm()` applied
+   its one-ride-a-night rule from day 1, so replanning a one-address
+   route in **Act I** changed the answer and moved seed 5's payoff
+   from day 5 to day 6. Two corrections: the rule is gated to the
+   branch (`self._in_branch`), and it is **replacement-aware** — a
+   route REPLANNED for the same origin re-uses the rider it already
+   has rather than spending a second one. **Any divergence invalidates
+   the pairwise verdict**, and the check prints with bar 0.
+
+3. **MANAGEMENT IS PART OF THE BOT, and its absence was not a
+   finding.** Revision 38 item 1 says the bot "appoints a manager to
+   the room it is not standing in", and it never did: across all 69
+   actual Partner entries at 150 seeds the second room had a manager
+   in **0**, and all 69 opportunities ended `exhausted` — offered with
+   nobody eligible. `valid_holder` wants hired, **aware**, assigned
+   THERE and not arrested, and the bot never read anybody in. An
+   unmanaged address runs at **half kitchen and half believable
+   ceiling**, permanently, which is most of the reputation and revenue
+   gap the withdrawn misses were built on. Completing it is INSTRUMENT
+   REPAIR, not tuning. Hiring, reading in, reassignment and the
+   appointment itself are all driven through the real menus and all
+   resolved BY IDENTITY, and **later vacancies are handled too**, not
+   just the opening window.
+
+   *And the ablation must not smuggle in a second ablation.*
+   `NeglectPartnerBot` skipped Staff entirely, because the Staff
+   weight was conditioned on `keep_cover` — so the "no cover, no
+   pantry" fleet was also a no-staff, no-manager fleet. §2.7 defines
+   that row as cover and pantry care ONLY. **Both fleets carry the
+   same staffing and management policy.**
+
+   *No positional fallbacks.* The move, pantry and kitchen paths ended
+   in `return 0`. They resolve by label or **fail closed** to the safe
+   exit, so the reordering pins exercise the real prompts.
+
+4. **THE SOURCE TABLE, CORRECTED WHERE THE CODE DID NOT MEET IT.**
+   Revision 39 item 6's table stands except as follows:
+
+   - **Staff spend.** The probe subtracted only the WAREHOUSE rent, so
+     every address's restaurant rent was booked as wages — and Partner
+     carries **two**. The numerator is observed cash outflow across
+     `_payroll_and_rent` **less `RENT_PER_DAY` × every rent-charged
+     address and less the warehouse rent**, clamped at zero. Revision
+     39's wording is corrected here, not silently in code.
+   - **Incident/defense.** The probe counted **every** `incoming_raid`
+     call — including averted and repelled ones — plus a final MAXIMUM
+     of `escrow_incidents`, which loses an incident when a collapse
+     destroys the branch state, and it never read war's `"defense"`
+     `DamageRecord`s at all. The three ruled sources are implemented
+     exactly: **escrow incident INCREMENTS**, **war defense damage
+     records**, and **incoming raids that actually damaged an
+     address**.
+   - **The neglect proof.** Reporting final pantry INVENTORY is not
+     reporting pantry SPEND, and cover spend was not reported at all.
+     Both are instrumented **per address** for the complete and
+     neglect fleets, with zeroes and positive controls.
+
+5. **REPORTING CORRECTIONS.** The truncated-window median was taken
+   over ALL windows — eight truncated windows cannot have a median
+   width of nine — and now keeps its own list. The paired revenue
+   delta keeps its sign and is called **"Partner minus control"**; an
+   *absolute* difference cannot be −$816. The inherited-dirty
+   diagnostic reported dirty cash at the END; it captures the amount
+   held at the **fork** and reports the ending remainder separately.
+   And **pairwise is INCONCLUSIVE with fewer than four complete
+   profiles** — the `6/6` denominator is derived, never hard-coded.
+
+6. **HUMAN PLAY ON SEEDS 24/39/8 IS A P4b.5 GATE** (§7) and is
+   completed and written up after the corrected automated study, not
+   deferred.
+
+7. **RAID REPUTATION IS NOT CLAMPED IN P4b.5.** The −8 minimum is
+   real and stays. Canonical validation deliberately admits finite
+   negative reputation *because released raids produce it*, so the two
+   are consistent today; the inconsistency worth recording is between
+   that admission and every other write in the engine clamping at 0.
+   Changing it is a separate behaviour ruling with a golden and three
+   batteries behind it, and it is not part of this study.
