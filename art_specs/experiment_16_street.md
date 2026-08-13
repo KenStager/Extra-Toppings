@@ -3256,3 +3256,24 @@ body over the back edge; floor objects anchor to a wall, a frame
 edge, or another mass - NEVER open floor. Boards:
 interior_v3_states_board + r8_countertop4x. The candidate stands;
 nothing promoted.
+
+## The register turns around (2026-08-12 session H; board: "we
+## rendered a cash register facing the wrong direction"; 2 gens)
+
+The board's catch, owned: the r2 register showed its keypad and
+operator display to the CAMERA - which is to say, to the customer.
+Controls face the OPERATOR, who stands north of the counter; from
+this camera the world sees the register's BACK. FACING IS PART OF
+PLACEMENT: the arithmetic law gains a clause - an object's
+INTERACTION FACE points at its user, and the camera sees whatever
+side that leaves.
+
+r3 (recipe pizzashop_register_r3.py, raw-in chain @120, 2 gens):
+the register from behind - rear panel with vent slots, the
+period-true customer-facing total display, the receipt roll peeking
+over the top toward Bee. PICK s17662 (s17661 over-rusted); the
+finishing recipe's SOURCES override maps final/register.png to the
+r3 pick; the placement math held unchanged (same content box,
+verified before re-render). Board r9_register5x: Bee behind the
+machine, its display toward the queue. Session H spend: 32 gens
+ledgered; expected balance ~3,995 by estimate.
