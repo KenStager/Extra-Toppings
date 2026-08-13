@@ -3384,3 +3384,27 @@ re-centers [412,444]; the barrel by the soda machine stands as the
 room's one trash object. Godot proof re-run: **0/230,400**. The
 lesson joins the reckoning's ledger: a detail I explained away
 twice ("acceptable at 1x") was a wrong read wearing an excuse.
+
+## The floor-collision ruling (2026-08-12 session H; board: "the
+## floor color seems to have layered OVER the characters"; 0 gens)
+
+The census decoded the read: the checker floor IS wardrobe pale
+(203,215,204) + wardrobe gray (157,156,156) VERBATIM - the E04
+floor tiles and the crowd wardrobe draw from one shared palette,
+an exact-color collision the disjointness law never covered (it
+guards registers and reserved colors, not floors). On the checker,
+gray trousers and pale shirts dissolve - the board read it as the
+floor drawn over the figures, which at the pixel level it
+effectively was. Measured: man 118 px, kid 39, elder's hair 31,
+booth peek 83; Tony and Bee clean against THEIR floor (terracotta).
+
+LAW RECORDED: **NO WALKER WEARS A TONE OF THE FLOOR THEY STAND
+ON** - the collision census binds actor to their standing surface.
+Fixes, all exact-color, 0 gens, applied to the approved scene AND
+the npose candidate: the man takes ink bottoms; the kid takes the
+sage top (the approved scene reuses UH's promoted extra_kid_sage);
+queue slot 1 becomes woman_burgundy - the elder's gray hair is his
+IDENTITY and stays; he returns with his back pose, hair handled
+then; the booth peek maps to a slate copy, and peek_asset is now
+staging data. Renders verified: zero shared tones among
+customer-floor walkers.
