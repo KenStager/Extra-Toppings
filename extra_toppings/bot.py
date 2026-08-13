@@ -901,6 +901,289 @@ class NeglectWarBot(WarBot):
     keep_cover = False
 
 
+class PartnerBot(MarketBot):
+    """Minimal per-branch policy over the smart bot (§2.7 criterion 4):
+    takes Carmine's chair when the table opens, opens the second room
+    on UNIVERSITY HILL BY NAME, keeps both pantries stocked and both
+    covers running, works the routes the districts still pay for, and
+    holds enough clean cash that the points cycle clears on its own
+    schedule. Reads the same transcript a human does.
+
+    EVERY STRATEGIC CHOICE IS RESOLVED BY IDENTITY, NEVER BY MENU
+    POSITION (design rev. 33 item 2, restated rev. 38 item 1). The
+    chair is found by matching the sit-down's own label table; the
+    site by matching `partner.site_label("university")`, which is the
+    string the scene builds its own card from. A later reorder of
+    either menu changes what a player reads and NOTHING this study
+    measures — which is exactly what rev. 33 item 2 rejected the
+    last-option-defaults proposal to protect.
+
+    THE ABLATION KNOBS BELOW ARE CONSUMED IN-BRANCH ONLY. They are
+    read behind `self._in_branch`, never as class-level policy that
+    would change Act I, because rev. 15 invalidated an entire war
+    study whose ablation entered the fork from a different month.
+    Entry identity is then PROVED per seed by the harness rather than
+    intended here."""
+
+    keep_cover = True         # NeglectPartnerBot flips: no cover, no pantry
+    post_fork_covert = True   # NoCovertPartnerBot flips: no covert income
+
+    SITE_DISTRICT = "university"
+
+    def __init__(self, rng: random.Random, verbose: bool = False) -> None:
+        super().__init__(rng, verbose)
+        self._tried_chair = False
+        self._in_branch = False
+        self._rode_today = False
+        self._hires = 0
+        self._hired_cooks: list[str] = []
+        self._moved_site = False
+        self._staff_visits_today = 0
+        self._stocked_site_today = False
+
+    # ── perception ───────────────────────────────────────────────
+    def say(self, text: str = "") -> None:
+        # Prose drives BOT DECISIONS only (rev. 39 item 6). Every
+        # number this study reports comes from a typed source or an
+        # analysis-side probe; nothing here is tallied for a result.
+        if "— MORNING" in text:
+            self._rode_today = False
+            self._stocked_site_today = False
+            self._staff_visits_today = 0
+        if text.strip().startswith("CARMINE'S PARTNER"):
+            self._in_branch = True
+            self._entered_partner = True     # latched for the harness
+        super().say(text)
+
+    def confirm(self, prompt: str) -> bool:
+        # ONE BOSS, ONE WAGON A NIGHT. `route_schedule` refuses two
+        # ride-alongs on the same night — correctly: there is one of
+        # you. Every released bot plays a ONE-ADDRESS world where a
+        # second route cannot exist, so this policy lives HERE rather
+        # than on `StrategyBot`: a counter on the shared base would be
+        # behaviour-identical by argument and would still need proving
+        # against three merged batteries, and Partner is the only
+        # branch that opens a second address (§6.4 keeps war capture
+        # out of it).
+        if prompt.startswith("Ride along"):
+            if self._rode_today:
+                return False
+            self._rode_today = self.ride_along
+            return self.ride_along
+        return super().confirm(prompt)
+
+    # ── the scene, deterministic and RNG-free ────────────────────
+    def scene_menu(self, namespace: str, prompt: str,
+                   options: list[str]) -> int:
+        from .sitdown import CHAIR_LABELS
+        from . import partner as _partner
+        if prompt == "Your chair:" and not self._tried_chair:
+            self._tried_chair = True
+            seat = self._by_identity(options, CHAIR_LABELS["partner"])
+            if seat is not None:
+                return seat
+        if prompt.startswith("Where does the second room go?"):
+            site = self._by_identity(
+                options, _partner.site_label(self.SITE_DISTRICT))
+            if site is not None:
+                return site
+        # Every other scene menu progresses on its last option, which
+        # the scene guarantees is safe.
+        return len(options) - 1
+
+    @staticmethod
+    def _by_identity(options: list[str], label: str) -> int | None:
+        """Match the option the AUTHORITY named, not the slot it
+        happens to sit in. Returns None rather than guessing, so a
+        label that stopped matching falls through to the safe
+        last-option default instead of silently picking a neighbour —
+        and the harness's own entry counts make that visible."""
+        for i, option in enumerate(options):
+            if option == label:
+                return i
+        return None
+
+    # ── running the second room, which is the whole branch ───────
+    # A "minimal per-branch policy over the smart bot" has to actually
+    # PLAY the branch. The smart bot AVOIDs "Staff" and answers the
+    # address pickers by weight, which for Carmine's Partner means a
+    # second room with no cook and an empty pantry: `cooks_skill`
+    # floors at 2 with nobody assigned, so a standard kitchen at
+    # standard prices drifts DOWN every night from its opening 20 and
+    # the restaurant term can never pass for ANY policy. That is not a
+    # finding about the branch — it is an instrument that never
+    # presses the button, and it would have made both ablations
+    # measure a maintained shop against a maintained shop.
+    #
+    # Every address here is named BY ITS DISTRICT, which is what
+    # `models.address_label` puts in front of a player, so none of
+    # this depends on menu position either.
+    @property
+    def _site_label(self) -> str:
+        return self._data.DISTRICTS[self.SITE_DISTRICT]["label"]
+
+    def _special_menu(self, prompt: str, options: list[str]) -> int | None:
+        if self._in_branch:
+            if prompt.startswith("Staff:"):
+                # ONE VISIT A DAY. "Staff" is not in MENU_PREFS — it is
+                # in the smart bot's AVOID list — so `menu()` never
+                # records it in `_done_today` and a positive score
+                # would re-pick it from the morning menu forever. The
+                # visit is counted HERE, where the submenu proves it
+                # actually opened.
+                self._staff_visits_today += 1
+                # THE STAFF MENU RE-ENTERS ITSELF after every verb, so
+                # each intention is taken AT MOST ONCE per visit and
+                # the last option — "Back" — is the exit. A handler
+                # that simply returns its preferred verb spins here
+                # forever; the first version of this did, and hung the
+                # study rather than failing it.
+                if not self._hired_cooks:
+                    hire = self._prefix(options, "Hire")
+                    if hire is not None:
+                        return hire
+                if not self._moved_site:
+                    moved = self._prefix(options, "Move somebody")
+                    if moved is not None:
+                        self._moved_site = True
+                        return moved
+                return len(options) - 1                    # Back
+            if prompt.startswith("Applicants:"):
+                # A COOK, BY ROLE — the second room's reputation is a
+                # kitchen fact. `cooks_skill` floors at 2 for an
+                # address with nobody assigned, and a standard pantry
+                # at standard prices scores (5 + 2/2) against an
+                # expectation of 7: it drifts DOWN 0.8 a night, from
+                # its opening 20 to zero, forever. Measured before it
+                # was fixed: the restaurant term passed in 0 of 40
+                # seeds because the bot moved whoever the roster
+                # listed first, who is a driver.
+                for i, o in enumerate(options[:-1]):
+                    if "(cook," in o:
+                        self._hired_cooks.append(o.split(" (")[0])
+                        return i
+                return len(options) - 1
+            if prompt.startswith("Move whom?"):
+                # THE COOK IT JUST HIRED, BY NAME — not the first row.
+                # Moving Tony out of the founding room would only move
+                # the problem, so the bot hires a second cook and
+                # sends THAT one.
+                for i, o in enumerate(options[:-1]):
+                    if self._site_label in o:
+                        continue
+                    if any(o.startswith(n) for n in self._hired_cooks):
+                        return i
+                return len(options) - 1
+            if prompt.startswith("Move ") and "where?" in prompt:
+                here = self._contains(options[:-1], self._site_label)
+                return here if here is not None else 0
+            if prompt.startswith("Deliver where?"):
+                # COVERT CARGO LEAVES THE FOUNDING ROOM. A route whose
+                # contraband outnumbers its legit stops runs the
+                # deliveries late and costs its ORIGIN 3 reputation,
+                # so routing out of the new room caps its meter around
+                # 20 no matter how good the kitchen is. Keeping the
+                # crime at the old address and the regulars at the new
+                # one is §2.4.2's two-front tension played rather than
+                # merely survived — and it is named by district, not
+                # by slot.
+                home = self._contains(
+                    options, self._data.DISTRICTS[
+                        self._data.HOME_DISTRICT]["label"])
+                if home is not None:
+                    return home
+            if prompt.startswith(("Stock which pantry?", "Whose kitchen?")):
+                # The new room first — it opens with an EMPTY pantry
+                # and no regulars, and the founding room already has
+                # both. Alternate afterwards so neither starves.
+                if "pantry" in prompt and not self._stocked_site_today:
+                    here = self._contains(options, self._site_label)
+                    if here is not None:
+                        self._stocked_site_today = True
+                        return here
+                return 0
+        return super()._special_menu(prompt, options)
+
+    @staticmethod
+    def _prefix(options: list[str], text: str) -> int | None:
+        for i, o in enumerate(options):
+            if o.startswith(text):
+                return i
+        return None
+
+    @staticmethod
+    def _contains(options: list[str], text: str) -> int | None:
+        for i, o in enumerate(options):
+            if text in o:
+                return i
+        return None
+
+    # ── in-branch policy ─────────────────────────────────────────
+    def _score(self, label: str) -> float:
+        if self._in_branch and label.startswith("Staff") \
+                and self.keep_cover:
+            # Worth exactly one visit a day: the roster IS the second
+            # room's kitchen, and the smart bot's AVOID list would
+            # never open it. Bounded by the visit counter, not by
+            # `_done_today`, which never learns about this label.
+            return 7.5 if self._staff_visits_today == 0 else -5
+        if self._in_branch and not self.keep_cover and (
+                "Buy ingredients" in label or "Kitchen policy" in label):
+            # The neglect ablation, at EITHER address: the menus name
+            # the room, so declining by LABEL declines it wherever it
+            # is offered. The harness reports per-address pantry spend
+            # for both fleets, so a neglect run that quietly stocked
+            # the second room is caught rather than assumed away.
+            return -8
+        return super()._score(label)
+
+    def ask_int(self, prompt: str, lo: int, hi: int, default: int = 0) -> int:
+        if self._in_branch and not self.post_fork_covert:
+            # NO POST-FORK COVERT REVENUE (rev. 22 item 10, which
+            # replaced the mechanically ambiguous "pays points from
+            # pizza margins only"). Nothing is loaded and nothing is
+            # bought from a supplier, so no route resolves a covert
+            # sale — the routes still roll as pure delivery cover.
+            # Dirty cash INHERITED from before the fork is untouched
+            # by this knob and is reported as its own line, because
+            # paying an early bill from a pre-fork stash is not a
+            # post-fork crime and that is the confound the old
+            # wording hid.
+            if prompt.startswith(("Load", "Buy how many units")):
+                return lo
+        if self._in_branch and not self.keep_cover:
+            if prompt.startswith("Buy how many orders of stock"):
+                return lo
+            if prompt.startswith("Delivery orders to run"):
+                return lo
+        return super().ask_int(prompt, lo, hi, default)
+
+
+class NoCovertPartnerBot(PartnerBot):
+    """Criterion 5's ablation, proving the CRIMINAL half is
+    load-bearing (§2.7, rev. 22 item 10): no post-fork covert revenue
+    at all. Must drop branch-good — the HEALTHY `operation` tier, not
+    the id — by ≥ 20 points, or the trap is decorative and the branch
+    fails review."""
+    post_fork_covert = False
+
+
+class NeglectPartnerBot(PartnerBot):
+    """The restaurant-neglect ablation, proving the TYCOON half is
+    load-bearing (§2.7 criterion 5, rev. 23 item 1; the bar made
+    binding by rev. 24 item 1): no cover spend and no pantry care, at
+    EITHER address. Must reduce healthy-`operation` outcomes by ≥ 15
+    points, binding at 500 seeds.
+
+    Neither ablation substitutes for the other: without this row a
+    player could pay Carmine out of two hollow fronts and the branch
+    would still pass its battery, which is precisely the failure the
+    row exists to catch. The war's own restaurant-neglect row
+    (rev. 17) is the precedent — the same hollow-restaurant question,
+    asked of the other branch."""
+    keep_cover = False
+
+
 BOTS = {
     "greedy": GreedyBot,
     "cautious": CautiousBot,

@@ -3901,6 +3901,32 @@ class State:
         """Dirty cash anywhere — till plus warehouse stash."""
         return self.dirty + self.warehouse_cash
 
+    def combined_legit_revenue_today(self) -> int:
+        """TODAY's honest takings across EVERY address (design rev. 39
+        item 2) — the one authority the Partner study's paired
+        legit-revenue letter reads.
+
+        `State.legit_revenue_today` is the single-address alias and
+        stays exactly what it is: it REFUSES on a two-shop state
+        through `exactly_one_shop`, which is P4a working as designed
+        and which is why the study cannot use it. This is the
+        address-agnostic reader beside `total_stock_units` and
+        `net_worth`, and it does not replace the alias.
+
+        NAMED FOR THE DAY IT MEASURES. `legit_revenue_today` is reset
+        each morning by the service phase, so this is one day's
+        takings and never a running total — a study that sums it must
+        sum it nightly, which is what the harness does. A name that
+        left the time out would be read as cumulative by the first
+        person in a hurry.
+
+        Sums the shops in list order, which is safe here and nowhere
+        else: addition is commutative, so the answer cannot depend on
+        list position the way a lookup can. That is asserted rather
+        than assumed — the shop-order invariance pin is part of this
+        method's contract."""
+        return sum(s.legit_revenue_today for s in self.shops)
+
     def net_worth(self) -> int:
         """THE address-agnostic asset authority (rev. 27 item 2):
         every address's stash plus the warehouse stock, counted

@@ -12,19 +12,26 @@ Usage:
 """
 
 import argparse
+import hashlib
+import itertools
+import json
 import random
 import statistics
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from typing import ClassVar
 
-from extra_toppings import data, escrow, market, models, phases, raids
+from extra_toppings import (data, escrow, evidence, market, models, phases,
+                            raids, routes)
+from extra_toppings import partner as partner_mod
 from extra_toppings import war as war_mod
 from extra_toppings.bot import (BOTS, CooldownRaiderBot, CounselOnlyBot,
                                 CrimeHeavyBot, EscrowBot, GreedyBot,
-                                KeepsStashBot, MarketBot, NeglectWarBot,
-                                NoRemediationBot, RaidOnlyBot,
-                                SettlementOnlyBot, SloppyEscrowBot,
-                                StraightBot, WarBot)
+                                KeepsStashBot, MarketBot,
+                                NeglectPartnerBot, NeglectWarBot,
+                                NoCovertPartnerBot, NoRemediationBot,
+                                PartnerBot, RaidOnlyBot, SettlementOnlyBot,
+                                SloppyEscrowBot, StraightBot, WarBot)
 from extra_toppings.config import GameConfig
 from extra_toppings.game import run
 from extra_toppings.models import new_state
@@ -390,6 +397,10 @@ def fork(seeds: int) -> None:
 
     _fork_straight(seeds)
     _fork_war(seeds)
+    _fork_partner(seeds)
+    # The pairwise row BINDS at 500 seeds (rev. 39 item 3);
+    # every shallower depth prints as a diagnostic.
+    _pairwise(seeds, binding=seeds >= 500)
 
 
 def _display_case(state) -> float:
@@ -1419,6 +1430,496 @@ def _raid_decline_at_war_cadence(trials: int = 2000) -> None:
         paired = [b - a for a, b in zip(curves[0][i], curves[2][i])]
         diffs.append("+${:,.0f}±{:.0f}".format(*mean_se(paired)))
     print(f"  pacing's paired repayment per attempt: {' / '.join(diffs)}")
+
+
+# ══ P4b.5: analysis-side typed instrumentation ════════════════════
+# Design rev. 39 item 6. NUMERIC STUDY RESULTS ARE NEVER
+# RECONSTRUCTED FROM `con.say`/`con.bullet` — prose stays valid for
+# bot decisions, telegraph checks and narration assertions and for
+# nothing else. The straight study's transcript-tallied
+# `covert_by_day` is the pattern this retires: a regex over narration
+# is an instrument that a reworded sentence silently breaks, and this
+# project has already measured twice what a blind instrument does to
+# a claim.
+#
+# Where the engine keeps a typed source — `route_log`, `raid_log`,
+# `PointsCycleRecord`, `war_pay_paid`, `escrow_incidents` — the study
+# reads it directly. Where it does not, this probe wraps the
+# authoritative call. It persists NOTHING and adds no engine field: a
+# persisted accounting ledger is a design change and goes to review
+# first (rev. 39 item 6).
+
+
+@dataclass
+class DayMoney:
+    """One day's instrumented flows, in whole dollars and whole
+    events, each booked by the wrapper around the authority that
+    actually moved it rather than inferred from a total."""
+    covert: int = 0        # route cash resolved — component 3
+    wages: int = 0         # payroll paid, less the warehouse rent
+    settlements: int = 0   # §2.7 counts settlements in STAFF spend
+    counsel: int = 0       # retainer DOLLARS — component 6
+    tribute: int = 0       # raid-time tribute — component 7
+    defense: int = 0       # incoming raids, however they ended
+
+
+class ProfileProbe:
+    """Wraps, for one run, the five authorities that move money or
+    raise an incident without leaving a typed record behind. Restores
+    every patch on exit, including when the run raises.
+
+    The wrappers observe CASH ACROSS THE CALL rather than re-spelling
+    the engine's arithmetic: `wages` is (cash before − cash after −
+    the warehouse rent that same authority pays), never a second copy
+    of `sum(e.wage for ...)`, because a second copy is a second home
+    and drifts the first time a wage rule moves."""
+
+    TARGETS = (("routes", "resolve_route"),
+               ("phases", "_payroll_and_rent"),
+               ("evidence", "settle_witness"),
+               ("evidence", "counsel_nightly"),
+               ("raids", "incoming_raid"))
+    MODULES = {"routes": routes, "phases": phases,
+               "evidence": evidence, "raids": raids}
+
+    def __init__(self) -> None:
+        self.days: dict = defaultdict(DayMoney)
+        self._saved: dict = {}
+
+    @staticmethod
+    def _cash(state) -> int:
+        return state.clean + state.dirty + state.warehouse_cash
+
+    def __enter__(self):
+        for mod_name, fn_name in self.TARGETS:
+            mod = self.MODULES[mod_name]
+            original = getattr(mod, fn_name)
+            self._saved[(mod_name, fn_name)] = original
+            setattr(mod, fn_name, self._wrap(fn_name, original))
+        return self
+
+    def __exit__(self, *exc) -> None:
+        for (mod_name, fn_name), original in self._saved.items():
+            setattr(self.MODULES[mod_name], fn_name, original)
+        self._saved.clear()
+
+    def _wrap(self, fn_name, original):
+        probe = self
+
+        def wrapped(state, *a, **k):
+            before = probe._cash(state)
+            result = original(state, *a, **k)
+            row = probe.days[state.day]
+            spent = max(0, before - probe._cash(state))
+            if fn_name == "resolve_route":
+                # The route's OWN resolved cash, from the same return
+                # value that feeds the typed RouteExecutionRecord.
+                # NEVER a `state.dirty` delta — dirty also moves for
+                # tribute, purchases and laundering.
+                row.covert += int(result.get("cash", 0))
+            elif fn_name == "_payroll_and_rent":
+                rent = data.WAREHOUSE_RENT if state.warehouse is not None else 0
+                row.wages += max(0, spent - rent)
+            elif fn_name == "settle_witness":
+                row.settlements += spent
+            elif fn_name == "counsel_nightly":
+                row.counsel += spent
+            elif fn_name == "incoming_raid":
+                # EVERY incoming raid is a defense event, however it
+                # ended. The tribute is attributed by the TYPED
+                # RESULT — "averted" is returned on exactly one path,
+                # the one that pays it, and that path returns
+                # immediately — rather than by re-testing the
+                # engine's own condition. The other cash move here is
+                # raiders GRABBING dirty money, which must never be
+                # booked as an obligation the player chose to meet.
+                row.defense += 1
+                if getattr(result, "outcome", None) == "averted":
+                    row.tribute += spent
+            return result
+        return wrapped
+
+
+# ══ P4b.5: the Partner battery (§2.7, design rev. 38-39) ══════════
+
+PARTNER_ON = GameConfig(fork_enabled=True,
+                        enabled_branches=frozenset({"partner"}))
+# The paired control: the SAME bot policy at a table where the chair
+# cannot be taken, so it stands pat. Everything before the scene is
+# identical by construction and PROVED identical per seed below
+# (rev. 39 item 4) — a pair whose arms entered from different months
+# measures the month, not the chair.
+STANDPAT_ON = GameConfig(fork_enabled=True, enabled_branches=frozenset())
+
+# §2.7's eight components, in the document's own order. The day
+# denominator is the same for all eight: POST-FORK DAYS PLAYED.
+COMPONENTS = ("route-day %", "raid-day %", "covert $/day", "legit $/day",
+              "staff $/day", "remediation $/day", "obligation $/day",
+              "incident/defense per day")
+
+
+def _state_digest(state) -> str:
+    from extra_toppings import save
+    blob = json.dumps(save.state_to_dict(state), sort_keys=True,
+                      separators=(",", ":"))
+    return hashlib.sha256(blob.encode()).hexdigest()[:12]
+
+
+def _profile_run(seed: int, bot_cls, config, entered_attr: str) -> dict:
+    """One instrumented run, returning every typed quantity the P4b.5
+    letters and the pairwise battery read. Nothing here is parsed out
+    of narration (rev. 39 item 6)."""
+    bot = bot_cls(random.Random(seed))
+    nightly: dict = {}
+    hashes: dict = {}
+    war_pay: dict = {}
+    incidents: dict = {}
+
+    def on_night(state, streams):
+        # `night()` has already advanced the calendar: the completed
+        # day is state.day - 1.
+        done = state.day - 1
+        nightly[done] = state.combined_legit_revenue_today()
+        hashes[done] = _state_digest(state)
+        bs = state.branch_state
+        war_pay[done] = getattr(bs, "war_pay_paid", 0) if bs else 0
+        incidents[done] = getattr(bs, "escrow_incidents", 0) if bs else 0
+
+    with ProfileProbe() as probe:
+        s = run(seed, bot, config=config, on_night=on_night)
+
+    entered = getattr(bot, entered_attr, False) or s.branch is not None
+    snap = s.sitdown_snapshot
+    fork_day = snap.payoff_day + 1 if snap else None
+    played = sorted(nightly)
+    post = [d for d in played if fork_day is not None and d >= fork_day]
+    return {
+        "seed": seed, "entered": entered, "ending": s.game_over,
+        "branch": s.branch, "fork_day": fork_day,
+        "pre_chair_hash": hashes.get(snap.payoff_day) if snap else None,
+        "post_days": len(post), "last_day": played[-1] if played else None,
+        "nightly": nightly, "post": post, "probe": probe.days,
+        "route_days": len({r.day for r in s.route_log
+                           if fork_day is not None and r.day >= fork_day}),
+        "raid_days": len({r.day for r in s.raid_log
+                          if fork_day is not None and r.day >= fork_day}),
+        "war_pay": max(war_pay.values()) if war_pay else 0,
+        "incidents": max(incidents.values()) if incidents else 0,
+        "points_paid": sum(c.bill for c in s.branch_state.points_cycles
+                           if c.paid) if s.branch_state else 0,
+        "cycles": list(s.branch_state.points_cycles) if s.branch_state else [],
+        "state": s,
+    }
+
+
+def _components(r: dict) -> list | None:
+    """The eight raw per-run component values, or None when the run
+    has no profile: not entered, or entered with no post-fork day
+    PLAYED (rev. 39 item 3). Zero-day runs are counted, never divided
+    by zero and never silently folded in as zeros."""
+    days = r["post_days"]
+    if not r["entered"] or days <= 0:
+        return None
+    post = set(r["post"])
+    money = r["probe"]
+    def total(field):
+        return sum(getattr(row, field) for d, row in money.items()
+                   if d in post)
+    staff = total("wages") + total("settlements") + r["war_pay"]
+    obligation = r["points_paid"] + total("tribute")
+    incidents = total("defense") + r["incidents"]
+    return [
+        r["route_days"] / days,
+        r["raid_days"] / days,
+        total("covert") / days,
+        sum(v for d, v in r["nightly"].items() if d in post) / days,
+        staff / days,
+        total("counsel") / days,
+        obligation / days,
+        incidents / days,
+    ]
+
+
+def _quantiles(xs: list) -> tuple:
+    ys = sorted(xs)
+    if not ys:
+        return (0.0, 0.0, 0.0, 0.0, 0.0)
+    n = len(ys)
+    return (ys[0], ys[n // 4], ys[n // 2], ys[(3 * n) // 4], ys[-1])
+
+
+def _fork_partner(seeds: int) -> tuple:
+    """§2.7's Carmine's-Partner letters, measured (design rev. 38-39).
+
+    BOTS ARE INSTRUMENTS, NEVER TUNING TARGETS. Every bar below is a
+    falsification bar; a miss is a finding that returns to review,
+    never a retune. Nothing in this function moves a threshold, a
+    mechanic or a released bot."""
+
+    class ChaosPartner(BotConsole):
+        """Crash-freedom (§2.7 criterion 3). The chair is named BY
+        IDENTITY like every other strategic choice in P4b.5; every
+        other scene menu progresses on its last option, which lands
+        the fall-through on The Meadows — Vinnie's floor. That is
+        chaos COVERAGE of territorial retaliation on a path nobody
+        had to arrange (rev. 33 item 2), not a study policy."""
+
+        def scene_menu(self, namespace, prompt, options):
+            from extra_toppings.sitdown import CHAIR_LABELS
+            if prompt == "Your chair:" and not getattr(self, "_t", False):
+                self._t = True
+                seat = PartnerBot._by_identity(options,
+                                               CHAIR_LABELS["partner"])
+                if seat is not None:
+                    return seat
+            return len(options) - 1
+
+    fleets = {}
+    for name, cls in (("partner", PartnerBot),
+                      ("no-covert", NoCovertPartnerBot),
+                      ("neglect", NeglectPartnerBot)):
+        fleets[name] = {seed: _profile_run(seed, cls, PARTNER_ON,
+                                           "_entered_partner")
+                        for seed in range(seeds)}
+    control = {seed: _profile_run(seed, PartnerBot, STANDPAT_ON,
+                                  "_entered_partner")
+               for seed in range(seeds)}
+
+    complete = fleets["partner"]
+    entered = [r for r in complete.values() if r["entered"]]
+    print(f"partner: entered {len(entered)}/{seeds} "
+          f"({len(entered) / seeds:.0%})")
+
+    # ── entry identity, extended past the ablations (rev. 39 item 4)
+    for name in ("no-covert", "neglect"):
+        bad = sum(1 for seed in range(seeds)
+                  if (complete[seed]["entered"] != fleets[name][seed]["entered"]
+                      or complete[seed]["pre_chair_hash"]
+                      != fleets[name][seed]["pre_chair_hash"]))
+        print(f"  entry identity, partner vs {name}: {bad} divergent "
+              f"(fleet, seed) pairs (bar 0)")
+    ctrl_bad = sum(1 for seed in range(seeds)
+                   if (complete[seed]["pre_chair_hash"]
+                       != control[seed]["pre_chair_hash"]
+                       or complete[seed]["fork_day"]
+                       != control[seed]["fork_day"]))
+    print(f"  entry identity, partner vs its stand-pat control: "
+          f"{ctrl_bad} divergent pairs (bar 0) — the pair is the unit "
+          f"of the ratio below")
+
+    # ── the branch-good band, on the HEALTHY TIER (rev. 23 item 1) ──
+    def tiers(per_seed):
+        ent = [r for r in per_seed.values() if r["entered"]]
+        healthy = ids = 0
+        for r in ent:
+            st = r["state"]
+            if st.game_over == models.OPERATION_ENDING:
+                ids += 1
+                if st.branch_state is not None \
+                        and partner_mod.grade_view(st).tier == "healthy":
+                    healthy += 1
+        n = len(ent)
+        return (healthy / n if n else 0.0, ids / n if n else 0.0, n)
+
+    good, ids, n = tiers(complete)
+    print(f"branch-good (HEALTHY operation tier): {good:.0%} of "
+          f"{n} entered (band 25-70%); the `operation` ID-level rate "
+          f"is {ids:.0%} — the gap between paying the man and building "
+          f"the business")
+    for name, bar in (("no-covert", 20), ("neglect", 15)):
+        rate, rate_id, m = tiers(fleets[name])
+        note = "bar >= 20" if name == "no-covert" \
+            else "bar >= 15, BINDING AT 500 SEEDS"
+        print(f"  ablation {name}: healthy {rate:.0%} of {m} entered "
+              f"(id-level {rate_id:.0%}); drop "
+              f"{(good - rate) * 100:.0f} points ({note})")
+
+    # ── the neglect fleet must have neglected BOTH rooms ────────────
+    for name in ("partner", "neglect"):
+        spend: dict = {}
+        for r in fleets[name].values():
+            st = r["state"]
+            if not r["entered"]:
+                continue
+            for sh in st.shops:
+                spend[sh.key] = spend.get(sh.key, 0) + sh.ingredients
+        print(f"  pantry stock carried at end, {name}, by address: "
+              f"{dict(sorted(spend.items()))}")
+
+    # ── points on schedule (rev. 39 item 5) ─────────────────────────
+    billed = [r for r in entered if r["cycles"]]
+    no_bill = [r for r in entered if not r["cycles"]]
+    clean = sum(1 for r in billed if all(c.paid for c in r["cycles"]))
+    print(f"points on schedule (ZERO missed cycles): {clean}/"
+          f"{len(billed)} of entered runs carrying at least one actual "
+          f"cycle record ({clean / len(billed) if billed else 0:.0%}; "
+          f"bar >= 80%)")
+    print(f"  excluded — entered but never billed a cycle: "
+          f"{len(no_bill)} ({Counter(r['ending'] for r in no_bill)})")
+
+    # ── the paired legit-revenue letter (rev. 39 item 1) ────────────
+    ratios, diffs, invalid, truncated, widths = [], [], [], 0, []
+    for seed in range(seeds):
+        a, b = complete[seed], control[seed]
+        if not a["entered"] or a["fork_day"] is None:
+            continue
+        lo = a["fork_day"]
+        hi = min(lo + 8, data.DEBT_DUE_DAY)
+        if lo + 8 > data.DEBT_DUE_DAY:
+            truncated += 1
+        widths.append(hi - lo + 1)
+        # BOTH ARMS, THE SAME CALENDAR WINDOW. A day an arm did not
+        # play contributes ZERO — the pair is never shortened to the
+        # survivor's length, because shortening it erases exactly the
+        # consequence the ratio exists to see.
+        pa = sum(a["nightly"].get(d, 0) for d in range(lo, hi + 1))
+        pb = sum(b["nightly"].get(d, 0) for d in range(lo, hi + 1))
+        if pb == 0:
+            invalid.append((seed, pa - pb))
+            continue
+        ratios.append(pa / pb)
+        diffs.append(pa - pb)
+    med = statistics.median(ratios) if ratios else 0.0
+    print(f"combined legit revenue, fork..min(fork+8, day "
+          f"{data.DEBT_DUE_DAY}), paired: median per-seed ratio "
+          f"{med:.2f} over {len(ratios)} valid pairs (bar >= 1.5); "
+          f"median absolute difference "
+          f"${statistics.median(diffs) if diffs else 0:,.0f}")
+    print(f"  truncated windows: {truncated} (median width "
+          f"{statistics.median(widths) if widths else 0:.0f} days)")
+    print(f"  INVALID pairs (zero stand-pat total — not infinity, not "
+          f"1.0, not dropped): {len(invalid)}"
+          + (f"; absolute differences {[d for _s, d in invalid[:8]]}"
+             if invalid else ""))
+
+    # ── the inherited-dirty confound, reported as its own line ──────
+    inherited = [r["state"].dirty for r in fleets["no-covert"].values()
+                 if r["entered"]]
+    print(f"  no-covert fleet, dirty cash still held at end: median "
+          f"${statistics.median(inherited) if inherited else 0:,.0f} "
+          f"— pre-fork stash is not a post-fork crime, and paying an "
+          f"early bill from it is the confound rev. 22 item 10 named")
+
+    # ── both grading-threshold distributions, ALWAYS (rev. 38 item 5)
+    graded = [r for r in entered
+              if r["state"].day > data.DEBT_DUE_DAY
+              and r["state"].branch_state is not None]
+    dropped = [r for r in entered if r not in graded]
+    nets = [partner_mod.grade_view(r["state"]).net for r in graded]
+    reps = [partner_mod.grade_view(r["state"]).reputation for r in graded]
+    q = _quantiles(nets)
+    print(f"threshold distribution — grading net over {len(nets)} runs "
+          f"reaching day {data.DEBT_DUE_DAY + 1}: min ${q[0]:,.0f} / Q1 "
+          f"${q[1]:,.0f} / median ${q[2]:,.0f} / Q3 ${q[3]:,.0f} / max "
+          f"${q[4]:,.0f}")
+    above = sum(1 for v in nets if v > models.OPERATION_NET_THRESHOLD)
+    print(f"  strictly above ${models.OPERATION_NET_THRESHOLD:,}: "
+          f"{above}/{len(nets)}; at or below: {len(nets) - above} "
+          f"[reported unconditionally — the study moves no constant]")
+    q = _quantiles(reps)
+    print(f"threshold distribution — restaurant reputation: min "
+          f"{q[0]:.0f} / Q1 {q[1]:.0f} / median {q[2]:.0f} / Q3 "
+          f"{q[3]:.0f} / max {q[4]:.0f}")
+    at = sum(1 for v in reps if v >= models.PARTNER_REPUTATION_THRESHOLD)
+    print(f"  at or above {models.PARTNER_REPUTATION_THRESHOLD:.0f}: "
+          f"{at}/{len(reps)}; below: {len(reps) - at}")
+    print(f"  excluded, entered but never reached day "
+          f"{data.DEBT_DUE_DAY + 1}: {len(dropped)} "
+          f"({Counter(r['ending'] for r in dropped)})")
+
+    # ── crash-freedom, the chair named by identity ──────────────────
+    crashes = sum(1 for seed in range(seeds)
+                  if run(seed, ChaosPartner(random.Random(seed)),
+                         config=PARTNER_ON).game_over is None)
+    print(f"crash-freedom: forced-partner chaos completes "
+          f"{seeds - crashes}/{seeds} runs")
+    return fleets, control
+
+
+def _pairwise(seeds: int, binding: bool) -> None:
+    """§2.7's pairwise row, with rev. 39 item 3's bounds: the four
+    COMPLETE branch fleets only — ablations and the stand-pat control
+    are excluded from the scale, because a normalizer fitted partly on
+    deliberately crippled policies is not the scale the branches are
+    being compared on."""
+    tag = "BINDING" if binding else "diagnostic"
+    fleets = {
+        "straight": (StraightBot, "straight", "_entered_straight"),
+        "partner": (PartnerBot, "partner", "_entered_partner"),
+        "war": (WarBot, "war", "_entered_war"),
+        "quiet_sale": (EscrowBot, "quiet_sale", "_entered_escrow"),
+    }
+    raw: dict = {}
+    for name, (cls, branch, attr) in fleets.items():
+        cfg = GameConfig(fork_enabled=True,
+                         enabled_branches=frozenset({branch}))
+        rows, no_entry, no_days = [], 0, 0
+        for seed in range(seeds):
+            r = _profile_run(seed, cls, cfg, attr)
+            if not r["entered"]:
+                no_entry += 1
+                continue
+            comps = _components(r)
+            if comps is None:
+                no_days += 1
+                continue
+            rows.append(comps)
+        raw[name] = rows
+        print(f"  {name}: {len(rows)} profiled; non-entry {no_entry}, "
+              f"entered-with-zero-post-fork-days {no_days}")
+
+    pooled = [row for rows in raw.values() for row in rows]
+    if not pooled:
+        print("pairwise: no profiled runs — study inconclusive")
+        return
+    # ONE pooled min-max per component, fitted once. No clipping and
+    # no winsorizing: an outlier is a fact about the branch, and
+    # trimming it is tuning the instrument.
+    lo = [min(r[i] for r in pooled) for i in range(len(COMPONENTS))]
+    hi = [max(r[i] for r in pooled) for i in range(len(COMPONENTS))]
+    degenerate = [i for i in range(len(COMPONENTS)) if hi[i] == lo[i]]
+    print(f"pairwise [{tag} at {seeds} seeds] pooled bounds "
+          f"(4 complete fleets, {len(pooled)} runs):")
+    for i, name in enumerate(COMPONENTS):
+        note = "  DEGENERATE — contributes no separation" \
+            if i in degenerate else ""
+        print(f"    {name:26} [{lo[i]:,.3f} .. {hi[i]:,.3f}]{note}")
+
+    profile: dict = {}
+    for name, rows in raw.items():
+        if not rows:
+            continue
+        med_raw = [statistics.median([r[i] for r in rows])
+                   for i in range(len(COMPONENTS))]
+        norm_rows = [[0.0 if hi[i] == lo[i]
+                      else (r[i] - lo[i]) / (hi[i] - lo[i])
+                      for i in range(len(COMPONENTS))] for r in rows]
+        profile[name] = ([statistics.median([r[i] for r in norm_rows])
+                          for i in range(len(COMPONENTS))], med_raw)
+
+    print("  raw branch medians:")
+    for name, (_n, med_raw) in profile.items():
+        print(f"    {name:11} " + " ".join(f"{v:9,.2f}" for v in med_raw))
+    print("  normalized 4x8 profile matrix (median normalized per-run):")
+    for name, (norm, _r) in profile.items():
+        print(f"    {name:11} " + " ".join(f"{v:5.2f}" for v in norm))
+
+    names = sorted(profile)
+    failures = 0
+    for a, b in itertools.combinations(names, 2):
+        pa, pb = profile[a][0], profile[b][0]
+        seps = [(COMPONENTS[i], abs(pa[i] - pb[i]))
+                for i in range(len(COMPONENTS))]
+        passing = [s for s in seps if s[1] >= 0.25]
+        ok = len(passing) >= 2
+        failures += 0 if ok else 1
+        print(f"  {a} vs {b}: {len(passing)} components >= 0.25 "
+              f"({'PASS' if ok else 'MISS'}; bar >= 2)")
+        for comp, d in sorted(seps, key=lambda s: -s[1]):
+            print(f"      {comp:26} {d:5.2f}"
+                  + ("  <=" if d >= 0.25 else ""))
+    print(f"pairwise verdict [{tag}]: {6 - failures}/6 pairs separate "
+          f"on at least two components")
 
 
 def main() -> None:
