@@ -3306,3 +3306,19 @@ Two catches, two mechanisms:
 Both verified dead at 5x (r10 boards). Session H spend: 34 gens
 ledgered; expected balance ~3,993 by estimate; vendor dashboard
 the authority.
+
+## The actual can (2026-08-12 session H; board: "I dont feel like
+## that actually looks like a trash can, and the placement is
+## terrible. Put it against the back wall by the soda machine";
+## 2 gens)
+
+Owned: the tray-return cabinet read as a podium - I generated a
+piece of furniture and called it a trash can. The object that reads
+'trash can' in one glance is the commercial DOME-LID BARREL, and r5
+generated it (ribbed tapered body, dome swing lid, dark flap; pick
+s17665; its 12 alpha holes censused AT PICK TIME - the r10 law's
+first routine use - and backfilled). Placement per the word: a wall
+fixture against the back wall beside the fountain's back-bar. The
+cabinet retires to candidates stock. Boards: r11_soda_trash4x,
+interior_r11_service. Session H spend: 36 gens ledgered; expected
+balance ~3,991; vendor dashboard the authority.
