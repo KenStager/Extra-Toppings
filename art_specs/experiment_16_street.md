@@ -2953,3 +2953,37 @@ BUILD SHAPE when ruled: recipe uh_student_wardrobe.py (deterministic
 variant renders + byte-checks), university staging candidate
 swapping the actor roster, A/B + censuses + validator, promotion =
 approved swap + re-render byte-check + Godot proof per precedent.
+
+## The wardrobe tints: variation ruled, the sameness measured
+## (2026-08-12 session H; board: "slight variation... still the
+## seemingly grey undertones... Everyone looks the same"; 0 gens)
+
+The board's catch decomposed into TWO defects, both real:
+1. The six-student roster was 3 tops x 2 skin shifts - skin variation
+   does not read as wardrobe variation at 32px.
+2. The standing strip wore PALE three times over (woman_pale +
+   student_pale_shift + kid_pale) - the sameness predated the
+   students.
+
+THE AMENDMENT (recolor.py, the wardrobe law's single home):
+**TOP_TARGETS gains three gray-undertone tints** - heather #969AA6
+(cool blue-gray), sage #929A8E (gray-green), oat #ACA496 (warm
+oatmeal-gray) - saturation held to channel deltas <= 22, and
+EXACT-COLOR DISJOINTNESS verified against every register tier, curb
+tone, well metal, slate ramp, crosswalk paint, skin tone, existing
+wardrobe value and reserved identity color BEFORE introduction
+(decision 5 stays safe). DISTRICT_WARDROBES[university] extends to
+seven tops. Suite 157 OK, ruff clean - the pins are structural
+(names valid, nothing reserved, OH/LS warm-dominance untouched).
+
+ROSTER v2: six students, SIX DISTINCT TOPS (slate / gray / pale /
+heather / sage / oat), skin shifts mixed across them. STRIP v2:
+woman_heather x120, student_gray (skin-shifted) x300, student_pale
+x470, kid_sage x560 - four walkers, four undertones. SELF-CATCH
+recorded: the first restaging put oat at x470 and all four walkers
+landed mid-value - hue variety had flattened the VALUE spread the
+old pale accent carried; pale restored at x470 (bright accent, and
+its top-swapped sneaker accents read as white 90s sneakers - the
+measured lucky read). Census: diff vs uh_v5 = 795 px confined to
+the four walker zones. Validator PASS; nothing promoted - the v6
+staging remains the candidate awaiting the board's word.

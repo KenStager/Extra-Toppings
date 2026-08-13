@@ -154,6 +154,15 @@ TOP_TARGETS: dict[str, RGBA] = {
     "gray": from_hex("#9D9C9C"), "pale": from_hex("#CBD7CC"),
     "cream": from_hex("#FBFBE8"), "burgundy": from_hex("#680828"),
     "oxblood": from_hex("#A81031"),
+    # The gray-undertone tints (board ruling 2026-08-12 session H:
+    # "slight variation... still the seemingly grey undertones" — the
+    # UH strip read as everyone-the-same). Near-gray, saturation held
+    # to channel deltas <= 22; exact-color disjoint from every register
+    # tier, curb tone, well metal, slate ramp, crosswalk paint and
+    # reserved identity color (verified at introduction).
+    "heather": from_hex("#969AA6"),   # cool blue-gray
+    "sage": from_hex("#929A8E"),      # gray-green
+    "oat": from_hex("#ACA496"),       # warm oatmeal-gray
 }
 BOTTOM_TARGETS: dict[str, RGBA] = {
     "ink": from_hex("#303B5A"), "slate": from_hex("#4E6472"),
@@ -169,7 +178,7 @@ HAIR_TARGETS: dict[str, RGBA] = {
 DISTRICT_WARDROBES: dict[str, list[str]] = {
     "old_harbor": ["cream", "burgundy", "gray", "pale", "slate"],
     "little_sicily": ["cream", "oxblood", "pale", "burgundy"],
-    "university": ["slate", "gray", "ink", "pale"],
+    "university": ["slate", "gray", "ink", "pale", "heather", "sage", "oat"],
     "meadows": ["ink", "burgundy", "slate", "oxblood"],
 }
 
