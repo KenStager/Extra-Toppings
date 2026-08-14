@@ -1,0 +1,79 @@
+# Experiment 03 — The Pizza Family (2026-08-10)
+
+Status: **generated, curated, AWAITING USER APPROVAL.**
+
+Question: does the pipeline extend an approved asset into a cohesive
+family? Four objects — slice, closed box, open box, box stack — all
+32×32, anchored to the approved canon (`pizza_whole_32_canon.png`),
+under the Experiment 01 v0.2 12-color palette.
+
+Method (all lessons applied): hand-blocked init anchors WITH ≥2px
+transparent margins (the Experiment 01 clipping fix) at strength 150;
+two arms per object — bitforge with canon as `style_image` (32×32
+style = 32×32 output) vs pixflux with palette+prompt only; validator
+v2 at 32px (bbox ≥14, edge run ≤8, single silhouette). 8 calls,
+**8/8 passed validation on the first attempt** — the pipeline's
+cleanest batch.
+
+## The lesson that matters
+
+**bitforge's style anchor leaks CONTENT, not just style.** With canon
+as style image, the closed box was generated as a round pizza and the
+stack caught pepperoni contamination; only the slice — the object
+semantically closest to the anchor — benefited. Ruling: style-image
+anchoring is for same-object variants; cross-object family cohesion
+comes from shared palette + prompt + init anchor (pixflux).
+
+## Selections
+
+| Asset | Winner | Note |
+| --- | --- | --- |
+| pizza_slice | bitforge (seed 601) | Carries canon's pepperoni density; pixflux wedge read plain-cheese |
+| box_closed | pixflux (seed 602) | Bitforge arm became a pizza — rejected |
+| box_open | pixflux (seed 602) | Correct lid/base/pizza composition |
+| box_stack | pixflux (seed 602) | Bitforge arm pepperoni-contaminated — rejected |
+
+Curation: quantize changed **0 pixels on all four** (running total:
+8/8 curated assets across experiments at zero palette cleanup).
+Deterministic oxblood "D" stamps (5×7 font, ink offset) applied to the
+three box lids post-curation — brand geometry stays code. All four
+re-validated PASS after stamping. Board:
+`.private_art/experiment_03/review/family_final_board.png`.
+
+Spend: 8 calls this experiment; 49 charged generations total across
+all experiments; balance has displayed $10.00 throughout.
+
+On approval, the four curated assets move to
+`.private_art/experiment_03/approved/` and the family becomes the
+reference exemplar for prop-family workflows (grease overlays, oven
+states, signage variants are the recorded next candidates).
+
+## Selection rationale (P3 ruling: record WHY, not just which)
+
+- `pizza_whole_12` (canon): user preference; among validators-clean
+  candidates it had the strongest pan-plus-pizza stacking and the most
+  even pepperoni distribution at native 32.
+- `pizza_slice` bitforge arm: matched canon's pepperoni density and
+  warm cheese values; the pixflux wedge was cleaner but read as plain
+  cheese — family cohesion beat cleanliness.
+- `box_closed`/`box_open`/`box_stack` pixflux arms: correct object
+  identity and kraft geometry; the bitforge arms were disqualified by
+  content leakage (box rendered as pizza; pepperoni contamination),
+  not by quality.
+- Facade `s402`: only candidate whose window displays read
+  unambiguously as pizzeria goods; `s403` was disqualified on the
+  Critical-red reservation, not aesthetics.
+- Oven/counter i170 over i120: donor fidelity and less texture noise
+  ("twice the resolution, not twice the visual noise").
+
+## Resolution (2026-08-10): family APPROVED
+
+All four assets approved by the user and moved to
+`.private_art/experiment_03/approved/` (`pizza_slice_32`,
+`box_closed_32`, `box_open_32`, `box_stack_32`) with their generation
+provenance beside them. One revision during approval, and the rule it
+produced: **stamps follow visible geometry** — the box_stack's "D" was
+removed because a lid print cannot appear on stacked box SIDES; lid
+stamps remain on box_closed and box_open where the lid face is
+actually visible. The approved family (canon pizza + these four) is
+the reference exemplar for prop-family workflows.
