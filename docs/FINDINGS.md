@@ -3509,11 +3509,17 @@ the door is not proved by one that refuses everybody.
 callback obtaining a real `RouteDeparture` in each.
 ## Round 19 — P4b.5: the instrument that never pressed the button, and three misses
 
-P4b.4 is merged (`2b37878`). This round builds P4b.5's instruments and
-runs the battery. **Three §2.7 letters MISS.** They are reported here
-exactly as measured, decomposed, and returned to review: revision 39
-item 7 says a miss is a finding and never a retune, and this is the PR
-with the most to gain from breaking that rule.
+P4b.4 is merged, and so is the route-departure correction (PR #31);
+this round is unstacked from `origin/main` at `92f9b4a`. It builds
+P4b.5's instruments and runs the battery. **Three §2.7 letters MISS.**
+They are reported here exactly as measured, decomposed, and returned to
+review: revision 39 item 7 says a miss is a finding and never a retune,
+and this is the PR with the most to gain from breaking that rule.
+
+Every number below is FINAL — measured at this head, after the manager
+repair and after the probe repair the unstacking forced. The
+provisional 40-seed figures this round was carried on are superseded
+and are not quoted as results anywhere.
 
 ### The instrument had to be able to play the branch first
 
@@ -3547,67 +3553,103 @@ there. Both are now bounded by their own counters.
 
 **Where the line was drawn.** The bot now hires a cook by role, moves
 that cook by name, stocks both pantries, and keeps covert cargo at the
-founding address. It was NOT tuned further. The reputation term is
-still missed, and going after it specifically would be tuning an
-instrument to clear a bar — the one thing revision 39 item 7 forbids.
+founding address. It was NOT tuned further, and it has not been touched
+since — every number in this round was read from that bot, and none of
+the three misses below was answered by going back to it. That repair
+was made to let the branch be PLAYED at all; going further, to move a
+specific bar, is the one thing revision 39 item 7 forbids.
 
 ### What passes
 
-| Row | 150 seeds | 500 seeds (binding) | Bar |
-|---|---|---|---|
-| Entry | 80/150 (53%) | 259/500 (52%) | — |
-| Entry identity vs each ablation | **0** divergent | **0** divergent | 0 |
-| Entry identity vs the stand-pat control | **0** divergent | **0** divergent | 0 |
-| Points on schedule (zero missed cycles) | 61/69 = **88%** | 209/231 = **90%** | ≥ 80% |
-| Crash-freedom (`ChaosPartner`) | 150/150 | **500/500** | all |
-| Pairwise separation | 6/6 (diagnostic) | **6/6 (BINDING)** | ≥ 2 each |
+Final results. The 150-seed run is diagnostic; **500 seeds is binding**
+(rev. 39 item 7, and §2.7's neglect and pairwise letters say so
+explicitly).
+
+| Row | 150 seeds | 500 seeds (binding) | Bar | |
+|---|---|---|---|---|
+| Entry | 72/150 (48%) | 243/500 (49%) | — | |
+| Entry identity vs each ablation | **0** divergent | **0** divergent | 0 | PASS |
+| Entry identity vs the stand-pat control | **0** divergent | **0** divergent | 0 | PASS |
+| Four-fleet pre-chair identity | **0** divergent | **0** divergent | 0 | PASS |
+| Branch-good (healthy `operation` tier) | 40% of 72 | **38% of 243** | band 25–70% | PASS |
+| Neglect ablation drop | 40 points | **38 points** | ≥ 15, binding | PASS |
+| Points on schedule (zero missed cycles) | 68/72 = 94% | **233/243 = 96%** | ≥ 80% | PASS |
+| Crash-freedom (`ChaosPartner`) | 150/150 | **500/500** | all | PASS |
+
+**Branch-good is the row that moved.** It was **2%** before the manager
+repair and is **38%** now, inside the band with room on both sides. The
+`operation` ID-level rate is **95%**, so the gap rev. 23 item 1
+insisted on measuring is still visible and still large — runs pay
+Carmine far more often than they build the business — but the tycoon
+half is no longer inert.
+
+The neglect ablation is doing real work rather than sitting on a floor:
+the complete fleet spends **$1,031,275** of post-fork pantry at the
+second address and books **16,400** cover stops there; the neglect
+fleet spends **$0** and books **0**. Its healthy rate is **0%** against
+the complete bot's 38%.
 
 ### The three misses, exactly as measured
 
-**1. Branch-good is 2%, and the band is 25–70%.** Healthy-`operation`
-lands in **2% of 80 entered runs** at 150 seeds and **2% of 259** at
-500, while the `operation` ID-level rate is **79%** and **82%**. That gap is the whole finding, and it is the gap rev. 23
-item 1 insisted on measuring: **runs pay Carmine and do not build the
-business.** The AND gate is doing exactly what it was designed to do;
-the tycoon half is what fails.
+Reported as findings and returned to review. Revision 39 item 7 says a
+miss is a finding and never a retune; no bot, bar, threshold or
+constant was touched after seeing these numbers.
 
-**2. Both ablation drops are floor effects.** No-covert drops **1
-point** at 150 and **2** at 500 (bar ≥ 20); neglect drops **2 points**
-at both depths (bar ≥ 15, **binding at 500**). With the complete bot at 2%, there is almost nothing left to
-remove. **These two rows currently measure nothing**, and they cannot
-mean anything until row 1 moves. The neglect fleet IS ablating — it
-ends with **0 pantry units at the second address against the complete
-fleet's 3,511** — so the row is correctly wired and starved of signal,
-which is a different defect from a row that silently does nothing.
+**1. The no-covert ablation drop is 14 points, and the bar is ≥ 20.**
+It is also the one row that **passed at 150 and missed at 500** — 21
+points diagnostic, **14 binding** — so the 150-seed pass was noise
+against a bar this close, and reporting it as a pass would have been
+the more comfortable error. The decomposition: the complete bot barely
+moved between depths (40% → 38%), while the no-covert arm **rose**
+(19% → 23%). The ablation is correctly wired — that fleet takes no
+post-fork covert revenue at all, and its inherited dirty cash (median
+**$1,275** at the fork) is **$0** by the end, so it is not quietly
+paying points from a pre-fork stash, which is exactly the confound
+rev. 22 item 10 named. The finding is that **the criminal half is worth
+14 points to the healthy tier, not 20**: a Partner run that never
+commits a post-fork crime still builds a healthy operation nearly a
+quarter of the time.
 
-**3. The paired legit-revenue ratio is 0.81/0.86, and the bar is
-≥ 1.5.** Median per-seed ratio **0.81** over 80 valid pairs at 150 and
-**0.86** over 259 at 500; median absolute difference **−$1,104** and
-**−$816**. The Partner arm earns *less* honest revenue
-than its own stand-pat control across `fork … min(fork+8, day 30)`.
-That window is almost exactly the construction period: **$13,000 of
-committed capital leaves immediately**, the room opens two mornings
-later at reputation 20 with an empty pantry, and the letter's nine-day
-window closes before it can repay any of that. 8 windows were
-truncated by the end of the month (median width 9 days); **0 pairs
-were invalid** (no stand-pat arm earned zero).
+**2. The paired legit-revenue ratio is 1.11, and the bar is ≥ 1.5.**
+Median per-seed ratio **1.04** over 72 valid pairs at 150 and **1.11**
+over 243 at 500. This is the miss carried in as provisional, and the
+manager repair moved it from **0.86** to 1.11 — the right direction,
+less than half the distance. The signed absolute difference is now
+**positive** — median partner-minus-control **+$232** and **+$544** —
+so the Partner arm does out-earn its own stand-pat twin on combined
+legit revenue; it out-earns it by about a tenth, where the letter asks
+for half again. **0 windows were truncated** (all 9 days) and **0 pairs
+were invalid**, so this is neither a short-window artefact nor a tiny
+denominator: it is the quantity the letter names, measured cleanly,
+falling short.
+
+**3. Partner and the Quiet Sale separate on one component, and the bar
+is two.** Binding at 500, `partner vs quiet_sale` clears ≥ 0.25 on
+**obligation $/day alone (0.66)**. The next two are **staff $/day
+0.22** and **covert $/day 0.14** — one just under the line, one not
+close. The other five pairs pass, so the verdict is **5/6**, and WHICH
+pair fails is the finding the §2.7 wording asks for. The two branches
+look alike because both run routes every day (route-day % **1.00** for
+each, a component that cannot separate them) and earn similar honest
+money (legit $/day 0.65 vs 0.56); what distinguishes Partner is that it
+pays Carmine. The normalized profiles differ on exactly the axis the
+branch is about, and on almost nothing else.
 
 ### The distributions, reported because they hold as well as when they miss
 
-Over the 66 entered runs reaching day 31:
+Over the **238** entered runs reaching day 31 at 500 seeds (70 at 150):
 
-* **Grading net**, 150 / 500 seeds — min −$1,280 / −$1,280; Q1 $9,581
-  / $10,097; median $20,026 / $18,126; Q3 $41,376 / $40,135; max
-  $94,626 / $172,548. **52/66 and 179/224 strictly above $8,000.** The
+* **Grading net** — 150 / 500: min $2,925 / **$103**; Q1 $13,442 /
+  $13,442; median $26,556 / **$23,654**; Q3 $44,616 / $40,129; max
+  $150,947 / $150,947. **63/70 and 207/238 strictly above $8,000.** The
   money term is not the constraint.
-* **Restaurant reputation** — min 0 / **−8**; Q1 0 / 0; median 5 / 7;
-  Q3 22 / 22; max 47 / 47. **2/66 and 9/224 at or above 35.0.** The
-  reputation term is the binding constraint, and the whole distribution
-  sits far below the line: the best run in 224 clears 35 by 12 points
-  and the median misses it by 28. (The −8 minimum is its own finding,
-  below.)
-* Excluded, entered but never reached day 31: 14 (11 `survived`, 3
-  `foreclosure`) and 35 (28 `survived`, 7 `foreclosure`).
+* **Restaurant reputation** — min 0 / **0**; Q1 0 / 0; median 25 /
+  **22**; Q3 51 / 51; max 76 / **89**. **31/70 and 99/238 at or above
+  35.0.** Still the binding term of the two, but no longer a
+  distribution sitting far below its line: the median misses 35 by 13
+  and the upper quartile clears it.
+* Excluded, entered but never reached day 31: 2 (1 `foreclosure`,
+  1 `arrested`) and **5** (3 `foreclosure`, 2 `arrested`).
 
 **Nothing here moves either constant.** Both are §6.3-class
 placeholders; the distributions are evidence for a future ruling and
@@ -3631,15 +3673,28 @@ the cash the raiders grab — and the probe tells them apart by the TYPED
 outcome (`"averted"` is returned on exactly one path) rather than by
 re-testing the engine's own condition. Both directions are pinned.
 
-### A defect the 500-seed run found, in RELEASED code
+**The probe reads the departure now.** Unstacking this work from the
+merged route-departure correction broke it: `MoneyProbe._wrap` assumed
+every authority it wraps takes the state as its first positional
+argument, which stopped being true when `resolve_route` became
+`resolve_route(departure, con, rng)`. It was calling `state.clean` on a
+`RouteDeparture`, and both ablation tests died with `AttributeError`.
+The probe now takes the world and the plan from the departure for that
+one target — **before** calling through, because a departure is
+consumed by the resolution that claims it and afterwards holds nothing.
+An instrument repair forced by a merged signature change, made before
+any number below was read, and touching no bar.
 
-The reputation distribution at 500 seeds reports a **minimum of −8**.
+### A released-code defect, recorded and NOT fixed
+
 Reputation is a 0–100 meter and every other write in the engine clamps
 it: `shop.py` (drift, and the critic both ways), `routes.py` (the late
--3), `escrow.py` (the incident −8), `straight.py` (the advertising
+−3), `escrow.py` (the incident −8), `straight.py` (the advertising
 gain). **`raids.py:449` and `raids.py:487` are the only two writes that
 do not** — `target.reputation -= 8` on a landed raid and `-= 12` on the
-worse one, straight off the record.
+worse one, straight off the record. Verified against the merged tree at
+this head: both lines still stand unclamped, and no clamped write
+exists in that file.
 
 So a raided address can carry a NEGATIVE reputation, which is a number
 no rule computes — the same class as P4b.4's −$5,140 foreclosure
@@ -3648,6 +3703,12 @@ where the restaurant term compares `>= 35.0` against it, and it is
 reachable on **released** paths: Act I is raided, and so are the three
 released branches.
 
+**The observation did not recur, and the defect is unchanged.** The
+earlier 500-seed run reported a reputation minimum of **−8**; this one
+reports **0**. The repaired manager keeps the Partner fleet off that
+path — it does not close it. The finding is the unclamped write, not
+the sample that happened to hit it, and it stands.
+
 **Not fixed here, deliberately.** P4b.5 touches no mechanic, and this
 one is released behaviour — clamping it would move the flag-off golden
 and all three merged batteries, which is a sanctioned-ruling change and
@@ -3655,14 +3716,27 @@ not a study PR's call. Recorded and returned to review.
 
 ### What was measured
 
-1,207 tests on 3.11 / 3.12 / 3.13; ruff 0.15 and mypy clean; both
-identity gates 300/300 with 79/79 sit-downs on all three; the golden
-`7a62b2af…` untouched. **The three merged batteries are byte-identical
-and P4b.5 only APPENDS** — `origin/main`'s 151-line fork output is an
-exact prefix of this head's 250 lines. Regression against merged main:
-6 errors, and they are honestly weaker than a behavioural pin — the new
-module fails to IMPORT without the production code rather than failing
-an assertion.
+Unstacked from `origin/main` at `92f9b4a` (PR #31 merged), five frozen
+commits replayed with `-x`. **1,244 tests** on 3.11 / 3.12 / 3.13; ruff
+0.15 and mypy clean; both identity gates **300/300** with **79/79**
+sit-downs on all three; the golden `7a62b2af…` untouched and not
+regenerated. **The merged batteries are byte-identical and P4b.5 only
+APPENDS** — `origin/main`'s fork output is an exact prefix of this
+head's 253 lines at **both** depths, 150 and 500, checked by `diff`
+against a fresh worktree run.
+
+### What is NOT done
+
+**Human play on seeds 24/39/8 is outstanding.** §2.7 names it the test
+of fun and §7's P4 gate requires it written up honestly, with the Quiet
+Sale's untaken human verdict riding along. It is not a thing an agent
+can stand in for, and no substitute was invented for it here.
+
+**The §7 gate therefore does not pass.** Three §2.7 letters miss and
+the human verdict is unrecorded. This round is a finding returned to
+review, not a PR-ready package: the gate passing is what opens the PR,
+and it has not.
+
 
 ## Still open (carried to the next design pass)
 
