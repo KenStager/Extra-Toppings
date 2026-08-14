@@ -23,6 +23,12 @@ def departed(state, plan):
     return routes.record_departure_for_probe(state, plan)
 
 
+# The seam's capability, handed over once at import — `routes` is
+# given this function object and never looks it up by name, so a fake
+# module registered as `route_support` authorises nothing.
+routes.grant_departure_scope(routes.PROBE_SCOPE, departed)
+
+
 def deep_snapshot(state) -> dict:
     """THE whole world, serialised.
 

@@ -29,16 +29,43 @@ not a new rule.
 """
 
 import ast
+import collections
 import dataclasses
+import os
 import pathlib
 import random
+import sys
+import types
 import unittest
 
+import route_support
 from extra_toppings import market, models, phases, routes
 from extra_toppings.models import (HOME_SHOP_KEY, HOME_WAGON_KEY, Shop,
                                    Wagon, new_state)
 from extra_toppings.ui import ScriptedConsole
 from route_support import deep_snapshot, departed
+
+_ROOT = str(pathlib.Path(__file__).resolve().parent.parent)
+_ROUTE_SUPPORT = os.path.join(_ROOT, "tests", "route_support.py")
+_PHASES = os.path.join(_ROOT, "extra_toppings", "phases.py")
+
+# A look-alike: the sanctioned name, calling the sanctioned maker,
+# compiled with whatever `__file__` the forger likes.
+_FORGERY = ("def {name}(state, plan, routes):\n"
+            "    return routes.{maker}(state, plan)\n")
+
+
+def _compiled(path: str, source: str) -> dict:
+    """Code compiled to LOOK like it came from `path`."""
+    namespace: dict = {"__file__": path}
+    exec(compile(source, path, "exec"), namespace)
+    return namespace
+
+
+def _forged(path: str, name: str):
+    maker = ("record_departure_for_probe" if name == "departed"
+             else "depart_at_commit")
+    return _compiled(path, _FORGERY.format(name=name, maker=maker))[name]
 
 
 class Quiet(ScriptedConsole):
@@ -163,12 +190,17 @@ class TestTheMarketIsFixedAtDeparture(unittest.TestCase):
             for key in order:
                 departures[key] = phases._commit_route(
                     state, plans[key], Quiet(), wagons)
+            # READ AT DEPARTURE, which is when the band is a fact. A
+            # departure that has run is spent — it hands its world,
+            # plan and market to the one resolution and keeps nothing,
+            # so there is no after-the-fact field here to read.
+            bands = sorted((k, d.market.heat.band)
+                           for k, d in departures.items())
             for i, key in enumerate(order):
                 routes.resolve_route(departures[key], Quiet(),
                                      random.Random(3 + i))
             seen[order] = {
-                "departed": sorted((k, d.market.heat.band)
-                                   for k, d in departures.items()),
+                "departed": bands,
                 "logged": sorted((r.origin_shop, r.heat_band,
                                   r.capacity_mult)
                                  for r in state.route_log),
@@ -337,60 +369,334 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
     def test_the_guard_matches_a_PATH_and_a_FUNCTION_not_a_filename(self):
         """A basename guard is not a scope. Code compiled as
         `/tmp/route_support.py` carried that `__file__` straight
-        through the first version, and any function in any `phases.py`
+        through an earlier version, and any function in any `phases.py`
         could call the production maker."""
         state, drivers = _two_route_world(NEAR_RED)
         plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
         for path, func in (("/tmp/route_support.py", "departed"),
                            ("/tmp/phases.py", "_commit_route")):
-            src = ("def departed(state, plan, routes):\n"
-                   "    return routes.record_departure_for_probe("
-                   "state, plan)\n"
-                   "def _commit_route(state, plan, routes):\n"
-                   "    return routes.depart_at_commit(state, plan)\n")
-            ns: dict = {"__file__": path}
-            exec(compile(src, path, "exec"), ns)
             with self.assertRaises(ValueError):
-                ns[func](state, plan, routes)
+                _forged(path, func)(state, plan, routes)
         # And the real seam, from its real home, still works.
         self.assertIsNotNone(departed(state, plan))
 
     def test_no_other_call_site_exists_anywhere_in_the_tree(self):
-        """The AST call-site guard: the two makers are named in
-        exactly the sanctioned functions and nowhere else, checked
-        against the SOURCE rather than against whatever ran today."""
+        """The AST call-site guard, exhaustive this time.
+
+        The earlier version read TOP-LEVEL FUNCTIONS ONLY, collapsed
+        repeated calls in one function into a set, and did not track
+        `_make_departure` at all — so a call from a class method, a
+        call at module level, a second call beside a sanctioned one,
+        and every call to the maker itself were all invisible to it.
+        This walks EVERY scope, counts MULTIPLICITY, and covers every
+        function that can produce or authorise a departure — including
+        this file, which is no longer exempt from its own guard."""
         allowed = {
-            "depart_at_commit": {("extra_toppings/phases.py",
-                                  "_commit_route")},
-            "record_departure_for_probe": {
-                ("analysis/experiments.py", "_heat_exposure_probe"),
-                ("tests/route_support.py", "departed"),
-            },
+            ("_make_departure", "extra_toppings/routes.py",
+             "depart_at_commit"): 1,
+            ("_make_departure", "extra_toppings/routes.py",
+             "record_departure_for_probe"): 1,
+            ("depart_at_commit", "extra_toppings/phases.py",
+             "_commit_route"): 1,
+            ("record_departure_for_probe", "analysis/experiments.py",
+             "_heat_exposure_probe.night"): 1,
+            ("record_departure_for_probe", "tests/route_support.py",
+             "departed"): 1,
+            # The capability hand-over: module scope, once per owner.
+            ("grant_departure_scope", "extra_toppings/phases.py",
+             "<module>"): 1,
+            ("grant_departure_scope", "analysis/experiments.py",
+             "<module>"): 1,
+            ("grant_departure_scope", "tests/route_support.py",
+             "<module>"): 1,
+            # …and this file's own hostile call sites, declared so a
+            # new one has to be declared rather than hidden here.
+            ("depart_at_commit", "tests/test_route_departure.py",
+             "TestOnlyARouteThatLeftCanRun."
+             "test_the_probe_seam_is_scope_guarded"): 1,
+            ("record_departure_for_probe", "tests/test_route_departure.py",
+             "TestOnlyARouteThatLeftCanRun."
+             "test_the_probe_seam_is_scope_guarded"): 1,
+            ("_make_departure", "tests/test_route_departure.py",
+             "TestTheGuardAuthenticatesCodeNotNames."
+             "test_the_maker_itself_is_guarded_and_moves_nothing"): 1,
+            ("grant_departure_scope", "tests/test_route_departure.py",
+             "TestTheGuardAuthenticatesCodeNotNames."
+             "test_a_scope_is_granted_once_by_the_code_that_owns_it"): 4,
+            ("grant_departure_scope", "tests/test_route_departure.py",
+             "TestTheGuardAuthenticatesCodeNotNames."
+             "test_a_scope_does_not_depend_on_how_its_file_was_invoked"): 1,
         }
+        tracked = {name for name, _rel, _scope in allowed}
         root = pathlib.Path(__file__).resolve().parent.parent
-        found: dict = {name: set() for name in allowed}
-        for path in root.rglob("*.py"):
-            if path.name == pathlib.Path(__file__).name:
-                continue
-            rel = path.relative_to(root).as_posix()
-            tree = ast.parse(path.read_text())
-            # TOP-LEVEL functions only, and calls anywhere inside them
-            # — a sanctioned function may make the call from a closure
-            # of its own, which the analysis probe does.
-            for node in tree.body:
-                if not isinstance(node, (ast.FunctionDef,
-                                         ast.AsyncFunctionDef)):
-                    continue
-                for inner in ast.walk(node):
-                    if not isinstance(inner, ast.Call):
-                        continue
-                    fn = inner.func
+        found: collections.Counter = collections.Counter()
+
+        def scan(node, scope: list, rel: str) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, ast.Call):
+                    fn = child.func
                     name = getattr(fn, "attr", getattr(fn, "id", None))
-                    if name in allowed:
-                        found[name].add((rel, node.name))
-        for name, sites in allowed.items():
-            self.assertEqual(found[name], sites,
-                             f"{name} is called somewhere new")
+                    if name in tracked:
+                        found[(name, rel,
+                               ".".join(scope) or "<module>")] += 1
+                inner = scope
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                      ast.ClassDef)):
+                    inner = scope + [child.name]
+                scan(child, inner, rel)
+
+        for path in root.rglob("*.py"):
+            rel = path.relative_to(root).as_posix()
+            scan(ast.parse(path.read_text()), [], rel)
+        self.assertEqual(dict(found), allowed,
+                         "a departure maker is called somewhere new")
+
+
+class TestTheGuardAuthenticatesCodeNotNames(unittest.TestCase):
+    """Every guard this correction has worn died the same death:
+    authenticating a NAME instead of an IDENTITY. `__name__` (which is
+    `__main__` under `python -m`); a basename (`/tmp/route_support.py`);
+    a module-level token (reachable as `routes._DEPARTURE_TOKEN`); an
+    absolute path plus a function name (a function COMPILED with those
+    strings walked through); and — found while trying to break the
+    fix — a lookup through `sys.modules` (a fake module registered
+    under a sanctioned name was resolved and honoured).
+
+    So the authority is never READ by name. It is HANDED OVER once, at
+    import, by the module that compiled it, and checked against the
+    code that module's file actually defines."""
+
+    def test_the_maker_itself_is_guarded_and_moves_nothing(self):
+        """A leading underscore is a convention, not a scope. With the
+        guard in the two public wrappers only,
+        `routes._make_departure(state, plan)` produced a real
+        departure; resolving it moved clean cash 2000 → 2032, address
+        revenue 0 → 32 and wrote a `RouteExecutionRecord` while the
+        pantry stayed at 40 and no wagon had ever been claimed."""
+        for role in (routes.PROBE_SCOPE, routes.COMMIT_SCOPE):
+            with self.subTest(role=role):
+                state, drivers = _two_route_world(NEAR_RED)
+                state.clean = 2000
+                plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+                before = _snapshot(state)
+                with self.assertRaises(ValueError) as caught:
+                    routes._make_departure(state, plan, role, "nowhere")
+                self.assertIn("a route departs from",
+                              str(caught.exception))
+                self.assertEqual(_snapshot(state), before)
+
+    def test_code_compiled_with_the_EXACT_sanctioned_path_is_refused(self):
+        """The reviewer's second reproduction. The previous guard
+        compared an absolute path and a function name, so a function
+        compiled with exactly those strings produced an amber
+        departure. A code object is not a string."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        before = _snapshot(state)
+        for path, func in ((_ROUTE_SUPPORT, "departed"),
+                           (_PHASES, "_commit_route")):
+            with self.subTest(path=path):
+                with self.assertRaises(ValueError):
+                    _forged(path, func)(state, plan, routes)
+        self.assertEqual(_snapshot(state), before)
+        # The door is not proved by one that refuses everybody.
+        self.assertIsNotNone(departed(state, plan))
+
+    def test_a_fake_module_under_a_sanctioned_name_is_refused(self):
+        """Found while trying to break the fix, not reported: the
+        first correction resolved the sanctioned function through
+        `sys.modules` at guard time, so a module object registered as
+        `route_support`, carrying the sanctioned `__file__` and a
+        `departed` of its own, was resolved and honoured — the same
+        defect one level up. Nothing is looked up by name now."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        before = _snapshot(state)
+        fake = types.ModuleType("route_support")
+        fake.__file__ = _ROUTE_SUPPORT
+        exec(compile(_FORGERY.format(name="departed",
+                                     maker="record_departure_for_probe"),
+                     _ROUTE_SUPPORT, "exec"), fake.__dict__)
+        real = sys.modules["route_support"]
+        sys.modules["route_support"] = fake
+        try:
+            with self.assertRaises(ValueError):
+                fake.departed(state, plan, routes)
+        finally:
+            sys.modules["route_support"] = real
+        self.assertEqual(_snapshot(state), before)
+
+    def test_rebinding_the_sanctioned_name_authorises_nothing(self):
+        """The guard holds the code object, not the attribute, so
+        replacing `phases._commit_route` with a look-alike does not
+        move the authority with the name."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        real = phases._commit_route
+        phases._commit_route = _forged(_PHASES, "_commit_route")
+        try:
+            with self.assertRaises(ValueError):
+                phases._commit_route(state, plan, routes)
+        finally:
+            phases._commit_route = real
+
+    def test_a_scope_is_granted_once_by_the_code_that_owns_it(self):
+        """The capability, and its four refusals. An undeclared slot,
+        a declaration from the wrong file, a look-alike carrying a
+        declared name, and a slot somebody already holds."""
+        def sneaks_out(state, plan):          # an undeclared scope
+            return None
+        with self.assertRaises(ValueError) as caught:
+            routes.grant_departure_scope(routes.PROBE_SCOPE, sneaks_out)
+        self.assertIn("not a declared departure scope",
+                      str(caught.exception))
+
+        # A declared name, from the wrong file.
+        elsewhere = _compiled("/tmp/route_support.py",
+                              _FORGERY.format(
+                                  name="departed",
+                                  maker="record_departure_for_probe"))
+        with self.assertRaises(ValueError) as caught:
+            routes.grant_departure_scope(routes.PROBE_SCOPE,
+                                         elsewhere["departed"])
+        self.assertIn("is defined in", str(caught.exception))
+
+        # A declared name AND the declared file — but not that file's
+        # code.
+        lookalike = _compiled(_ROUTE_SUPPORT,
+                              _FORGERY.format(
+                                  name="departed",
+                                  maker="record_departure_for_probe"))
+        with self.assertRaises(ValueError) as caught:
+            routes.grant_departure_scope(routes.PROBE_SCOPE,
+                                         lookalike["departed"])
+        self.assertIn("not by a look-alike", str(caught.exception))
+
+        # And the genuine article, which is already held — so nobody
+        # can take the slot a second time, whoever they are.
+        with self.assertRaises(ValueError) as caught:
+            routes.grant_departure_scope(routes.PROBE_SCOPE,
+                                         route_support.departed)
+        self.assertIn("granted once", str(caught.exception))
+
+    def test_a_scope_does_not_depend_on_how_its_file_was_invoked(self):
+        """`__module__` is how a file was INVOKED, not what it is —
+        the first guard in this correction's history died on exactly
+        that, and keying the grant slot on it repeated the death: under
+        `python3 -m analysis.experiments` the probe's module name is
+        `__main__`, so the sanctioned probe could not grant its own
+        scope and the fork battery died at import. Caught by the
+        battery, not by a test, which is why this pin exists.
+
+        The genuine code, carrying a `__main__` module name, must get
+        past the slot lookup and the code check and be refused only
+        because the slot is already held."""
+        real = route_support.departed
+        as_main = types.FunctionType(real.__code__, real.__globals__,
+                                     real.__name__)
+        as_main.__module__ = "__main__"
+        with self.assertRaises(ValueError) as caught:
+            routes.grant_departure_scope(routes.PROBE_SCOPE, as_main)
+        self.assertIn("granted once", str(caught.exception))
+        self.assertNotIn("not a declared", str(caught.exception))
+
+    def test_consumption_is_not_a_field_a_caller_can_reset(self):
+        """The reviewer's third reproduction. Consumption was a public
+        mutable list on the value, so after one resolution
+        `departure.spent[0] = False` allowed another: clean cash
+        2000 → 2032 → 2064, address revenue 32 → 64 and a second log
+        row for one night. There is no flag to reset now — the claim
+        hands the world, the plan and the market to the one resolution
+        and strikes them off the departure."""
+        self.assertNotIn(
+            "spent", {f.name for f in
+                      dataclasses.fields(routes.RouteDeparture)},
+            "consumption is a field on the value again")
+        state, drivers = _two_route_world(NEAR_RED)
+        state.clean = 2000
+        plan = routes.RoutePlan(
+            district=DISTRICT, driver=drivers[0], ride_along=False,
+            manifest=routes.RouteManifest(cargo={}, legit=2),
+            origin_shop=HOME_SHOP_KEY, wagon_key=HOME_WAGON_KEY)
+        departure = departed(state, plan)
+        routes.resolve_route(departure, Quiet(), random.Random(3))
+        after_one = _snapshot(state)
+        self.assertEqual(state.clean, 2032)
+        self.assertEqual(len(state.route_log), 1)
+        # THE EXACT RESET, and then the same reset forced past the
+        # frozen dataclass with `object.__setattr__`.
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            departure.spent = [False]                    # type: ignore[attr-defined]
+        for reset in (lambda: object.__setattr__(departure, "spent",
+                                                 [False]),
+                      lambda: None):
+            reset()
+            with self.assertRaises(ValueError) as caught:
+                routes.resolve_route(departure, Quiet(),
+                                     random.Random(3))
+            self.assertIn("already ran tonight", str(caught.exception))
+        self.assertEqual(_snapshot(state), after_one)
+        self.assertEqual(state.clean, 2032)
+        self.assertEqual(len(state.route_log), 1)
+
+    def test_a_hand_built_departure_still_cannot_run_red_or_elsewhere(self):
+        """THE RESIDUAL, pinned at its real width rather than claimed
+        away. `object.__new__` plus `object.__setattr__` will build any
+        object in Python and no guard reaches past that — but the
+        departure's own construction contract is RE-CHECKED at the
+        claim, so what a hand-built one can still do is narrow: it
+        cannot run a red district, cannot carry another district's
+        market, and cannot run a plan the canonical contract refuses.
+        What remains is a stale-but-legal market snapshot, in a process
+        that already owns the engine."""
+        def forge(state, view, plan):
+            departure = object.__new__(routes.RouteDeparture)
+            for name, value in (("state", state), ("plan", plan),
+                                ("market", view),
+                                ("identity", routes._fingerprint(plan))):
+                object.__setattr__(departure, name, value)
+            return departure
+
+        red, drivers = _two_route_world(RED_HEAT)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        before = _snapshot(red)
+        with self.assertRaises(ValueError) as caught:
+            routes.resolve_route(
+                forge(red, market.route_market(red, DISTRICT), plan),
+                Quiet(), random.Random(3))
+        self.assertIn("cannot run under 'red'", str(caught.exception))
+        self.assertEqual(_snapshot(red), before)
+
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        before = _snapshot(state)
+        with self.assertRaises(ValueError) as caught:
+            routes.resolve_route(
+                forge(state, market.route_market(state, OTHER_DISTRICT),
+                      plan), Quiet(), random.Random(3))
+        self.assertIn("market for a route into", str(caught.exception))
+        self.assertEqual(_snapshot(state), before)
+
+    def test_a_refusal_leaves_the_departure_claimable(self):
+        """Refusals mutate nothing — the departure included. A plan
+        the canonical contract refuses must not spend the wagon on its
+        way out, or a bug at resolution would silently cost the run."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        departure = departed(state, plan)
+        cargo = dict(plan["cargo"])
+        plan["cargo"]["mushrooms"] = 999      # past the wagon's capacity
+        object.__setattr__(departure, "identity", routes._fingerprint(plan))
+        before = _snapshot(state)
+        with self.assertRaises(ValueError):
+            routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertEqual(_snapshot(state), before)
+        # …and the wagon is still there to send once the plan is legal.
+        plan["cargo"].clear()
+        plan["cargo"].update(cargo)
+        object.__setattr__(departure, "identity", routes._fingerprint(plan))
+        routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertEqual(len(state.route_log), 1)
 
     def test_a_red_district_cannot_produce_a_departure_at_all(self):
         state, drivers = _two_route_world(RED_HEAT)

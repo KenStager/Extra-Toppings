@@ -1509,6 +1509,13 @@ def _commit_route(state: State, plan: dict, con: Console,
     return routes.depart_at_commit(state, plan)
 
 
+# THE CAPABILITY, handed over once at import by the module that
+# compiled the code. `routes` never looks this function up by name —
+# it is given the function object itself, and thereafter authorises
+# only frames running that exact code. See `routes.grant_departure_scope`.
+routes.grant_departure_scope(routes.COMMIT_SCOPE, _commit_route)
+
+
 # ══ NIGHT ═════════════════════════════════════════════════════════
 
 def night(state: State, plans: dict, service_report: dict, con: Console,
