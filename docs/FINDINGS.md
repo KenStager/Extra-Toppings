@@ -3327,6 +3327,11 @@ earlier spellings failed: keying on `__name__` refused the probe under
 `python -m` (where the name is `__main__`), and keying on the basename
 admitted anything compiled with that filename.
 
+> **SUPERSEDED — read the second pass below.** The path-and-function
+> guard described in this paragraph was itself bypassed, as were the
+> factory's reachability and the single-use flag. This paragraph
+> records what was built at `c36181b`, not what stands.
+
 **Released reachability, MEASURED rather than inferred from shared
 code.** Before touching production, departure and current-resolution
 bands were compared across every route in the 300 gates and the
@@ -3379,6 +3384,88 @@ comment said "every territorial factor" composes in the departure
 view. Raw stop risk still reads LIVE heat at resolution, so it now
 says the RouteMarket's territorial-DEMAND factors — the correction
 implements less than the sentence promised.
+
+### Second pass: authorised by code identity, and spent means gone
+
+**Three live bypasses were reproduced at `c36181b` while all 22
+targeted tests stayed green.** Reported by review, reproduced here
+before being fixed, and measured as follows.
+
+| Bypass | What it moved |
+|---|---|
+| `routes._make_departure(state, plan)` called directly, then resolved | clean **2000 → 2032**, address legit revenue **0 → 32**, one `RouteExecutionRecord` — pantry unchanged at 40, no wagon claimed |
+| A function COMPILED with the exact sanctioned absolute path and function name | an amber departure, through the probe seam AND through the production maker |
+| `departure.spent[0] = False` after one resolution | clean **2032 → 2064**, revenue **32 → 64**, a second log row for one night |
+
+**The defect class, for the sixth time.** Authenticating a NAME or a
+STRING instead of an IDENTITY or a CAPABILITY: `__name__`; a basename;
+a module-level token reachable as `routes._DEPARTURE_TOKEN`; a leading
+underscore; an absolute path plus a function name; a public mutable
+field. Every one of them passed its own tests.
+
+**So the authority is no longer READ.** It is HANDED OVER — each
+sanctioned module calls `routes.grant_departure_scope` at module
+scope, passing the function object it just compiled. A grant is
+refused unless the slot is declared, the function comes from the
+declared file, and its code **equals what that file compiles**. Code
+objects compare by body and not by `co_filename`, so a look-alike
+cannot equal one, and a forger who reproduces it exactly has
+reproduced the sanctioned function rather than bypassed it. Slots fill
+**once**; if anything fills one first, the real module's grant raises
+at import and the engine does not start. `_within` then walks the
+whole stack asking two identity questions per frame — the frame's code
+IS the granted code, its globals ARE that code's namespace — and not
+one string comparison. **The guard lives inside `_make_departure`**,
+so there is no unguarded maker left.
+
+**Two more bypasses were found by attacking the fix, not reported.**
+Resolving the sanctioned function through `sys.modules` at guard time
+was the same defect one level up — a module object registered as
+`route_support`, carrying the sanctioned `__file__` and a `departed`
+of its own, was resolved and honoured. And keying the grant slot on
+`func.__module__` repeated the FIRST guard's death: under `python3 -m
+analysis.experiments` the probe's module name is `__main__`, so the
+sanctioned probe could not grant its own scope and **the fork battery
+died at import**. That one was caught by the boundary, not by a test;
+it is pinned by a test now.
+
+**Consumption is no longer a flag.** `claim()` replaces
+`check_unchanged`/`consume`: every refusal runs first, then the state,
+plan and market are handed to the one resolution and **struck off the
+value**. `spent` is gone from the model, so there is nothing to reset.
+Because every check precedes the strike-off, a refusal now leaves the
+world AND the departure untouched — the previous order spent a
+departure on its way to refusing it, which is fixed and pinned here.
+
+**The residual, recorded at its real width rather than claimed away.**
+A hand-built `object.__new__` departure still resolves. No Python
+guard reaches past `object.__new__` plus `object.__setattr__`. But the
+claim RE-CHECKS the construction contract instead of trusting it, so
+such a value **cannot run a red district, cannot carry another
+district's market, and cannot run a plan the canonical contract
+refuses** — all three pinned. What remains is a stale-but-legal market
+snapshot, in a process that already owns the engine.
+
+**The AST call-site guard was not exhaustive and now is.** It read
+top-level functions only, collapsed repeated calls in one function
+into a set, and did not track `_make_departure`. It now walks every
+scope (class methods, module level, nested functions), counts
+multiplicity, covers every maker and the grant, and no longer exempts
+its own test file.
+
+**What was measured.** 1,219 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
+all three; golden `7a62b2af…` untouched; both fork batteries
+byte-identical to `origin/main` (`2b37878`) by `diff` against a fresh
+worktree run — `c6912b04…` at 150 seeds and `b74cc15f…` at 500.
+Regression against `c36181b`: **11 rows** fail, decomposed honestly —
+**six behavioural** (the two compiled-path forgeries, the `sys.modules`
+fake, the rebound name, the `spent` field, and the refusal that spent
+the departure), **one structural** (the call-site map), and **four
+dying on missing symbols** (`grant_departure_scope`, `PROBE_SCOPE`,
+`RouteDeparture.spent`), which are reported as added coverage and not
+as proof. The defect behind the first of those four is the live
+reproduction tabulated above.
 
 ## Still open (carried to the next design pass)
 
