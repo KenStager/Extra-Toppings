@@ -62,6 +62,32 @@ def _compiled(path: str, source: str) -> dict:
     return namespace
 
 
+class _Grabby(ScriptedConsole):
+    """A console that reaches for a departure the moment the engine
+    talks to it. `_commit_route` calls `bullet` to announce a scrub,
+    which is a real callback on the real production path."""
+
+    def __init__(self, maker, state, plan):
+        super().__init__([])
+        self._maker, self._state, self._plan = maker, state, plan
+        self.stolen = None
+        self.refused = None
+
+    def say(self, text: str = "") -> None:
+        self._grab()
+
+    def bullet(self, text: str) -> None:
+        self._grab()
+
+    def _grab(self) -> None:
+        if self.stolen is not None or self.refused is not None:
+            return
+        try:
+            self.stolen = self._maker(self._state, self._plan)
+        except Exception as caught:            # recorded, not raised
+            self.refused = caught
+
+
 def _forged(path: str, name: str):
     maker = ("record_departure_for_probe" if name == "departed"
              else "depart_at_commit")
@@ -420,6 +446,12 @@ class TestOnlyARouteThatLeftCanRun(unittest.TestCase):
             ("_make_departure", "tests/test_route_departure.py",
              "TestTheGuardAuthenticatesCodeNotNames."
              "test_the_maker_itself_is_guarded_and_moves_nothing"): 1,
+            ("_make_departure", "tests/test_route_departure.py",
+             "TestTheGuardAuthenticatesCodeNotNames."
+             "test_an_engine_callback_inside_commit_cannot_depart"): 1,
+            ("depart_at_commit", "tests/test_route_departure.py",
+             "TestTheGuardAuthenticatesCodeNotNames."
+             "test_an_engine_callback_inside_commit_cannot_depart"): 1,
             ("grant_departure_scope", "tests/test_route_departure.py",
              "TestTheGuardAuthenticatesCodeNotNames."
              "test_a_scope_is_granted_once_by_the_code_that_owns_it"): 4,
@@ -676,6 +708,73 @@ class TestTheGuardAuthenticatesCodeNotNames(unittest.TestCase):
                       plan), Quiet(), random.Random(3))
         self.assertIn("market for a route into", str(caught.exception))
         self.assertEqual(_snapshot(state), before)
+
+    def test_an_engine_callback_inside_commit_cannot_depart(self):
+        """A PRODUCTION BYPASS, and not the accepted fabrication
+        residual: the ordinary public maker, during an ordinary engine
+        callback, with no forged code and no hand-built object.
+
+        `_commit_route` calls `Console.bullet` to say a route is
+        scrubbed — BEFORE it claims a wagon or spends a crate. A
+        console whose `bullet` reached for `depart_at_commit` was
+        handed a valid departure, because `_commit_route` was still an
+        ancestor on the stack. Resolving it moved clean cash
+        2000 → 2032 and address legit revenue 0 → 32 and wrote a route
+        record, while the pantry stayed at 40 and the wagon claims
+        stayed empty.
+
+        Being inside a sanctioned function's dynamic extent is not the
+        same as being its authorised caller. The commit role now
+        requires the exact adjacent edge."""
+        makers = {
+            "depart_at_commit":
+                lambda state, plan: routes.depart_at_commit(state, plan),
+            "_make_departure":
+                lambda state, plan: routes._make_departure(
+                    state, plan, routes.COMMIT_SCOPE, "forced"),
+        }
+        for label, maker in makers.items():
+            with self.subTest(maker=label):
+                state, drivers = _two_route_world(NEAR_RED)
+                state.clean = 2000
+                plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+                # The scrub that makes the engine call back: an
+                # unavailable driver, refused before any commitment.
+                drivers[0].injured_days = 3
+                self.assertFalse(drivers[0].available)
+                # THE ORIGINAL wagon authority — a fresh one would
+                # answer "nothing is claimed" no matter what happened.
+                wagons = phases.WagonNight(state)
+                con = _Grabby(maker, state, plan)
+                before = _snapshot(state)
+                self.assertIsNone(
+                    phases._commit_route(state, plan, con, wagons))
+                self.assertIsNone(con.stolen,
+                                  "a callback got a departure out of "
+                                  "a route that never left")
+                self.assertIsInstance(con.refused, ValueError)
+                self.assertIn("departs from", str(con.refused))
+                # The scrubbed route moved nothing, and its wagon is
+                # still there.
+                self.assertEqual(_snapshot(state), before)
+                self.assertEqual(state.clean, 2000)
+                self.assertEqual(state.route_log, [])
+                self.assertTrue(wagons.free_at(HOME_SHOP_KEY))
+
+    def test_the_real_commit_edge_still_departs(self):
+        """The positive control the refusals above need: the same
+        fixture with an available driver commits, claims its wagon and
+        departs through the one authorised edge."""
+        state, drivers = _two_route_world(NEAR_RED)
+        plan = _plan(drivers[0], HOME_SHOP_KEY, HOME_WAGON_KEY)
+        wagons = phases.WagonNight(state)
+        departure = phases._commit_route(state, plan, Quiet(), wagons)
+        self.assertIsInstance(departure, routes.RouteDeparture)
+        self.assertEqual(departure.market.heat.band, "amber")
+        self.assertFalse(wagons.free_at(HOME_SHOP_KEY),
+                         "a departed route left its wagon unclaimed")
+        routes.resolve_route(departure, Quiet(), random.Random(3))
+        self.assertEqual(len(state.route_log), 1)
 
     def test_a_refusal_leaves_the_departure_claimable(self):
         """Refusals mutate nothing — the departure included. A plan

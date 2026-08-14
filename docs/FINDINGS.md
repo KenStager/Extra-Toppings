@@ -3467,6 +3467,47 @@ dying on missing symbols** (`grant_departure_scope`, `PROBE_SCOPE`,
 as proof. The defect behind the first of those four is the live
 reproduction tabulated above.
 
+### Third pass: an ancestor is not a caller
+
+**A production bypass survived the second pass, and it is not the
+accepted fabrication residual.** No forged code, no hand-built object —
+the ordinary public maker, during an ordinary engine callback.
+
+`_within(COMMIT_SCOPE)` authenticated a legitimate ANCESTOR rather than
+the authorised CALL EDGE. `_commit_route` calls `Console.bullet` to
+announce a scrubbed route — an unavailable driver, say — **before** it
+claims a wagon or spends a crate. A console whose `bullet` called
+`routes.depart_at_commit` (or `routes._make_departure` directly) was
+handed a valid amber departure, because `_commit_route` was still
+somewhere below on the stack. Both makers, measured:
+
+| | Result |
+|---|---|
+| `_commit_route` returned | `None` — the route was scrubbed |
+| Callback obtained | a valid `RouteDeparture`, band **amber** |
+| Resolving it | clean **2000 → 2032**, address legit revenue **0 → 32**, one route record |
+| Pantry | **40**, untouched |
+| Wagon claims | **`{}`** — nothing was ever claimed |
+
+**The commit role now requires the exact adjacent chain**
+`_make_departure ← depart_at_commit ← phases._commit_route`, each frame
+authenticated by code and namespace identity with **no intervening
+frame**. `depart_at_commit`'s code object is captured at its definition
+rather than looked up by name, so the first link is not a module
+attribute a later rebind could move. **The probe role keeps dynamic
+extent**, which is separately justified: the analysis probe genuinely
+calls from a closure of its own, `_heat_exposure_probe.night`.
+
+Pinned by `test_an_engine_callback_inside_commit_cannot_depart` — both
+maker variants, deep state snapshots, and the **original** `WagonNight`
+rather than a fresh one, which would answer "nothing is claimed"
+whatever had happened — with
+`test_the_real_commit_edge_still_departs` as the positive control, so
+the door is not proved by one that refuses everybody.
+
+**Regression against `5f44be4`:** both subtests fail behaviourally, the
+callback obtaining a real `RouteDeparture` in each.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and

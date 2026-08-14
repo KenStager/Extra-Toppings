@@ -598,9 +598,63 @@ def grant_departure_scope(role: str, func: Callable) -> None:
     _GRANTED[slot] = (func.__code__, func.__globals__)
 
 
+def _exact_chain(expected: list) -> bool:
+    """THE AUTHORISED CALL EDGE, frame by adjacent frame.
+
+    Called from `_make_departure`, so the walk starts at whoever
+    called it and proceeds outward with NOTHING allowed in between:
+    each frame must be the expected code object in the expected
+    namespace, and its immediate caller must be the next one.
+
+    Being inside a sanctioned function's dynamic extent is NOT the
+    same as being its authorised caller, and treating them as the same
+    was a live production bypass. `_commit_route` calls
+    `Console.bullet` before it claims a wagon — to say a route is
+    scrubbed — and a console whose `bullet` reached for
+    `depart_at_commit` got a valid departure, because `_commit_route`
+    was still an ancestor on the stack. It resolved: clean cash
+    2000 → 2032, address legit revenue 0 → 32 and a route record
+    written, while the pantry stayed at 40 and the wagon claims stayed
+    empty. No fabrication and no forged code — the ordinary public
+    maker, during an ordinary engine callback.
+
+    So the commit role asks a stricter question than "is a sanctioned
+    function somewhere below me": it asks whether THIS call is the one
+    edge the design sanctions."""
+    frame: "types.FrameType | None" = sys._getframe(2)
+    for code, namespace in expected:
+        if frame is None:
+            return False
+        if frame.f_code is not code or frame.f_globals is not namespace:
+            return False
+        frame = frame.f_back
+    return True
+
+
+def _commit_chain() -> "list | None":
+    """`_make_departure` ← `depart_at_commit` ← `phases._commit_route`,
+    and nothing else, in that order and adjacent.
+
+    `depart_at_commit`'s code is captured at import (below its
+    definition) rather than looked up here, so the first link is not a
+    module attribute a later rebind could move."""
+    granted = [v for slot, v in _GRANTED.items()
+               if slot[0] == COMMIT_SCOPE]
+    if len(granted) != 1 or _DEPART_AT_COMMIT_CODE is None:
+        return None
+    return [(_DEPART_AT_COMMIT_CODE, globals()), granted[0]]
+
+
 def _within(role: str) -> bool:
     """Is this call inside the dynamic extent of a sanctioned
     function — the REAL one?
+
+    THE PROBE ROLE ONLY. Dynamic extent is the right question there
+    and only there: the analysis probe makes its call from a closure
+    of its own (`_heat_exposure_probe.night`), so the sanctioned frame
+    is genuinely an ancestor rather than the immediate caller. The
+    commit role uses `_exact_chain` instead — see the bypass recorded
+    there.
 
     Two identity checks per frame, and not one string comparison: the
     frame's code object IS the granted code object, and the frame's
@@ -794,7 +848,18 @@ def _make_departure(state: State, plan, role: str,
 
     Validates the plan, so a malformed route never becomes a
     departure, and refuses a band no route can execute under."""
-    if not _within(role):
+    # THE COMMIT ROLE ASKS FOR THE EXACT CALL EDGE, not for a
+    # sanctioned ancestor: production departures happen at one place
+    # in the engine, and a callback made from inside `_commit_route`
+    # is not that place. The probe role keeps dynamic extent, which is
+    # separately justified — the analysis probe calls from its own
+    # closure.
+    if role == COMMIT_SCOPE:
+        chain = _commit_chain()
+        authorised = chain is not None and _exact_chain(chain)
+    else:
+        authorised = _within(role)
+    if not authorised:
         path, name = _caller()
         raise ValueError(
             f"a route departs from {where}, not from {name!r} in "
@@ -813,9 +878,18 @@ def _make_departure(state: State, plan, role: str,
 
 
 def depart_at_commit(state: State, plan) -> "RouteDeparture":
-    """THE production maker, callable only from the commit path."""
+    """THE production maker, and `_commit_route` is the only thing
+    that may call it — not merely the only thing that must be
+    somewhere beneath it."""
     return _make_departure(state, plan, COMMIT_SCOPE,
-                           "the commit path — `_commit_route`")
+                           "`_commit_route`, called directly")
+
+
+# CAPTURED AT DEFINITION, not read back by name. `_commit_chain` needs
+# the first link of the authorised edge, and a module attribute is
+# something a later rebind can move; the function object created right
+# here cannot be.
+_DEPART_AT_COMMIT_CODE = depart_at_commit.__code__
 
 
 def record_departure_for_probe(state: State, plan) -> "RouteDeparture":
