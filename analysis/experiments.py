@@ -1523,9 +1523,21 @@ class ProfileProbe:
     def _wrap(self, fn_name, original):
         probe = self
 
-        def wrapped(state, *a, **k):
+        def wrapped(first, *a, **k):
+            # WHERE THE WORLD IS, per authority. Every other target
+            # takes the state first, but `resolve_route` takes THE
+            # DEPARTURE (the route-departure correction, merged in
+            # PR #31): a route resolves from the value its commit
+            # made, never from a state and a plan handed in on their
+            # own. Read BEFORE the call — a departure is consumed by
+            # the resolution that claims it, and afterwards it holds
+            # nothing.
+            if fn_name == "resolve_route":
+                state, plan = first.state, first.plan
+            else:
+                state, plan = first, None
             before = probe._cash(state)
-            result = original(state, *a, **k)
+            result = original(first, *a, **k)
             row = probe.days[state.day]
             spent = max(0, before - probe._cash(state))
             if fn_name == "resolve_route":
@@ -1534,7 +1546,6 @@ class ProfileProbe:
                 # NEVER a `state.dirty` delta — dirty also moves for
                 # tribute, purchases and laundering.
                 row.covert += int(result.get("cash", 0))
-                plan = a[0] if a else k.get("plan", {})
                 origin = plan.get("origin_shop")
                 if origin is not None:
                     row.cover_stops[origin] = row.cover_stops.get(
