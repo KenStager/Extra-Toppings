@@ -1328,9 +1328,13 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
     wagons = WagonNight(state)
     report_wagons = wagons
     # The WHOLE schedule is validated before the first crate moves.
+    departures: dict = {}
     for shop_key, planned in route_schedule(state, plans):
-        if not _commit_route(state, planned, con, wagons):
+        departure = _commit_route(state, planned, con, wagons)
+        if departure is None:
             plans["routes"].pop(shop_key, None)
+        else:
+            departures[shop_key] = departure
     scheduled = routes_planned(state, plans)
     # Every OPEN address trades, in stable key order. The cover
     # pizzas each shift bakes are the ones ITS OWN route named — a
@@ -1370,8 +1374,12 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
             con.bullet(f"{where}Pantry low: {a_shop.ingredients} "
                        f"orders of stock left.")
 
-    for planned in routes_planned(state, plans).values():
-        r = routes.resolve_route(state, planned, con, streams.routes)
+    # Iterated through `routes_planned` so the order is the schema's
+    # stable key order exactly as before — a resolution order that
+    # moved would move every battery.
+    for shop_key in routes_planned(state, plans):
+        r = routes.resolve_route(departures[shop_key], con,
+                                 streams.routes)
         for line in r["lines"]:
             con.bullet(line)
         if r["cash"]:
@@ -1395,10 +1403,14 @@ def service(state: State, plans: dict, con: Console, streams: Streams) -> dict:
 
 
 def _commit_route(state: State, plan: dict, con: Console,
-                  wagons: "WagonNight") -> bool:
+                  wagons: "WagonNight") -> "routes.RouteDeparture | None":
     """Morning plans are intentions; resources commit when service starts.
-    Cancelled or replaced plans never touch inventory. Returns False (and
-    commits nothing) if the plan can no longer run at all.
+    Cancelled or replaced plans never touch inventory. Returns None (and
+    commits nothing) if the plan can no longer run at all, and otherwise
+    THE DEPARTURE — the typed value that carries this world, this plan
+    and the district as it stood when the wagon left. Nothing else in
+    the engine can make one, which is what keeps execution truth out of
+    the morning plan.
 
     The stash and pantry spent here belong to the address the plan
     NAMED, resolved from the plan itself and never from whichever
@@ -1418,16 +1430,25 @@ def _commit_route(state: State, plan: dict, con: Console,
     if not driver.available:
         con.bullet(f"Tonight's route is scrubbed — {driver.name} isn't "
                    f"around to drive it.")
-        return False
+        return None
     pol = models.district_heat_policy(state, plan["district"])
     if not pol.plannable:
         # Service-time revalidation of the RED-heat refusal (rev. 14
         # item 5): the district may have caught fire since the plan
-        # was made. Nothing has committed yet, so nothing is lost.
+        # was made. Nothing has committed yet, so nothing is lost —
+        # no wagon claimed, no pantry or stash spent, no log written.
         con.bullet(f"Tonight's route is scrubbed — "
                    f"{data.DISTRICTS[plan['district']]['label']} is "
                    f"{pol.note}.")
-        return False
+        return None
+    # DEPARTURE IS WHERE THE MARKET IS FIXED (the route-departure
+    # correction). The band has just been revalidated and accepted, so
+    # THIS is the view the night runs under: derived once, immutable,
+    # and carried to resolution rather than rebuilt there. Two routes
+    # leaving the same night both depart under the district as it
+    # stood at departure, and the first one's own consequences cannot
+    # retroactively reclassify the second.
+    #
     # Rev. 18 item 1: the PLANNED manifest is validated BEFORE any
     # state mutation — an illegal plan is refused with the stash and
     # pantry untouched, never discovered mid-deduction.
@@ -1462,7 +1483,7 @@ def _commit_route(state: State, plan: dict, con: Console,
     spent = wagons.claim_plan(state, plan, "route")
     if not spent.claimed:
         con.bullet(f"Tonight's route is scrubbed. {spent.sentence}.")
-        return False
+        return None
     for g, take in committed.cargo.items():
         origin.stash[g] = origin.stash.get(g, 0) - take
     origin.ingredients -= committed.legit
@@ -1482,7 +1503,17 @@ def _commit_route(state: State, plan: dict, con: Console,
         con.say(f"  The wagon loads for a disposal run — "
                 f"{bs.disposal_runs_left} left after tonight, and the "
                 f"clean days start over.")
-    return True
+    # THE DEPARTURE, made on the far side of every refusal and at the
+    # same instant the wagon is claimed. A scrubbed route never gets
+    # one, because it never left.
+    return routes.depart_at_commit(state, plan)
+
+
+# THE CAPABILITY, handed over once at import by the module that
+# compiled the code. `routes` never looks this function up by name —
+# it is given the function object itself, and thereafter authorises
+# only frames running that exact code. See `routes.grant_departure_scope`.
+routes.grant_departure_scope(routes.COMMIT_SCOPE, _commit_route)
 
 
 # ══ NIGHT ═════════════════════════════════════════════════════════

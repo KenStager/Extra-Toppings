@@ -22,6 +22,7 @@ from extra_toppings.models import (ADDRESS_CAPABILITIES,
                                    new_state, open_shops, shop_is_open,
                                    validate_addresses, wagon_claim)
 from extra_toppings.ui import ScriptedConsole
+from route_support import departed
 
 
 class Listening(ScriptedConsole):
@@ -1494,7 +1495,8 @@ class TestExecutionIsNotADoorOfItsOwn(unittest.TestCase):
         state, _home, driver = self._world()
         plan = self._plan(state, driver, drop=("wagon_key",))
         with self.assertRaises(ValueError):
-            routes.resolve_route(state, plan, Listening(),
+            departure = departed(state, plan)
+            routes.resolve_route(departure, Listening(),
                                  random.Random(3))
         self.assertEqual(state.route_log, [])
         self.assertEqual(driver.familiarity, {})
@@ -1509,7 +1511,8 @@ class TestExecutionIsNotADoorOfItsOwn(unittest.TestCase):
         self.assertEqual(wagons.claims,
                          {models.HOME_WAGON_KEY: "route"})
         self.assertEqual(home.stash["mushrooms"], 2)
-        routes.resolve_route(state, plan, Listening(),
+        departure = departed(state, plan)
+        routes.resolve_route(departure, Listening(),
                              random.Random(3))
         self.assertEqual(len(state.route_log), 1)
 

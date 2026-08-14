@@ -12,6 +12,7 @@ from extra_toppings.config import GameConfig
 from extra_toppings.models import SitdownSnapshot, new_state
 from extra_toppings.rng import Streams
 from extra_toppings.ui import ScriptedConsole
+from route_support import departed
 
 def _wag(state, **report):
     """Every direct `night` call needs the assignment authority the
@@ -238,7 +239,8 @@ class TestDisposalRuns(unittest.TestCase):
         report = None
         for _ in range(20):                      # find a selling night
             trial = dict(plan, cargo={"mushrooms": 8})
-            report = phases.routes.resolve_route(state, trial, con,
+            departure = departed(state, trial)
+            report = phases.routes.resolve_route(departure, con,
                                                  streams.routes)
             if report["sold"]:
                 break
@@ -595,7 +597,8 @@ class TestDisposalVoice(unittest.TestCase):
         if disposal:
             plan["disposal"] = True
         con = CaptureConsole([0] * 40)        # sell at every stop
-        phases.routes.resolve_route(state, plan, con, Streams(4).routes)
+        departure = departed(state, plan)
+        phases.routes.resolve_route(departure, con, Streams(4).routes)
         return con
 
     def test_the_burned_book_stays_burned(self):

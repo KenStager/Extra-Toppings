@@ -6,6 +6,7 @@ import unittest
 from extra_toppings import models, data, market, raids, routes, shop
 from extra_toppings.models import new_state
 from extra_toppings.ui import BotConsole
+from route_support import departed
 
 
 def prepped_state(seed: int = 1):
@@ -79,7 +80,8 @@ class TestRoutes(unittest.TestCase):
             plan = {"district": "university", "driver": driver,
                     "ride_along": False, "cargo": {"mushrooms": 10}, "legit": 8, "origin_shop": models.HOME_SHOP_KEY,
                 "wagon_key": models.HOME_WAGON_KEY}
-            report = routes.resolve_route(state, plan, BotConsole(random.Random(seed)), rng)
+            departure = departed(state, plan)
+            report = routes.resolve_route(departure, BotConsole(random.Random(seed)), rng)
             if report["busted"]:
                 outcomes.add("busted")
             elif report["sold"]:

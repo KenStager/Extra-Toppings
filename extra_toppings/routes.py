@@ -1,6 +1,10 @@
 """Delivery routes: legit pizzas up front, coded orders in the warmer bag."""
 
+import os
 import random
+import sys
+import types
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from . import data, market, models, straight, war
@@ -418,7 +422,7 @@ def _payoff_reachable_tonight(state: State, shop, dk: str,
 
 # ── resolution ────────────────────────────────────────────────────
 
-def _route_voice(plan: dict) -> dict:
+def _route_voice(plan: "RoutePlan | dict") -> dict:
     """THE route presentation, branch-aware in one place (rev. 10 item
     7): the burned coded-customer book stays burned — a disposal run
     speaks of cold buyers and one-use contacts, never a resurrected
@@ -442,7 +446,7 @@ def _route_voice(plan: dict) -> dict:
     }
 
 
-def _stop_risk(state: State, plan: dict) -> float:
+def _stop_risk(state: State, plan: "RoutePlan | dict") -> float:
     dk = plan["district"]
     susp = route_suspicion(sum(plan["cargo"].values()), plan["legit"])
     heat = state.heat(dk) / 100
@@ -455,12 +459,506 @@ def _stop_risk(state: State, plan: dict) -> float:
     return min(0.75, risk)
 
 
-def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) -> dict:
-    # THE canonical contract, FIRST — before revenue, familiarity or
-    # the execution ledger. Without it a route missing its wagon
-    # completed and appended a RouteExecutionRecord: a wagonless
-    # ghost route becoming real history.
+# The plan fields that say WHICH ROUTE THIS IS. Anything here changing
+# after departure means the wagon that left is not the wagon being
+# resolved.
+_IDENTITY_FIELDS = ("district", "origin_shop", "wagon_key",
+                    "ride_along", "disposal")
+
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.dirname(_PACKAGE_DIR)
+
+COMMIT_SCOPE = "commit"
+PROBE_SCOPE = "probe"
+
+# THE DECLARED SLOTS: `(role, file, function)`. A slot is a
+# DECLARATION, not a credential — nothing here is ever compared
+# against a caller; the file and name only say WHERE TO READ the code
+# that the grant must then match, byte for byte. Each
+# slot is filled ONCE, at import, by the module that owns the code,
+# which hands over the function itself; the guard then asks whether
+# THAT EXACT CODE OBJECT is on the stack.
+#
+# Five guards have died on this line, every one by authenticating a
+# NAME instead of an IDENTITY: `__name__` (which is `__main__` under
+# `python -m`, and refused the sanctioned probe); a basename (which let
+# `/tmp/route_support.py` through); a module-level token (reachable as
+# `routes._DEPARTURE_TOKEN`); an absolute path plus a function name —
+# which a function COMPILED WITH THOSE STRINGS walked straight
+# through:
+#
+#     ns = {"__file__": "<repo>/tests/route_support.py"}
+#     exec(compile("def departed(s, p, r):\n"
+#                  "    return r.record_departure_for_probe(s, p)\n",
+#                  "<repo>/tests/route_support.py", "exec"), ns)
+#     ns["departed"](state, plan, routes)   # -> an amber departure
+#
+# …and then, found while trying to break the fix, a LOOKUP THROUGH
+# `sys.modules`: resolving the sanctioned function by module name at
+# guard time meant a fake module registered under that name, carrying
+# the sanctioned `__file__`, was resolved and honoured. Reading the
+# authority by name is the same defect one level up. So the authority
+# is not read at all — it is HANDED OVER, once, by the module that
+# compiled it.
+#
+# AND NOT KEYED ON THE MODULE NAME. Keying the slot on
+# `func.__module__` was the FIRST guard's death repeated: under
+# `python -m analysis.experiments` the probe's module name is
+# `__main__`, so the sanctioned probe could not grant its own scope
+# and the fork battery died at import. A module name says how a file
+# was invoked, not what it is. The file and the function name locate
+# the code; the code itself is what is checked.
+_SCOPE_SLOTS = frozenset({
+    (COMMIT_SCOPE, os.path.join(_PACKAGE_DIR, "phases.py"),
+     "_commit_route"),
+    (PROBE_SCOPE, os.path.join(_REPO_ROOT, "analysis", "experiments.py"),
+     "_heat_exposure_probe"),
+    (PROBE_SCOPE, os.path.join(_REPO_ROOT, "tests", "route_support.py"),
+     "departed"),
+})
+
+# Filled slot -> (code object, defining namespace). Empty at import of
+# this module, and a role with no filled slot authorises NOBODY: a
+# shipped game never imports the test support, so the probe seam is not
+# a live door in it.
+_GRANTED: dict = {}
+
+
+def _declared_code(path: str, name: str):
+    """The code object the DECLARED FILE compiles `name` to, read from
+    disk at grant time.
+
+    This is what makes the grant a capability rather than a claim.
+    Code objects compare by body, argument shape, constants and line
+    number, and NOT by `co_filename` — so a look-alike compiled from a
+    string cannot equal this, whatever filename it was compiled with,
+    while the real function compiled from the real file does. A forger
+    who reproduces this exactly has not bypassed anything: they have
+    reproduced the sanctioned function, and it does what the sanctioned
+    function does.
+
+    Top-level definitions only, deliberately: a nested look-alike
+    buried in the same file is not the sanctioned scope."""
+    with open(path, encoding="utf-8") as handle:
+        module_code = compile(handle.read(), path, "exec")
+    for const in module_code.co_consts:
+        if isinstance(const, types.CodeType) and const.co_name == name:
+            return const
+    return None
+
+
+def grant_departure_scope(role: str, func: Callable) -> None:
+    """A sanctioned module HANDS OVER its own function, at import.
+
+    This is the capability. It is not a password and not a name: the
+    caller passes the function object it just compiled, and this
+    records the code object and the namespace it was defined in. Only
+    a declared slot can be filled, only from the declared file, only
+    with THAT FILE'S OWN CODE, and ONLY ONCE — so the authority is
+    claimed by whoever compiled the real module, at the moment the
+    engine loads.
+
+    The failure mode is deliberate and LOUD. If something else fills a
+    slot first, the real module's own grant raises at import and the
+    engine does not start. A forged departure is therefore only
+    reachable in a process where the real engine never loaded — which
+    is a process that cannot run the game."""
+    name = getattr(func, "__name__", "")
+    declared = {path for role_, path, name_ in _SCOPE_SLOTS
+                if (role_, name_) == (role, name)}
+    if not declared:
+        raise ValueError(
+            f"({role!r}, {name!r}) is not a declared departure scope — "
+            f"the scopes a route may depart from are fixed in `routes`")
+    origin = func.__globals__.get("__file__") or ""
+    path = os.path.abspath(origin) if origin else ""
+    if path not in declared:
+        raise ValueError(
+            f"the departure scope ({role!r}, {name!r}) is defined in "
+            f"{sorted(declared)!r}, not in {origin!r}")
+    slot = (role, path, name)
+    # …AND IT MUST BE THAT FILE'S CODE. The path above is a string a
+    # forger sets freely; this is not. Without it, a function compiled
+    # from a string and granted before the real module imported filled
+    # the slot and departed a route.
+    #
+    # WHAT is being granted is settled before WHETHER the slot is free,
+    # so a look-alike is refused for being a look-alike whatever the
+    # grant order was — and so the one-shot refusal below can only ever
+    # be reached by the genuine code, which makes "somebody else got
+    # here first" mean what it says.
+    if func.__code__ != _declared_code(path, name):
+        raise ValueError(
+            f"the departure scope {slot!r} is granted by the code "
+            f"{path!r} defines, not by a look-alike carrying its name")
+    if slot in _GRANTED:
+        raise ValueError(
+            f"the departure scope {slot!r} is granted once, at import, "
+            f"by the module that owns the code")
+    _GRANTED[slot] = (func.__code__, func.__globals__)
+
+
+def _exact_chain(expected: list) -> bool:
+    """THE AUTHORISED CALL EDGE, frame by adjacent frame.
+
+    Called from `_make_departure`, so the walk starts at whoever
+    called it and proceeds outward with NOTHING allowed in between:
+    each frame must be the expected code object in the expected
+    namespace, and its immediate caller must be the next one.
+
+    Being inside a sanctioned function's dynamic extent is NOT the
+    same as being its authorised caller, and treating them as the same
+    was a live production bypass. `_commit_route` calls
+    `Console.bullet` before it claims a wagon — to say a route is
+    scrubbed — and a console whose `bullet` reached for
+    `depart_at_commit` got a valid departure, because `_commit_route`
+    was still an ancestor on the stack. It resolved: clean cash
+    2000 → 2032, address legit revenue 0 → 32 and a route record
+    written, while the pantry stayed at 40 and the wagon claims stayed
+    empty. No fabrication and no forged code — the ordinary public
+    maker, during an ordinary engine callback.
+
+    So the commit role asks a stricter question than "is a sanctioned
+    function somewhere below me": it asks whether THIS call is the one
+    edge the design sanctions."""
+    frame: "types.FrameType | None" = sys._getframe(2)
+    for code, namespace in expected:
+        if frame is None:
+            return False
+        if frame.f_code is not code or frame.f_globals is not namespace:
+            return False
+        frame = frame.f_back
+    return True
+
+
+def _commit_chain() -> "list | None":
+    """`_make_departure` ← `depart_at_commit` ← `phases._commit_route`,
+    and nothing else, in that order and adjacent.
+
+    `depart_at_commit`'s code is captured at import (below its
+    definition) rather than looked up here, so the first link is not a
+    module attribute a later rebind could move."""
+    granted = [v for slot, v in _GRANTED.items()
+               if slot[0] == COMMIT_SCOPE]
+    if len(granted) != 1 or _DEPART_AT_COMMIT_CODE is None:
+        return None
+    return [(_DEPART_AT_COMMIT_CODE, globals()), granted[0]]
+
+
+def _within(role: str) -> bool:
+    """Is this call inside the dynamic extent of a sanctioned
+    function — the REAL one?
+
+    THE PROBE ROLE ONLY. Dynamic extent is the right question there
+    and only there: the analysis probe makes its call from a closure
+    of its own (`_heat_exposure_probe.night`), so the sanctioned frame
+    is genuinely an ancestor rather than the immediate caller. The
+    commit role uses `_exact_chain` instead — see the bypass recorded
+    there.
+
+    Two identity checks per frame, and not one string comparison: the
+    frame's code object IS the granted code object, and the frame's
+    globals ARE the namespace that code was defined in. A look-alike
+    compiled from a string is a different code object in a different
+    namespace and fails both, whatever it is called and whatever
+    `__file__` it carries.
+
+    The whole stack is walked, unbounded, because "inside the dynamic
+    extent" is exactly the authorisation: a sanctioned function may
+    make the call from a closure of its own (the analysis probe does,
+    from `_heat_exposure_probe.night`). The old depth bound existed to
+    stop an unrelated deep stack colliding on a basename; identity
+    cannot collide, so the magic number goes.
+
+    WHAT THIS DOES NOT DEFEND AGAINST, stated plainly: code that
+    rebinds the granted function's own module contents, or that fills a
+    slot before the engine imports — and the second of those stops the
+    engine importing at all. Neither is a bypass of this guard; both
+    are a rewrite of the engine, and the same power replaces
+    `resolve_route` outright. No Python guard reaches past that."""
+    granted = [v for slot, v in _GRANTED.items() if slot[0] == role]
+    if not granted:
+        return False
+    frame: "types.FrameType | None" = sys._getframe(1)
+    while frame is not None:
+        for code, namespace in granted:
+            if frame.f_code is code and frame.f_globals is namespace:
+                return True
+        frame = frame.f_back
+    return False
+
+
+def _caller() -> tuple:
+    """The first frame OUTSIDE this module, so a wrong call site names
+    itself in the refusal. Found by namespace identity rather than by
+    a frame count, which stays right however deep the makers nest."""
+    frame: "types.FrameType | None" = sys._getframe(1)
+    while frame is not None and frame.f_globals is globals():
+        frame = frame.f_back
+    if frame is None:                                  # pragma: no cover
+        return ("<unknown>", "<unknown>")
+    return (os.path.abspath(frame.f_globals.get("__file__", "")),
+            frame.f_code.co_name)
+
+
+def _fingerprint(plan) -> tuple:
+    """WHICH ROUTE THIS IS AND WHAT IT CARRIES, frozen at departure.
+    `RouteDeparture` is frozen but its PLAN is not: a caller could
+    record a Meadows departure, set `plan.district` to University Hill
+    and resolve — execution updated University Hill while the ledger
+    recorded Meadows — or leave the identity alone and raise
+    `manifest.legit` from 0 to 2, which moved clean cash 2000 → 2032.
+
+    The COMMITTED LOAD is part of it, cargo map included item by item
+    so an in-place edit cannot slip past a length check. The driver is
+    fingerprinted BY IDENTITY, not by key, because a look-alike
+    carrying a real key is the substitution `validate_route_plan`
+    already refuses elsewhere."""
+    driver = plan["driver"]
+    cargo = plan["cargo"]
+    return (tuple(plan.get(f) for f in _IDENTITY_FIELDS),
+            id(driver), getattr(driver, "key", None),
+            tuple(sorted(cargo.items())), plan["legit"])
+
+
+# WHAT A SPENT DEPARTURE HOLDS: nothing. See `RouteDeparture.claim`.
+_SPENT = object()
+
+
+@dataclass(frozen=True, eq=False)
+class RouteDeparture:
+    """A ROUTE THAT LEFT. The only thing `resolve_route` accepts.
+
+    A morning plan is an INTENTION and stays one: it carries no
+    execution truth, because a field on the plan is a field anybody
+    can set. The first version of this correction hung the market view
+    on `RoutePlan` and was forged three ways — the constructor took it
+    directly, dict plans bypassed the write-once guard entirely, and
+    the reader accepted any non-`None` object, so University Hill's
+    view attached to a Meadows plan resolved and logged University
+    Hill.
+
+    This value is produced ONLY by a departure that survived every
+    refusal, and it binds the three things that make it one:
+
+      * `state` BY IDENTITY — a departure cannot be replayed against
+        a different world;
+      * `plan`, the exact route;
+      * `market`, the district as it stood when the wagon left.
+
+    Its own contract is checked at construction: the market must
+    describe THIS plan's district, and its band must be one a route
+    can execute under. A red band cannot become a departure at all."""
+    # EVERY FIELD IS `init=False`, so there is no constructor to call
+    # at all. A module-level token was not enough: it was reachable
+    # from outside as `routes._DEPARTURE_TOKEN`, and passing it built
+    # a departure. The factory below allocates the object itself and
+    # fills these in directly.
+    state: State = field(init=False)
+    # `RoutePlan` or a legacy dict plan — both answer `plan["field"]`,
+    # which is the only thing this value asks of it.
+    plan: "RoutePlan | dict" = field(init=False)
+    # DERIVED, never supplied. A caller who could hand in a market
+    # could hand in ANOTHER WORLD'S: a cool Meadows view from state B
+    # attached to an amber Meadows route in state A resolved and
+    # logged cool.
+    market: "market.RouteMarket" = field(init=False)
+    identity: tuple = field(init=False)
+
+    def __post_init__(self) -> None:
+        raise ValueError(
+            "a departure is made by the route that left, not "
+            "constructed: it comes from the commit path")
+
+    def claim(self) -> tuple:
+        """TAKE THE WAGON — every refusal first, then the departure is
+        SPENT, and spent means GONE rather than flagged.
+
+        A wagon goes out once. The previous version recorded that in a
+        one-element list on the value, and a public mutable field is
+        not a fact: after one resolution, `departure.spent[0] = False`
+        allowed another, moving clean cash 2000 → 2032 → 2064, address
+        revenue 32 → 64 and writing two log rows for one night. There
+        is no flag here to reset. The state, the plan and the market
+        are handed to the caller and then struck off the value, so a
+        second resolution has nothing to run and no field a caller can
+        put back short of rebuilding the departure by hand.
+
+        EVERY CHECK PRECEDES THE STRIKE-OFF, so a refusal leaves both
+        the world and the departure exactly as they were. The
+        departure's own construction contract is RE-CHECKED here, not
+        merely trusted: `_make_departure` verified it once, and a value
+        that reached this method some other way must satisfy it again.
+        A hand-built departure therefore still cannot run a red
+        district, cannot run a market view belonging to some other
+        district, and cannot run a plan the canonical contract
+        refuses."""
+        if self.state is _SPENT:
+            raise ValueError(
+                "this route already ran tonight — a departure "
+                "resolves once")
+        # THE ROUTE FIRST, and it is the one that left carrying what it
+        # left with. Ordered ahead of the market checks deliberately: a
+        # plan edited after departure makes the view disagree with the
+        # plan too, and "this route changed after it departed" is the
+        # diagnosis, where "the market is for another district" is only
+        # its symptom.
+        if _fingerprint(self.plan) != self.identity:
+            raise ValueError(
+                "this route changed after it departed — the wagon "
+                "that left is not the one being resolved")
+        if not isinstance(self.market, market.RouteMarket):
+            raise ValueError(
+                "this departure carries no route market — a route "
+                "runs under the district it left under, not under a "
+                "look-alike")
+        if self.market.district != self.plan["district"]:
+            raise ValueError(
+                f"this departure carries {self.market.district!r}'s "
+                f"market for a route into {self.plan['district']!r}")
+        if self.market.heat.band not in models.ROUTE_EXECUTED_BANDS:
+            raise ValueError(f"a route cannot run under "
+                             f"{self.market.heat.band!r}")
+        # THE canonical contract, and the resolution-side manifest
+        # refusal (rev. 17 item 1): the night runs no route the game
+        # would refuse and no manifest the wagon could not carry,
+        # whoever built the dict. Both were downstream of the
+        # strike-off until now, which would have spent a departure on
+        # its way to refusing it.
+        validate_route_plan(self.state, self.plan)
+        RouteManifest.of_plan(self.plan)
+        taken = (self.state, self.plan, self.market)
+        for name in ("state", "plan", "market", "identity"):
+            object.__setattr__(self, name, _SPENT)
+        return taken
+
+
+def _make_departure(state: State, plan, role: str,
+                    where: str) -> "RouteDeparture":
+    """THE one construction — AND THE GUARD LIVES HERE, in the maker
+    itself, not in a wrapper around it.
+
+    A leading underscore is a convention, not a scope. The previous
+    version guarded only the two public wrappers and left this
+    reachable: `routes._make_departure(state, plan)` produced a real
+    departure, and resolving it moved clean cash 2000 → 2032 and wrote
+    a `RouteExecutionRecord` while the pantry stayed at 40 and no
+    wagon had ever been claimed. There is now no second maker to find,
+    because there is no unguarded maker at all.
+
+    Validates the plan, so a malformed route never becomes a
+    departure, and refuses a band no route can execute under."""
+    # THE COMMIT ROLE ASKS FOR THE EXACT CALL EDGE, not for a
+    # sanctioned ancestor: production departures happen at one place
+    # in the engine, and a callback made from inside `_commit_route`
+    # is not that place. The probe role keeps dynamic extent, which is
+    # separately justified — the analysis probe calls from its own
+    # closure.
+    if role == COMMIT_SCOPE:
+        chain = _commit_chain()
+        authorised = chain is not None and _exact_chain(chain)
+    else:
+        authorised = _within(role)
+    if not authorised:
+        path, name = _caller()
+        raise ValueError(
+            f"a route departs from {where}, not from {name!r} in "
+            f"{path!r}")
     validate_route_plan(state, plan)
+    view = market.route_market(state, plan["district"])
+    if view.heat.band not in models.ROUTE_EXECUTED_BANDS:
+        raise ValueError(f"a route cannot depart under "
+                         f"{view.heat.band!r}")
+    departure = object.__new__(RouteDeparture)
+    for name, value in (("state", state), ("plan", plan),
+                        ("market", view),
+                        ("identity", _fingerprint(plan))):
+        object.__setattr__(departure, name, value)
+    return departure
+
+
+def depart_at_commit(state: State, plan) -> "RouteDeparture":
+    """THE production maker, and `_commit_route` is the only thing
+    that may call it — not merely the only thing that must be
+    somewhere beneath it."""
+    return _make_departure(state, plan, COMMIT_SCOPE,
+                           "`_commit_route`, called directly")
+
+
+# CAPTURED AT DEFINITION, not read back by name. `_commit_chain` needs
+# the first link of the authorised edge, and a module attribute is
+# something a later rebind can move; the function object created right
+# here cannot be.
+_DEPART_AT_COMMIT_CODE = depart_at_commit.__code__
+
+
+def record_departure_for_probe(state: State, plan) -> "RouteDeparture":
+    """THE departure-time market authority, and its only writer.
+
+    A route's band and every territorial factor are fixed at the
+    moment it departs — after the service-time red revalidation has
+    accepted it and at the instant its wagon is claimed — and
+    resolution consumes exactly this view. Rebuilding it at
+    resolution made two simultaneous routes depend on iteration
+    order: both departed at heat 71.45, the first pushed the district
+    to 96.6, and the second was then classified red for a wagon that
+    had already left.
+
+    One home, so a caller that wants a departed route asks for a
+    DEPARTURE rather than assembling a market view of its own — the
+    alternative is the second spelling this project treats as a defect
+    class. It RETURNS the value and mutates nothing: the plan is still
+    the morning's intention when this is done.
+
+    The plan is validated here, so a malformed route cannot become a
+    departure, and `RouteDeparture` refuses a red band — neither a
+    broken plan nor a burning district produces one."""
+    return _make_departure(
+        state, plan, PROBE_SCOPE,
+        "the analysis probe and the centralised test support")
+
+
+def resolve_route(departure: "RouteDeparture", con: Console,
+                  rng: random.Random) -> dict:
+    """Run the route that departed, under the market it departed
+    under. The DEPARTURE is the only input: a plan alone cannot be
+    resolved, because a plan alone never left.
+
+    EVERYTHING IS CHECKED BEFORE ANYTHING MOVES. The first version of
+    this correction read the departure AFTER booking cover revenue and
+    docking reputation, so an undeparted route raised as designed and
+    still moved money on the way out — clean 2000 → 2032, address
+    revenue 0 → 32, reputation 50 → 47 — while a pin that only
+    inspected `route_log` called it clean."""
+    if not isinstance(departure, RouteDeparture):
+        raise ValueError(
+            "a route resolves from the departure it made, never from "
+            "a plan or a market view handed in on its own")
+    # ONE CLAIM, BEFORE ANYTHING MOVES. It refuses unless the route is
+    # the one that left carrying what it left with, its market is this
+    # district's and executable, the canonical contract still holds and
+    # the wagon has not already gone out tonight — and only then hands
+    # over the three things this night runs on, striking them off the
+    # departure as it goes. Without the contract check here a route
+    # missing its wagon completed and appended a RouteExecutionRecord:
+    # a wagonless ghost route becoming real history.
+    #
+    # `rm` IS THE ROUTE-MARKET VIEW RECORDED AT DEPARTURE (rev. 15
+    # item 5). The RouteMarket's territorial-demand factors compose in
+    # `market.route_market`, and this resolution consumes the
+    # departure's view for them. Narrowed deliberately (review of the
+    # second correction): raw stop risk still reads LIVE heat at
+    # resolution, so "every territorial factor" promised more than this
+    # correction implements. The typed record below carries the band
+    # and multiplier so no study samples exposure at the wrong time
+    # (rev. 18 item 4).
+    #
+    # FAIL CLOSED WITHOUT ONE. Synthesising the view here is exactly
+    # the side entrance this correction closes: a caller who never
+    # departed would resolve under whatever the district happens to
+    # read now, which is how an already-departed route came to be
+    # classified red by a sibling route's own heat.
+    state, plan, rm = departure.claim()
     dk = plan["district"]
     # The address this wagon rolled out of (design rev. 22 item 1) —
     # the record carries it, and chronology is keyed on it.
@@ -468,9 +966,6 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     origin_shop = state.shop_by_key(origin)
     home_shop = origin_shop            # unsold product rides back home
     driver: Employee = plan["driver"]
-    # Resolution-side refusal (rev. 17 item 1): the night runs no
-    # manifest the wagon could not carry, whoever built the dict.
-    RouteManifest.of_plan(plan)
     cargo = plan["cargo"]
     dspec = data.DISTRICTS[dk]
     report: dict = {"sold": 0, "cash": 0, "busted": False, "lines": []}
@@ -485,13 +980,6 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
             origin_shop.reputation = max(0.0, origin_shop.reputation - 3)
             report["lines"].append("Pizzas ran late around the extra stops. Two refunds, one review.")
 
-    # THE route-market view (rev. 15 item 5): every territorial factor
-    # composes in market.route_market, and this resolution consumes
-    # the view and nothing else. The view is read HERE, at execution —
-    # the typed record below carries its band and multiplier so no
-    # study samples exposure at the wrong time (rev. 18 item 4).
-    rm = market.route_market(state, dk)
-
     if not cargo:
         state.districts[dk].known_price_age = 0 if plan["ride_along"] else 1
         driver.routes_survived += 1
@@ -502,7 +990,7 @@ def resolve_route(state: State, plan: dict, con: Console, rng: random.Random) ->
     drops = rm.drops(len(cargo))
 
     if plan["ride_along"]:
-        _interactive_drops(state, home_shop, plan, drops, con, rng,
+        _interactive_drops(state, plan, rm, home_shop, drops, con, rng,
                            report)
         state.districts[dk].known_price_age = 0
     else:
@@ -549,9 +1037,14 @@ def _sell(state: State, dk: str, good: str, units: int, price_mult: float,
     market.record_sales(state, dk, good, units)
 
 
-def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
-                 con: Console,
+def _interactive_drops(state: State, plan, rm: "market.RouteMarket",
+                       home_shop, drops: int, con: Console,
                        rng: random.Random, report: dict) -> None:
+    # The stops are handed the SAME claimed departure the resolution
+    # runs on — a second reader here would be a second answer to "what
+    # was this district like when the wagon left". They are passed in
+    # rather than re-read off the departure, which by now is spent: a
+    # wagon that has gone out has nothing left to ask.
     dk = plan["district"]
     cargo = plan["cargo"]
     voice = _route_voice(plan)
@@ -572,7 +1065,7 @@ def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
                            straight.DISPOSAL_HAIRCUT_HI) \
             if plan.get("disposal") else rng.uniform(0.85, 1.2)
         offer = int(base_price * mult)
-        top_want = market.route_market(state, dk).top_want()
+        top_want = rm.top_want()
         want = min(cargo[g], rng.randint(1, top_want))
         choice = con.menu(
             voice["stop"].format(n=stop + 1, want=want, label=spec["label"],
@@ -601,7 +1094,7 @@ def _interactive_drops(state: State, home_shop, plan: dict, drops: int,
             home_shop.stash[g] = home_shop.stash.get(g, 0) + u
 
 
-def _handle_police_stop(state: State, plan: dict, con: Console,
+def _handle_police_stop(state: State, plan: "RoutePlan | dict", con: Console,
                         rng: random.Random, report: dict) -> bool:
     """Blue lights in the mirror. Returns False if the route ends here."""
     driver = plan["driver"]
@@ -635,7 +1128,7 @@ def _handle_police_stop(state: State, plan: dict, con: Console,
     return _bust(state, plan, con, rng, report, resisted=False)
 
 
-def seize_cargo(plan: dict) -> int:
+def seize_cargo(plan: "RoutePlan | dict") -> int:
     """THE seizure: count the units AND empty the manifest, in ONE
     call, returning what was taken.
 
@@ -655,7 +1148,7 @@ def seize_cargo(plan: dict) -> int:
     return seized
 
 
-def _bust(state: State, plan: dict, con: Console, rng: random.Random,
+def _bust(state: State, plan: "RoutePlan | dict", con: Console, rng: random.Random,
           report: dict, resisted: bool) -> bool:
     seized_units = seize_cargo(plan)
     fine = min(state.dirty + state.clean, 500)
@@ -681,7 +1174,7 @@ def _bust(state: State, plan: dict, con: Console, rng: random.Random,
     return False
 
 
-def _auto_drops(state: State, home_shop, plan: dict, drops: int,
+def _auto_drops(state: State, home_shop, plan: "RoutePlan | dict", drops: int,
                  con: Console,
                 rng: random.Random, report: dict) -> None:
     """Driver runs the route alone. One risk roll decides the night."""

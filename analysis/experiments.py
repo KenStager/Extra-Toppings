@@ -17,7 +17,7 @@ import statistics
 from collections import Counter, defaultdict
 from typing import ClassVar
 
-from extra_toppings import data, escrow, market, models, phases, raids
+from extra_toppings import data, escrow, market, models, phases, raids, routes
 from extra_toppings import war as war_mod
 from extra_toppings.bot import (BOTS, CooldownRaiderBot, CounselOnlyBot,
                                 CrimeHeavyBot, EscrowBot, GreedyBot,
@@ -1179,8 +1179,11 @@ def _heat_exposure_probe(trials: int = 400) -> None:
                     "legit": 0, "ride_along": True,
                     "origin_shop": models.HOME_SHOP_KEY,
                     "wagon_key": models.HOME_WAGON_KEY}
-            _routes.validate_route_plan(state, plan)
-            report = _routes.resolve_route(state, plan, _Sell(),
+            # The controlled probe drives a synthetic route, so it
+            # makes the departure the service phase would have made —
+            # which validates the plan on the way through.
+            departure = _routes.record_departure_for_probe(state, plan)
+            report = _routes.resolve_route(departure, _Sell(),
                                            random.Random(seed))
             camp = state.branch_state.campaigns[0]
             corner = sum(dr.hundredths for dr in camp.damage
@@ -1204,6 +1207,10 @@ def _heat_exposure_probe(trials: int = 400) -> None:
           f"corner damage {m(on_corner):.2f} vs {m(off_corner):.2f} — "
           f"the halved customer pool must cost custom and cap the "
           f"corner take")
+
+
+# The probe's sanctioned departure scope, handed over once at import.
+routes.grant_departure_scope(routes.PROBE_SCOPE, _heat_exposure_probe)
 
 
 def _pacing_mech_rng(seed: int, day: int) -> random.Random:

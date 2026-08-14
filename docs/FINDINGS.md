@@ -3231,6 +3231,283 @@ reviewed head `2c983d6`: **13 fail** (12 failures, 1 error — the
 `IndexError` arm, which raises the wrong exception type rather than
 none).
 
+## Route-departure correctness correction (between P4b.4 and P4b.5)
+
+A route runs under the district as it stood WHEN IT LEFT. Recorded as
+a correctness correction, not a design change: canon already said
+commit is departure and the red refusal binds at service-time
+revalidation (rev. 14 item 5). No numbered revision.
+
+**What actually happened**, from a Partner run at seed 72 during
+P4b.5's sweep. Two addresses each sent a wagon into The Meadows the
+same night. Both passed the service-time red revalidation at heat
+**71.45**, and both wagons were claimed. The first route resolved and
+its own corner damage pushed the district to **96.6** — red. The
+second route then REBUILT its market view from the mutated state,
+classified an already-departed wagon as red, and
+`RouteExecutionRecord` refused it. The run crashed.
+
+**My first reading was wrong** and is worth keeping. I reported this
+as "a route planned under amber can execute under red" — a
+plan-versus-execute race. It is not: both routes were still inside
+the same service phase, and the second one had already departed. The
+divergence was caused by its SIBLING, not by the clock.
+
+**Why an abort at resolution would have been the wrong fix.** It
+would make two simultaneous routes depend on iteration order — which
+address sorts first decides who runs — and it would strand inventory
+the departure had already spent, since stash and pantry come out at
+commit. A route that "never happened" would still have eaten them.
+
+**The correction, and its own first version was wrong twice.** The
+first attempt hung the market view on `RoutePlan` as a field and read
+it partway through resolution. Review broke both halves:
+
+* **It did not fail closed.** `resolve_route` booked cover revenue and
+  docked reputation BEFORE checking the departure, so an undeparted
+  route raised as designed and still moved money on the way out —
+  clean **2000 → 2032**, address revenue **0 → 32**, reputation
+  **50 → 47**. The pin inspected only `route_log`, so it blessed the
+  mutation.
+* **The "immutable, written-once" view could be forged.**
+  `market_view` was a public constructor field and directly
+  assignable; dict plans bypassed the write-once guard entirely; and
+  the reader accepted any non-`None` object without checking type,
+  state, district or band. University Hill's view attached to a
+  Meadows plan resolved and **logged University Hill**. A prefilled
+  typed plan reached `_commit_route`, claimed `wagon1`, then raised on
+  the second write — leaving the wagon authority spent.
+
+**And the SECOND version was wrong too — three more splits.** The
+typed value helped and did not close the boundary:
+
+* `market_view` was removed from mapping access but **survived as a
+  public dataclass field on `RoutePlan`**. Removed from the model now.
+* `RouteDeparture` was frozen, **its plan was not.** A Meadows
+  departure whose `plan.district` was then set to University Hill
+  executed against University Hill while the ledger recorded Meadows.
+* Its constructor **accepted a same-district market from another
+  world**: a cool Meadows view from state B attached to an amber
+  Meadows route in state A resolved and logged **cool**.
+
+**And targeted review found four more execution-authority defects
+after that, all of which the sixteen passing pins walked straight
+past.** The token was module-reachable, so
+`RouteDeparture(state=s, plan=p, token=routes._DEPARTURE_TOKEN)`
+constructed one. The **committed load** was not fingerprinted: with
+district, origin, wagon and driver untouched, raising `manifest.legit`
+from 0 to 2 after departure moved clean **2000 → 2032**. A departure
+could resolve **repeatedly** — twice gave clean 2000 → 2032 → 2064,
+revenue 0 → 32 → 64, and two log rows for one night. And the scope
+guard **matched filenames, not scopes**: code compiled as
+`/tmp/route_support.py` carried that `__file__` through, and any
+function in any `phases.py` could call the production maker.
+
+**Execution truth is out of the morning plan entirely, and the
+departure is factory-controlled.** `RoutePlan` has no such field.
+`RouteDeparture` has **no constructor at all** — every field is
+`init=False` and the private factory allocates and fills the object
+itself — and it **derives** its market from the bound state rather
+than accepting one, which is the only spelling that cannot be handed
+another world's view. It fingerprints the identity-bearing fields at departure (district,
+origin, wagon, driver **by identity**, ride-along, disposal) **and the
+committed load** — cargo item by item, so an in-place edit cannot slip
+past a length check, plus the cover count — and it is **consumed
+once**. Both `check_unchanged` and `consume` run **before any
+mutation**, so a plan
+edited after departure refuses rather than executing as one route and
+logging another. `depart_at_commit` is callable only from
+`_commit_route`; `record_departure_for_probe` is a scope-guarded seam admitting only
+the analysis probe and one centralised test-support module. The guard
+matches an **exact resolved path AND function name**, walking the
+stack so a sanctioned function may call from its own closure, and an
+**AST call-site guard** pins the sanctioned functions against the
+source of the whole tree rather than against whatever ran today. Two
+earlier spellings failed: keying on `__name__` refused the probe under
+`python -m` (where the name is `__main__`), and keying on the basename
+admitted anything compiled with that filename.
+
+> **SUPERSEDED — read the second pass below.** The path-and-function
+> guard described in this paragraph was itself bypassed, as were the
+> factory's reachability and the single-use flag. This paragraph
+> records what was built at `c36181b`, not what stands.
+
+**Released reachability, MEASURED rather than inferred from shared
+code.** Before touching production, departure and current-resolution
+bands were compared across every route in the 300 gates and the
+released battery fleets:
+
+| Population | Departures | Band diverged | Red at resolution |
+|---|---|---|---|
+| The 300 gates (both, all bots) | 9,327 | **0** | 0 |
+| Released fleets @150 | 12,268 | **0** | 0 |
+| Released fleets @500 | 42,772 | **0** | 0 |
+| **Total** | **52,099** | **0** | **0** |
+
+So the defect is Partner multi-route behaviour alone, and the fix is
+behaviour-neutral everywhere released — which the boundary then
+confirmed rather than assumed: both fork batteries came back
+**byte-identical** at `c6912b04…` and `b74cc15f…`, and the golden was
+not regenerated.
+
+**The pins, tightened in the same pass.** The two-route case now
+starts a point BELOW red and asserts the first route's own corner
+damage carries the district over, so the crossing is earned rather
+than assigned. Refusals are checked against a COMPLETE state snapshot
+— cash, per-address stash, pantry, revenue, reputation, district heat,
+the Case and the log — not against `route_log` alone. The
+red-before-departure case interrogates the ORIGINAL `WagonNight`,
+because a fresh one answers "nothing is claimed" whatever happened.
+The filing-order claim is narrowed to what the fixture establishes:
+**departure-band invariance**, not the full monetary outcome, since
+the two orders draw the same seeds in a different sequence. And
+`RouteExecutionRecord`'s docstring now says DEPARTURE-time rather than
+execution-time, which is what it has always recorded.
+
+**What was measured.** 1,210 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
+all three; golden `7a62b2af…` untouched; both fork batteries
+byte-identical to `origin/main` at `c6912b04…` and `b74cc15f…`.
+Regression against the previous attempt (`c7f3942`): **5 rows** fail, all behavioural failures rather than import errors. The
+weight-bearing ones are behavioural: the constructed departure, the
+edited load, the second resolution, and the path-and-function guard.
+The refusals compare a **deep serialised snapshot** — `state_to_dict`
+keeps `state.prices` by reference, so even that had to be
+`deepcopy`ed before it could be called deep, and a later price
+mutation is pinned not to reach it. The snapshot replaced a
+hand-listed "complete" one which omitted employees, known prices,
+rivals and campaigns: a list that cannot keep the promise its name
+makes.
+
+**One claim was narrowed rather than defended.** The resolution
+comment said "every territorial factor" composes in the departure
+view. Raw stop risk still reads LIVE heat at resolution, so it now
+says the RouteMarket's territorial-DEMAND factors — the correction
+implements less than the sentence promised.
+
+### Second pass: authorised by code identity, and spent means gone
+
+**Three live bypasses were reproduced at `c36181b` while all 22
+targeted tests stayed green.** Reported by review, reproduced here
+before being fixed, and measured as follows.
+
+| Bypass | What it moved |
+|---|---|
+| `routes._make_departure(state, plan)` called directly, then resolved | clean **2000 → 2032**, address legit revenue **0 → 32**, one `RouteExecutionRecord` — pantry unchanged at 40, no wagon claimed |
+| A function COMPILED with the exact sanctioned absolute path and function name | an amber departure, through the probe seam AND through the production maker |
+| `departure.spent[0] = False` after one resolution | clean **2032 → 2064**, revenue **32 → 64**, a second log row for one night |
+
+**The defect class, for the sixth time.** Authenticating a NAME or a
+STRING instead of an IDENTITY or a CAPABILITY: `__name__`; a basename;
+a module-level token reachable as `routes._DEPARTURE_TOKEN`; a leading
+underscore; an absolute path plus a function name; a public mutable
+field. Every one of them passed its own tests.
+
+**So the authority is no longer READ.** It is HANDED OVER — each
+sanctioned module calls `routes.grant_departure_scope` at module
+scope, passing the function object it just compiled. A grant is
+refused unless the slot is declared, the function comes from the
+declared file, and its code **equals what that file compiles**. Code
+objects compare by body and not by `co_filename`, so a look-alike
+cannot equal one, and a forger who reproduces it exactly has
+reproduced the sanctioned function rather than bypassed it. Slots fill
+**once**; if anything fills one first, the real module's grant raises
+at import and the engine does not start. `_within` then walks the
+whole stack asking two identity questions per frame — the frame's code
+IS the granted code, its globals ARE that code's namespace — and not
+one string comparison. **The guard lives inside `_make_departure`**,
+so there is no unguarded maker left.
+
+**Two more bypasses were found by attacking the fix, not reported.**
+Resolving the sanctioned function through `sys.modules` at guard time
+was the same defect one level up — a module object registered as
+`route_support`, carrying the sanctioned `__file__` and a `departed`
+of its own, was resolved and honoured. And keying the grant slot on
+`func.__module__` repeated the FIRST guard's death: under `python3 -m
+analysis.experiments` the probe's module name is `__main__`, so the
+sanctioned probe could not grant its own scope and **the fork battery
+died at import**. That one was caught by the boundary, not by a test;
+it is pinned by a test now.
+
+**Consumption is no longer a flag.** `claim()` replaces
+`check_unchanged`/`consume`: every refusal runs first, then the state,
+plan and market are handed to the one resolution and **struck off the
+value**. `spent` is gone from the model, so there is nothing to reset.
+Because every check precedes the strike-off, a refusal now leaves the
+world AND the departure untouched — the previous order spent a
+departure on its way to refusing it, which is fixed and pinned here.
+
+**The residual, recorded at its real width rather than claimed away.**
+A hand-built `object.__new__` departure still resolves. No Python
+guard reaches past `object.__new__` plus `object.__setattr__`. But the
+claim RE-CHECKS the construction contract instead of trusting it, so
+such a value **cannot run a red district, cannot carry another
+district's market, and cannot run a plan the canonical contract
+refuses** — all three pinned. What remains is a stale-but-legal market
+snapshot, in a process that already owns the engine.
+
+**The AST call-site guard was not exhaustive and now is.** It read
+top-level functions only, collapsed repeated calls in one function
+into a set, and did not track `_make_departure`. It now walks every
+scope (class methods, module level, nested functions), counts
+multiplicity, covers every maker and the grant, and no longer exempts
+its own test file.
+
+**What was measured.** 1,219 tests on 3.11 / 3.12 / 3.13; ruff 0.15
+and mypy clean; both identity gates 300/300 with 79/79 sit-downs on
+all three; golden `7a62b2af…` untouched; both fork batteries
+byte-identical to `origin/main` (`2b37878`) by `diff` against a fresh
+worktree run — `c6912b04…` at 150 seeds and `b74cc15f…` at 500.
+Regression against `c36181b`: **11 rows** fail, decomposed honestly —
+**six behavioural** (the two compiled-path forgeries, the `sys.modules`
+fake, the rebound name, the `spent` field, and the refusal that spent
+the departure), **one structural** (the call-site map), and **four
+dying on missing symbols** (`grant_departure_scope`, `PROBE_SCOPE`,
+`RouteDeparture.spent`), which are reported as added coverage and not
+as proof. The defect behind the first of those four is the live
+reproduction tabulated above.
+
+### Third pass: an ancestor is not a caller
+
+**A production bypass survived the second pass, and it is not the
+accepted fabrication residual.** No forged code, no hand-built object —
+the ordinary public maker, during an ordinary engine callback.
+
+`_within(COMMIT_SCOPE)` authenticated a legitimate ANCESTOR rather than
+the authorised CALL EDGE. `_commit_route` calls `Console.bullet` to
+announce a scrubbed route — an unavailable driver, say — **before** it
+claims a wagon or spends a crate. A console whose `bullet` called
+`routes.depart_at_commit` (or `routes._make_departure` directly) was
+handed a valid amber departure, because `_commit_route` was still
+somewhere below on the stack. Both makers, measured:
+
+| | Result |
+|---|---|
+| `_commit_route` returned | `None` — the route was scrubbed |
+| Callback obtained | a valid `RouteDeparture`, band **amber** |
+| Resolving it | clean **2000 → 2032**, address legit revenue **0 → 32**, one route record |
+| Pantry | **40**, untouched |
+| Wagon claims | **`{}`** — nothing was ever claimed |
+
+**The commit role now requires the exact adjacent chain**
+`_make_departure ← depart_at_commit ← phases._commit_route`, each frame
+authenticated by code and namespace identity with **no intervening
+frame**. `depart_at_commit`'s code object is captured at its definition
+rather than looked up by name, so the first link is not a module
+attribute a later rebind could move. **The probe role keeps dynamic
+extent**, which is separately justified: the analysis probe genuinely
+calls from a closure of its own, `_heat_exposure_probe.night`.
+
+Pinned by `test_an_engine_callback_inside_commit_cannot_depart` — both
+maker variants, deep state snapshots, and the **original** `WagonNight`
+rather than a fresh one, which would answer "nothing is claimed"
+whatever had happened — with
+`test_the_real_commit_edge_still_departs` as the positive control, so
+the door is not proved by one that refuses everybody.
+
+**Regression against `5f44be4`:** both subtests fail behaviourally, the
+callback obtaining a real `RouteDeparture` in each.
+
 ## Still open (carried to the next design pass)
 
 - The payoff-triggered Act I fork: P0–P3 complete, merged and
